@@ -1,0 +1,22 @@
+{
+  "name": "mwbot-ts",
+  "version": "0.0.0",
+  "description": "A simple but flexible TypeScript framework for the MediaWiki Action API.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dr4goniez/mwbot-ts.git"
+  },
+  "keywords": [
+    "MediaWiki"
+  ],
+  "author": "Dr4goniez",
+  "license": "CC-BY-SA-4.0",
+  "bugs": {
+    "url": "https://github.com/Dr4goniez/mwbot-ts/issues"
+  },
+  "homepage": "https://github.com/Dr4goniez/mwbot-ts#readme"
+}
