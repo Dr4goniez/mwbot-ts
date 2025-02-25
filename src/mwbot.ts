@@ -9,8 +9,20 @@ import crypto from 'crypto';
 import { v4 as generateId } from 'uuid';
 
 import packageJson from '../package.json';
-import { ApiParams, ApiParamsAction, ApiResponse, ApiResponseError, ApiResponseErrors, ApiResponseQueryMetaTokens } from './api_types';
+import {
+	ApiParams,
+	ApiParamsAction,
+	ApiResponse,
+	ApiResponseError,
+	ApiResponseErrors,
+	ApiResponseQueryMetaSiteinfoGeneral,
+	ApiResponseQueryMetaSiteinfoNamespaces,
+	ApiResponseQueryMetaSiteinfoNamespacealiases,
+	ApiResponseQueryMetaTokens,
+	ApiResponseQueryMetaUserinfo
+} from './api_types';
 import { mergeDeep, isPlainObject, sleep, isEmptyObject } from './util';
+import * as mwString from './String';
 
 /*!
  * Portions of this file are adapted from the following:
@@ -92,6 +104,12 @@ export class Mwbot {
 	protected static get defaultIntervalActions(): ApiParamsAction[] {
 		return ['edit', 'move', 'upload'];
 	}
+	/**
+	 * `String` library.
+	 */
+	static get String(): typeof mwString {
+		return mwString;
+	}
 
 	// ****************************** CONSTRUCTOR-RELATED METHODS ******************************
 
@@ -129,6 +147,7 @@ export class Mwbot {
 		this.tokens = {};
 		this.uuid = {};
 		this.lastRequestTime = null;
+
 	}
 
 	/**
@@ -249,19 +268,23 @@ export class Mwbot {
 	 * Initialize a new `Mwbot` instance.
 	 *
 	 * @param mwbotInitOptions Configuration object containing initialization settings and user credentials.
-	 * @param requestOptions Custom request options applied to all HTTP requests issued by the new instance.
-	 * @returns A resolved `Promise` with a new {@link Mwbot} instance, or `null` if initialization fails.
+	 * @param requestOptions Optional base settings for HTTP requests made by the new instance.
+	 *
+	 * These settings serve as defaults and are merged with request-specific options in each request method call.
+	 *
+	 * @returns A `Promise` that resolves to a {@link Mwbot} instance if successful, or `null` if initialization fails.
+	 * This method never rejects.
 	 */
 	static async init(mwbotInitOptions: MwbotInitOptions, requestOptions: MwbotRequestConfig = {}): Promise<Mwbot | null>  {
 
-		// Initialize a Mwbot instance
+		// Create a new instance
 		let mwbot: Mwbot;
 		try {
 			mwbot = new Mwbot(mwbotInitOptions, requestOptions);
 		}
 		catch (err) {
 			console.error(err);
-			return null;
+			return initError();
 		}
 
 		// Log in if necessary
@@ -270,24 +293,229 @@ export class Mwbot {
 			const login = await mwbot.login(username, password).then((res) => res).catch((err) => err);
 			if (login.error) {
 				console.error(login.error);
-				return null;
+				return initError();
 			}
 		}
 
-		// TODO: Get site info
-		// const info = await mwbot.get({
-		// 	action: 'query',
-		// 	format: 'json',
-		// 	formatversion: '2',
-		// 	meta: 'userinfo',
-		// 	uiprop: 'rights'
-		// }).then((res) => {
+		// Get user and site info
+		const res: ApiResponse = await mwbot.get({
+			action: 'query',
+			format: 'json',
+			formatversion: '2',
+			meta: 'userinfo|siteinfo',
+			uiprop: 'rights',
+			siprop: 'general|namespaces|namespacealiases'
+		}).then((res) => res)
+		.catch((err) => {
+			console.error(err);
+			return err;
+		});
+		if (!res || !res.query || res.error) {
+			return initError();
+		}
+		const {userinfo, general, namespaces, namespacealiases} = res.query;
+		if (!userinfo || !general || !namespaces || !namespacealiases) {
+			return initError();
+		} else if (userinfo.anon && !mwbot.isAnonymous()) {
+			return initError('Authentication failed.');
+		}
 
-		// }).catch((err) => {
+		// Initialize mwbot.config
+		mwbot.initConfigData(userinfo, general, namespaces, namespacealiases);
 
-		// });
-
+		console.log('Connection established: ' + mwbot.config.get('wgServer'));
 		return mwbot;
+
+		function initError(msg?: string): null {
+			console.error(`Error: ${msg || 'Failed to establish connection.'}`);
+			return null;
+		}
+
+	}
+
+	// ****************************** SITE-RELATED CONFIG ******************************
+
+	/**
+	 * Stores configuration values for the site and user.
+	 */
+	protected readonly configData = {
+		// Placeholder values are assigned initially to ensure type safety
+		// These values are updated when `initConfigData` is called
+		wgArticlePath: '\x01',
+		wgCaseSensitiveNamespaces: [NaN],
+		wgContentLanguage: '\x01',
+		wgContentNamespaces: [NaN],
+		wgDBname: '\x01',
+		// wgExtraSignatureNamespaces: [NaN],
+		wgFormattedNamespaces: <Record<string, string>>{},
+		// wgGlobalGroups: ['\x01'],
+		wgLegalTitleChars: '\x01',
+		wgNamespaceIds: <Record<string, number>>{},
+		wgScript: '\x01',
+		wgScriptPath: '\x01',
+		wgServer: '\x01',
+		wgServerName: '\x01',
+		wgSiteName: '\x01',
+		// wgUserEditCount: NaN,
+		// wgUserGroups: ['\x01'],
+		wgUserId: NaN,
+		wgUserName: '\x01',
+		wgUserRights: ['\x01'],
+		wgVersion: '\x01',
+		wgWikiID: '\x01'
+	};
+
+	/**
+	 * Provides access to site and user configuration data.
+	 */
+	get config() {
+		return {
+			/**
+			 * Retrieves a configuration value.
+			 *
+			 * @param configName The name of the configuration key.
+			 * @returns The value or `null` if not found.
+			 */
+			get: <K extends keyof typeof this.configData>(configName: K): typeof this.configData[K] | null => {
+				return this.validateConfigValue(configName, this.configData[configName]);
+			},
+			/**
+			 * Updates a configuration value.
+			 *
+			 * @param configName The name of the configuration key.
+			 * @param configValue The new value to store.
+			 * @returns `true` if the value was successfully updated; otherwise, `false` (e.g., if the type does not match).
+			 */
+			set: <K extends keyof typeof this.configData, V extends typeof this.configData[K]>(configName: K, configValue: V): boolean => {
+				const oldType = typeof this.configData[configName];
+				const newType = typeof configValue;
+				if (oldType !== 'undefined' && oldType === newType) { // Not checking array and null
+					this.configData[configName] = configValue;
+					return true;
+				}
+				return false;
+			},
+			/**
+			 * Checks whether a configuration key has a valid value.
+			 *
+			 * @param configName The name of the configuration key.
+			 * @returns `true` if the value is valid; otherwise, `false`.
+			 */
+			exists: <K extends keyof typeof this.configData>(configName: K): boolean => {
+				return this.validateConfigValue(configName, this.configData[configName]) !== null;
+			}
+		};
+	}
+
+	/**
+	 * Validates whether a configuration value is initialized.
+	 *
+	 * @param _ The configuration key (not used in validation).
+	 * @param val The value to validate.
+	 * @returns The validated value if it is initialized; otherwise, `null`.
+	 */
+	protected validateConfigValue<K extends keyof typeof this.configData, V extends typeof this.configData[K]>(_: K, val: V): V | null {
+		let valType = typeof val;
+		if (
+			valType === 'string' && val !== '\x01' ||
+			valType === 'number' && !isNaN(val as number)
+		) {
+			return val;
+		} else if (Array.isArray(val)) {
+			valType = typeof val[0];
+			if (
+				valType === 'undefined' ||
+				valType === 'string' && val[0] !== '\x01' ||
+				valType === 'number' && !isNaN(val[0] as number)
+			) {
+				return <V>val.slice();
+			}
+		} else if (typeof val === 'object' && !isEmptyObject(val)) {
+			return {...val};
+		}
+		return null;
+	}
+
+	/**
+	 * Initialize the configuration values with site and user data.
+	 * @param userinfo
+	 * @param general
+	 * @param namespaces
+	 * @param namespacealiases
+	 * @returns
+	 */
+	protected initConfigData(
+		userinfo: ApiResponseQueryMetaUserinfo,
+		general: ApiResponseQueryMetaSiteinfoGeneral,
+		namespaces: ApiResponseQueryMetaSiteinfoNamespaces,
+		namespacealiases: ApiResponseQueryMetaSiteinfoNamespacealiases[]
+	): void {
+
+		/**
+		 * Helper function to set a value to a configuration key.
+		 *
+		 * @param configName The key to update.
+		 * @param configValue The value to assign. If `undefined`, the function returns `false`.
+		 * @returns If successful, returns `false`; otherwise, the key name. (This allows filtering failed assignments easily.)
+		 */
+		const set = <K extends keyof typeof this.configData, V extends typeof this.configData[K]>(configName: K, configValue?: V): K | false => {
+			if (configValue !== void 0 && this.config.set(configName, configValue)) {
+				return false;
+			}
+			return configName;
+		};
+
+		// Deal with data that need to be formatted
+		const wgCaseSensitiveNamespaces: number[] = [];
+		const wgContentNamespaces: number[] = [];
+		const wgFormattedNamespaces: Record<string, string> = {};
+		const wgNamespaceIds = namespacealiases.reduce((acc: Record<string, number>, {id, alias}) => {
+			acc[alias.toLowerCase().replace(/ /g, '_')] = id;
+			return acc;
+		}, {});
+
+		for (const nsId in namespaces) {
+			const obj = namespaces[nsId];
+			if (obj.case === 'case-sensitive') {
+				wgCaseSensitiveNamespaces.push(parseInt(nsId));
+			} else if (obj.content) {
+				wgContentNamespaces.push(parseInt(nsId));
+			}
+			wgFormattedNamespaces[nsId] = obj.name;
+			wgNamespaceIds[obj.name.toLowerCase().replace(/ /g, '_')] = obj.id;
+		}
+
+		// Set values
+		const valSetMap: (keyof typeof this.configData | false)[] = [
+			set('wgArticlePath', general.articlepath),
+			set('wgCaseSensitiveNamespaces', wgCaseSensitiveNamespaces),
+			set('wgContentLanguage', general.lang),
+			set('wgContentNamespaces', wgContentNamespaces),
+			set('wgDBname', general.wikiid),
+			// set('wgExtraSignatureNamespaces', ),
+			set('wgFormattedNamespaces', wgFormattedNamespaces),
+			// set('wgGlobalGroups', ),
+			set('wgLegalTitleChars', general.legaltitlechars),
+			set('wgNamespaceIds', wgNamespaceIds),
+			set('wgScript', general.script),
+			set('wgScriptPath', general.scriptpath),
+			set('wgServer', general.server),
+			set('wgServerName', general.servername),
+			set('wgSiteName', general.sitename),
+			// set('wgUserEditCount', userinfo.editcount),
+			// set('wgUserGroups', userinfo.groups),
+			set('wgUserId', userinfo.id),
+			set('wgUserName', userinfo.name),
+			set('wgUserRights', userinfo.rights),
+			set('wgVersion', general.generator.replace(/^MediaWiki /, '')),
+			set('wgWikiID', general.wikiid)
+		];
+
+		// Log any failures
+		const failed = valSetMap.filter(val => val !== false).join(', ');
+		if (failed) {
+			console.warn('[Warning] Failed to set config value(s): ' + failed);
+		}
 
 	}
 

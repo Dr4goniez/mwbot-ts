@@ -1012,15 +1012,17 @@ export interface ApiResponseQueryMetaSiteinfoNamespacealiases { // Fully checked
 }
 
 export interface ApiResponseQueryMetaSiteinfoNamespaces { // Fully checked (source code level)
-	id: number;
-	case: string;
-	name: string;
-	subpages: boolean;
-	canonical?: string;
-	content: boolean;
-	nonincludable: boolean;
-	namespaceprotection?: string;
-	defaultcontentmodel?: string;
+	[nsId: string]: {
+		id: number;
+		case: string;
+		name: string;
+		subpages: boolean;
+		canonical?: string;
+		content: boolean;
+		nonincludable: boolean;
+		namespaceprotection?: string;
+		defaultcontentmodel?: string;
+	};
 }
 
 // export interface ApiResponseQueryMetaSiteinfoRestrictions {}
