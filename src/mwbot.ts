@@ -9,7 +9,7 @@ import crypto from 'crypto';
 import { v4 as generateId } from 'uuid';
 
 import packageJson from '../package.json';
-import { ApiParams, ApiParamsAction, ApiResponse, ApiResponseError, ApiResponseErrors } from './api_types';
+import { ApiParams, ApiParamsAction, ApiResponse, ApiResponseError, ApiResponseErrors, ApiResponseQueryMetaTokens } from './api_types';
 import { mergeDeep, isPlainObject, sleep, isEmptyObject } from './util';
 
 /*!
@@ -75,7 +75,7 @@ export class Mwbot {
 	/**
 	 * Cashed MediaWiki tokens.
 	 */
-	protected tokens: Partial<Tokens>;
+	protected tokens: ApiResponseQueryMetaTokens;
 	/**
 	 * Object that holds UUIDs generated for each HTTP request issued by {@link request}.
 	 * The keys represent request UUIDs, and the values the number of requests made using the ID.
@@ -960,7 +960,7 @@ export class Mwbot {
 
 		// Check for a cached token
 		tokenType = Mwbot.mapLegacyToken(tokenType);
-		const tokenName = `${tokenType}token` as keyof Tokens;
+		const tokenName = `${tokenType}token` as keyof ApiResponseQueryMetaTokens;
 		const cashedToken = this.tokens[tokenName];
 		if (cashedToken) {
 			return Promise.resolve(cashedToken);
@@ -1039,7 +1039,7 @@ export class Mwbot {
 	 */
 	badToken(tokenType: string): Mwbot {
 		tokenType = Mwbot.mapLegacyToken(tokenType);
-		const tokenName = `${tokenType}token` as keyof Tokens;
+		const tokenName = `${tokenType}token` as keyof ApiResponseQueryMetaTokens;
 		if (this.tokens[tokenName]) {
 			delete this.tokens[tokenName];
 		}
@@ -1234,7 +1234,16 @@ export type Credentials = XOR<
 		 */
 		accessSecret: string;
 	},
-	UserCredentials,
+	{
+		/**
+		 * Bot's username.
+		 */
+		username: string;
+		/**
+		 * Bot's password.
+		 */
+		password: string;
+	},
 	{
 		/**
 		 * Set to `true` for anonymous access.
@@ -1242,17 +1251,6 @@ export type Credentials = XOR<
 		anonymous: true;
 	}
 >;
-
-export interface UserCredentials {
-	/**
-	 * Bot's username.
-	 */
-	username: string;
-	/**
-	 * Bot's password.
-	 */
-	password: string;
-}
 
 /**
  * Processed {@link Credentials} stored in a {@link Mwbot} instance.
@@ -1269,10 +1267,13 @@ type MwbotCredentials = XOR<
 		};
 	},
 	{
-		user: UserCredentials;
+		user: {
+			username: string;
+			password: string;
+		};
 	},
 	{
-		anonymous: true
+		anonymous: true;
 	}
 >;
 
@@ -1308,19 +1309,4 @@ export interface MwbotRequestConfig extends AxiosRequestConfig {
 	 * If a request fails due to one of these error codes, it will not be retried.
 	 */
 	disableRetryByCode?: string[];
-}
-
-/**
- * Tokens that can be fetched from the API.
- */
-interface Tokens {
-	createaccounttoken: string;
-	csrftoken: string;
-	deleteglobalaccounttoken: string;
-	logintoken: string;
-	patroltoken: string;
-	rollbacktoken: string;
-	setglobalaccountstatustoken: string;
-	userrightstoken: string;
-	watchtoken: string;
 }

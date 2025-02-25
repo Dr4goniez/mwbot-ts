@@ -1,11 +1,21 @@
 import { ApiParams as ApiParamsTMW } from 'types-mediawiki/api_params';
 import { XOR } from 'ts-xor';
 
+// ************************************** General types **************************************
+
 type PartialRecord<K extends keyof any, T> = {
 	[P in K]?: T;
 };
 
-// Parameter types
+type OnlyOneRecord<K extends string, V = any> = {
+	[P in K]: (Record<P, V> &
+	Partial<Record<Exclude<K, P>, never>>) extends infer O
+	? { [Q in keyof O]: O[Q] }
+	: never
+}[K];
+
+
+// ************************************** Parameter types **************************************
 
 /**
  * The API query parameters.
@@ -142,13 +152,13 @@ export type ApiParamsAction =
 	| 'wikilove';
 
 
-// Response types
+// ************************************** Response types **************************************
 
 export interface ApiResponse {
 
 	[key: string]: any;
 
-	// General properties
+	// ********************** General properties **********************
 
 	batchcomplete?: boolean;
 	continue?: {
@@ -168,7 +178,7 @@ export interface ApiResponse {
 	uselang?: string;
 	warnings?: XOR<ApiResponseWarningsLegacy, ApiResponseWarnings[]>;
 
-	// Action-specific properties
+	// ********************** Action-specific properties **********************
 
 	// abusefiltercheckmatch?: ApiResponseAbusefiltercheckmatch;
 	// abusefilterchecksyntax?: ApiResponseAbusefilterchecksyntax;
@@ -285,7 +295,8 @@ export interface ApiResponse {
 
 }
 
-// General properties
+
+// ************************************** General response properties **************************************
 
 export interface ApiResponseError { // errorformat=bc
 	code: string;
@@ -330,7 +341,7 @@ export type ApiResponseWarningsLegacy = PartialRecord<ApiParamsAction, XOR< // e
 	}>
 >;
 
-// ************************************** Actions (ApiResponse[Action]) **************************************
+// ************************************** action=somthing **************************************
 
 // export interface ApiResponseAbusefiltercheckmatch {}
 // export interface ApiResponseAbusefilterchecksyntax {}
@@ -502,7 +513,7 @@ export interface ApiResponseParse { // TODO: recheck
 		number: string;
 		index: string;
 		fromtitle: string;
-		byteoffset: number|null;
+		byteoffset: number | null;
 		anchor: string;
 		linkAnchor: string;
 		extensionData: {
@@ -616,7 +627,7 @@ export interface ApiResponseSitematrixSite {
 // export interface ApiResponseWebauthn {}
 // export interface ApiResponseWikilove {}
 
-// ************************************** ApiResponseQuery **************************************
+// ************************************** action=query **************************************
 
 export interface ApiResponseQuery {
 
@@ -661,36 +672,36 @@ export interface ApiResponseQuery {
 	// messagetranslations: ApiResponseQueryMetaMessagetranslations;
 	// notifications: ApiResponseQueryMetaNotifications;
 
-	// siteinfo: ApiResponseQueryMetaSiteinfo;
-		// autocreatetempuser?: ApiResponseQueryMetaSiteinfoAutocreatetempuser;
-		// dbrepllag?: ApiResponseQueryMetaSiteinfoDbrepllag[];
-		// defaultoptions?: ApiResponseQueryMetaSiteinfoDefaultoptions;
-		// extensions?: ApiResponseQueryMetaSiteinfoExtensions[];
-		// extensiontags?: string[];
-		// fileextensions?: ApiResponseQueryMetaSiteinfoFileextensions[];
-		// functionhooks?: string[];
-		// general?: ApiResponseQueryMetaSiteinfoGeneral;
-		// interwikimap?: ApiResponseQueryMetaSiteinfoInterwikimap[];
-		// languages?: ApiResponseQueryMetaSiteinfoLanguages[];
-		// languagevariants?: ApiResponseQueryMetaSiteinfoLanguagevariants;
-		// libraries?: ApiResponseQueryMetaSiteinfoLibraries[];
-		// magicwords?: ApiResponseQueryMetaSiteinfoMagicwords[];
-		// namespacealiases?: ApiResponseQueryMetaSiteinfoNamespacealiases[];
-		// namespaces?: ApiResponseQueryMetaSiteinfoNamespaces;
-		// restrictions?: ApiResponseQueryMetaSiteinfoRestrictions;
-		// rightsinfo?: ApiResponseQueryMetaSiteinfoRightsinfo;
-		// showhooks?: ApiResponseQueryMetaSiteinfoShowhooks[];
-		// skins?: ApiResponseQueryMetaSiteinfoSkins[];
-		// specialpagealiases?: ApiResponseQueryMetaSiteinfoSpecialpagealiases[];
-		// statistics?: ApiResponseQueryMetaSiteinfoStatistics;
-		// uploaddialog?: ApiResponseQueryMetaSiteinfoUploaddialog;
-		// usergroups?: ApiResponseQueryMetaSiteinfoUsergroups[];
-		// variables?: string[];
+	// meta=siteinfo
+	autocreatetempuser?: ApiResponseQueryMetaSiteinfoAutocreatetempuser;
+	dbrepllag?: ApiResponseQueryMetaSiteinfoDbrepllag[];
+	defaultoptions?: ApiResponseQueryMetaSiteinfoDefaultoptions;
+	// extensions?: ApiResponseQueryMetaSiteinfoExtensions[];
+	extensiontags?: ApiResponseQueryMetaSiteinfoExtensiontags[]; // string[]
+	// fileextensions?: ApiResponseQueryMetaSiteinfoFileextensions[];
+	functionhooks?: ApiResponseQueryMetaSiteinfoFunctionhooks[]; // string[]
+	general?: ApiResponseQueryMetaSiteinfoGeneral;
+	// interwikimap?: ApiResponseQueryMetaSiteinfoInterwikimap[];
+	// languages?: ApiResponseQueryMetaSiteinfoLanguages[];
+	// languagevariants?: ApiResponseQueryMetaSiteinfoLanguagevariants;
+	// libraries?: ApiResponseQueryMetaSiteinfoLibraries[];
+	// magicwords?: ApiResponseQueryMetaSiteinfoMagicwords[];
+	namespacealiases?: ApiResponseQueryMetaSiteinfoNamespacealiases[];
+	namespaces?: ApiResponseQueryMetaSiteinfoNamespaces;
+	// restrictions?: ApiResponseQueryMetaSiteinfoRestrictions;
+	// rightsinfo?: ApiResponseQueryMetaSiteinfoRightsinfo;
+	// showhooks?: ApiResponseQueryMetaSiteinfoShowhooks[];
+	// skins?: ApiResponseQueryMetaSiteinfoSkins[];
+	specialpagealiases?: ApiResponseQueryMetaSiteinfoSpecialpagealiases[];
+	// statistics?: ApiResponseQueryMetaSiteinfoStatistics;
+	// uploaddialog?: ApiResponseQueryMetaSiteinfoUploaddialog;
+	usergroups?: ApiResponseQueryMetaSiteinfoUsergroups[];
+	variables?: ApiResponseQueryMetaSiteinfoVariables[]; // string[]
 
 	// siteviews: ApiResponseQueryMetaSiteviews;
 	tokens?: ApiResponseQueryMetaTokens;
 	// unreadnotificationpages: ApiResponseQueryMetaUnreadnotificationpages;
-	// userinfo: ApiResponseQueryMetaUserinfo;
+	userinfo?: ApiResponseQueryMetaUserinfo;
 	// wikibase: ApiResponseQueryMetaWikibase;
 
 	// ********************** List properties **********************
@@ -751,7 +762,7 @@ export interface ApiResponseQuery {
 }
 
 
-// ************************************** ApiResponseQuery (general properties) **************************************
+// ************************************** action=query (general properties) **************************************
 
 export interface ApiResponseQueryPages {
 
@@ -795,7 +806,7 @@ export interface ApiResponseQueryPages {
 
 }
 
-export interface ApiResponseQueryPagesPropRevisions {
+export interface ApiResponseQueryPagesPropRevisions { // Fully checked
 	revid?: number;
 	parentid?: number;
 	minor?: boolean;
@@ -828,22 +839,25 @@ export interface ApiResponseQueryPagesPropRevisions {
 	tags?: string[];
 }
 
-export interface ApiResponseQueryPagesProtection {
+export interface ApiResponseQueryPagesProtection { // TODO: Don't remember which prop this is for (prop=info?)
 	type: string;
 	level: string;
 	expiry: string;
 }
 
-// ************************************** ApiResponseQuery (meta) **************************************
+// ************************************** action=query&meta=something **************************************
 
 // export interface ApiResponseQueryMetaAuthmanagerinfo {}
 
-export interface ApiResponseQueryMetaAllmessages {
+// ********************** action=query&meta=allmessages **********************
+
+export interface ApiResponseQueryMetaAllmessages { // Fully checked
 	name: string;
 	normalizedname: string;
-	content: string;
+	content?: string; // Missing if amnocontent=true or "missing" is true
 	missing?: boolean;
 }
+
 // export interface ApiResponseQueryMetaBabel {}
 // export interface ApiResponseQueryMetaCommunityconfiguration {}
 // export interface ApiResponseQueryMetaFeatureusage {}
@@ -859,9 +873,182 @@ export interface ApiResponseQueryMetaAllmessages {
 // export interface ApiResponseQueryMetaMessagegroupstats {}
 // export interface ApiResponseQueryMetaMessagetranslations {}
 // export interface ApiResponseQueryMetaNotifications {}
-// export interface ApiResponseQueryMetaSiteinfo {}
+
+// ********************** action=query&meta=siteinfo **********************
+
+export interface ApiResponseQueryMetaSiteinfoAutocreatetempuser { // Fully checked
+	enabled: boolean;
+}
+
+export interface ApiResponseQueryMetaSiteinfoDbrepllag { // Fully checked
+	host: string;
+	lag: number;
+}
+
+export interface ApiResponseQueryMetaSiteinfoDefaultoptions { // Fully checked
+	[option: string]: number | string | boolean | null;
+}
+
+// export interface ApiResponseQueryMetaSiteinfoExtensions {}
+
+export type ApiResponseQueryMetaSiteinfoExtensiontags = string; // e.g. <pre> // Fully checked
+
+// export interface ApiResponseQueryMetaSiteinfoFileextensions {}
+
+export type ApiResponseQueryMetaSiteinfoFunctionhooks = string; // Fully checked
+
+export interface ApiResponseQueryMetaSiteinfoGeneral { // Fully checked
+	mainpage: string;
+	base: string;
+	sitename: string;
+	mainpageisdomainroot: boolean;
+	logo: string;
+	generator: string;
+	phpversion: string;
+	phpsapi: string;
+	dbtype: string;
+	dbversion: string;
+	imagewhitelistenabled: boolean;
+	langconversion: boolean;
+	linkconversion: boolean;
+	titleconversion: boolean;
+	linkprefixcharset: string;
+	linkprefix: string;
+	linktrail: string;
+	legaltitlechars: string;
+	invalidusernamechars: string;
+	allunicodefixes: boolean;
+	fixarabicunicode: boolean;
+	fixmalayalamunicode: boolean;
+	'git-hash': string;
+	'git-branch': string;
+	case: string;
+	lang: string;
+	fallback: {
+		code: string;
+	}[];
+	rtl: boolean;
+	fallback8bitEncoding: string;
+	readonly: boolean;
+	writeapi: boolean;
+	maxarticlesize: number;
+	timezone: string;
+	timeoffset: number;
+	articlepath: string;
+	scriptpath: string;
+	script: string;
+	variantarticlepath: boolean;
+	server: string;
+	servername: string;
+	wikiid: string;
+	time: string;
+	misermode: boolean;
+	uploadsenabled: boolean;
+	maxuploadsize: number;
+	minuploadchunksize: number;
+	galleryoptions: {
+		imagesPerRow: number;
+		imageWidth: number;
+		imageHeight: number;
+		captionLength: boolean;
+		showBytes: boolean;
+		mode: string;
+		showDimensions: boolean;
+	};
+	thumblimits: {
+		[index: string]: number;
+	};
+	imagelimits: {
+		[index: string]: {
+			width: number;
+			height: number;
+		};
+	};
+	favicon: string;
+	centralidlookupprovider: string;
+	allcentralidlookupproviders: string[];
+	interwikimagic: boolean;
+	magiclinks: {
+		ISBN: boolean;
+		PMID: boolean;
+		RFC: boolean;
+	};
+	categorycollation: string;
+	nofollowlinks: boolean;
+	nofollownsexceptions: unknown[]; // TODO: Update
+	nofollowdomainexceptions: string[];
+	externallinktarget: boolean;
+	'wmf-config': {
+		wmfMasterDatacenter: string;
+		wmfEtcdLastModifiedIndex: number;
+		wmgCirrusSearchDefaultCluster: string;
+		wgCirrusSearchDefaultCluster: string;
+	};
+	citeresponsivereferences: boolean;
+	'max-page-id': number;
+	linter: {
+		high: string[];
+		medium: string[];
+		low: string[];
+	};
+	mobileserver: string;
+	'pageviewservice-supported-metrics': Record<'pageviews' | 'siteviews' | 'mostviewed', {
+		pageviews: boolean;
+		uniques: boolean;
+	}>;
+	'readinglists-config': {
+		[key: string]: number; // Unsure about the value type
+	};
+}
+// export interface ApiResponseQueryMetaSiteinfoInterwikimap {}
+// export interface ApiResponseQueryMetaSiteinfoLanguages {}
+// export interface ApiResponseQueryMetaSiteinfoLanguagevariants {}
+// export interface ApiResponseQueryMetaSiteinfoLibraries {}
+// export interface ApiResponseQueryMetaSiteinfoMagicwords {}
+
+export interface ApiResponseQueryMetaSiteinfoNamespacealiases { // Fully checked (source code level)
+	id: number;
+	alias: string;
+}
+
+export interface ApiResponseQueryMetaSiteinfoNamespaces { // Fully checked (source code level)
+	id: number;
+	case: string;
+	name: string;
+	subpages: boolean;
+	canonical?: string;
+	content: boolean;
+	nonincludable: boolean;
+	namespaceprotection?: string;
+	defaultcontentmodel?: string;
+}
+
+// export interface ApiResponseQueryMetaSiteinfoRestrictions {}
+// export interface ApiResponseQueryMetaSiteinfoRightsinfo {}
+// export interface ApiResponseQueryMetaSiteinfoShowhooks {}
+// export interface ApiResponseQueryMetaSiteinfoSkins {}
+
+export interface ApiResponseQueryMetaSiteinfoSpecialpagealiases { // Fully checked
+	realname: string;
+	aliases: string[];
+}
+
+// export interface ApiResponseQueryMetaSiteinfoStatistics {}
+// export interface ApiResponseQueryMetaSiteinfoUploaddialog {}
+
+export interface ApiResponseQueryMetaSiteinfoUsergroups { // Fully checked
+	name: string;
+	rights: string[];
+}
+
+export type ApiResponseQueryMetaSiteinfoVariables = string; // Fully checked
+
+
 // export interface ApiResponseQueryMetaSiteviews {}
-export interface ApiResponseQueryMetaTokens {
+
+// ********************** action=query&meta=allmessages **********************
+
+export interface ApiResponseQueryMetaTokens { // Fully checked
 	createaccounttoken?: string;
 	csrftoken?: string;
 	deleteglobalaccounttoken?: string;
@@ -872,72 +1059,129 @@ export interface ApiResponseQueryMetaTokens {
 	userrightstoken?: string;
 	watchtoken?: string;
 }
+
 // export interface ApiResponseQueryMetaUnreadnotificationpages {}
-export interface ApiResponseQueryMetaUserinfo { // TODO: recheck
+
+// ********************** action=query&meta=userinfo **********************
+
+export interface ApiResponseQueryMetaUserinfo { // Fully checked
+
+	// *********** uiprop-independent properties ***********
+
 	id: number;
 	name: string;
 	anon?: boolean;
+
+	// *********** uiprop-dependent properties ***********
+
+	// ****** uiprop=blockinfo ******
+	blockid?: number;
+	blockedby?: string;
+	blockedbyid?: number;
+	blockreason?: string;
+	blockedtimestamp?: string;
+	blockexpiry?: string;
+	blockpartial?: boolean;
+	blocknocreate?: boolean;
+	blockanononly?: boolean;
+	blockemail?: boolean;
+	blockowntalk?: boolean;
+	blockedtimestampformatted?: string;
+	blockexpiryformatted?: string;
+	blockexpiryrelative?: string;
+
+	// ****** uiprop=hasmsg ******
 	messages?: boolean;
+
+	// ****** uiprop=groups ******
 	groups?: string[];
+
+	// ****** uiprop=groupmemberships ******
 	groupmemberships?: {
 		group: string;
 		expiry: string;
 	}[];
+
+	// ****** uiprop=implicitgroups ******
 	implicitgroups?: string[];
+
+	// ****** uiprop=rights ******
 	rights?: string[];
+
+	// ****** uiprop=changeablegroups ******
 	changeablegroups?: {
 		add: string[];
 		remove: string[];
 		'add-self': string[];
 		'remove-self': string[];
-	},
+	};
+
+	// ****** uiprop=options ******
 	options?: {
-		[key: string]: string|number|boolean|null;
+		[key: string]: string | number | boolean | null;
 	};
+
+	// ****** uiprop=editcount ******
 	editcount?: number;
-	ratelimits?: {
-		[key: string]: {
-			[key: string]: {
-				hits: number;
-				seconds: number;
-			};
-		};
-	};
-	theoreticalratelimits?: {
-		[key: string]: {
-			[key: string]: {
-				hits: number;
-				seconds: number;
-			};
-		};
-	};
+
+	// ****** uiprop=ratelimits ******
+	ratelimits?: ApiResponseQueryMetaUserinfoRatelimits;
+
+	// ****** uiprop=theoreticalratelimits ******
+	theoreticalratelimits?: ApiResponseQueryMetaUserinfoRatelimits;
+
+	// ****** uiprop=email ******
 	email?: string;
-	emailauthenticated?: string;
-	registrationdate?: string;
+	emailauthenticated?: string; // ISO timestamp
+
+	// ****** uiprop=realname ******
+	realname?: string;
+
+	// ****** uiprop=acceptlang ******
 	acceptlang?: {
 		q: number;
 		code: string;
 	}[];
-	unreadcount?: string;
+
+	// ****** uiprop=registrationdate ******
+	registrationdate?: string;
+
+	// ****** uiprop=unreadcount ******
+	unreadcount?: number | '1000+';
+
+	// ****** uiprop=centralids ******
 	centralids?: {
 		CentralAuth: number;
 		local: number;
-	},
+	};
 	attachedlocal?: {
 		CentralAuth: boolean;
 		local: boolean;
-	},
-	attachedwiki?: {
+	};
+	attachedwiki?: { // uiprop=centralids&uiattachedwiki=wiki_ID
 		CentralAuth: boolean;
 		local: boolean;
-	},
-	latestcontrib?: string;
+	};
+
+	// ****** uiprop=latestcontrib ******
+	latestcontrib?: string; // ISO timestamp, undefined (no property) for no contribs
+
+	// ****** uiprop=cancreateaccount ******
 	cancreateaccount?: boolean;
+
 }
+export type ApiResponseQueryMetaUserinfoRatelimits = {
+	[action: string]:
+		OnlyOneRecord<'anon' | 'user' | 'ip' | 'subnet' | 'newbie', {
+			hits: number;
+			seconds: number;
+		}>;
+};
+
 // export interface ApiResponseQueryMetaWikibase {}
 
 
-// ************************************** ApiResponseQuery (list) **************************************
+// ************************************** action=query&list=something **************************************
 
 // export interface ApiResponseQueryListAbusefilters {}
 // export interface ApiResponseQueryListAbuselog {}
@@ -1064,7 +1308,7 @@ export interface ApiResponseQueryListLogevents { // TODO: recheck
 		target_ns?: number;
 		target_title?: string;
 		suppressredirect?: boolean;
-		duration?: number|string;
+		duration?: number | string;
 		oldgroups?: string[];
 		newgroups?: string[];
 		flags?: string[];
