@@ -3,3 +3,6 @@ src/test.ts
 
 # Folder for debugging
 logs
+
+# Private files
+regex.txt

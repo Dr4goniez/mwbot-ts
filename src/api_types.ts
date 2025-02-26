@@ -23,7 +23,7 @@ type OnlyOneRecord<K extends string, V = any> = {
  */
 export interface ApiParams extends ApiParamsTMW {
 
-	// Overwrite "action?: string;"
+	// Overwrite string;
 	action?: ApiParamsAction;
 
 	// For action-specific parameters
@@ -165,7 +165,7 @@ export interface ApiResponse {
 		[key: string]: string;
 	};
 	curtimestamp?: string;
-	docref?: string; // Present when "errors" is present
+	docref?: string; // Present when string; is present
 	error?: ApiResponseError;
 	errorlang?: string;
 	errors?: ApiResponseErrors[];
@@ -676,25 +676,25 @@ export interface ApiResponseQuery {
 	autocreatetempuser?: ApiResponseQueryMetaSiteinfoAutocreatetempuser;
 	dbrepllag?: ApiResponseQueryMetaSiteinfoDbrepllag[];
 	defaultoptions?: ApiResponseQueryMetaSiteinfoDefaultoptions;
-	// extensions?: ApiResponseQueryMetaSiteinfoExtensions[];
+	extensions?: ApiResponseQueryMetaSiteinfoExtensions[];
 	extensiontags?: ApiResponseQueryMetaSiteinfoExtensiontags[]; // string[]
-	// fileextensions?: ApiResponseQueryMetaSiteinfoFileextensions[];
+	fileextensions?: ApiResponseQueryMetaSiteinfoFileextensions[];
 	functionhooks?: ApiResponseQueryMetaSiteinfoFunctionhooks[]; // string[]
 	general?: ApiResponseQueryMetaSiteinfoGeneral;
-	// interwikimap?: ApiResponseQueryMetaSiteinfoInterwikimap[];
-	// languages?: ApiResponseQueryMetaSiteinfoLanguages[];
-	// languagevariants?: ApiResponseQueryMetaSiteinfoLanguagevariants;
-	// libraries?: ApiResponseQueryMetaSiteinfoLibraries[];
-	// magicwords?: ApiResponseQueryMetaSiteinfoMagicwords[];
+	interwikimap?: ApiResponseQueryMetaSiteinfoInterwikimap[];
+	languages?: ApiResponseQueryMetaSiteinfoLanguages[];
+	languagevariants?: ApiResponseQueryMetaSiteinfoLanguagevariants;
+	libraries?: ApiResponseQueryMetaSiteinfoLibraries[];
+	magicwords?: ApiResponseQueryMetaSiteinfoMagicwords[];
 	namespacealiases?: ApiResponseQueryMetaSiteinfoNamespacealiases[];
 	namespaces?: ApiResponseQueryMetaSiteinfoNamespaces;
-	// restrictions?: ApiResponseQueryMetaSiteinfoRestrictions;
-	// rightsinfo?: ApiResponseQueryMetaSiteinfoRightsinfo;
-	// showhooks?: ApiResponseQueryMetaSiteinfoShowhooks[];
-	// skins?: ApiResponseQueryMetaSiteinfoSkins[];
+	restrictions?: ApiResponseQueryMetaSiteinfoRestrictions;
+	rightsinfo?: ApiResponseQueryMetaSiteinfoRightsinfo;
+	showhooks?: ApiResponseQueryMetaSiteinfoShowhooks[];
+	skins?: ApiResponseQueryMetaSiteinfoSkins[];
 	specialpagealiases?: ApiResponseQueryMetaSiteinfoSpecialpagealiases[];
-	// statistics?: ApiResponseQueryMetaSiteinfoStatistics;
-	// uploaddialog?: ApiResponseQueryMetaSiteinfoUploaddialog;
+	statistics?: ApiResponseQueryMetaSiteinfoStatistics;
+	uploaddialog?: ApiResponseQueryMetaSiteinfoUploaddialog;
 	usergroups?: ApiResponseQueryMetaSiteinfoUsergroups[];
 	variables?: ApiResponseQueryMetaSiteinfoVariables[]; // string[]
 
@@ -854,7 +854,7 @@ export interface ApiResponseQueryPagesProtection { // TODO: Don't remember which
 export interface ApiResponseQueryMetaAllmessages { // Fully checked
 	name: string;
 	normalizedname: string;
-	content?: string; // Missing if amnocontent=true or "missing" is true
+	content?: string; // Missing if amnocontent=true or string; is true
 	missing?: boolean;
 }
 
@@ -889,11 +889,32 @@ export interface ApiResponseQueryMetaSiteinfoDefaultoptions { // Fully checked
 	[option: string]: number | string | boolean | null;
 }
 
-// export interface ApiResponseQueryMetaSiteinfoExtensions {}
+export interface ApiResponseQueryMetaSiteinfoExtensions { // TODO: Checked in detail but incomplete
+	type: string;
+	name?: string;
+	namemsg?: string;
+	description?: string;
+	descriptionmsg?: string;
+	// Not sure about the property below; returned if the (source code level) value keyed with string; is a PHP array,
+	// but no module had such an entry in gerrit repos
+	// ### descriptionmsgparams?: string[]; ###
+	author?: string;
+	url?: string;
+	version?: string;
+	'vcs-system'?: string;
+	'vcs-version'?: string;
+	'vcs-url'?: string;
+	'vcs-date'?: string;
+	'license-name'?: string;
+	license?: string;
+	credits?: string;
+}
 
 export type ApiResponseQueryMetaSiteinfoExtensiontags = string; // e.g. <pre> // Fully checked
 
-// export interface ApiResponseQueryMetaSiteinfoFileextensions {}
+export interface ApiResponseQueryMetaSiteinfoFileextensions { // Fully checked
+	ext: string;
+}
 
 export type ApiResponseQueryMetaSiteinfoFunctionhooks = string; // Fully checked
 
@@ -1000,11 +1021,49 @@ export interface ApiResponseQueryMetaSiteinfoGeneral { // Fully checked
 		[key: string]: number; // Unsure about the value type
 	};
 }
-// export interface ApiResponseQueryMetaSiteinfoInterwikimap {}
-// export interface ApiResponseQueryMetaSiteinfoLanguages {}
-// export interface ApiResponseQueryMetaSiteinfoLanguagevariants {}
-// export interface ApiResponseQueryMetaSiteinfoLibraries {}
-// export interface ApiResponseQueryMetaSiteinfoMagicwords {}
+
+export interface ApiResponseQueryMetaSiteinfoInterwikimap { // Fully checked (source code level)
+	prefix: string;
+	local?: true;
+	trans?: true;
+	language?: string;
+	deprecated?: string;
+	bcp47?: string;
+	localinterwiki?: true;
+	extralanglink?: true;
+	code?: string;
+	linktext?: string;
+	sitename?: string;
+	url: string;
+	protorel: boolean;
+	wikiid?: string;
+	api?: string;
+}
+
+export interface ApiResponseQueryMetaSiteinfoLanguages { // Fully checked (source code level)
+	code: string;
+	bcp47: string;
+	name: string;
+}
+
+export interface ApiResponseQueryMetaSiteinfoLanguagevariants { // Fully checked (source code level)
+	[langcode: string]: {
+		[langvarcode: string]: {
+			fallbacks: string[];
+		};
+	};
+}
+
+export interface ApiResponseQueryMetaSiteinfoLibraries { // Fully checked (source code level)
+	name: string;
+	version: string;
+}
+
+export interface ApiResponseQueryMetaSiteinfoMagicwords {
+	name: string;
+	aliases: string[];
+	'case-sensitive': boolean;
+}
 
 export interface ApiResponseQueryMetaSiteinfoNamespacealiases { // Fully checked (source code level)
 	id: number;
@@ -1025,18 +1084,66 @@ export interface ApiResponseQueryMetaSiteinfoNamespaces { // Fully checked (sour
 	};
 }
 
-// export interface ApiResponseQueryMetaSiteinfoRestrictions {}
-// export interface ApiResponseQueryMetaSiteinfoRightsinfo {}
-// export interface ApiResponseQueryMetaSiteinfoShowhooks {}
-// export interface ApiResponseQueryMetaSiteinfoSkins {}
+export interface ApiResponseQueryMetaSiteinfoRestrictions { // Fully checked (source code level)
+	types: string[];
+	levels: string[];
+	cascadinglevels: string[];
+	semiprotectedlevels: string[];
+}
+
+export interface ApiResponseQueryMetaSiteinfoRightsinfo { // Fully checked (source code level)
+	url: string;
+	text: string;
+}
+
+export interface ApiResponseQueryMetaSiteinfoShowhooks { // Fully checked (source code level)
+	name: string;
+	subscribers: string[];
+}
+
+export interface ApiResponseQueryMetaSiteinfoSkins { // Fully checked (source code level)
+	code: string;
+	name: string;
+	unusable?: true;
+	default: true;
+}
 
 export interface ApiResponseQueryMetaSiteinfoSpecialpagealiases { // Fully checked
 	realname: string;
 	aliases: string[];
 }
 
-// export interface ApiResponseQueryMetaSiteinfoStatistics {}
-// export interface ApiResponseQueryMetaSiteinfoUploaddialog {}
+export interface ApiResponseQueryMetaSiteinfoStatistics { // Fully checked (source code level)
+	pages: number;
+	articles: number;
+	edits: number;
+	images: number;
+	users: number;
+	activeusers: number;
+	admins: number;
+	jobs: number;
+	[key: string]: unknown; // There may be dynamic entries
+}
+
+export interface ApiResponseQueryMetaSiteinfoUploaddialog { // Fully checked (source code level)
+	fields: {
+		description: boolean;
+		date: boolean;
+		categories: boolean;
+	};
+	licensemessages: {
+		local: string;
+		foreign: string;
+	};
+	comment: string;
+	format: {
+		filepage: string;
+		description: string;
+		ownwork: string;
+		license: string;
+		uncategorized: string;
+	};
+}
 
 export interface ApiResponseQueryMetaSiteinfoUsergroups { // Fully checked
 	name: string;
@@ -1045,10 +1152,11 @@ export interface ApiResponseQueryMetaSiteinfoUsergroups { // Fully checked
 
 export type ApiResponseQueryMetaSiteinfoVariables = string; // Fully checked
 
+// ********************** action=query&meta=siteviews **********************
 
 // export interface ApiResponseQueryMetaSiteviews {}
 
-// ********************** action=query&meta=allmessages **********************
+// ********************** action=query&meta=tokens **********************
 
 export interface ApiResponseQueryMetaTokens { // Fully checked
 	createaccounttoken?: string;
