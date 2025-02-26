@@ -23,7 +23,7 @@ type OnlyOneRecord<K extends string, V = any> = {
  */
 export interface ApiParams extends ApiParamsTMW {
 
-	// Overwrite string;
+	// Overwrite "action?: string;"
 	action?: ApiParamsAction;
 
 	// For action-specific parameters
@@ -165,7 +165,7 @@ export interface ApiResponse {
 		[key: string]: string;
 	};
 	curtimestamp?: string;
-	docref?: string; // Present when string; is present
+	docref?: string; // Present when "errors" is present
 	error?: ApiResponseError;
 	errorlang?: string;
 	errors?: ApiResponseErrors[];
@@ -854,7 +854,7 @@ export interface ApiResponseQueryPagesProtection { // TODO: Don't remember which
 export interface ApiResponseQueryMetaAllmessages { // Fully checked
 	name: string;
 	normalizedname: string;
-	content?: string; // Missing if amnocontent=true or string; is true
+	content?: string; // Missing if amnocontent=true or "missing" is true
 	missing?: boolean;
 }
 
