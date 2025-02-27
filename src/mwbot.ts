@@ -23,6 +23,7 @@ import {
 } from './api_types';
 import { mergeDeep, isPlainObject, sleep, isEmptyObject } from './util';
 import * as mwString from './String';
+import TitleFactory from './Title';
 
 /*!
  * Portions of this file are adapted from the following:
@@ -120,6 +121,16 @@ export class Mwbot {
 	get info() {
 		return mergeDeep(this._info) as SiteAndUserInfo;
 	}
+	/**
+	 * Title class for this instance.
+	 */
+	protected _Title: ReturnType<typeof TitleFactory>;
+	/**
+	 * Title class for this instance.
+	 */
+	get Title() {
+		return this._Title;
+	}
 
 	// ****************************** CONSTRUCTOR-RELATED METHODS ******************************
 
@@ -158,6 +169,7 @@ export class Mwbot {
 		this.uuid = {};
 		this.lastRequestTime = null;
 		this._info = Object.create(null);
+		this._Title = Object.create(null);
 
 	}
 
@@ -349,10 +361,13 @@ export class Mwbot {
 			console.warn('Failed to fetch configuration variables: ' + failedKeys.join(', '));
 			return await retryIfPossible(attemptIndex);
 		}
+
+		// Set up instance properties
 		mwbot._info = {
 			user: userinfo as SiteAndUserInfo['user'],
 			general, namespaces, namespacealiases
 		};
+		mwbot._Title = TitleFactory(mwbot);
 
 		console.log('Connection established: ' + mwbot.config.get('wgServer'));
 		return mwbot;
