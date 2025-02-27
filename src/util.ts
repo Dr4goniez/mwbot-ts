@@ -1,30 +1,32 @@
 /**
  * Perform a deep merge of objects and return a new object.
- *
- * The following two things should be noted:
- * * This does not modify the passed objects, and merges arrays via concatenation.
- * * Non-plain objects are passed by reference (mutable).
+ * - Arrays are concatenated.
+ * - Plain objects are recursively merged.
+ * - Non-plain objects are passed by reference.
  *
  * @param objects
  * @returns
  */
-export function mergeDeep(...objects: any[]): Record<string, any> {
-	return objects.reduce((acc: Record<string, any>, obj) => {
-		if (obj === undefined || obj === null) {
-			// undefined and null cannot be passed to Object.keys
+export function mergeDeep(...objects: any[]): any {
+	return objects.reduce((acc, obj) => {
+		if (!obj) {
 			return acc;
 		}
-		Object.keys(obj).forEach((key) => {
+		for (const key of Object.keys(obj)) {
 			const aVal = acc[key];
-			const oVal = obj[key];
-			if (Array.isArray(aVal) && Array.isArray(oVal)) {
-				acc[key].push(...oVal);
-			} else if (isPlainObject(aVal) && isPlainObject(oVal)) {
-				acc[key] = mergeDeep(aVal, oVal);
-			} else {
-				acc[key] = oVal;
+			let oVal = obj[key];
+			if (Array.isArray(oVal) && oVal.some(el => !isPrimitive(el))) {
+				oVal = mergeDeep(oVal);
 			}
-		});
+			if (Array.isArray(aVal) && Array.isArray(oVal)) {
+				acc[key] = [...aVal, ...oVal]; // Merge arrays
+			} else if (isPlainObject(aVal) && isPlainObject(oVal)) {
+				acc[key] = mergeDeep(aVal, oVal); // Recursively merge objects
+			} else {
+				// Handle the first iteration and non-plain objects
+				acc[key] = Array.isArray(oVal) ? [...oVal] : isPlainObject(oVal) ? mergeDeep(oVal) : oVal;
+			}
+		}
 		return acc;
 	}, Object.create(null));
 }
@@ -61,6 +63,15 @@ export function isEmptyObject(object: any): boolean {
 		return false;
 	}
 	return true;
+}
+
+/**
+ * Check whether a value is a primitive type.
+ * @param val
+ * @returns
+ */
+export function isPrimitive(val: unknown): val is string | number | boolean | bigint | symbol | undefined | null {
+    return val !== Object(val);
 }
 
 /**
