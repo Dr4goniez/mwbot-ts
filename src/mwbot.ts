@@ -74,6 +74,10 @@ export class Mwbot {
 	 */
 	protected readonly jar: CookieJar;
 	/**
+	 * Whether the instance has been initialized.
+	 */
+	protected initialized: boolean;
+	/**
 	 * The user options for this intance.
 	 */
 	userMwbotOptions: MwbotOptions;
@@ -119,6 +123,7 @@ export class Mwbot {
 	 * Returns (a deep copy of) the site and user information that is fetched when {@link init} is called.
 	 */
 	get info() {
+		this.checkInit();
 		return mergeDeep(this._info) as SiteAndUserInfo;
 	}
 	/**
@@ -129,19 +134,20 @@ export class Mwbot {
 	 * Title class for this instance.
 	 */
 	get Title() {
+		this.checkInit();
 		return this._Title;
 	}
 
 	// ****************************** CONSTRUCTOR-RELATED METHODS ******************************
 
 	/**
-	 * Initialize a new `Mwbot` instance.
+	 * Create a `Mwbot` instance. **{@link init} must subsequently be called for initialization.**
 	 *
 	 * @param mwbotInitOptions Configuration object containing initialization settings and user credentials.
 	 * @param requestOptions Custom request options applied to all HTTP requests issued by the new instance.
 	 * @throws {Error} If no valid API endpoint is provided or if the user credentials are malformed.
 	 */
-	protected constructor(mwbotInitOptions: MwbotInitOptions, requestOptions: MwbotRequestConfig) {
+	constructor(mwbotInitOptions: MwbotInitOptions, requestOptions: MwbotRequestConfig = {}) {
 
 		const {credentials, ...options} = mwbotInitOptions;
 
@@ -162,6 +168,7 @@ export class Mwbot {
 		}
 
 		// Initialize other class properties
+		this.initialized = false;
 		this.userMwbotOptions = options; // Already shallow-copied; TODO: Should mergeDeep also handle functions?
 		this.userRequestOptions = mergeDeep(requestOptions);
 		this.abortions = [];
@@ -252,8 +259,8 @@ export class Mwbot {
 	 *
 	 * If `false`, all current settings are cleared ***except*** {@link MwbotOptions.apiUrl | apiUrl} before applying `options`.
 	 * This means that `apiUrl` must be overwritten with a new one using the `options` object. Since a `Mwbot` instance is initialized
-	 * with site-specific data, it is not recommended to change `apiUrl` after initialization. Instead, call {@link init} to create a
-	 * new instance with a different URL.
+	 * with site-specific data, it is not recommended to change `apiUrl` after initialization. Instead, consider creating a new instance
+	 * with a different URL.
 	 *
 	 * @returns The current {@link Mwbot} instance.
 	 * @throws If the resulting options lack an `apiUrl` property.
@@ -292,36 +299,36 @@ export class Mwbot {
 	}
 
 	/**
-	 * Initialize a new `Mwbot` instance.
-	 *
-	 * @param mwbotInitOptions Configuration object containing initialization settings and user credentials.
-	 * @param requestOptions Optional base settings for HTTP requests made by the new instance.
-	 *
-	 * These settings serve as defaults and are merged with request-specific options in each request method call.
+	 * Initialize the `Mwbot` instance to make all functionalities ready.
 	 *
 	 * @returns A `Promise` that resolves to a {@link Mwbot} instance if successful, or `null` if initialization fails.
 	 * This method never rejects.
 	 */
-	static async init(mwbotInitOptions: MwbotInitOptions, requestOptions: MwbotRequestConfig = {}): Promise<Mwbot | null> {
-		return Mwbot._init(mwbotInitOptions, requestOptions, 1);
+	init(): Promise<this | null> {
+		return this._init(1);
 	}
 
-	protected static async _init(mwbotInitOptions: MwbotInitOptions, requestOptions: MwbotRequestConfig, attemptIndex: number): Promise<Mwbot | null> {
+	protected async _init(attemptIndex: number): Promise<this | null> {
 
-		// Create a new instance
-		let mwbot: Mwbot;
-		try {
-			mwbot = new Mwbot(mwbotInitOptions, requestOptions);
-		}
-		catch (err) {
-			console.error(err);
-			return initError();
-		}
+		const initError = (msg?: string): null => {
+			console.error(`Error: ${msg || 'Failed to establish connection.'}`);
+			return null;
+		};
+
+		const retryIfPossible = async (index: number): Promise<typeof this | null> => {
+			if (index < 2) {
+				console.log('Retrying once again in 5 seconds...');
+				await sleep(5000);
+				return await this._init(index + 1);
+			} else {
+				return initError('Aborted initialization.');
+			}
+		};
 
 		// Log in if necessary
-		if (mwbot.credentials.user) {
-			const {username, password} = mwbot.credentials.user;
-			const login = await mwbot.login(username, password).then((res) => res).catch((err) => err);
+		if (this.credentials.user) {
+			const {username, password} = this.credentials.user;
+			const login = await this.login(username, password).then((res) => res).catch((err) => err);
 			if (login.error) {
 				console.error(login.error);
 				return initError();
@@ -329,7 +336,7 @@ export class Mwbot {
 		}
 
 		// Get user and site info
-		const res: ApiResponse = await mwbot.get({
+		const res: ApiResponse = await this.get({
 			action: 'query',
 			format: 'json',
 			formatversion: '2',
@@ -350,12 +357,12 @@ export class Mwbot {
 		if (!userinfo || !general || !namespaces || !namespacealiases) {
 			console.error('Error: Failed to establish connection.');
 			return await retryIfPossible(attemptIndex);
-		} else if (userinfo.anon && !mwbot.isAnonymous()) {
+		} else if (userinfo.anon && !this.isAnonymous()) {
 			return initError('Authentication failed.');
 		}
 
 		// Initialize mwbot.config
-		const failedKeys = mwbot.initConfigData(userinfo, general, namespaces, namespacealiases);
+		const failedKeys = this.initConfigData(userinfo, general, namespaces, namespacealiases);
 		if (failedKeys.length) {
 			// Ensure that all the dependet config values are fetched successfully
 			console.warn('Failed to fetch configuration variables: ' + failedKeys.join(', '));
@@ -363,30 +370,25 @@ export class Mwbot {
 		}
 
 		// Set up instance properties
-		mwbot._info = {
+		this.initialized = true; // This substitution must be done HERE (Mwbot.info and other getters call checkInit in them)
+		this._info = {
 			user: userinfo as SiteAndUserInfo['user'],
 			general, namespaces, namespacealiases
 		};
-		mwbot._Title = TitleFactory(mwbot);
+		this._Title = TitleFactory(this);
 
-		console.log('Connection established: ' + mwbot.config.get('wgServer'));
-		return mwbot;
+		console.log('Connection established: ' + this.config.get('wgServer'));
+		return this;
 
-		function initError(msg?: string): null {
-			console.error(`Error: ${msg || 'Failed to establish connection.'}`);
-			return null;
+	}
+
+	/**
+	 * Throws an error if the instance is not initialized.
+	 */
+	checkInit(): void {
+		if (!this.initialized) {
+			throw new Error('The instance must be initialized before performing this action.');
 		}
-
-		async function retryIfPossible(index: number): Promise<Mwbot | null> {
-			if (index < 2) {
-				console.log('Retrying once again in 5 seconds...');
-				await sleep(5000);
-				return await Mwbot._init(mwbotInitOptions, requestOptions, index + 1);
-			} else {
-				return initError('Aborted initialization.');
-			}
-		}
-
 	}
 
 	// ****************************** SITE-RELATED CONFIG ******************************
@@ -428,9 +430,11 @@ export class Mwbot {
 	 * Provides access to site and user configuration data.
 	 */
 	get config(): MwConfig<ConfigData> {
-		const data = mergeDeep(this.configData) as ConfigData; // Used as the return value of "get", deep copy
+		this.checkInit();
+		const _this = this;
 		return {
 			get: function<K extends keyof ConfigData, TD>(configName?: string | string[], fallback?: TD) {
+				const data = mergeDeep(_this.configData) as ConfigData; // Deep copy
 				if (this.get.length === 0) {
 					return data;
 				} else if (Array.isArray(configName)) {
