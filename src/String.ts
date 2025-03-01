@@ -1,6 +1,10 @@
-/*!
- * This is an adapted copy of the `mediawiki.String` module in MediaWiki core.
+/**
+ * This module is attached to {@link Mwbot.String} as a static member of the class.
+ *
+ * Adapted from the `mediawiki.String` module in MediaWiki core.
  * @see https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/refs/heads/master/resources/src/mediawiki.String.js
+ *
+ * @module String
  */
 
 /**
@@ -144,7 +148,10 @@ function trimLength(safeVal: string, newVal: string, length: number, lengthFn: L
 		trimmed: newVal !== inpParts.join('')
 	};
 }
-interface StringTrimmed {
+/**
+ * The return type of {@link trimByteLength} and {@link trimCodePointLength}.
+ */
+export interface StringTrimmed {
 	/**
 	 * A trimmed version of the string.
 	 */
@@ -155,7 +162,11 @@ interface StringTrimmed {
 	trimmed: boolean;
 }
 type LengthFunction = (newVal: string) => number;
-type FilterFunction = (val: string) => string;
+/**
+ * A function used in {@link trimByteLength} and {@link trimCodePointLength} to transform the input
+ * string before measuring its length.
+ */
+export type FilterFunction = (val: string) => string;
 /**
  * Utility function to trim down a string, based on byteLimit
  * and given a safe start position. It supports insertion anywhere

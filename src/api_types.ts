@@ -3,11 +3,30 @@ import { XOR } from 'ts-xor';
 
 // ************************************** General types **************************************
 
-type PartialRecord<K extends keyof any, T> = {
+/**
+ * Constructs a type in which the properties specified in `K` are optional.
+ *
+ * Equivalent to `Partial<Record<K, T>>`.
+ */
+export type PartialRecord<K extends keyof any, T> = {
 	[P in K]?: T;
 };
 
-type OnlyOneRecord<K extends string, V = any> = {
+/**
+ * Constructs a type in which only one key in `K` can have the value in `V`.
+ * ```
+ * // Error
+ * const ex1: OnlyOneRecord<'a' | 'b', {1: 1}> = {
+ * 	a: {1: 1},
+ * 	b: {1: 1}
+ * };
+ * // Ok
+ * const ex2: OnlyOneRecord<'a' | 'b', {1: 1}> = {
+ * 	b: {1: 1}
+ * };
+ * ```
+ */
+export type OnlyOneRecord<K extends string, V = any> = {
 	[P in K]: (Record<P, V> &
 	Partial<Record<Exclude<K, P>, never>>) extends infer O
 	? { [Q in keyof O]: O[Q] }

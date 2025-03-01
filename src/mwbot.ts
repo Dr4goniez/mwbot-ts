@@ -116,11 +116,11 @@ export class Mwbot {
 		return mwString;
 	}
 	/**
-	 * The site and user information that is fetched when {@link init} is called. Can be obtained with {@link info}.
+	 * The site and user information fetched when {@link init} is called. Can be obtained with {@link info}.
 	 */
 	protected _info: SiteAndUserInfo;
 	/**
-	 * Returns (a deep copy of) the site and user information that is fetched when {@link init} is called.
+	 * Returns (a deep copy of) the site and user information fetched when {@link init} is called.
 	 */
 	get info() {
 		this.checkInit();
@@ -385,7 +385,7 @@ export class Mwbot {
 	/**
 	 * Throws an error if the instance is not initialized.
 	 */
-	checkInit(): void {
+	protected checkInit(): void {
 		if (!this.initialized) {
 			throw new Error('The instance must be initialized before performing this action.');
 		}
@@ -428,9 +428,41 @@ export class Mwbot {
 
 	/**
 	 * Provides access to site and user configuration data.
+	 *
+	 * `mwbot.config` functions similarly to
+	 * {@link https://www.mediawiki.org/wiki/ResourceLoader/Core_modules#mediaWiki.config | mw.config}
+	 * from MediaWiki core, *except*:
+	 * * `mwbot.config` does not return a Map-like object like `mw.config` does. Rather, it returns
+	 * an object with the methods `get`, `set`, and `exists`.
+	 * * `mwbot.config.set` prevents built-in `wg`-variables from being overwritten. (See
+	 *   {@link ConfigData} for a list of such variables.)
+	 *
+	 * ```typescript
+	 * get(selection?: string | string[], fallback? = null): Mixed;
+	 * ```
+	 * * If `selection` is a string, returns the corresponding value.
+	 * * If `selection` is an array, returns an object mapping each key to its value.
+	 * * If no `selection` is provided, returns a new object containing all key-value pairs.
+	 * * If a key does not exist, `fallback` is returned. This also applies when `selection`
+	 * is an array: missing keys will be mapped to `fallback` in the returned object.
+	 *
+	 * ```typescript
+	 * set(selection?: string | object, value?: any): boolean;
+	 * ```
+	 * * If `selection` is a string, `value` must be provided. The key-value pair will be set accordingly.
+	 * * If `selection` is an object, each key-value pair will be set.
+	 * * Built-in `wg`-variables cannot be modified ― attempting to do so always returns `false`.
+	 * * Returns `true` if at least one property is successfully set.
+	 * * If `value` is `undefined`, the key is not set.
+	 *
+	 * ```typescript
+	 * exists(selection: string): boolean;
+	 * ```
+	 * * Returns `true` if `selection` exists as a key with a defined value.
 	 */
 	get config(): MwConfig<ConfigData> {
 		this.checkInit();
+		// eslint-disable-next-line @typescript-eslint/no-this-alias
 		const _this = this;
 		return {
 			get: function<K extends keyof ConfigData, TD>(configName?: string | string[], fallback?: TD) {
@@ -1342,7 +1374,7 @@ export class Mwbot {
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns
 	 */
-	postWithEditToken(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
+	postWithCsrfToken(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 		return this.postWithToken('csrf', parameters, requestOptions);
 	}
 
@@ -1354,7 +1386,7 @@ export class Mwbot {
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns
 	 */
-	getEditToken(requestOptions: MwbotRequestConfig = {}): Promise<string> {
+	getCsrfToken(requestOptions: MwbotRequestConfig = {}): Promise<string> {
 		return this.getToken('csrf', void 0, requestOptions);
 	}
 
@@ -1399,12 +1431,13 @@ export class Mwbot {
 }
 
 /**
- * Options to initialize a {@link Mwbot} instance via {@link Mwbot.init}.
+ * Options to be passed as the first argument of {@link Mwbot.constructor}.
  */
 export type MwbotInitOptions = MwbotOptions & {credentials: Credentials;};
 
 /**
- * Options for a {@link Mwbot} instance.
+ * Configuration options for {@link Mwbot.constructor}. These options can also be updated later
+ * via {@link Mwbot.setMwbotOptions}.
  */
 export interface MwbotOptions {
 	/**
@@ -1445,7 +1478,8 @@ export interface MwbotOptions {
 /**
  * User credentials for authentication.
  *
- * One of the following authentication methods must be provided to {@link Mwbot.init}.
+ * When calling {@link Mwbot.constructor}, one of the following credential types must be provided under
+ * the `credentials` key in the {@link MwbotInitOptions} object.
  *
  * #### OAuth 2.0 ({@link https://www.mediawiki.org/wiki/OAuth/Owner-only_consumers#OAuth_2})
  * ```ts
@@ -1546,9 +1580,19 @@ type MwbotCredentials = XOR<
 >;
 
 /**
- * Config options for {@link Mwbot}'s request methods, extending Axios's request config.
+ * Configuration options for {@link Mwbot}'s request methods, extending
+ * {@link https://axios-http.com/docs/req_config | Axios's request config}.
  *
- * @see https://axios-http.com/docs/req_config
+ * These options are per-request options and should be passed to request methods as needed.
+ * To set default options for all requests, provide them in the {@link Mwbot.constructor}
+ * or update them with {@link Mwbot.setRequestOptions}.
+ *
+ * When passed to a request method, these options are recursively merged with default options.
+ * The priority order is:
+ * * {@link Mwbot.defaultRequestOptions} < {@link Mwbot.userRequestOptions} < Per-method request options
+ *
+ * where `userRequestOptions` is the options set by the user with the constructor or the `setRequestOptions`
+ * method. Higher-priority options override lower ones if they share the same properties.
  */
 export interface MwbotRequestConfig extends AxiosRequestConfig {
 	/**
@@ -1580,9 +1624,15 @@ export interface MwbotRequestConfig extends AxiosRequestConfig {
 }
 
 /**
- * The site and user information that is fetched when {@link Mwbot.init} is called. Can be obtained with {@link Mwbot.info}.
+ * Site and user information retrieved by {@link Mwbot.init}. Accessible via {@link Mwbot.info}.
+ *
+ * Note that there is nothing special about this interface. It mirrors the API response from
+ * https://en.wikipedia.org/w/api.php?action=query&formatversion=2&meta=userinfo|siteinfo&uiprop=rights&siprop=general|namespaces|namespacealiases
+ * (the endpoint may vary), **except** that `userinfo` is renamed to `user`.
+ *
+ * This interface ensures that certain optional properties in the API response are treated as non-optional after verification.
  */
-export interface SiteAndUserInfo{
+export interface SiteAndUserInfo {
 	// The utility types used here just make the verified properties non-optional
 	user: Required<Pick<ApiResponseQueryMetaUserinfo, 'id' | 'name' | 'rights'>>;
 	general: Pick<
@@ -1594,7 +1644,7 @@ export interface SiteAndUserInfo{
 }
 
 /**
- * @see Mwbot.config
+ * Schema for the object accessible via {@link Mwbot.config}.
  */
 export interface ConfigData {
 	wgArticlePath: string;
@@ -1625,24 +1675,42 @@ export interface ConfigData {
 // The following type definitions are substantial copies from the npm package `types-mediawiki`.
 // https://github.com/wikimedia-gadgets/types-mediawiki/blob/e833739c0f685e9deb3d666b0f9419e4122a170b/mw/Map.d.ts
 
-type TypeOrArray<T> = T | T[];
+/**
+ * Type used to define {@link MwConfig}.
+ */
+export type TypeOrArray<T> = T | T[];
 
 // Get/PickOrDefault<V, S, TD, TX> extracts values from V using key selection S
 //  - TD is the value type of missing properties
 //  - TX is the value type of unknown properties
 
-type GetOrDefault<V, K extends PropertyKey, TD, TX = unknown> = K extends keyof V
+/**
+ * Type used to define {@link MwConfig}.
+ */
+export type GetOrDefault<V, K extends PropertyKey, TD, TX = unknown> = K extends keyof V
     ? V extends Required<Pick<V, K>>
         ? V[K]
         : Required<V>[K] | TD
     : TX | TD;
 
-type PickOrDefault<V, S extends TypeOrArray<PropertyKey>, TD, TX = unknown> = S extends Array<
+/**
+ * Type used to define {@link MwConfig}.
+ */
+export type PickOrDefault<V, S extends TypeOrArray<PropertyKey>, TD, TX = unknown> = S extends Array<
     infer K
 >
     ? { [P in K & PropertyKey]-?: GetOrDefault<V, P, TD, TX> }
     : GetOrDefault<V, S & PropertyKey, TD, TX>;
 
+/**
+ * The structure of {@link Mwbot.config}, designed to provide user-friendly Intellisense suggestions.
+ *
+ * This interface is essentially a TypeScript representation of
+ * {@link https://www.mediawiki.org/wiki/ResourceLoader/Core_modules#mediaWiki.config | mw.config}
+ * from MediaWiki core, with some adjustments for improved usability.
+ *
+ * See {@link Mwbot.config} for implementation details.
+ */
 export interface MwConfig<V extends Record<string, any>, TX = unknown> {
 	/**
 	 * Get the value of one or more keys.

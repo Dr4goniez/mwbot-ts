@@ -1,5 +1,7 @@
-/*!
- * This file is adapted from the `mediawiki.Title` module in MediaWiki core.
+/**
+ * This module is attached to {@link Mwbot.Title} as a static member of the class.
+ *
+ * Adapted from the `mediawiki.Title` module in MediaWiki core.
  * @see https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/2af1c3c901a6117fe062e1fd88c0146cffa1481d/resources/src/mediawiki.Title/Title.js
  */
 
@@ -327,68 +329,44 @@ export default function(mw: Mwbot) {
 			.replace(/%2F/g, '/')
 			.replace(/%3A/g, ':');
 	};
-	interface TitleExistenceStore {
-		/**
-		 * Keyed by title. Boolean true value indicates page does exist.
-		 */
-		pages: Record<string, boolean>;
-		/**
-		 * The setter function. Returns a boolean.
-		 *
-		 * Example to declare existing titles:
-		 * ```
-		 * Title.exist.set(['User:John_Doe', ...]);
-		 * ```
-		 *
-		 * Example to declare titles nonexistent:
-		 * ```
-		 * Title.exist.set(['File:Foo_bar.jpg', ...], false);
-		 * ```
-		 * @param titles Title(s) in strict prefixedDb title form
-		 * @param state State of the given titles
-		 * @returns
-		 */
-		set: (titles: string | string[], state?: boolean) => boolean;
-	}
+	/**
+	 * Parse titles into an object structure. Note that when using the constructor
+	 * directly, passing invalid titles will result in an exception.
+	 * Use {@link newFromText} to use the logic directly and get null for invalid titles
+	 * which is easier to work with.
+	 *
+	 * Note that in the constructor and {@link newFromText} method, `namespace` is the
+	 * **default** namespace only, and can be overridden by a namespace prefix in `title`.
+	 * If you do not want this behavior, use {@link makeTitle}. Compare:
+	 *
+	 * ```javascript
+	 * new mwbot.Title('Foo', NS_TEMPLATE).getPrefixedText();
+	 * // => 'Template:Foo'
+	 * mwbot.Title.newFromText('Foo', NS_TEMPLATE).getPrefixedText();
+	 * // => 'Template:Foo'
+	 * mwbot.Title.makeTitle(NS_TEMPLATE, 'Foo').getPrefixedText();
+	 * // => 'Template:Foo'
+	 *
+	 * new mwbot.Title('Category:Foo', NS_TEMPLATE).getPrefixedText();
+	 * // => 'Category:Foo'
+	 * mwbot.Title.newFromText('Category:Foo', NS_TEMPLATE).getPrefixedText();
+	 * // => 'Category:Foo'
+	 * mwbot.Title.makeTitle(NS_TEMPLATE, 'Category:Foo').getPrefixedText();
+	 * // => 'Template:Category:Foo'
+	 *
+	 * new mwbot.Title('Template:Foo', NS_TEMPLATE).getPrefixedText();
+	 * // => 'Template:Foo'
+	 * mwbot.Title.newFromText('Template:Foo', NS_TEMPLATE).getPrefixedText();
+	 * // => 'Template:Foo'
+	 * mwbot.Title.makeTitle(NS_TEMPLATE, 'Template:Foo').getPrefixedText();
+	 * // => 'Template:Template:Foo'
+	 * ```
+	 */
 	class Title {
-		namespace: number;
-		title: string;
-		fragment: string | null;
+		private namespace: number;
+		private title: string;
+		private fragment: string | null;
 		/**
-		 * Library for constructing MediaWiki titles.
-		 *
-		 * ```javascript
-		 * new Title('Foo', NS_TEMPLATE).getPrefixedText();
-		 * // => 'Template:Foo'
-		 * Title.newFromText('Foo', NS_TEMPLATE).getPrefixedText();
-		 * // => 'Template:Foo'
-		 * Title.makeTitle(NS_TEMPLATE, 'Foo').getPrefixedText();
-		 * // => 'Template:Foo'
-		 *
-		 * new Title('Category:Foo', NS_TEMPLATE).getPrefixedText();
-		 * // => 'Category:Foo'
-		 * Title.newFromText('Category:Foo', NS_TEMPLATE).getPrefixedText();
-		 * // => 'Category:Foo'
-		 * Title.makeTitle(NS_TEMPLATE, 'Category:Foo').getPrefixedText();
-		 * // => 'Template:Category:Foo'
-		 *
-		 * new Title('Template:Foo', NS_TEMPLATE).getPrefixedText();
-		 * // => 'Template:Foo'
-		 * Title.newFromText('Template:Foo', NS_TEMPLATE).getPrefixedText();
-		 * // => 'Template:Foo'
-		 * Title.makeTitle(NS_TEMPLATE, 'Template:Foo').getPrefixedText();
-		 * // => 'Template:Template:Foo'
-		 * ```
-		 *
-		 * Parse titles into an object structure. Note that when using the constructor
-		 * directly, passing invalid titles will result in an exception.
-		 * Use {@link newFromText} to use the logic directly and get null for invalid titles
-		 * which is easier to work with.
-		 *
-		 * Note that in the constructor and {@link newFromText} method, `namespace` is the
-		 * **default** namespace only, and can be overridden by a namespace prefix in `title`.
-		 * If you do not want this behavior, use {@link makeTitle}.
-		 *
 		 * @param title Title of the page. If no second argument given,
 		 * this will be searched for a namespace
 		 * @param namespace If given, will used as default namespace for the given title
@@ -572,7 +550,7 @@ export default function(mw: Mwbot) {
 		 * Whether this title exists on the wiki.
 		 *
 		 * @param title prefixed db-key name (string) or instance of Title
-		 * @return {boolean|null} Boolean if the information is available, otherwise null
+		 * @return Boolean if the information is available, otherwise null
 		 * @throws {Error} If title is not a string or Title
 		 */
 		static exists(title: string | Title): boolean | null {
@@ -590,7 +568,29 @@ export default function(mw: Mwbot) {
 			}
 			return match;
 		}
-		static readonly exist: TitleExistenceStore = {
+		static readonly exist: {
+			/**
+			 * Keyed by title. Boolean true value indicates page does exist.
+			 */
+			pages: Record<string, boolean>;
+			/**
+			 * The setter function. Returns a boolean.
+			 *
+			 * Example to declare existing titles:
+			 * ```
+			 * Title.exist.set(['User:John_Doe', ...]);
+			 * ```
+			 *
+			 * Example to declare titles nonexistent:
+			 * ```
+			 * Title.exist.set(['File:Foo_bar.jpg', ...], false);
+			 * ```
+			 * @param titles Title(s) in strict prefixedDb title form
+			 * @param state State of the given titles
+			 * @returns
+			 */
+			set: (titles: string | string[], state?: boolean) => boolean;
+		} = {
 			pages: {},
 			set: function(titles, state) {
 				const pages = this.pages;
@@ -630,8 +630,8 @@ export default function(mw: Mwbot) {
 		/**
 		 * PHP's strtoupper differs from String.toUpperCase in a number of cases (T147646).
 		 *
-		 * @param {string} chr Unicode character
-		 * @return {string} Unicode character, in upper case, according to the same rules as in PHP
+		 * @param chr Unicode character
+		 * @return Unicode character, in upper case, according to the same rules as in PHP
 		 */
 		static phpCharToUpper(chr: string): string {
 			const mapped = toUpperMap[chr as keyof typeof toUpperMap];
@@ -642,9 +642,6 @@ export default function(mw: Mwbot) {
 			}
 			return mapped as string || chr.toUpperCase();
 		}
-
-		// Public members
-
 		/**
 		 * Get the namespace number.
 		 *
@@ -696,32 +693,32 @@ export default function(mw: Mwbot) {
 		getFileNameTextWithoutExtension(): string {
 			return text(this.getFileNameWithoutExtension());
 		}
-		/**
-		 * Get the page name as if it is a file name, without extension or namespace prefix. Warning,
-		 * this is usually not what you want! A title like `User:Dr._J._Fail` will be returned as
-		 * `Dr. J`! Use {@link getMain} or {@link getMainText} for the actual page name.
-		 *
-		 * @return File name without file extension, in the canonical form with underscores
-		 *  instead of spaces. For example, the title `File:Example_image.svg` will be returned as
-		 *  `Example_image`.
-		 *  @deprecated since 1.40, use {@link getFileNameWithoutExtension} instead
-		 */
-		getName(): string {
-			return this.getFileNameWithoutExtension();
-		}
-		/**
-		 * Get the page name as if it is a file name, without extension or namespace prefix. Warning,
-		 * this is usually not what you want! A title like `User:Dr._J._Fail` will be returned as
-		 * `Dr. J`! Use {@link getMainText} for the actual page name.
-		 *
-		 * @return File name without file extension, formatted with spaces instead of
-		 *  underscores. For example, the title `File:Example_image.svg` will be returned as
-		 *  `Example image`.
-		 *  @deprecated since 1.40, use {@link getFileNameTextWithoutExtension} instead
-		 */
-		getNameText(): string {
-			return text(this.getFileNameTextWithoutExtension());
-		}
+		// /**
+		//  * Get the page name as if it is a file name, without extension or namespace prefix. Warning,
+		//  * this is usually not what you want! A title like `User:Dr._J._Fail` will be returned as
+		//  * `Dr. J`! Use {@link getMain} or {@link getMainText} for the actual page name.
+		//  *
+		//  * @return File name without file extension, in the canonical form with underscores
+		//  *  instead of spaces. For example, the title `File:Example_image.svg` will be returned as
+		//  *  `Example_image`.
+		//  *  @deprecated since 1.40, use {@link getFileNameWithoutExtension} instead
+		//  */
+		// getName(): string {
+		// 	return this.getFileNameWithoutExtension();
+		// }
+		// /**
+		//  * Get the page name as if it is a file name, without extension or namespace prefix. Warning,
+		//  * this is usually not what you want! A title like `User:Dr._J._Fail` will be returned as
+		//  * `Dr. J`! Use {@link getMainText} for the actual page name.
+		//  *
+		//  * @return File name without file extension, formatted with spaces instead of
+		//  *  underscores. For example, the title `File:Example_image.svg` will be returned as
+		//  *  `Example image`.
+		//  *  @deprecated since 1.40, use {@link getFileNameTextWithoutExtension} instead
+		//  */
+		// getNameText(): string {
+		// 	return text(this.getFileNameTextWithoutExtension());
+		// }
 		/**
 		 * Get the extension of the page name (if any).
 		 *
@@ -773,7 +770,7 @@ export default function(mw: Mwbot) {
 			return this.getNamespacePrefix() + this.getMain();
 		}
 		/**
-		 * Get the full page name (transformed by {@link text}).
+		 * Get the full page name, with all underscores replaced by spaces.
 		 *
 		 * Example: `File:Example image.svg` for `File:Example_image.svg`.
 		 *
@@ -888,8 +885,9 @@ export default function(mw: Mwbot) {
 		/**
 		 * Whether this title exists on the wiki.
 		 *
-		 * @see Title.exists
-		 * @return {boolean|null} Boolean if the information is available, otherwise null
+		 * This is an instance method that does the same as the static method {@link Title.exists}.
+		 *
+		 * @return Boolean if the information is available, otherwise null
 		 */
 		exists(): boolean | null {
 			return Title.exists(this);
