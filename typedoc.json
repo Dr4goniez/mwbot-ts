@@ -1,5 +1,12 @@
 {
-	"entryPoints": ["src/mwbot.ts", "src/api_types.ts"],
+	"entryPoints": [
+		"src/mwbot.ts",
+		"src/api_types.ts",
+		"src/error.ts",
+		"src/String.ts",
+		"src/Title.ts",
+		"src/Wikitext.ts"
+	],
 	"excludeInternal": true,
 	"excludePrivate": false,
 	"excludeProtected": false,

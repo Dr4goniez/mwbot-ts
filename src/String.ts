@@ -1,8 +1,16 @@
 /**
- * This module is attached to {@link Mwbot.String} as a static member of the class.
+ * This module is attached to {@link Mwbot.String} as a static member.
  *
- * Adapted from the `mediawiki.String` module in MediaWiki core.
- * @see https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/refs/heads/master/resources/src/mediawiki.String.js
+ * @example
+ * ```
+ * import { Mwbot } from 'mwbot';
+ *
+ * console.log(Mwbot.String.ucFirst('mwbot')); // Output: "Mwbot"
+ * ```
+ *
+ * This module is a substantial copy of the `mediawiki.String` module in MediaWiki core (GNU General Public License v2).
+ * * {@link https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/50cdd378682dd1f3963507cddf7f08f1897b7ce5/resources/src/mediawiki.String.js | mediawiki.String} (original source code)
+ * * {@link https://doc.wikimedia.org/mediawiki-core/master/js/module-mediawiki.String.html | Documentation in MediaWiki core}
  *
  * @module String
  */

@@ -1,14 +1,30 @@
 /**
- * This module is attached to {@link Mwbot.Title} as a static member of the class.
+ * This module is attached to {@link Mwbot.Title} as an instance member.
  *
- * Adapted from the `mediawiki.Title` module in MediaWiki core.
- * @see https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/2af1c3c901a6117fe062e1fd88c0146cffa1481d/resources/src/mediawiki.Title/Title.js
+ * @example
+ * ```
+ * // "mwbot" is an instance of Mwbot that has already been initialized by calling "init"
+ * const title = mwbot.Title.newFromText('wikipedia talk:sandbox');
+ * if (!title) {
+ * 	return;
+ * }
+ * console.log(title.getPrefixedDb()); // Output: "Wikipedia_talk:Sandbox" (on enwiki)
+ * ```
+ *
+ * This module is a substantial copy of the `mediawiki.Title` module in MediaWiki core (GNU General Public License v2).
+ * * {@link https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/2af1c3c901a6117fe062e1fd88c0146cffa1481d/resources/src/mediawiki.Title/Title.js | mediawiki.Title} (original source code)
+ * * {@link https://doc.wikimedia.org/mediawiki-core/master/js/mw.Title.html | Documentation in MediaWiki core}
+ *
+ * @module
  */
 
 import type { Mwbot } from './mwbot';
 import toUpperMap from './phpCharToUpper';
 import * as mwString from './String';
 
+/**
+ * @internal
+ */
 export default function(mw: Mwbot) {
 
 	// Private members
@@ -380,6 +396,23 @@ export default function(mw: Mwbot) {
 			this.namespace = parsed.namespace;
 			this.title = parsed.title;
 			this.fragment = parsed.fragment;
+		}
+		/* Original members */
+		/**
+		 * Remove unicode bidirectional characters and trim a string.
+		 *
+		 * "Unicode bidirectional characters" are characters that can slip into cut-and-pasted texts,
+		 * represented as red dots in WikiEditor.
+		 *
+		 * *This method is exclusive to `mwbot-ts`.*
+		 *
+		 * @param str Input string.
+		 * @param trim Whether to trim the string. Defaults to `true`.
+		 * @returns
+		 */
+		static clean(str: string, trim = true): string {
+			str = str.replace(rUnicodeBidi, '');
+			return trim ? str.trim() : str;
 		}
 		/* Static members */
 		/**

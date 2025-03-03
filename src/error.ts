@@ -1,3 +1,9 @@
+/**
+ * See {@link MwbotError}.
+ *
+ * @module
+ */
+
 import type { ApiResponse } from './api_types';
 import { isPlainObject } from './util';
 import type { AxiosResponse } from 'axios';
@@ -9,7 +15,7 @@ import type { AxiosResponse } from 'axios';
  * all errors and rejected Promises include a stack trace for easier debugging. This simplifies
  * troubleshooting, especially when extending the `Mwbot` class.
  *
- * #### Error codes
+ * ### Error codes
  * * `mwbot_api_***`: Indicates an issue returned by the MediaWiki API response.
  * * `mwbot_fatal_***`:  Error originating from Mwbot's internal logic, often caused by incorrect
  * usage or unexpected conditions.

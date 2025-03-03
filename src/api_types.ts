@@ -1,3 +1,9 @@
+/**
+ * This module includes interfaces and types for API-related functionality.
+ * 
+ * @module
+ */
+
 import { ApiParams as ApiParamsTMW } from 'types-mediawiki/api_params';
 import { XOR } from 'ts-xor';
 

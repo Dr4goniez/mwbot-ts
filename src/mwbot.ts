@@ -1,4 +1,6 @@
 /**
+ * The core module of `mwbot-ts`.
+ *
  * Portions of this module are adapted from the following:
  *
  * * `mediawiki.api` module in MediaWiki core (GNU General Public License v2)
