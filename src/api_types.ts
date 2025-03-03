@@ -321,15 +321,15 @@ export interface ApiResponseError { // errorformat=bc
 	code: string;
 	info: string;
 	docref?: string;
-	details?: any; // script-internal
-	[key: string]: any;
+	// [key: string]: unknown;
 }
 export type ApiResponseErrors = {
 	code: string;
 	module: string;
-	data?: any[];
-	[key: string]: any;
+	data?: unknown[];
+	// [key: string]: unknown;
 } & XOR<
+	{'*': string;}, // formatversion=1
 	{html: string;}, // errorformat=html
 	{text: string;}, // errorformat=wikitext, errorformat=plaintext
 	{key: string; params: string[];} // errorformat=raw
