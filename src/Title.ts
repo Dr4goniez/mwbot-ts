@@ -19,7 +19,7 @@
  */
 
 import type { Mwbot } from './mwbot';
-import toUpperMap from './phpCharToUpper';
+import { toUpperMap, toLowerMap } from './phpCharMap';
 import * as mwString from './String';
 
 /**
@@ -86,7 +86,7 @@ export default function(mw: Mwbot) {
 	const rSplit = /^(.+?)_*:_*(.*)$/;
 	// See MediaWikiTitleCodec.php#getTitleInvalidRegex
 	const rInvalid = new RegExp(
-		'[^' + mw.config.get('wgLegalTitleChars') + ']' +
+		'[^' + config.get('wgLegalTitleChars') + ']' +
 		// URL percent encoding sequences interfere with the ability
 		// to round-trip titles -- you can't link to them consistently.
 		'|%[\\dA-Fa-f]{2}' +
@@ -129,7 +129,7 @@ export default function(mw: Mwbot) {
 		},
 		// slash, colon (not supported by file systems like NTFS/Windows, Mac OS 9 [:], ext4 [/])
 		{ // TODO: Any way to fetch "wgIllegalFileChars" from the API?
-			pattern: new RegExp('[' + (mw.config.get('wgIllegalFileChars') || ':/\\\\') + ']', 'g'),
+			pattern: new RegExp('[' + (config.get('wgIllegalFileChars') || ':/\\\\') + ']', 'g'),
 			replace: '-',
 			fileRule: true
 		},
@@ -330,6 +330,8 @@ export default function(mw: Mwbot) {
 	/**
 	 * Encode page titles in a way that matches `wfUrlencode` in PHP.
 	 *
+	 * *This function is exclusive to `mwbot-ts`.*
+	 *
 	 * @param str
 	 * @return
 	 */
@@ -345,6 +347,20 @@ export default function(mw: Mwbot) {
 			.replace(/%2F/g, '/')
 			.replace(/%3A/g, ':');
 	};
+	/**
+	 * Matches lowercase characters (including Greek and others) that have
+	 * different capitalization behavior in PHP's strtoupper.
+	 *
+	 * *This variable is exclusive to `mwbot-ts`.*
+	 */
+	const rUpperPhpChars = new RegExp(`[${Object.keys(toUpperMap).join('')}]`);
+	/**
+	 * Matches uppercase characters (including Greek and others) that have
+	 * different capitalization behavior in PHP's strtolower.
+	 *
+	 * *This variable is exclusive to `mwbot-ts`.*
+	 */
+	const rLowerPhpChars = new RegExp(`[${Object.keys(toLowerMap).join('')}]`);
 	/**
 	 * Parse titles into an object structure. Note that when using the constructor
 	 * directly, passing invalid titles will result in an exception.
@@ -577,7 +593,7 @@ export default function(mw: Mwbot) {
 		//  */
 		// Title.wantSignaturesNamespace = function(namespaceId) {
 		// 	return Title.isTalkNamespace(namespaceId) ||
-		// 		mw.config.get('wgExtraSignatureNamespaces').indexOf(namespaceId) !== -1;
+		// 		config.get('wgExtraSignatureNamespaces').indexOf(namespaceId) !== -1;
 		// };
 		/**
 		 * Whether this title exists on the wiki.
@@ -664,16 +680,55 @@ export default function(mw: Mwbot) {
 		 * PHP's strtoupper differs from String.toUpperCase in a number of cases (T147646).
 		 *
 		 * @param chr Unicode character
-		 * @return Unicode character, in upper case, according to the same rules as in PHP
+		 * @return Unicode character, in upper case, according to the same rules as in PHP.
 		 */
 		static phpCharToUpper(chr: string): string {
 			const mapped = toUpperMap[chr as keyof typeof toUpperMap];
-			if (mapped) {
+			if (mapped === 0) {
 				// Optimisation: When the override is to keep the character unchanged,
 				// we use 0 in JSON. This reduces the data by 50%.
 				return chr;
 			}
 			return mapped as string || chr.toUpperCase();
+		}
+		/**
+		 * PHP's strtolower differs from String.toLowerCase in a number of cases (T147646).
+		 *
+		 * *This method is exclusive to `mwbot-ts`.*
+		 *
+		 * @param chr Unicode character
+		 * @return Unicode character, in lower case, according to the same rules as in PHP.
+		 */
+		static phpCharToLower(chr: string): string {
+			return toLowerMap[chr as keyof typeof toLowerMap] || chr.toLowerCase();
+		}
+		/**
+		 * Converts all the alphabetic characters in a string to uppercase, as in PHP.
+		 *
+		 * *This method is exclusive to `mwbot-ts`.*
+		 *
+		 * @param str
+		 * @returns
+		 */
+		static uc(str: string): string {
+			if (rUpperPhpChars.test(str)) {
+				return Array.from(str).reduce((acc, char) => acc += Title.phpCharToUpper(char), '');
+			}
+			return str.toUpperCase();
+		}
+		/**
+		 * Converts all the alphabetic characters in a string to lowercase, as in PHP.
+		 *
+		 * *This method is exclusive to `mwbot-ts`.*
+		 *
+		 * @param str
+		 * @returns
+		 */
+		static lc(str: string): string {
+			if (rLowerPhpChars.test(str)) {
+				return Array.from(str).reduce((acc, char) => acc += Title.phpCharToLower(char), '');
+			}
+			return str.toLowerCase();
 		}
 		/**
 		 * Get the namespace number.
@@ -773,7 +828,7 @@ export default function(mw: Mwbot) {
 		 */
 		getMain(): string {
 			if (
-				mw.config.get('wgCaseSensitiveNamespaces').indexOf(this.namespace) !== -1 ||
+				config.get('wgCaseSensitiveNamespaces').indexOf(this.namespace) !== -1 ||
 				!this.title.length
 			) {
 				return this.title;
@@ -869,10 +924,10 @@ export default function(mw: Mwbot) {
 			if (params.size) {
 				// If the query parameters have a "title=" param, the output can include two of them as duplicates
 				// This looks like a bug to me, but it's how mw.util.getUrl works
-				directory = mw.config.get('wgScript');
+				directory = config.get('wgScript');
 				return directory + '?title=' + wikiUrlencode(this.toString()) + '&' + params + fragment;
 			} else {
-				directory = mw.config.get('wgArticlePath').replace('$1', () => wikiUrlencode(this.toString()));
+				directory = config.get('wgArticlePath').replace('$1', () => wikiUrlencode(this.toString()));
 				return directory + fragment;
 			}
 		}
