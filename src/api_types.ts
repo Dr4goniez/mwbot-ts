@@ -1,6 +1,6 @@
 /**
  * This module includes interfaces and types for API-related functionality.
- * 
+ *
  * @module
  */
 
@@ -943,7 +943,7 @@ export interface ApiResponseQueryMetaSiteinfoFileextensions { // Fully checked
 
 export type ApiResponseQueryMetaSiteinfoFunctionhooks = string; // Fully checked
 
-export interface ApiResponseQueryMetaSiteinfoGeneral { // Fully checked
+export interface ApiResponseQueryMetaSiteinfoGeneral { // Fully checked (source code level) but incomplete
 	mainpage: string;
 	base: string;
 	sitename: string;
@@ -954,7 +954,8 @@ export interface ApiResponseQueryMetaSiteinfoGeneral { // Fully checked
 	phpsapi: string;
 	dbtype: string;
 	dbversion: string;
-	imagewhitelistenabled: boolean;
+	imagewhitelistenabled?: boolean;
+	// externalimages?: // TODO: Complete this
 	langconversion: boolean;
 	linkconversion: boolean;
 	titleconversion: boolean;
@@ -966,16 +967,21 @@ export interface ApiResponseQueryMetaSiteinfoGeneral { // Fully checked
 	allunicodefixes: boolean;
 	fixarabicunicode: boolean;
 	fixmalayalamunicode: boolean;
-	'git-hash': string;
-	'git-branch': string;
-	case: string;
+	'git-hash'?: string;
+	'git-branch'?: string;
+	case: 'first-letter' | 'case-sensitive';
 	lang: string;
 	fallback: {
 		code: string;
 	}[];
+	variants?: {
+		code: string;
+		name: string;
+	}[];
 	rtl: boolean;
 	fallback8bitEncoding: string;
 	readonly: boolean;
+	readonlyreason?: string;
 	writeapi: boolean;
 	maxarticlesize: number;
 	timezone: string;
@@ -1010,41 +1016,41 @@ export interface ApiResponseQueryMetaSiteinfoGeneral { // Fully checked
 			height: number;
 		};
 	};
-	favicon: string;
+	favicon?: string;
 	centralidlookupprovider: string;
 	allcentralidlookupproviders: string[];
 	interwikimagic: boolean;
 	magiclinks: {
-		ISBN: boolean;
-		PMID: boolean;
-		RFC: boolean;
+		[key: string]: boolean;
 	};
 	categorycollation: string;
 	nofollowlinks: boolean;
-	nofollownsexceptions: unknown[]; // TODO: Update
+	nofollownsexceptions: unknown[]; // TODO: Probably an array of numbers or strings
 	nofollowdomainexceptions: string[];
 	externallinktarget: boolean;
-	'wmf-config': {
-		wmfMasterDatacenter: string;
-		wmfEtcdLastModifiedIndex: number;
-		wmgCirrusSearchDefaultCluster: string;
-		wgCirrusSearchDefaultCluster: string;
-	};
-	citeresponsivereferences: boolean;
-	'max-page-id': number;
-	linter: {
-		high: string[];
-		medium: string[];
-		low: string[];
-	};
-	mobileserver: string;
-	'pageviewservice-supported-metrics': Record<'pageviews' | 'siteviews' | 'mostviewed', {
-		pageviews: boolean;
-		uniques: boolean;
-	}>;
-	'readinglists-config': {
-		[key: string]: number; // Unsure about the value type
-	};
+	// site- or extension-specific entries
+	[key: string]: unknown;
+	// 'wmf-config': {
+	// 	wmfMasterDatacenter: string;
+	// 	wmfEtcdLastModifiedIndex: number;
+	// 	wmgCirrusSearchDefaultCluster: string;
+	// 	wgCirrusSearchDefaultCluster: string;
+	// };
+	// citeresponsivereferences: boolean;
+	// 'max-page-id': number;
+	// linter: {
+	// 	high: string[];
+	// 	medium: string[];
+	// 	low: string[];
+	// };
+	// mobileserver: string;
+	// 'pageviewservice-supported-metrics': Record<'pageviews' | 'siteviews' | 'mostviewed', {
+	// 	pageviews: boolean;
+	// 	uniques: boolean;
+	// }>;
+	// 'readinglists-config': {
+	// 	[key: string]: number; // Unsure about the value type
+	// };
 }
 
 export interface ApiResponseQueryMetaSiteinfoInterwikimap { // Fully checked (source code level)
@@ -1098,7 +1104,7 @@ export interface ApiResponseQueryMetaSiteinfoNamespacealiases { // Fully checked
 export interface ApiResponseQueryMetaSiteinfoNamespaces { // Fully checked (source code level)
 	[nsId: string]: {
 		id: number;
-		case: string;
+		case: 'first-letter' | 'case-sensitive';
 		name: string;
 		subpages: boolean;
 		canonical?: string;

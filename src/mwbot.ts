@@ -38,7 +38,8 @@ import {
 	ApiResponseQueryMetaSiteinfoNamespaces,
 	ApiResponseQueryMetaSiteinfoNamespacealiases,
 	ApiResponseQueryMetaTokens,
-	ApiResponseQueryMetaUserinfo
+	ApiResponseQueryMetaUserinfo,
+	ApiResponseQueryMetaSiteinfoInterwikimap
 } from './api_types';
 import { mergeDeep, isPlainObject, sleep, isEmptyObject } from './util';
 import { ErrorBase, MwbotError } from './error';
@@ -170,7 +171,7 @@ export class Mwbot {
 		}
 
 		// Determine authentication type
-		this.credentials =  Mwbot.validateCredentials(credentials || {});
+		this.credentials =  Mwbot.validateCredentials(credentials);
 		this.jar = new CookieJar();
 
 		// Set up the User-Agent header if provided
@@ -283,10 +284,10 @@ export class Mwbot {
 	 * @param options The new options to apply.
 	 * @param merge Whether to merge `options` with the existing ones (default: `true`).
 	 *
-	 * If `false`, all current settings are cleared ***except*** {@link MwbotOptions.apiUrl | apiUrl} before applying `options`.
-	 * This means that `apiUrl` must be overwritten with a new one using the `options` object. Since a `Mwbot` instance is initialized
-	 * with site-specific data, it is not recommended to change `apiUrl` after initialization. Instead, consider creating a new instance
-	 * with a different URL.
+	 * If `false`, all current settings are cleared before applying `options`, ***except*** for the required
+	 * {@link MwbotOptions.apiUrl | apiUrl} property. While `apiUrl` can be updated if provided in `options`,
+	 * doing so is discouraged since a `Mwbot` instance is initialized with site-specific data based on the URL.
+	 * Instead, consider creating a new instance with a different URL.
 	 *
 	 * @returns The current {@link Mwbot} instance.
 	 * @throws If the resulting options lack an `apiUrl` property.
@@ -346,7 +347,7 @@ export class Mwbot {
 			return null;
 		};
 
-		const retryIfPossible = async (index: number): Promise<typeof this | null> => {
+		const retryIfPossible = async (index: number): Promise<this | null> => {
 			if (index < 2) {
 				console.log('Retrying once again in 5 seconds...');
 				await sleep(5000);
@@ -360,7 +361,7 @@ export class Mwbot {
 		if (this.credentials.user) {
 			const {username, password} = this.credentials.user;
 			const login = await this.login(username, password).then((res) => res).catch((err) => err);
-			if (login.error) {
+			if (login instanceof MwbotError) {
 				console.error(login);
 				return initError();
 			}
@@ -373,18 +374,19 @@ export class Mwbot {
 			formatversion: '2',
 			meta: 'userinfo|siteinfo',
 			uiprop: 'rights',
-			siprop: 'general|namespaces|namespacealiases',
+			siprop: 'general|interwikimap|namespaces|namespacealiases',
 			maxlag: void 0
 		}).then((res) => res)
-		.catch((err) => {
-			console.error(err);
-			return err;
-		});
-		if (!res || !res.query || res.error) {
+		.catch((err) => err);
+		if (!res || !res.query) {
+			return initError();
+		} else if (res instanceof MwbotError) {
+			console.error(res);
 			return initError();
 		}
 
-		const {userinfo, general, namespaces, namespacealiases} = res.query;
+		// NOTE: interwikimap is built-in since MW v1.44, but was just an extension
+		const {userinfo, general, interwikimap = [], namespaces, namespacealiases} = res.query;
 		if (!userinfo || !general || !namespaces || !namespacealiases) {
 			console.error('Error: Failed to establish connection.');
 			return await retryIfPossible(attemptIndex);
@@ -405,10 +407,16 @@ export class Mwbot {
 		this._info = {
 			user: userinfo as SiteAndUserInfo['user'],
 			general,
+			interwikimap,
 			namespaces,
 			namespacealiases
 		};
-		this._Title = TitleFactory(this);
+		this._Title = TitleFactory(
+			// Pass individual properties instead of the instance to avoid redundant deep copies
+			// from getter functions, improving efficiency in the factory function
+			this.config,
+			this._info
+		);
 
 		console.log('Connection established: ' + this.config.get('wgServer'));
 		return this;
@@ -468,13 +476,13 @@ export class Mwbot {
 	 * `mwbot.config` functions similarly to
 	 * {@link https://www.mediawiki.org/wiki/ResourceLoader/Core_modules#mediaWiki.config | mw.config}
 	 * from MediaWiki core, *except*:
-	 * * `mwbot.config` does not return a Map-like object like `mw.config` does. Rather, it returns
+	 * * `mwbot.config` does not return a Map-like object like `mw.config` does. Instead, it returns
 	 * an object with the methods `get`, `set`, and `exists`.
-	 * * `mwbot.config.set` prevents built-in `wg`-variables from being overwritten. (See
-	 *   {@link ConfigData} for a list of such variables.)
+	 * * `mwbot.config.set` prevents built-in `wg`-variables from being overwritten. (See {@link ConfigData}
+	 * for a list of such variables.)
 	 *
 	 * ```typescript
-	 * get(selection?: string | string[], fallback? = null): Mixed;
+	 * get(selection?: string | string[], fallback = null): Mixed;
 	 * ```
 	 * * If `selection` is a string, returns the corresponding value.
 	 * * If `selection` is an array, returns an object mapping each key to its value.
@@ -1711,6 +1719,7 @@ export interface SiteAndUserInfo {
 		ApiResponseQueryMetaSiteinfoGeneral,
 		'articlepath' | 'lang' | 'legaltitlechars' | 'script' | 'scriptpath' | 'server' | 'servername' | 'sitename' | 'generator' | 'wikiid'
 	> & ApiResponseQueryMetaSiteinfoGeneral;
+	interwikimap: ApiResponseQueryMetaSiteinfoInterwikimap[];
 	namespaces: ApiResponseQueryMetaSiteinfoNamespaces;
 	namespacealiases: ApiResponseQueryMetaSiteinfoNamespacealiases[];
 }

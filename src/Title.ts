@@ -25,11 +25,10 @@ import * as mwString from './String';
 /**
  * @internal
  */
-export default function(mw: Mwbot) {
+export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 
 	// Private members
 
-	const config = mw.config;
 	const namespaceIds = config.get('wgNamespaceIds');
 	const wgFormattedNamespaces = config.get('wgFormattedNamespaces');
 	const NS_MAIN = namespaceIds[''];
