@@ -16,7 +16,7 @@ export function mergeDeep(...objects: any[]): any {
 			const aVal = acc[key];
 			let oVal = obj[key];
 			if (Array.isArray(oVal) && oVal.some(el => !isPrimitive(el))) {
-				oVal = mergeDeep(oVal);
+				oVal = oVal.map((oValObj) => mergeDeep(oValObj));
 			}
 			if (Array.isArray(aVal) && Array.isArray(oVal)) {
 				acc[key] = [...aVal, ...oVal]; // Merge arrays
