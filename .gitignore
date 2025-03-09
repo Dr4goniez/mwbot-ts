@@ -1,5 +1,5 @@
 # Test modules
-src/test.ts
+test
 
 # Folder for debugging
 logs

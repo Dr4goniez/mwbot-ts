@@ -4,8 +4,10 @@
   "description": "A simple yet flexible TypeScript framework for building MediaWiki bots in Node.js.",
   "main": "index.js",
   "scripts": {
-    "test": "ts-node src/test.ts",
-    "test-log": "node -e \"const date = new Date().toISOString().replace(/\\.\\d+Z$/, '').replace(/[-T:]/g, ''); require('child_process').execSync(`ts-node src/test.ts > logs/${date}.txt 2>&1`);\"",
+    "mwbot": "ts-node src/test/test_mwbot.ts",
+    "mwbot-log": "node -e \"const date = new Date().toISOString().replace(/\\.\\d+Z$/, '').replace(/[-T:]/g, ''); require('child_process').execSync(`ts-node src/test/test_mwbot.ts > logs/${date}.txt 2>&1`);\"",
+    "Title": "ts-node src/test/test_Title.ts",
+    "general": "ts-node src/test/test_general.ts",
     "build": "tsc -p .",
     "docs": "node -e \"require('fs-extra').emptyDir('docs');\" & npx typedoc --options typedoc.json"
   },
