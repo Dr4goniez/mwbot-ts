@@ -15,6 +15,8 @@
  * * {@link https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/2af1c3c901a6117fe062e1fd88c0146cffa1481d/resources/src/mediawiki.Title/Title.js | mediawiki.Title} (original source code)
  * * {@link https://doc.wikimedia.org/mediawiki-core/master/js/mw.Title.html | Documentation in MediaWiki core}
  *
+ * To incorporate interwiki functionality, some methods are adapted from {@link https://gerrit.wikimedia.org/g/mediawiki/core/+/92f2f6c4dcedb9ed4186d77923b8b89ae1b22efe/includes/title/Title.php | Title.php}.
+ *
  * @module
  */
 
@@ -43,8 +45,8 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 	 * Get the namespace id from a namespace name (either from the localized, canonical or alias
 	 * name).
 	 *
-	 * Example: On a German wiki this would return 6 for any of 'File', 'Datei', 'Image' or
-	 * even 'Bild'.
+	 * Example: On a German wiki this would return 6 for any of `File`, `Datei`, `Image` or
+	 * even `Bild`.
 	 *
 	 * @param ns Namespace name (case insensitive, leading/trailing space ignored)
 	 * @return Namespace id or false
@@ -56,8 +58,6 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		if (typeof ns !== 'string') {
 			return false;
 		}
-		// TODO: Should just use the local variable namespaceIds here, but it
-		// breaks test which modify the config
 		const id = namespaceIds[ns.toLowerCase()];
 		if (id === undefined) {
 			return false;
@@ -158,19 +158,108 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		}
 	];
 	/**
+	 * Check if an interwiki prefix is valid.
+	 *
+	 * *This function is exclusive to `mwbot-ts`.*
+	 *
+	 * @param prefix The interwiki prefix. The function internally lowercases it.
+	 * @returns
+	 */
+	const isValidInterwiki = (prefix: string): boolean => {
+		prefix = Title.lc(prefix);
+		return info.interwikimap.some((obj) => obj.prefix === prefix);
+	};
+	/**
+	 * An array of interwiki prefixes for the local project (e.g., `ja` for jawiki).
+	 *
+	 * *This variable is exclusive to `mwbot-ts`.*
+	 */
+	const localInterwikis = info.interwikimap.reduce((acc: string[], {prefix, localinterwiki}) => {
+		if (localinterwiki) {
+			acc.push(prefix);
+		}
+		return acc;
+	}, []);
+	/**
+	 * Get the subject namespace index for a given namespace.
+	 * Special namespaces (`NS_MEDIA`, `NS_SPECIAL`) are always the subject.
+	 *
+	 * *This function is exclusive to `mwbot-ts`.*
+	 *
+	 * @param index Namespace index
+	 * @return
+	 */
+	const getSubject = (index: number): number => {
+		if (index < NS_MAIN) {
+			return index;
+		}
+		return Title.isTalkNamespace(index)
+			? index - 1
+			: index;
+	};
+	/**
+	 * An attemped copy of `MainConfigNames::CapitalLinkOverrides`.
+	 *
+	 * *This variable is exclusive to `mwbot-ts`.*
+	 */
+	const CAPITAL_LINK_OVERRIDES: {[id: number]: boolean} = {};
+	/**
+	 * Array of the IDs of namespaces whose first letters are always capitalized.
+	 *
+	 * *This variable is exclusive to `mwbot-ts`.*
+	 */
+	const ALWAYS_CAPITALIZED_NAMESPACES = Object.values(info.namespaces).reduce((acc: number[], obj) => {
+		if (obj.case === 'first-letter') {
+			acc.push(obj.id);
+		} else { // "case-sensitive"
+			CAPITAL_LINK_OVERRIDES[obj.id] = false; // TODO: In theory this can be true
+		}
+		return acc;
+	}, []);
+	/**
+	 * Is the namespace first-letter capitalized?
+	 *
+	 * *This function is exclusive to `mwbot-ts`.*
+	 *
+	 * @param index Index to check
+	 * @return
+	 */
+	const isCapitalized = (index: number): boolean => {
+		// Turn NS_MEDIA into NS_FILE
+		index = index === NS_MEDIA ? NS_FILE : index;
+		// Make sure to get the subject of our namespace
+		index = getSubject(index);
+		// Some namespaces are special and should always be upper case
+		if (ALWAYS_CAPITALIZED_NAMESPACES.includes(index)) {
+			return true;
+		}
+		if (index in CAPITAL_LINK_OVERRIDES) {
+			// CapitalLinkOverrides is explicitly set
+			return CAPITAL_LINK_OVERRIDES[index];
+		}
+		// Default to the global setting
+		return info.general.case === 'first-letter';
+	};
+	interface ParsedTitle {
+		namespace: number;
+		title: string;
+		colon: Colon,
+		fragment: string | null;
+		interwiki: string;
+		local_interwiki: boolean;
+	}
+	type Colon = '' | ':';
+	/**
 	 * Internal helper for #constructor and #newFromText.
 	 *
-	 * Based on Title.php#secureAndSplit
+	 * Based on {@link https://gerrit.wikimedia.org/g/mediawiki/core/+/1103f2b18aaa14050cdd9602daf21569fb9a4636/includes/title/TitleParser.php#183 | TitleParser::splitTitleString }.
 	 *
-	 * @method parse
 	 * @param title
 	 * @param defaultNamespace
 	 * @return
 	 */
-	const parse = function(title: string, defaultNamespace = NS_MAIN)
-		: {namespace: number; title: string; fragment: string | null;} | false
-	{
-		let namespace = defaultNamespace === undefined ? NS_MAIN : defaultNamespace;
+	const parse = function(title: string, defaultNamespace = NS_MAIN): ParsedTitle | false {
+		let namespace = parseInt(<never>defaultNamespace) || NS_MAIN;
 		title = title
 			// Strip Unicode bidi override characters
 			.replace(rUnicodeBidi, '')
@@ -186,6 +275,7 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 			return false;
 		}
 		// Process initial colon
+		let colon: Colon = '';
 		if (title !== '' && title[0] === ':') {
 			// Initial colon means main namespace instead of specified default
 			namespace = NS_MAIN;
@@ -194,25 +284,103 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 				.slice(1)
 				// Trim underscores
 				.replace(rUnderscoreTrim, '');
+			colon = ':';
 		}
 		if (title === '') {
 			return false;
 		}
-		// Process namespace prefix (if any)
-		let m = title.match(rSplit);
-		if (m) {
-			const id = getNsIdByName(m[1]);
-			if (id !== false) {
-				// Ordinary namespace
-				namespace = id;
-				title = m[2];
-				// For Talk:X pages, make sure X has no "namespace" prefix
-				if (namespace === NS_TALK && (m = title.match(rSplit))) {
-					// Disallow titles like Talk:File:x (subject should roundtrip: talk:file:x -> file:x -> file_talk:x)
-					if (getNsIdByName(m[1]) !== false) {
-						return false;
+		// Process namespace or interwiki prefix (if any)
+		const parts = title.split(/_*:_*/);
+		let iw: string[] = [];
+		let local_interwiki = false;
+		if (parts.length > 1) {
+			let ns: number | null = null;
+			title = parts[parts.length - 1];
+			for (let i = parts.length - 2; i >= 0; i--) { // Start from the second last
+				const nsId = getNsIdByName(parts[i]);
+				const iwPrefix = isValidInterwiki(parts[i]) && Title.lc(parts[i]);
+				if (nsId !== false && iwPrefix !== false) {
+					// The prefix can be either a ns prefix or an iw prefix
+					if (ns !== null || iw.length) {
+						// If ns/iw prefix has previously been processed, that's an iw prefix
+						if (localInterwikis.includes(iwPrefix)) {
+							// Local interwiki should be erased
+							// e.g., on enwiki, "en:Main_page" is the same as "Main_page"
+							local_interwiki = true;
+						} else {
+							// Interwiki resets the default namespace because there's no guarantee that
+							// the interwiki project has a specific namespace
+							ns = NS_MAIN;
+							// e.g., in "w:en:Main_page" and if we're parsing "w", "Main_page" is the title,
+							// where `parts = ['w', 'en', 'Main_page']` and iw = ['en']
+							title = parts.slice(i + iw.length + 1).join(':');
+							// Register the valid interwiki
+							iw.unshift(iwPrefix);
+						}
+					} else {
+						// If no prefix has previously been processed, that's an ns prefix
+						ns = nsId;
 					}
+				} else if (nsId !== false) {
+					if (nsId === NS_MAIN) {
+						// Empty string was passed to getNsIdByName
+						// This occurs when the title has a "::" sequence
+						title = ':' + title;
+					} else if (ns === NS_TALK) {
+						// Found Talk: in a previous iteration
+						// Disallow titles like Talk:File:x
+						return false;
+					} else {
+						if (iw.length) {
+							// Disallow titles like Talk:Interwiki:x
+							if (nsId === NS_TALK) {
+								return false;
+							}
+							// Ns prefix precedes interwiki: that resets the ns-title division
+							// e.g., "Wikipedia:en:Foo" is "en:Foo" in the Wikipedia namespace
+							iw = [];
+							local_interwiki = false;
+							title = parts.slice(i + 1).join(':');
+						} else if (ns !== null) {
+							// Ns prefix was previously found: that resets the ns-title division
+							// e.g., "Category:Template:Foo" where "Template:Foo" is the new title
+							title = parts.slice(i + 1).join(':');
+						}
+						ns = nsId;
+					}
+				} else if (iwPrefix !== false) {
+					if (localInterwikis.includes(iwPrefix)) {
+						local_interwiki = true;
+					} else {
+						ns = NS_MAIN;
+						title = parts.slice(i + iw.length + 1).join(':');
+						iw.unshift(iwPrefix);
+					}
+				} else if (ns === null && !iw.length) {
+					// Just a title containing ":"
+					title = parts[i] + ':' + title;
 				}
+			}
+			namespace = ns !== null ? ns : NS_MAIN;
+		}
+		// Handle empty title
+		const interwiki = iw.join(':');
+		if (title === '') {
+			if (iw.length) {
+				// Empty iw-links should point to the Main Page
+				// e.g., "mw:" is redirected to "mw:Main page"
+				const ret: ParsedTitle = {
+					namespace: NS_MAIN,
+					title: 'Main page',
+					colon,
+					fragment: null,
+					interwiki,
+					local_interwiki: true
+				};
+				return ret;
+			} else {
+				// Namespace prefix only or entirely empty title; consistently invalid
+				return false;
 			}
 		}
 		// Process fragment
@@ -259,21 +427,34 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		// Except for special pages, e.g. [[Special:Block/Long name]]
 		// Note: The PHP implementation also asserts that even in NS_SPECIAL, the title should
 		// be less than 512 bytes.
-		if (namespace !== NS_SPECIAL && mwString.byteLength(title) > TITLE_MAX_BYTES ) {
+		if (namespace !== NS_SPECIAL && mwString.byteLength(title) > TITLE_MAX_BYTES) {
 			return false;
 		}
-		// Can't make a link to a namespace alone.
-		if (title === '' && namespace !== NS_MAIN) {
-			return false;
+		/*
+		TODO: Need a function to validate IPv6 addresses
+		// Allow IPv6 usernames to start with '::' by canonicalizing IPv6 titles.
+		// IP names are not allowed for accounts, and can only be referring to
+		// edits from the IP. Given '::' abbreviations and caps/lowercaps,
+		// there are numerous ways to present the same IP. Having sp:contribs scan
+		// them all is silly and having some show the edits and others not is
+		// inconsistent. Same for talk/userpages. Keep them normalized instead.
+		if ( $dbkey !== '' && ( $parts['namespace'] === NS_USER || $parts['namespace'] === NS_USER_TALK ) ) {
+			$dbkey = IPUtils::sanitizeIP( $dbkey );
+			// IPUtils::sanitizeIP return null only for bad input
+			'@phan-var string $dbkey';
 		}
+		*/
 		// Any remaining initial :s are illegal.
 		if (title[0] === ':') {
 			return false;
 		}
 		return {
-			namespace: namespace,
-			title: title,
-			fragment: fragment
+			namespace,
+			title,
+			colon,
+			fragment,
+			interwiki,
+			local_interwiki
 		};
 	};
 	/**
@@ -334,6 +515,7 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 	 * @param str
 	 * @return
 	 */
+	/* Disabled while Title.getUrl is disabled
 	const wikiUrlencode = function(str: string): string {
 		// https://gerrit.wikimedia.org/g/mediawiki/core/+/a0bb8b1f7e9d237026628906f7e61f1faee3af01/resources/src/mediawiki.base/mediawiki.base.js#282
 		return encodeURIComponent(String(str))
@@ -346,6 +528,7 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 			.replace(/%2F/g, '/')
 			.replace(/%3A/g, ':');
 	};
+	*/
 	/**
 	 * Matches lowercase characters (including Greek and others) that have
 	 * different capitalization behavior in PHP's strtoupper.
@@ -392,11 +575,16 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 	 * mwbot.Title.makeTitle(NS_TEMPLATE, 'Template:Foo').getPrefixedText();
 	 * // => 'Template:Template:Foo'
 	 * ```
+	 *
+	 * TODO: Document the difference from the native `mediawiki.Title`.
 	 */
 	class Title {
 		private namespace: number;
 		private title: string;
+		private colon: Colon;
 		private fragment: string | null;
+		private interwiki: string;
+		private local_interwiki: boolean;
 		/**
 		 * @param title Title of the page. If no second argument given,
 		 * this will be searched for a namespace
@@ -410,7 +598,10 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 			}
 			this.namespace = parsed.namespace;
 			this.title = parsed.title;
+			this.colon = parsed.colon;
 			this.fragment = parsed.fragment;
+			this.interwiki = parsed.interwiki;
+			this.local_interwiki = parsed.local_interwiki;
 		}
 		/* Original members */
 		/**
@@ -449,7 +640,10 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 			const t = Object.create(Title.prototype);
 			t.namespace = parsed.namespace;
 			t.title = parsed.title;
+			t.colon = parsed.colon;
 			t.fragment = parsed.fragment;
+			t.interwiki = parsed.interwiki;
+			t.local_interwiki = parsed.local_interwiki;
 			return t;
 		}
 		/**
@@ -461,29 +655,44 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		 * The single exception to this is when `namespace` is 0, indicating the main namespace. The
 		 * function behaves like {@link newFromText} in that case.
 		 *
-		 * @param namespace Namespace to use for the title
-		 * @param title
-		 * @return A valid Title object or null if the title is invalid
+		 * @param namespace Namespace to use for the title.
+		 * @param title The unprefixed title.
+		 * @param fragment The link fragment (after the "#").
+		 *
+		 * *This parameter is exclusive to `mwbot-ts`.*
+		 * @param interwiki The interwiki prefix.
+		 *
+		 * *This parameter is exclusive to `mwbot-ts`.*
+		 *
+		 * @return A valid Title object or `null` if the title is invalid.
 		 */
-		static makeTitle(namespace: number, title: string): Title | null {
+		static makeTitle(namespace: number, title: string, fragment = '', interwiki = ''): Title | null {
 			if (!isKnownNamespace(namespace)) {
 				return null;
 			} else {
-				return Title.newFromText(getNamespacePrefix(namespace) + title);
+				if (fragment && fragment[0] !== '#') {
+					fragment = '#' + fragment;
+				}
+				if (interwiki && !/:[^\S\r\n]*$/.test(interwiki)) {
+					interwiki += ':';
+				}
+				return Title.newFromText(interwiki + getNamespacePrefix(namespace) + title + fragment);
 			}
 		}
 		/**
 		 * Constructor for Title objects from user input altering that input to
 		 * produce a title that MediaWiki will accept as legal.
 		 *
-		 * @param title
+		 * @param title The title, optionally namespace-prefixed (NOTE: interwiki prefixes are disallowed).
 		 * @param defaultNamespace
 		 *  If given, will used as default namespace for the given title.
 		 * @param options additional options
-		 * @param {boolean} [options.forUploading=true]
-		 *  Makes sure that a file is uploadable under the title returned.
-		 *  There are pages in the file namespace under which file upload is impossible.
-		 *  Automatically assumed if the title is created in the Media namespace.
+		 * @param options.forUploading (Default: `true`)
+		 *
+		 * Makes sure that a file is uploadable under the title returned.
+		 * There are pages in the file namespace under which file upload is impossible.
+		 * Automatically assumed if the title is created in the Media namespace.
+		 *
 		 * @return A valid Title object or null if the input cannot be turned into a valid title
 		 */
 		static newFromUserInput(title: string, defaultNamespace = NS_MAIN, options = {forUploading : true}): Title | null {
@@ -730,9 +939,113 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 			return str.toLowerCase();
 		}
 		/**
+		 * Check if the input title text had a leading colon (e.g., `:Category:CSD`).
+		 *
+		 * *This method is exclusive to `mwbot-ts`.*
+		 *
+		 * @returns
+		 */
+		hadLeadingColon(): boolean {
+			return this.colon !== '';
+		}
+		/**
+		 * Check whether this Title has an interwiki component.
+		 *
+		 * Adapted from {@link https://gerrit.wikimedia.org/g/mediawiki/services/parsoid/+/40363fbb76a630a803c7bf385b45b9f46be417bf/src/Core/LinkTargetTrait.php#78 | LinkTargetTrait::isExernal }.
+		 *
+		 * *This method is exclusive to `mwbot-ts`.*
+		 *
+		 * @return
+		 */
+		isExternal(): boolean {
+			return this.interwiki !== '';
+		}
+		/**
+		 * Determine whether the object refers to a page within this project (either this wiki or a wiki with a local interwiki).
+		 * See https://www.mediawiki.org/wiki/Manual:Interwiki_table#iw_local for details.
+		 *
+		 * *This method is exclusive to `mwbot-ts`.*
+		 *
+		 * @return `true` if this is an in-project interwiki link or a wikilink, `false` otherwise.
+		 */
+		isLocal(): boolean {
+			if (this.isExternal()) {
+				const prefixes = this.interwiki.split(':');
+				const bools: boolean[] = [];
+				for (const prefix of prefixes) {
+					// Title::isLocal only involves the code in this "for" block.
+					// Additional codes are necessary because we look at an array instead of a string
+					// In theory, if one of the interwikis is local, that IS local. But since the Title is user-defined,
+					// we might encounter cases where local and non-local interwikis are mixed;
+					// hence ensure that all the interwikis are local.
+					const iw = info.interwikimap.find((obj) => obj.prefix === prefix);
+					if (iw) {
+						bools.push(!!iw.local);
+					}
+				}
+				if (bools.length === prefixes.length) {
+					return bools.every(Boolean);
+				}
+			}
+			return true;
+		}
+		/**
+		 * Get the interwiki prefix.
+		 *
+		 * Example: `mw:` for `mw:Main_page`.
+		 *
+		 * If an interwiki is set, interwiki prefix plus `:`, an empty string otherwise.
+		 * Use {@link isExternal} to check if an interwiki is set.
+		 *
+		 * *This method is exclusive to `mwbot-ts`.*
+		 *
+		 * @return string Interwiki prefix
+		 */
+		getInterwiki(): string {
+			return this.interwiki && this.interwiki + ':';
+		}
+		/**
+		 * Check if this Title had a local interwiki prefix (e.g., `en:Main_page` on enwiki).
+		 *
+		 * Such a prefix is erased on instance initialization (i.e., {@link getPrefixedDb} outputs `Main_page`).
+		 *
+		 * *This method is exclusive to `mwbot-ts`.*
+		 *
+		 * @return
+		 */
+		wasLocalInterwiki(): boolean {
+			return this.local_interwiki;
+		}
+		/**
+		 * Determine whether the interwiki Title refers to a page within this project and is transcludable.
+		 * If {@link isExernal} is `false`, this method always returns `false`.
+		 *
+		 * *This method is exclusive to `mwbot-ts`.*
+		 *
+		 * @return `true` if this is transcludable.
+		 */
+		isTrans(): boolean {
+			if (!this.isExternal()) {
+				return false;
+			}
+			const prefixes = this.interwiki.split(':');
+			const bools: boolean[] = [];
+			for (const prefix of prefixes) {
+				/** See also comments in {@link isLocal}. */
+				const iw = info.interwikimap.find((obj) => obj.prefix === prefix);
+				if (iw) {
+					bools.push(!!iw.trans);
+				}
+			}
+			if (bools.length === prefixes.length) {
+				return bools.every(Boolean);
+			}
+			return false;
+		}
+		/**
 		 * Get the namespace number.
 		 *
-		 * Example: 6 for "File:Example_image.svg".
+		 * Example: `6` for `File:Example_image.svg`.
 		 *
 		 * @return
 		 */
@@ -742,8 +1055,8 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		/**
 		 * Get the namespace prefix (in the content language).
 		 *
-		 * Example: "File:" for "File:Example_image.svg".
-		 * In `NS_MAIN` this is '', otherwise namespace name plus ':'
+		 * Example: `File:` for `File:Example_image.svg`.
+		 * In `NS_MAIN` this is an empty string, otherwise namespace name plus `:`.
 		 *
 		 * @return
 		 */
@@ -770,7 +1083,7 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		/**
 		 * Get the page name as if it is a file name, without extension or namespace prefix,
 		 * in the human-readable form with spaces instead of underscores. For example, the title
-		 * `File:Example_image.svg` will be returned as "Example image".
+		 * `File:Example_image.svg` will be returned as `Example image`.
 		 *
 		 * Note that this method will work for non-file titles but probably give nonsensical results.
 		 * A title like `User:Dr._J._Fail` will be returned as `Dr. J`! Use {@link getMainText} instead.
@@ -828,7 +1141,11 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		getMain(): string {
 			if (
 				config.get('wgCaseSensitiveNamespaces').indexOf(this.namespace) !== -1 ||
-				!this.title.length
+				!this.title.length ||
+				// Normally, all wiki links are forced to have an initial capital letter so [[foo]]
+				// and [[Foo]] point to the same place. Don't force it for interwikis, since the
+				// other site might be case-sensitive.
+				!(this.interwiki === '' && isCapitalized(this.namespace))
 			) {
 				return this.title;
 			}
@@ -851,40 +1168,65 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		 * Example: `File:Example_image.svg`.
 		 * Most useful for API calls, anything that must identify the "title".
 		 *
+		 * @param options Title output options.
+		 *
+		 * *This parameter is exclusive to `mwbot-ts`.*
+		 *
 		 * @return
 		 */
-		getPrefixedDb(): string {
-			return this.getNamespacePrefix() + this.getMain();
+		getPrefixedDb(options: TitleOutputOptions = {}): string {
+			if (!('interwiki' in options)) {
+				options.interwiki = true;
+			}
+			const colon = options.colon ? this.colon : '';
+			const interwiki = options.interwiki ? this.getInterwiki() : '';
+			let fragment = options.fragment ? this.getFragment() || '' : '';
+			fragment = fragment && '#' + fragment;
+			return colon + interwiki + this.getNamespacePrefix() + this.getMain() + fragment;
 		}
 		/**
 		 * Get the full page name, with all underscores replaced by spaces.
 		 *
 		 * Example: `File:Example image.svg` for `File:Example_image.svg`.
 		 *
+		 * @param options Title output options.
+		 *
+		 * *This parameter is exclusive to `mwbot-ts`.*
+		 *
 		 * @return
 		 */
-		getPrefixedText(): string {
-			return text(this.getPrefixedDb());
+		getPrefixedText(options: TitleOutputOptions = {}): string {
+			if (!('interwiki' in options)) {
+				options.interwiki = true;
+			}
+			const colon = options.colon ? this.colon : '';
+			const interwiki = options.interwiki ? this.getInterwiki() : '';
+			let fragment = options.fragment ? this.getFragment() || '' : '';
+			fragment = fragment && '#' + fragment;
+			// NOTE: Interwiki prefixes might contain obligatory underscores
+			return colon + interwiki + text(this.getNamespacePrefix() + this.getMain() + fragment);
 		}
 		/**
 		 * Get the page name relative to a namespace.
 		 *
 		 * Example:
 		 *
-		 * - "Foo:Bar" relative to the Foo namespace becomes "Bar".
-		 * - "Bar" relative to any non-main namespace becomes ":Bar".
-		 * - "Foo:Bar" relative to any namespace other than Foo stays "Foo:Bar".
+		 * - `Foo:Bar` relative to the Foo namespace becomes `Bar`.
+		 * - `Bar` relative to any non-main namespace becomes `:Bar`.
+		 * - `Foo:Bar` relative to any namespace other than Foo stays `Foo:Bar`.
 		 *
 		 * @param namespace The namespace to be relative to
-		 * @return
+		 * @return The page name relative to a namespace.
+		 *
+		 * NOTE: Interwiki prefixes (if any) are not included in the output.
 		 */
 		getRelativeText(namespace: number): string {
 			if (this.getNamespaceId() === namespace) {
 				return this.getMainText();
 			} else if (this.getNamespaceId() === NS_MAIN) {
-				return ':' + this.getPrefixedText();
+				return ':' + this.getPrefixedText({interwiki: false});
 			} else {
-				return this.getPrefixedText();
+				return this.getPrefixedText({interwiki: false});
 			}
 		}
 		/**
@@ -904,6 +1246,7 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		 * @param params A mapping of query parameter names to values, e.g. `{ action: 'edit' }`.
 		 * @return
 		 */
+		/* Disabled because this method can confuse the user regarding interwiki prefixes.
 		getUrl(params: string[][] | Record<string, string> | string | URLSearchParams = {}): string {
 			// This method is radically modified from the original because it internally calls mw.util.getUrl
 			// https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/2af1c3c901a6117fe062e1fd88c0146cffa1481d/resources/src/mediawiki.Title/Title.js#973
@@ -930,10 +1273,11 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 				return directory + fragment;
 			}
 		}
+		*/
 		/**
 		 * Check if the title is in a talk namespace.
 		 *
-		 * @return Whether the title is in a talk namespace
+		 * @return Whether the title is in a talk namespace.
 		 */
 		isTalkPage(): boolean {
 			return Title.isTalkNamespace(this.getNamespaceId());
@@ -941,24 +1285,35 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		/**
 		 * Get the title for the associated talk page.
 		 *
-		 * @return The title for the associated talk page, null if not available
+		 * @return The title for the associated talk page, `null` if not available.
+		 *
+		 * NOTE: If this Title is interwiki, always returns `null`, because interwiki titles
+		 * are always regarded as being in the Main namespace. This also means that the method
+		 * would always return the current instance as is.
 		 */
 		getTalkPage(): Title | null {
-			if (!this.canHaveTalkPage()) {
+			if (!this.canHaveTalkPage() || this.isExternal()) {
 				return null;
 			}
 			return this.isTalkPage() ?
 				this :
-				Title.makeTitle(this.getNamespaceId() + 1, this.getMainText());
+				Title.makeTitle(this.getNamespaceId() + 1, this.getMainText(), '', this.interwiki);
 		}
 		/**
 		 * Get the title for the subject page of a talk page.
 		 *
-		 * @return The title for the subject page of a talk page, null if not available
+		 * @return The title for the subject page of a talk page, `null` if not available.
+		 *
+		 * NOTE: If this Title is interwiki, always returns `null`, because interwiki titles
+		 * are always regarded as being in the Main namespace. This also means that the method
+		 * would always return the current instance as is.
 		 */
 		getSubjectPage(): Title | null {
+			if (this.isExternal()) {
+				return null;
+			}
 			return this.isTalkPage() ?
-				Title.makeTitle(this.getNamespaceId() - 1, this.getMainText()) :
+				Title.makeTitle(this.getNamespaceId() - 1, this.getMainText(), '', this.interwiki) :
 				this;
 		}
 		/**
@@ -981,6 +1336,10 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		}
 		/**
 		 * Alias of {@link getPrefixedDb}.
+		 *
+		 * This method accepts no ouput options, meaning that the ouput will include interwiki prefixes
+		 * but not the fragment and a leading colon (even if any). See also {@link TitleOutputOptions}.
+		 *
 		 * @return
 		 */
 		toString(): string {
@@ -988,6 +1347,10 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		}
 		/**
 		 * Alias of {@link getPrefixedText}.
+		 *
+		 * This method accepts no ouput options, meaning that the ouput will include interwiki prefixes
+		 * but not the fragment and a leading colon (even if any). See also {@link TitleOutputOptions}.
+		 *
 		 * @return
 		 */
 		toText(): string {
@@ -996,4 +1359,27 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 	}
 
 	return Title;
+}
+
+/**
+ * Options for {@link Mwbot.Title.getPrefixedDb | Title.getPrefixedDb} and
+ * {@link Mwbot.Title.getPrefixedText | Title.getPrefixedText}.
+ */
+export interface TitleOutputOptions {
+	/**
+	 * Whether to include interwiki prefixes in the output. (Default: `true`)
+	 */
+	interwiki?: boolean;
+	/**
+	 * Whether to include the fragment in the output. (Default: `false`)
+	 *
+	 * This option has no effect if {@link Mwbot.Title.getFragment | Title.getFragment} returns `null`.
+	 */
+	fragment?: boolean;
+	/**
+	 * Whether to include a leading colon in the output. (Default: `false`)
+	 *
+	 * This option has no effect if {@link Mwbot.Title.hadLeadingColon | Title.hadLeadingColon} returns `false`.
+	 */
+	colon?: boolean;
 }
