@@ -72,8 +72,8 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		return namespace === NS_MAIN || wgFormattedNamespaces[namespace] !== undefined;
 	};
 	/**
-	 * @param namespace that is valid and known. Callers should call
-	 *  `isKnownNamespace` before executing this method.
+	 * @param namespace that is valid and known. Callers should call {@link isKnownNamespace}
+	 * before executing this method.
 	 * @return
 	 */
 	const getNamespacePrefix = function(namespace: number): string {
@@ -243,8 +243,8 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 	interface ParsedTitle {
 		namespace: number;
 		title: string;
-		colon: Colon,
 		fragment: string | null;
+		colon: Colon,
 		interwiki: string;
 		local_interwiki: boolean;
 	}
@@ -372,8 +372,8 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 				const ret: ParsedTitle = {
 					namespace: NS_MAIN,
 					title: 'Main page',
-					colon,
 					fragment: null,
+					colon,
 					interwiki,
 					local_interwiki: true
 				};
@@ -451,8 +451,8 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		return {
 			namespace,
 			title,
-			colon,
 			fragment,
+			colon,
 			interwiki,
 			local_interwiki
 		};
@@ -544,14 +544,18 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 	 */
 	const rLowerPhpChars = new RegExp(`[${Object.keys(toLowerMap).join('')}]`);
 	/**
-	 * Parse titles into an object structure. Note that when using the constructor
-	 * directly, passing invalid titles will result in an exception.
-	 * Use {@link newFromText} to use the logic directly and get null for invalid titles
-	 * which is easier to work with.
+	 * Parses titles into an object structure. This class is attached to {@link Mwbot.Title}
+	 * as an instance member.
 	 *
-	 * Note that in the constructor and {@link newFromText} method, `namespace` is the
-	 * **default** namespace only, and can be overridden by a namespace prefix in `title`.
-	 * If you do not want this behavior, use {@link makeTitle}. Compare:
+	 * ### Native specs
+	 *
+	 * When using the constructor directly, passing invalid titles will result in an exception.
+	 * Use {@link newFromText} instead to safely handle invalid titles, returning `null` instead
+	 * of throwing an error.
+	 *
+	 * In both the constructor and {@link newFromText}, `namespace` acts only as the **default**
+	 * namespace and can be overridden by a namespace prefix in `title`. If you want to enforce
+	 * the provided namespace, use {@link makeTitle} instead. Compare:
 	 *
 	 * ```javascript
 	 * new mwbot.Title('Foo', NS_TEMPLATE).getPrefixedText();
@@ -567,43 +571,94 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 	 * // => 'Category:Foo'
 	 * mwbot.Title.makeTitle(NS_TEMPLATE, 'Category:Foo').getPrefixedText();
 	 * // => 'Template:Category:Foo'
-	 *
-	 * new mwbot.Title('Template:Foo', NS_TEMPLATE).getPrefixedText();
-	 * // => 'Template:Foo'
-	 * mwbot.Title.newFromText('Template:Foo', NS_TEMPLATE).getPrefixedText();
-	 * // => 'Template:Foo'
-	 * mwbot.Title.makeTitle(NS_TEMPLATE, 'Template:Foo').getPrefixedText();
-	 * // => 'Template:Template:Foo'
 	 * ```
 	 *
-	 * TODO: Document the difference from the native `mediawiki.Title`.
+	 * ### Mwbot enhancements
+	 *
+	 * In addition to the native `mediawiki.Title` features, `mwbot.Title` correctly parses
+	 * interwiki prefixes. Compare:
+	 *
+	 * - mediawiki.Title
+	 * ```js
+	 * new mw.Title('w:en:Main_page').getPrefixedDb();
+	 * // => 'W:en:Main_page'
+	 * // {namespace: 0, title: 'w:en:Main_page', fragment: null}
+	 * ```
+	 * - mwbot.Title
+	 * ```js
+	 * new mwbot.Title('w:en:Main_page').getPrefixedDb();
+	 * // => 'w:en:Main_page'
+	 * // {namespace: 0, title: 'Main_page', fragment: null, colon: '', interwiki: 'w:en', local_interwiki: false}
+	 * ```
+	 *
+	 * Here, `Main_page` is correctly extracted as the title in `mwbot.Title`. To check whether
+	 * a title contains an interwiki prefix, use {@link isExternal}, and to retrieve the interwiki
+	 * prefixes, use {@link getInterwiki}.
+	 *
+	 * **Interwiki Handling and Namespace Limitations**
+	 *
+	 * Titles with interwiki prefixes are always recognized as being in the default namespace,
+	 * since there is no guarantee that the interwiki target site has an equivalent namespace.
+	 * This also affects the casing of `title`, as the interwiki prefix is treated as part of
+	 * the title rather than a namespace. Example:
+	 *
+	 * ```js
+	 * const title = new mwbot.Title('mw:mediawiki:sidebar');
+	 * // {namespace: 0, title: 'mediawiki:sidebar', fragment: null, colon: '', interwiki: 'mw', local_interwiki: false}
+	 * title.getNamespaceId();
+	 * // => 0
+	 * title.getPrefixedDb({interwiki: true});
+	 * // => 'mw:mediawiki:sidebar'
+	 * ```
+	 *
+	 * The casing of the title depends on the input string. This ensures compatibility with
+	 * case-sensitive wikis — **do not assume** that `[[iw:foo]]` will be interpreted as `[[iw:Foo]]`
+	 * when dealing with interwiki titles. (This is how `TitleParser` in PHP works.)
+	 *
+	 * **Leading Colons**
+	 *
+	 * The handling of leading colons is improved in `mwbot.Title`. You can check if a title originally
+	 * had a leading colon using {@link hadLeadingColon}, and you can enforce its presence in the output
+	 * of {@link getPrefixedDb}. This makes it easier to differentiate e.g. pure links (`[[:cat]]`) and
+	 * category links (`[[cat]]`).
+	 *
+	 * ```js
+	 * const title = new mwbot.Title(':Category:CSD');
+	 * // {namespace: 14, title: 'CSD', fragment: null, colon: ':', interwiki: '', local_interwiki: false}
+	 * title.hadLeadingColon();
+	 * // => true
+	 * title.getPrefixedDb({colon: true});
+	 * // => ':Category:CSD'
+	 * ```
 	 */
 	class Title {
 		private namespace: number;
 		private title: string;
-		private colon: Colon;
 		private fragment: string | null;
+		private colon: Colon;
 		private interwiki: string;
 		private local_interwiki: boolean;
 		/**
-		 * @param title Title of the page. If no second argument given,
-		 * this will be searched for a namespace
-		 * @param namespace If given, will used as default namespace for the given title
-		 * @throws {Error} When the title is invalid
+		 * Creates a new Title instance.
+		 *
+		 * @param title The title of the page. If no `namespace` is provided, this will be analyzed
+		 * to determine if it includes a namespace prefix.
+		 * @param namespace The default namespace to use for the given title. (Default: `NS_MAIN`)
+		 * @throws {Error} If the provided title is invalid.
 		 */
 		constructor(title: string, namespace = NS_MAIN) {
 			const parsed = parse(title, namespace);
 			if (!parsed) {
-				throw new Error('Unable to parse title');
+				throw new Error('Unable to parse title.');
 			}
 			this.namespace = parsed.namespace;
 			this.title = parsed.title;
-			this.colon = parsed.colon;
 			this.fragment = parsed.fragment;
+			this.colon = parsed.colon;
 			this.interwiki = parsed.interwiki;
 			this.local_interwiki = parsed.local_interwiki;
 		}
-		/* Original members */
+		/* Static members */
 		/**
 		 * Remove unicode bidirectional characters and trim a string.
 		 *
@@ -620,17 +675,16 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 			str = str.replace(rUnicodeBidi, '');
 			return trim ? str.trim() : str;
 		}
-		/* Static members */
 		/**
 		 * Constructor for Title objects with a null return instead of an exception for invalid titles.
 		 *
 		 * Note that `namespace` is the **default** namespace only, and can be overridden by a namespace
-		 * prefix in `title`. If you do not want this behavior, use #makeTitle. See #constructor for
-		 * details.
+		 * prefix in `title`. If you do not want this behavior, use {@link makeTitle}. See
+		 * {@link Title | the class desciprtion} for details.
 		 *
 		 * @param title
-		 * @param namespace Default namespace
-		 * @return A valid Title object or null if the title is invalid
+		 * @param namespace Default namespace. (Default: `NS_MAIN`)
+		 * @return A valid Title object or `null` if the title is invalid.
 		 */
 		static newFromText(title: string, namespace = NS_MAIN): Title | null {
 			const parsed = parse(title, namespace);
@@ -640,8 +694,8 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 			const t = Object.create(Title.prototype);
 			t.namespace = parsed.namespace;
 			t.title = parsed.title;
-			t.colon = parsed.colon;
 			t.fragment = parsed.fragment;
+			t.colon = parsed.colon;
 			t.interwiki = parsed.interwiki;
 			t.local_interwiki = parsed.local_interwiki;
 			return t;
@@ -649,11 +703,12 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		/**
 		 * Constructor for Title objects with predefined namespace.
 		 *
-		 * Unlike {@link newFromText} or the constructor, this function doesn't allow the given `namespace` to be
-		 * overridden by a namespace prefix in `title`. See the constructor documentation for details about this behavior.
+		 * Unlike {@link newFromText} or the constructor, this method doesn't allow the given `namespace`
+		 * to be overridden by a namespace prefix in `title`. See {@link Title | the class desciprtion}
+		 * for details about this behavior.
 		 *
-		 * The single exception to this is when `namespace` is 0, indicating the main namespace. The
-		 * function behaves like {@link newFromText} in that case.
+		 * The single exception to this is when `namespace` is `0`, indicating the main namespace.
+		 * The function behaves like {@link newFromText} in that case.
 		 *
 		 * @param namespace Namespace to use for the title.
 		 * @param title The unprefixed title.
@@ -680,20 +735,19 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 			}
 		}
 		/**
-		 * Constructor for Title objects from user input altering that input to
-		 * produce a title that MediaWiki will accept as legal.
+		 * Constructor for Title objects from user input altering that input to produce a title that
+		 * MediaWiki will accept as legal.
 		 *
 		 * @param title The title, optionally namespace-prefixed (NOTE: interwiki prefixes are disallowed).
-		 * @param defaultNamespace
-		 *  If given, will used as default namespace for the given title.
-		 * @param options additional options
+		 * @param defaultNamespace If given, used as default namespace for the given title.
+		 * @param options Additional options.
 		 * @param options.forUploading (Default: `true`)
 		 *
 		 * Makes sure that a file is uploadable under the title returned.
 		 * There are pages in the file namespace under which file upload is impossible.
 		 * Automatically assumed if the title is created in the Media namespace.
 		 *
-		 * @return A valid Title object or null if the input cannot be turned into a valid title
+		 * @return A valid Title object or `null` if the input cannot be turned into a valid title.
 		 */
 		static newFromUserInput(title: string, defaultNamespace = NS_MAIN, options = {forUploading : true}): Title | null {
 			let namespace = parseInt(<never>defaultNamespace) || NS_MAIN;
@@ -753,62 +807,56 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		/**
 		 * Sanitizes a file name as supplied by the user, originating in the user's file system
 		 * so it is most likely a valid MediaWiki title and file name after processing.
-		 * Returns null on fatal errors.
 		 *
-		 * @param uncleanName The unclean file name including file extension but
-		 * without namespace
-		 * @return A valid Title object or null if the title is invalid
+		 * @param uncleanName The unclean file name including file extension but without namespace.
+		 * @return A valid Title object or `null` if the title is invalid.
 		 */
 		static newFromFileName(uncleanName: string): Title | null {
 			return Title.newFromUserInput('File:' + uncleanName);
 		}
-		// /**
-		//  * Get the file title from an image element.
-		//  *
-		//  * @example
-		//  * const title = Title.newFromImg(imageNode);
-		//  *
-		//  * @name Title.newFromImg
-		//  * @method
-		//  * @param {HTMLElement|jQuery} img The image to use as a base
-		//  * @return {Title|null} The file title or null if unsuccessful
-		//  */
-		// Title.newFromImg = function(img) {
-		// 	const src = img.jquery ? img[0].src : img.src,
-		// 		data = mw.util.parseImageUrl(src);
-		// 	return data ? Title.newFromText('File:' + data.name) : null;
-		// };
+		/**
+		 * Get the file title from an image element.
+		 *
+		 * @example
+		 * const title = Title.newFromImg(imageNode);
+		 *
+		 * @param {HTMLElement|jQuery} img The image to use as a base
+		 * @return {Title|null} The file title or null if unsuccessful
+		 */
+		/*
+		Title.newFromImg = function(img) {
+			const src = img.jquery ? img[0].src : img.src,
+				data = mw.util.parseImageUrl(src);
+			return data ? Title.newFromText('File:' + data.name) : null;
+		};
+		*/
 		/**
 		 * Check if a given namespace is a talk namespace.
 		 *
-		 * See NamespaceInfo::isTalk in PHP
-		 *
-		 * @param namespaceId Namespace ID
-		 * @return Namespace is a talk namespace
+		 * @param namespaceId Namespace ID.
+		 * @return Boolean indicating whether the namespace is a talk namespace.
 		 */
 		static isTalkNamespace(namespaceId: number): boolean {
 			return namespaceId > NS_MAIN && namespaceId % 2 === 1;
 		}
-		// /**
-		//  * Check if signature buttons should be shown in a given namespace.
-		//  *
-		//  * See NamespaceInfo::wantSignatures in PHP
-		//  *
-		//  * @name Title.wantSignaturesNamespace
-		//  * @method
-		//  * @param {number} namespaceId Namespace ID
-		//  * @return {boolean} Namespace is a signature namespace
-		//  */
-		// Title.wantSignaturesNamespace = function(namespaceId) {
-		// 	return Title.isTalkNamespace(namespaceId) ||
-		// 		config.get('wgExtraSignatureNamespaces').indexOf(namespaceId) !== -1;
-		// };
 		/**
-		 * Whether this title exists on the wiki.
+		 * Check if signature buttons should be shown in a given namespace.
 		 *
-		 * @param title prefixed db-key name (string) or instance of Title
-		 * @return Boolean if the information is available, otherwise null
-		 * @throws {Error} If title is not a string or Title
+		 * @param {number} namespaceId Namespace ID
+		 * @return {boolean} Namespace is a signature namespace
+		 */
+		/*
+		Title.wantSignaturesNamespace = function(namespaceId) {
+			return Title.isTalkNamespace(namespaceId) ||
+				config.get('wgExtraSignatureNamespaces').indexOf(namespaceId) !== -1;
+		};
+		*/
+		/**
+		 * Check whether this title exists on the wiki.
+		 *
+		 * @param title Prefixed DB title (string) or instance of Title.
+		 * @return Boolean if the information is available, otherwise `null`.
+		 * @throws {Error} If title is not a string or Title.
 		 */
 		static exists(title: string | Title): boolean | null {
 			const obj = Title.exist.pages;
@@ -842,8 +890,8 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 			 * ```
 			 * Title.exist.set(['File:Foo_bar.jpg', ...], false);
 			 * ```
-			 * @param titles Title(s) in strict prefixedDb title form
-			 * @param state State of the given titles
+			 * @param titles Title(s) in strict prefixedDb title form.
+			 * @param state State of the given titles.
 			 * @returns
 			 */
 			set: (titles: string | string[], state?: boolean) => boolean;
@@ -862,10 +910,9 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		/**
 		 * Normalize a file extension to the common form, making it lowercase and checking some synonyms,
 		 * and ensure it's clean. Extensions with non-alphanumeric characters will be discarded.
-		 * Keep in sync with File::normalizeExtension() in PHP.
 		 *
-		 * @param extension File extension (without the leading dot)
-		 * @return File extension in canonical form
+		 * @param extension File extension (without the leading dot).
+		 * @return File extension in canonical form.
 		 */
 		static normalizeExtension(extension: string): string {
 			const lower = extension.toLowerCase();
@@ -885,9 +932,12 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 			}
 		}
 		/**
-		 * PHP's strtoupper differs from String.toUpperCase in a number of cases (T147646).
+		 * Capitalizes a character as in PHP.
 		 *
-		 * @param chr Unicode character
+		 * This method handles the difference between PHP's `strtoupper` and JS's `String.toUpperCase`
+		 * (see {@link https://phabricator.wikimedia.org/T147646 | phab:T147646}).
+		 *
+		 * @param chr Unicode character.
 		 * @return Unicode character, in upper case, according to the same rules as in PHP.
 		 */
 		static phpCharToUpper(chr: string): string {
@@ -900,11 +950,14 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 			return mapped as string || chr.toUpperCase();
 		}
 		/**
-		 * PHP's strtolower differs from String.toLowerCase in a number of cases (T147646).
+		 * De-capitalizes a character as in PHP.
+		 *
+		 * This method handles the difference between PHP's `strtolower` and JS's `String.toLowerCase`
+		 * (see {@link https://phabricator.wikimedia.org/T147646 | phab:T147646}).
 		 *
 		 * *This method is exclusive to `mwbot-ts`.*
 		 *
-		 * @param chr Unicode character
+		 * @param chr Unicode character.
 		 * @return Unicode character, in lower case, according to the same rules as in PHP.
 		 */
 		static phpCharToLower(chr: string): string {
@@ -951,7 +1004,7 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		/**
 		 * Check whether this Title has an interwiki component.
 		 *
-		 * Adapted from {@link https://gerrit.wikimedia.org/g/mediawiki/services/parsoid/+/40363fbb76a630a803c7bf385b45b9f46be417bf/src/Core/LinkTargetTrait.php#78 | LinkTargetTrait::isExernal }.
+		 * Adapted from {@link https://gerrit.wikimedia.org/g/mediawiki/services/parsoid/+/40363fbb76a630a803c7bf385b45b9f46be417bf/src/Core/LinkTargetTrait.php#78 | LinkTargetTrait::isExternal}.
 		 *
 		 * *This method is exclusive to `mwbot-ts`.*
 		 *
@@ -961,7 +1014,8 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 			return this.interwiki !== '';
 		}
 		/**
-		 * Determine whether the object refers to a page within this project (either this wiki or a wiki with a local interwiki).
+		 * Determine whether the object refers to a page within this project (either this wiki or
+		 * a wiki with a local interwiki).
 		 * See https://www.mediawiki.org/wiki/Manual:Interwiki_table#iw_local for details.
 		 *
 		 * *This method is exclusive to `mwbot-ts`.*
@@ -999,7 +1053,7 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		 *
 		 * *This method is exclusive to `mwbot-ts`.*
 		 *
-		 * @return string Interwiki prefix
+		 * @return Interwiki prefix(es).
 		 */
 		getInterwiki(): string {
 			return this.interwiki && this.interwiki + ':';
@@ -1018,7 +1072,7 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		}
 		/**
 		 * Determine whether the interwiki Title refers to a page within this project and is transcludable.
-		 * If {@link isExernal} is `false`, this method always returns `false`.
+		 * If {@link isExternal} is `false`, this method always returns `false`.
 		 *
 		 * *This method is exclusive to `mwbot-ts`.*
 		 *
@@ -1093,36 +1147,40 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		getFileNameTextWithoutExtension(): string {
 			return text(this.getFileNameWithoutExtension());
 		}
-		// /**
-		//  * Get the page name as if it is a file name, without extension or namespace prefix. Warning,
-		//  * this is usually not what you want! A title like `User:Dr._J._Fail` will be returned as
-		//  * `Dr. J`! Use {@link getMain} or {@link getMainText} for the actual page name.
-		//  *
-		//  * @return File name without file extension, in the canonical form with underscores
-		//  *  instead of spaces. For example, the title `File:Example_image.svg` will be returned as
-		//  *  `Example_image`.
-		//  *  @deprecated since 1.40, use {@link getFileNameWithoutExtension} instead
-		//  */
-		// getName(): string {
-		// 	return this.getFileNameWithoutExtension();
-		// }
-		// /**
-		//  * Get the page name as if it is a file name, without extension or namespace prefix. Warning,
-		//  * this is usually not what you want! A title like `User:Dr._J._Fail` will be returned as
-		//  * `Dr. J`! Use {@link getMainText} for the actual page name.
-		//  *
-		//  * @return File name without file extension, formatted with spaces instead of
-		//  *  underscores. For example, the title `File:Example_image.svg` will be returned as
-		//  *  `Example image`.
-		//  *  @deprecated since 1.40, use {@link getFileNameTextWithoutExtension} instead
-		//  */
-		// getNameText(): string {
-		// 	return text(this.getFileNameTextWithoutExtension());
-		// }
+		/**
+		 * Get the page name as if it is a file name, without extension or namespace prefix. Warning,
+		 * this is usually not what you want! A title like `User:Dr._J._Fail` will be returned as
+		 * `Dr. J`! Use {@link getMain} or {@link getMainText} for the actual page name.
+		 *
+		 * @return File name without file extension, in the canonical form with underscores
+		 * instead of spaces. For example, the title `File:Example_image.svg` will be returned as
+		 * `Example_image`.
+		 * @deprecated since 1.40, use {@link getFileNameWithoutExtension} instead
+		 */
+		/*
+		getName(): string {
+			return this.getFileNameWithoutExtension();
+		}
+		*/
+		/**
+		 * Get the page name as if it is a file name, without extension or namespace prefix. Warning,
+		 * this is usually not what you want! A title like `User:Dr._J._Fail` will be returned as
+		 * `Dr. J`! Use {@link getMainText} for the actual page name.
+		 *
+		 * @return File name without file extension, formatted with spaces instead of
+		 * underscores. For example, the title `File:Example_image.svg` will be returned as
+		 * `Example image`.
+		 * @deprecated since 1.40, use {@link getFileNameTextWithoutExtension} instead
+		 */
+		/*
+		getNameText(): string {
+			return text(this.getFileNameTextWithoutExtension());
+		}
+		*/
 		/**
 		 * Get the extension of the page name (if any).
 		 *
-		 * @return Name extension or null if there is none
+		 * @return Name extension or `null` if there is none.
 		 */
 		getExtension(): string | null {
 			const lastDot = this.title.lastIndexOf('.');
@@ -1153,7 +1211,7 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 			return Title.phpCharToUpper(firstChar) + this.title.slice(firstChar.length);
 		}
 		/**
-		 * Get the main page name (transformed by text()).
+		 * Get the main page name (with spaces instead of underscores).
 		 *
 		 * Example: `Example image.svg` for `File:Example_image.svg`.
 		 *
@@ -1215,7 +1273,7 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		 * - `Bar` relative to any non-main namespace becomes `:Bar`.
 		 * - `Foo:Bar` relative to any namespace other than Foo stays `Foo:Bar`.
 		 *
-		 * @param namespace The namespace to be relative to
+		 * @param namespace The namespace to be relative to.
 		 * @return The page name relative to a namespace.
 		 *
 		 * NOTE: Interwiki prefixes (if any) are not included in the output.
@@ -1233,7 +1291,7 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		 * Get the fragment (if any).
 		 *
 		 * Note that this method (by design) does not include the hash character and
-		 * the value is not url encoded.
+		 * the value is *not* URL-encoded.
 		 *
 		 * @return
 		 */
@@ -1287,9 +1345,9 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		 *
 		 * @return The title for the associated talk page, `null` if not available.
 		 *
-		 * NOTE: If this Title is interwiki, always returns `null`, because interwiki titles
-		 * are always regarded as being in the Main namespace. This also means that the method
-		 * would always return the current instance as is.
+		 * NOTE: If this Title is interwiki, this method always returns `null` because
+		 * interwiki titles are always treated as being in the default namespace. Without
+		 * this restriction, the method would simply return the current instance unchanged.
 		 */
 		getTalkPage(): Title | null {
 			if (!this.canHaveTalkPage() || this.isExternal()) {
@@ -1304,9 +1362,9 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		 *
 		 * @return The title for the subject page of a talk page, `null` if not available.
 		 *
-		 * NOTE: If this Title is interwiki, always returns `null`, because interwiki titles
-		 * are always regarded as being in the Main namespace. This also means that the method
-		 * would always return the current instance as is.
+		 * NOTE: If this Title is interwiki, this method always returns `null` because
+		 * interwiki titles are always treated as being in the default namespace. Without
+		 * this restriction, the method would simply return the current instance unchanged.
 		 */
 		getSubjectPage(): Title | null {
 			if (this.isExternal()) {
@@ -1317,19 +1375,19 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 				this;
 		}
 		/**
-		 * Check the title can have an associated talk page.
+		 * Check if the title can have an associated talk page.
 		 *
-		 * @return The title can have an associated talk page
+		 * @return
 		 */
 		canHaveTalkPage(): boolean {
 			return this.getNamespaceId() >= NS_MAIN;
 		}
 		/**
-		 * Whether this title exists on the wiki.
+		 * Check whether this title exists on the wiki.
 		 *
 		 * This is an instance method that does the same as the static method {@link Title.exists}.
 		 *
-		 * @return Boolean if the information is available, otherwise null
+		 * @return Boolean if the information is available, otherwise `null`.
 		 */
 		exists(): boolean | null {
 			return Title.exists(this);
@@ -1337,8 +1395,9 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		/**
 		 * Alias of {@link getPrefixedDb}.
 		 *
-		 * This method accepts no ouput options, meaning that the ouput will include interwiki prefixes
-		 * but not the fragment and a leading colon (even if any). See also {@link TitleOutputOptions}.
+		 * This method does not accept output options, meaning the output will always include
+		 * interwiki prefixes but will exclude the fragment and leading colon, if present.
+		 * See {@link TitleOutputOptions} for details.
 		 *
 		 * @return
 		 */
@@ -1348,13 +1407,34 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 		/**
 		 * Alias of {@link getPrefixedText}.
 		 *
-		 * This method accepts no ouput options, meaning that the ouput will include interwiki prefixes
-		 * but not the fragment and a leading colon (even if any). See also {@link TitleOutputOptions}.
+		 * This method does not accept output options, meaning the output will always include
+		 * interwiki prefixes but will exclude the fragment and leading colon, if present.
+		 * See {@link TitleOutputOptions} for details.
 		 *
 		 * @return
 		 */
 		toText(): string {
 			return this.getPrefixedText();
+		}
+		/**
+		 * Checks if this Title is equal to a given title.
+		 *
+		 * *This method is exclusive to `mwbot-ts`.*
+		 *
+		 * @param title The title to compare against.
+		 * @param evalFragment Whether to include the fragment in the comparison. (Default: `false`)
+		 * @returns `true` if the titles are equal, `false` otherwise, or `null` if `title` is invalid.
+		 */
+		equals(title: string | Title, evalFragment = false): boolean | null {
+			if (!(title instanceof Title)) {
+				const t = Title.newFromText(String(title));
+				if (t === null) {
+					return null;
+				}
+				title = t;
+			}
+			const options: TitleOutputOptions = {fragment: evalFragment};
+			return this.getPrefixedDb(options) === title.getPrefixedDb(options);
 		}
 	}
 
