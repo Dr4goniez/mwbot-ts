@@ -62,18 +62,20 @@ export class MwbotError extends Error {
 		}
 
 		// Set up instance properties
-		const {code, info} = config; // Recognized as MwbotErrorConfig
+		let code = config.code;
+		const info = config.info;
 		if (!code || !info) {
 			throw new MwbotError({
 				code: 'mwbot_fatal_invalidinput',
 				info: 'An invalid object has been passed to MwbotError.constructor.'
 			});
 		}
+		code = (/^mwbot_/.test(code) ? '' : 'mwbot_api_') + code;
 		super(`${code}: ${info}`);
-		this.name = 'MwbotError';
-		this.code = (/^mwbot_/.test(code) ? '' : 'mwbot_api_') + code;
-		this.info = info;
 		Object.assign(this, config);
+		this.name = 'MwbotError';
+		this.code = code;
+		this.info = info;
 
 		if (Error.captureStackTrace) {
 			Error.captureStackTrace(this, MwbotError);
