@@ -190,7 +190,6 @@ export class Mwbot {
 		this.lastRequestTime = null;
 		this._info = Object.create(null);
 		this._Title = Object.create(null);
-
 	}
 
 	/**
@@ -332,7 +331,8 @@ export class Mwbot {
 	 * Initialize the `Mwbot` instance to make all functionalities ready.
 	 *
 	 * @returns A `Promise` that resolves to a {@link Mwbot} instance if successful, or `null` if initialization fails.
-	 * This method never rejects.
+	 *
+	 * *This method never rejects.*
 	 */
 	init(): Promise<this | null> {
 		return this._init(1);
@@ -418,7 +418,7 @@ export class Mwbot {
 			this._info
 		);
 
-		console.log('Connection established: ' + this.config.get('wgServer'));
+		console.log('Connection established: ' + this.config.get('wgServerName'));
 		return this;
 
 	}
@@ -489,6 +489,7 @@ export class Mwbot {
 	 * * If no `selection` is provided, returns a new object containing all key-value pairs.
 	 * * If a key does not exist, `fallback` is returned. This also applies when `selection`
 	 * is an array: missing keys will be mapped to `fallback` in the returned object.
+	 * * An explicit `undefined` for `fallback` results in `null` (unlike the native `mw.config`).
 	 *
 	 * ```typescript
 	 * set(selection?: string | object, value?: any): boolean;
@@ -511,7 +512,7 @@ export class Mwbot {
 		return {
 			get: function<K extends keyof ConfigData, TD>(configName?: string | string[], fallback?: TD) {
 				const data = mergeDeep(_this.configData) as ConfigData; // Deep copy
-				if (this.get.length === 0) {
+				if (!configName) {
 					return data;
 				} else if (Array.isArray(configName)) {
 					const ret = Object.create(null);
@@ -519,14 +520,14 @@ export class Mwbot {
 						if (key in data) {
 							ret[key] = data[key as K];
 						} else {
-							ret[key] = this.get.length < 2 ? null : <TD>fallback;
+							ret[key] = fallback === undefined ? null : <TD>fallback;
 						}
 					}
 					return ret;
-				} else if (configName! in data) {
+				} else if (String(configName) in data) {
 					return data[configName as K];
 				} else {
-					return this.get.length < 2 ? null : <TD>fallback;
+					return fallback === undefined ? null : <TD>fallback;
 				}
 			},
 			set: <K extends keyof ConfigData, U extends Partial<ConfigData> & Record<string, TX>, TX>(selection: K | string | U, value?: TX) => {
