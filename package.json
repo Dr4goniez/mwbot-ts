@@ -5,9 +5,11 @@
   "main": "index.js",
   "scripts": {
     "mwbot": "ts-node src/test/test_mwbot.ts",
-    "mwbot-log": "node -e \"const date = new Date().toISOString().replace(/\\.\\d+Z$/, '').replace(/[-T:]/g, ''); require('child_process').execSync(`ts-node src/test/test_mwbot.ts > logs/${date}.txt 2>&1`);\"",
+    "mwbot-log": "node -e \"const date = new Date().toISOString().replace(/\\.\\d+Z$/, '').replace(/[-T:]/g, ''); require('child_process').execSync(`ts-node src/test/test_mwbot.ts > logs/${date}_mwbot.txt 2>&1`);\"",
     "Title": "ts-node src/test/test_Title.ts",
     "general": "ts-node src/test/test_general.ts",
+    "Wikitext": "ts-node src/test/test_Wikitext.ts",
+    "Wikitext-log": "node -e \"const date = new Date().toISOString().replace(/\\.\\d+Z$/, '').replace(/[-T:]/g, ''); require('child_process').execSync(`ts-node src/test/test_Wikitext.ts > logs/${date}_Wikitext.txt 2>&1`);\"",
     "build": "tsc -p .",
     "docs": "node -e \"require('fs-extra').emptyDir('docs');\" & npx typedoc --options typedoc.json"
   },

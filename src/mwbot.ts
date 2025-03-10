@@ -45,6 +45,7 @@ import { mergeDeep, isPlainObject, sleep, isEmptyObject } from './util';
 import { ErrorBase, MwbotError } from './error';
 import * as mwString from './String';
 import TitleFactory from './Title';
+import WikitextFactory from './Wikitext';
 
 /**
  * TODO: Add a doc comment here
@@ -147,6 +148,17 @@ export class Mwbot {
 		this.checkInit();
 		return this._Title;
 	}
+	/**
+	 * Wikitext class for this instance.
+	 */
+	protected _Wikitext: ReturnType<typeof WikitextFactory>;
+	/**
+	 * Wikitext class for this instance.
+	 */
+	get Wikitext() {
+		this.checkInit();
+		return this._Wikitext;
+	}
 
 	// ****************************** CONSTRUCTOR-RELATED METHODS ******************************
 
@@ -190,6 +202,8 @@ export class Mwbot {
 		this.lastRequestTime = null;
 		this._info = Object.create(null);
 		this._Title = Object.create(null);
+		this._Wikitext = Object.create(null);
+
 	}
 
 	/**
@@ -417,6 +431,7 @@ export class Mwbot {
 			this.config,
 			this._info
 		);
+		this._Wikitext = WikitextFactory(this);
 
 		console.log('Connection established: ' + this.config.get('wgServerName'));
 		return this;

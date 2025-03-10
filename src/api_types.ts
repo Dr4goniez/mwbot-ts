@@ -664,6 +664,11 @@ export interface ApiResponseQuery {
 			missing: boolean;
 		};
 	};
+	/** Returned when the `titles` parameter value includes titles with interwiki prefixes. */
+	interwiki?: {
+		title: string;
+		iw: string;
+	}[];
 	normalized?: ApiResponseNormalized[];
 	pages?: ApiResponseQueryPages[];
 	pageids?: string[]; // TODO: Don't remember where this came from
@@ -801,7 +806,6 @@ export interface ApiResponseQueryPages {
 
 	// prop-dependent
 	// TODO: Tidy this up
-	revisions?: ApiResponseQueryPagesPropRevisions[];
 	contentmodel?: string;
 	pagelanguage?: string;
 	pagelanguagehtmlcode?: string;
@@ -828,6 +832,9 @@ export interface ApiResponseQueryPages {
 		[key: string]: string;
 	};
 	linkclasses?: string[];
+
+	/** prop=revisions */
+	revisions?: ApiResponseQueryPagesPropRevisions[];
 
 }
 
