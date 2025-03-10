@@ -85,7 +85,14 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 	const rSplit = /^(.+?)_*:_*(.*)$/;
 	// See MediaWikiTitleCodec.php#getTitleInvalidRegex
 	const rInvalid = new RegExp(
-		'[^' + config.get('wgLegalTitleChars') + ']' +
+		/**
+		 * `legaltitlechars` are representations of UTF-8 bytes (as used in PHP)...
+		 * It's so damn ridiculous that the data from <strong>JSON</strong> don't work for JS.
+		 * See https://phabricator.wikimedia.org/T253310.
+		 */
+		// '[^' + config.get('wgLegalTitleChars') + ']' +
+
+		'[^' + ' %!"$&\'()*,\\-./0-9:;=?@A-Z\\\\\\^_`a-z~+\\u0080-\\uFFFF' + ']' +
 		// URL percent encoding sequences interfere with the ability
 		// to round-trip titles -- you can't link to them consistently.
 		'|%[\\dA-Fa-f]{2}' +
