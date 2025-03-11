@@ -60,7 +60,7 @@ export default function(mw: Mwbot) {
 	 * * `== 1 ==<!--string-->`: `<h2>1</h2>`
 	 * * `======= 1 =======`: `<h6>= 1 =</h6>` (left equals: 7, right equals: 7)
 	 *
-	 * Capture groups:
+	 * Capturing groups:
 	 * * `$1`: Left equals
 	 * * `$2`: Heading text
 	 * * `$3`: Right equals
@@ -76,6 +76,19 @@ export default function(mw: Mwbot) {
 		heading: /^(=+)(.+?)(=+)([^\n]*)\n?$/gm,
 		whitespace: /[\t\u0020\u00a0]+/g
 	};
+	/**
+	 * A regular expression to parse `[[wikilink]]`s (more precisely, `[[target|display]]`).
+	 *
+	 * Capturing groups:
+	 * * `$1`: target
+	 * * `$2`: display
+	 *
+	 * NOTE: `$2` is "anything but the target and the pipe separator following it (if any)".
+	 * If the wikilink doesn't contain a separator or if the display component is empty,
+	 * this capturing group is an empty string. It might consist of multiple arguments in
+	 * the case of file wikilinks (i.e., `arg1|arg2|...`).
+	 */
+	const wikilinkRegex = /\[{2}([^\]|]+)\|?([^\]]*)\]{2}/g;
 
 	/**
 	 * TODO: Add documentation
@@ -83,33 +96,15 @@ export default function(mw: Mwbot) {
 	class Wikitext {
 
 		/**
-		 * The main wikitext content of a Wikitext instance.
-		 *
-		 * This should be read-only, but the class internally needs to be able to update it;
-		 * hence the private property. Use {@link content} to get a copy of this property.
+		 * Storage of the content and parsed entries. Used for the efficiency of parsing methods.
 		 */
-		private _content: string;
-		/**
-		 * Returns the wikitext content of the instance.
-		 */
-		get content(): string {
-			return this._content;
-		}
-		/**
-		 * HTML tags parsed from the wikitext.
-		 *
-		 * Use {@link tags} to get a deep copy of this property.
-		 */
-		private _tags: Tag[];
-		/**
-		 * Returns a deep copy of the parsed HTML tags.
-		 */
-		get tags(): Tag[] {
-			return this._tags.map((obj) => Object.create(
-				Object.getPrototypeOf(obj),
-				Object.getOwnPropertyDescriptors(obj)
-			));
-		}
+		private storage: {
+			content: string;
+			tags: Tag[] | null;
+			parameters: Parameter[] | null;
+			sections: Section[] | null;
+			wikilinks: Wikilink[] | null;
+		};
 		/**
 		 * The names of tags in which elements shouldn't be parsed.
 		 *
@@ -123,14 +118,23 @@ export default function(mw: Mwbot) {
 		 * Create a `Wikitext` instance.
 		 * @param content A wikitext content.
 		 * @param options Options for the initialization of the instance.
+		 * @throws If `content` is not a string.
 		 */
 		constructor(content: string, options: WikitextOptions = {}) {
 
-			this._content = content;
-
-			// Parse the wikitext for HTML tags as soon as the instance is initialized,
-			// because they are necessary for other parsing operations
-			this._tags = Wikitext.parseTags(content);
+			if (typeof content !== 'string') {
+				throw new MwbotError({
+					code: 'mwbot_fatal_typemismatch',
+					info: `"${typeof content}" is not a valid type for Wikitext.constructor.`
+				});
+			}
+			this.storage = {
+				content,
+				tags: null,
+				parameters: null,
+				sections: null,
+				wikilinks: null
+			};
 
 			// Initialize the names of tags in which elements shouldn't be parsed
 			const defaultSkipTags =
@@ -149,6 +153,89 @@ export default function(mw: Mwbot) {
 			}
 			this.skipTags = [...new Set(defaultSkipTags)];
 
+		}
+
+		/**
+		 * Retrieves the value of `key` from {@link storage}.
+		 *
+		 * - If the stored value is `null`, the wikitext is parsed and the result is stored.
+		 * - If `clone` is `true` (default), a deep copy of the value is returned.
+		 *
+		 * @param key The storage key to retrieve.
+		 * @param clone Whether to return a deep copy of the value (default: `true`).
+		 * @returns The stored or parsed value.
+		 */
+		private storageManager<K extends keyof typeof this.storage>(key: K, clone?: boolean): NonNullable<typeof this.storage[K]>;
+		/**
+		 * Updates `key` in {@link storage} with the provided `value`.
+		 *
+		 * - If `key` is `"content"`, all other storage properties are reset.
+		 *
+		 * @param key The storage key to update.
+		 * @param value The new value to set.
+		 * @returns The current instance for method chaining.
+		 */
+		private storageManager<K extends keyof typeof this.storage>(key: K, value: NonNullable<typeof this.storage[K]>): typeof this;
+		private storageManager<K extends keyof typeof this.storage>(key: K, valueOrClone?: NonNullable<typeof this.storage[K]> | boolean) {
+
+			// If retrieving a value
+			if (typeof valueOrClone === 'boolean' || valueOrClone === undefined) {
+				const clone = valueOrClone ?? true; // Default to true
+				if (key === 'content') {
+					return this.storage.content;
+				}
+				// Get array from storage, or parse the wikitext if null
+				const methodMap = {
+					tags: this._parseTags,
+					parameters: this._parseParameters,
+					sections: this._parseSections,
+					wikilinks: this._parseWikilinks
+				};
+				const parseMethod = methodMap[key as Exclude<K, 'content'>] as () => NonNullable<typeof this.storage[K]>;
+				if (!parseMethod) {
+					throw new ReferenceError(`Invalid key: ${key}.`);
+				}
+				const val = this.storage[key] ?? parseMethod();
+				if (!Array.isArray(val)) {
+					throw new TypeError(`Expected an array for storage["${key}"], but got ${typeof val}.`);
+				}
+				this.storage[key] = val; // Save
+				return clone
+					? val.map((obj) =>
+						// Deep-clone the array of objects while preserving getters
+						Object.create(Object.getPrototypeOf(obj), Object.getOwnPropertyDescriptors(obj))
+					)
+					: val;
+			}
+
+			// If setting a value
+			if (key === 'content') {
+				if (typeof valueOrClone !== 'string') {
+					throw new TypeError(`Expected a string for storage.content, but got ${typeof valueOrClone}.`);
+				}
+				// Content update should reset parsing results
+				this.storage = {
+					content: valueOrClone,
+					tags: null,
+					parameters: null,
+					sections: null,
+					wikilinks: null
+				};
+			} else if (key in this.storage) {
+				// Set the passed array
+				this.storage[key] = valueOrClone;
+			} else {
+				throw new ReferenceError(`Invalid key: ${key}.`);
+			}
+			return this;
+
+		}
+
+		/**
+		 * Returns the wikitext content of the instance.
+		 */
+		get content(): string {
+			return this.storageManager('content');
 		}
 
 		/**
@@ -187,8 +274,8 @@ export default function(mw: Mwbot) {
 		 * Returns a list of valid HTML tag names that can be used in wikitext.
 		 * @returns Array of tag names (all elements are in lowercase).
 		 */
-		static get validTags(): string[] {
-			return Wikitext._validTags.slice();
+		static getValidTags(): string[] {
+			return this._validTags.slice();
 		}
 
 		/**
@@ -197,15 +284,14 @@ export default function(mw: Mwbot) {
 		 * @returns
 		 */
 		static isValidTag(tagName: string): boolean {
-			return Wikitext._validTags.includes(String(tagName).toLowerCase());
+			return this._validTags.includes(String(tagName).toLowerCase());
 		}
 
 		/**
-		 * Parse a wikitext for HTML tags.
-		 * @param wikitext
+		 * Parse the wikitext for HTML tags.
 		 * @returns
 		 */
-		private static parseTags(wikitext: string): Tag[] {
+		private _parseTags(): Tag[] {
 
 			/**
 			 * Array to store unclosed start tags that need matching end tags
@@ -213,6 +299,7 @@ export default function(mw: Mwbot) {
 			const startTags: StartTag[] = [];
 
 			// Parse the wikitext string by checking each character
+			const wikitext = this.content;
 			const parsed: Tag[] = [];
 			for (let i = 0; i < wikitext.length; i++) {
 
@@ -359,7 +446,7 @@ export default function(mw: Mwbot) {
 		 * @returns
 		 */
 		parseTags(config: ParseTagsConfig = {}): Tag[] {
-			let tags = this.tags;
+			let tags = this.storageManager('tags');
 			if (typeof config.namePredicate === 'function') {
 				tags = tags.filter(({name}) => config.namePredicate!(name));
 			}
@@ -414,7 +501,7 @@ export default function(mw: Mwbot) {
 		modifyTags(modificationPredicate: TagModificationPredicate, outputTags = false): Tag[] | string {
 
 			// Get text modification settings
-			const tags = this.tags;
+			let tags = this.storageManager('tags');
 			const mods = modificationPredicate(tags);
 			if (mods.length !== tags.length) {
 				throw new MwbotError({
@@ -429,13 +516,14 @@ export default function(mw: Mwbot) {
 			}
 
 			// Apply the changes and update the entire wikitext content
+			tags = this.storageManager('tags', false); // Get the tags again because the passed "tags" might have been mutated
 			let newContent = this.content;
 			mods.some((text, i, arr) => {
 				if (typeof text === 'string') {
 
 					// Replace the old tag content with a new one
-					const initialEndIndex = this._tags[i].endIndex;
-					const firstPart = newContent.slice(0, this._tags[i].startIndex);
+					const initialEndIndex = tags[i].endIndex;
+					const firstPart = newContent.slice(0, tags[i].startIndex);
 					const secondPart = newContent.slice(initialEndIndex);
 					newContent = firstPart + text + secondPart;
 
@@ -446,11 +534,11 @@ export default function(mw: Mwbot) {
 
 					// Adjust the end index of the modified tag based on new text length
 					// (the start index doesn't change)
-					const lengthGap = text.length - this._tags[i].text.length;
-					this._tags[i].endIndex += lengthGap;
+					const lengthGap = text.length - tags[i].text.length;
+					tags[i].endIndex += lengthGap;
 
 					// Adjust the start and end indices of all other tags
-					this._tags.forEach((obj, j) => {
+					tags.forEach((obj, j) => {
 						if (i !== j) {
 							if (obj.startIndex > initialEndIndex) {
 								obj.startIndex += lengthGap;
@@ -464,13 +552,12 @@ export default function(mw: Mwbot) {
 				}
 			});
 
-			// Update the content and tags after the modifications
-			this._content = newContent;
-			this._tags = Wikitext.parseTags(newContent); // Re-parse to update tag properties (e.g. nestLevel)
+			// Update the content
+			this.storageManager('content');
 
 			// Return the appropriate result based on the `outputTags` parameter
 			if (outputTags) {
-				return this.tags;
+				return this.storageManager('tags'); // Must parse again because nesting levels and so on might have changed
 			} else {
 				return this.content;
 			}
@@ -535,7 +622,7 @@ export default function(mw: Mwbot) {
 			const rSkipTags = new RegExp(`^(?:${this.skipTags.join('|')})$`);
 
 			// Create an array to store the start and end indices of tags to skip
-			const indexMap = this._tags.reduce((acc: number[][], tagObj) => {
+			const indexMap = this.storageManager('tags', false).reduce((acc: number[][], tagObj) => {
 				// If the tag is in the skip list and doesn't overlap with existing ranges, add its range
 				if (rSkipTags.test(tagObj.name)) {
 					// Check if the current range is already covered by an existing range
@@ -558,13 +645,13 @@ export default function(mw: Mwbot) {
 		 * Parse sections in the wikitext.
 		 * @returns Array of parsed sections.
 		 */
-		parseSections(): Section[] {
+		private _parseSections(): Section[] {
 
 			const isInSkipRange = this.getSkipPredicate();
 
 			// Extract HTML-style headings (h1–h6)
 			// TODO: Should we deal with cases like "this <span>is</span> a heading" and "this [[is]] a heading"?
-			const headings = this._tags.reduce((acc: Heading[], tagObj) => {
+			const headings = this.storageManager('tags', false).reduce((acc: Heading[], tagObj) => {
 				const m = /^h([1-6])$/.exec(tagObj.name);
 				if (m && !isInSkipRange(tagObj.startIndex, tagObj.endIndex)) {
 					acc.push({
@@ -635,11 +722,18 @@ export default function(mw: Mwbot) {
 		}
 
 		/**
+		 * Parse sections in the wikitext.
+		 * @returns Array of parsed sections.
+		 */
+		parseSections(): Section[] {
+			return this.storageManager('sections');
+		}
+
+		/**
 		 * Parse `{{{parameter}}}` expressions in the wikitext.
-		 * @param config Configuration options for parameter parsing.
 		 * @returns Array of parsed parameters.
 		 */
-		parseParameters(config: ParseParametersConfig = {recursive: true}): Parameter[] {
+		private _parseParameters(): Parameter[]  {
 
 			const isInSkipRange = this.getSkipPredicate();
 			const params: Parameter[] = [];
@@ -652,9 +746,6 @@ export default function(mw: Mwbot) {
 
 				// Skip parameters that don't satisfy the namePredicate
 				const paramName = match[1].trim();
-				if (typeof config.namePredicate === 'function' && !config.namePredicate(paramName)) {
-					continue;
-				}
 				let paramValue = match[2];
 				let paramText = match[0];
 
@@ -695,7 +786,6 @@ export default function(mw: Mwbot) {
 				}
 
 				if (isValid) {
-
 					const param: Parameter = {
 						name: paramName,
 						value: paramValue.trim(),
@@ -705,12 +795,10 @@ export default function(mw: Mwbot) {
 						nestLevel,
 						skip: isInSkipRange(match.index, regex.lastIndex)
 					};
-					if (!config.parameterPredicate || !config.parameterPredicate({...param})) {
-						params.push(param);
-					}
+					params.push(param);
 
 					// Handle nested parameters
-					if (config.recursive && paramText.slice(3).includes('{{{')) {
+					if (paramText.slice(3).includes('{{{')) {
 						regex.lastIndex = match.index + 3;
 						nestLevel++;
 					} else {
@@ -725,18 +813,36 @@ export default function(mw: Mwbot) {
 		}
 
 		/**
+		 * Parse `{{{parameter}}}` expressions in the wikitext.
+		 * @param config Configuration options for parameter parsing.
+		 * @returns Array of parsed parameters.
+		 */
+		parseParameters(config: ParseParametersConfig = {recursive: true}): Parameter[] {
+			let parameters = this.storageManager('parameters');
+			if (!config.recursive) {
+				parameters = parameters.filter(({nestLevel}) => nestLevel === 0);
+			}
+			if (typeof config.namePredicate === 'function') {
+				parameters = parameters.filter(({name}) => config.namePredicate!(name));
+			}
+			if (typeof config.parameterPredicate === 'function') {
+				parameters = parameters.filter((param) => config.parameterPredicate!(param));
+			}
+			return parameters;
+		}
+
+		/**
 		 * Parse `[[wikilink]]`s in the wikitext.
 		 * @returns Array of parsed wikilinks.
 		 */
-		parseWikilinks(): Wikilink[] {
+		private _parseWikilinks(): Wikilink[] {
 
 			const isInSkipRange = this.getSkipPredicate();
-			const rWikilink = /\[{2}([^\]|]+)\|?([^\]]*)\]{2}/g; // $1: target, $2: displayed text
 			const wikitext = this.content;
 			const links: Wikilink[] = [];
 
 			let match: RegExpExecArray | null;
-			while ((match = rWikilink.exec(wikitext))) {
+			while ((match = wikilinkRegex.exec(wikitext))) {
 				const target = match[1];
 				const startIndex = match.index;
 				const endIndex = startIndex + match[0].length;
@@ -758,6 +864,14 @@ export default function(mw: Mwbot) {
 		}
 
 		/**
+		 * Parse `[[wikilink]]`s in the wikitext.
+		 * @returns Array of parsed wikilinks.
+		 */
+		parseWikilinks(): Wikilink[] {
+			return this.storageManager('wikilinks');
+		}
+
+		/**
 		 * Generates a mapping from the start index of each parsed element to its text content and type.
 		 *
 		 * The mapping includes:
@@ -773,7 +887,7 @@ export default function(mw: Mwbot) {
 
 			// Process skipTags
 			const rSkipTags = new RegExp(`^(?:${this.skipTags.join('|')})$`);
-			this._tags.forEach(({name, text, startIndex}) => {
+			this.storageManager('tags', false).forEach(({name, text, startIndex}) => {
 				if (rSkipTags.test(name)) {
 					indexMap[startIndex] = {
 						text,
@@ -783,7 +897,7 @@ export default function(mw: Mwbot) {
 			});
 
 			// Process {{{parameter}}}s
-			this.parseParameters().forEach(({text, startIndex}) => {
+			this.storageManager('parameters', false).forEach(({text, startIndex}) => {
 				indexMap[startIndex] = {
 					text,
 					type: 'parameter'
@@ -791,7 +905,7 @@ export default function(mw: Mwbot) {
 			});
 
 			// Process [[wikilink]]s
-			this.parseWikilinks().forEach(({text, startIndex}) => {
+			this.storageManager('wikilinks', false).forEach(({text, startIndex}) => {
 				indexMap[startIndex] = {
 					text,
 					type: 'wikilink'
