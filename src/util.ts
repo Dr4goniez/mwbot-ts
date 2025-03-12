@@ -2,33 +2,71 @@
  * Perform a deep merge of objects and return a new object.
  * - Arrays are concatenated.
  * - Plain objects are recursively merged.
- * - Non-plain objects are passed by reference.
+ * - Class instances are cloned but overwritten by later instances.
+ * - Getters and setters are preserved.
+ * - `Map`, `Set`, and `Date` instances are correctly cloned.
  *
  * @param objects
+ * @returns The merged object.
+ */
+export function mergeDeep<T extends object[]>(...objects: T): UnionToIntersection<T[number]> {
+	const result = Object.create(null) as any;
+
+	for (const obj of objects) {
+		if (!obj) continue;
+
+		for (const key of Reflect.ownKeys(obj)) {
+			const descriptor = Object.getOwnPropertyDescriptor(obj, key); // Get full descriptor
+			const aVal = result[key];
+			let oVal = (obj as any)[key];
+
+			// Preserve getters/setters
+			if (descriptor?.get || descriptor?.set) {
+				Object.defineProperty(result, key, descriptor);
+				continue;
+			}
+
+			// Handle special cases
+			if (oVal instanceof Date) {
+				oVal = new Date(oVal.getTime());
+			} else if (oVal instanceof Map) {
+				oVal = new Map([...oVal.entries()].map(([k, v]) => [k, isObject(v) ? mergeDeep(v) : v]));
+			} else if (oVal instanceof Set) {
+				oVal = new Set([...oVal].map(v => (isObject(v) ? mergeDeep(v) : v)));
+			} else if (isClassInstance(oVal)) {
+				oVal = Object.create(
+					Object.getPrototypeOf(oVal),
+					Object.getOwnPropertyDescriptors(oVal)
+				);
+			}
+
+			if (Array.isArray(oVal)) {
+				result[key] = Array.isArray(aVal)
+					? [...aVal, ...oVal.map(el => (isObject(el) ? mergeDeep(el) : el))]
+					: oVal.map(el => (isObject(el) ? mergeDeep(el) : el));
+			} else if (isPlainObject(aVal) && isPlainObject(oVal)) {
+				result[key] = mergeDeep(aVal, oVal);
+			} else {
+				result[key] = oVal;
+			}
+		}
+	}
+
+	return result;
+}
+
+/**
+ * Converts a union of objects into an intersection of their properties.
+ */
+type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
+
+/**
+ * Check whether a value is an object. Arrays and `null` are not considered objects here.
+ * @param value
  * @returns
  */
-export function mergeDeep(...objects: any[]): any {
-	return objects.reduce((acc, obj) => {
-		if (!obj) {
-			return acc;
-		}
-		for (const key of Object.keys(obj)) {
-			const aVal = acc[key];
-			let oVal = obj[key];
-			if (Array.isArray(oVal) && oVal.some(el => !isPrimitive(el))) {
-				oVal = oVal.map((oValObj) => mergeDeep(oValObj));
-			}
-			if (Array.isArray(aVal) && Array.isArray(oVal)) {
-				acc[key] = [...aVal, ...oVal]; // Merge arrays
-			} else if (isPlainObject(aVal) && isPlainObject(oVal)) {
-				acc[key] = mergeDeep(aVal, oVal); // Recursively merge objects
-			} else {
-				// Handle the first iteration and non-plain objects
-				acc[key] = Array.isArray(oVal) ? [...oVal] : isPlainObject(oVal) ? mergeDeep(oVal) : oVal;
-			}
-		}
-		return acc;
-	}, Object.create(null));
+export function isObject(value: any): boolean {
+	return typeof value === 'object' && !Array.isArray(value) && value !== null;
 }
 
 /**
@@ -56,7 +94,7 @@ export function isPlainObject(value: any): boolean {
  * NOTE: Unlike `jQuery.isEmptyObject`, this function always returns `false` if the input is not an object.
  */
 export function isEmptyObject(object: any): boolean {
-	if (!isPlainObject(object)) {
+	if (!isObject(object)) {
 		return false;
 	}
 	for (const _key in object) {
@@ -66,12 +104,19 @@ export function isEmptyObject(object: any): boolean {
 }
 
 /**
+ * Check if a value is a class instance (i.e., not a plain object but an instance of a class).
+ */
+export function isClassInstance(value: any): boolean {
+	return isObject(value) && !isPlainObject(value);
+}
+
+/**
  * Check whether a value is a primitive type.
- * @param val
+ * @param value
  * @returns
  */
-export function isPrimitive(val: unknown): val is string | number | boolean | bigint | symbol | undefined | null {
-    return val !== Object(val);
+export function isPrimitive(value: unknown): value is string | number | boolean | bigint | symbol | undefined | null {
+    return value !== Object(value);
 }
 
 /**

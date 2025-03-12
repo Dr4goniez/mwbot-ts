@@ -306,12 +306,11 @@ export class Mwbot {
 	 * @throws If the resulting options lack an `apiUrl` property.
 	 */
 	setMwbotOptions(options: Partial<MwbotOptions>, merge = true): Mwbot {
-		type UrlRequired = Required<Pick<ReturnType<typeof mergeDeep>, 'apiUrl'>>;
 		if (merge) {
-			this.userMwbotOptions = mergeDeep(this.userMwbotOptions, options) as UrlRequired;
+			this.userMwbotOptions = mergeDeep(this.userMwbotOptions, options);
 		} else {
 			const {apiUrl} = this.userMwbotOptions;
-			this.userMwbotOptions = mergeDeep({apiUrl}, options) as UrlRequired;
+			this.userMwbotOptions = mergeDeep({apiUrl}, options);
 		}
 		if (!this.userMwbotOptions.apiUrl) {
 			throw new MwbotError({

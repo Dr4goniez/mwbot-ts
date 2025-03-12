@@ -6,6 +6,10 @@
 
 import { MwbotError } from './error';
 import type { Mwbot } from './mwbot';
+import { mergeDeep } from './util';
+/**
+ * @internal
+ */
 type Title = InstanceType<Mwbot['Title']>;
 
 /**
@@ -200,12 +204,7 @@ export default function(mw: Mwbot) {
 					throw new TypeError(`Expected an array for storage["${key}"], but got ${typeof val}.`);
 				}
 				this.storage[key] = val; // Save
-				return clone
-					? val.map((obj) =>
-						// Deep-clone the array of objects while preserving getters
-						Object.create(Object.getPrototypeOf(obj), Object.getOwnPropertyDescriptors(obj))
-					)
-					: val;
+				return clone ? val.map((obj) => mergeDeep(obj)) : val;
 			}
 
 			// If setting a value
@@ -482,7 +481,7 @@ export default function(mw: Mwbot) {
 		 * }
 		 * ```
 		 *
-		 * Note that {@link content} and {@link tags} will be updated based on the modification.
+		 * Note that {@link content} and tags will be updated based on the modification.
 		 * After running this method, **do not re-use copies of them initialized before running this method**.
 		 *
 		 * @param modificationPredicate
@@ -553,7 +552,7 @@ export default function(mw: Mwbot) {
 			});
 
 			// Update the content
-			this.storageManager('content');
+			this.storageManager('content', newContent);
 
 			// Return the appropriate result based on the `outputTags` parameter
 			if (outputTags) {
