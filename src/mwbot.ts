@@ -625,7 +625,14 @@ export class Mwbot {
 				wgContentNamespaces.push(parseInt(nsId));
 			}
 			wgFormattedNamespaces[nsId] = obj.name;
-			wgNamespaceIds[obj.name.toLowerCase().replace(/ /g, '_')] = obj.id;
+			const nsName = obj.name.toLowerCase().replace(/ /g, '_');
+			const nsNameCanoninal = typeof obj.canonical === 'string'
+				? obj.canonical.toLowerCase().replace(/ /g, '_')
+				: null;
+			wgNamespaceIds[nsName] = obj.id;
+			if (nsNameCanoninal !== null && nsNameCanoninal !== nsName) {
+				wgNamespaceIds[nsNameCanoninal] = obj.id;
+			}
 		}
 
 		// Set values
