@@ -17,82 +17,10 @@ type Title = InstanceType<Mwbot['Title']>;
  */
 export default function(mw: Mwbot) {
 
-	/**
-	 * Regular expressions for matching HTML tags (including comment tags).
-	 *
-	 * Accepted formats:
-	 * ```html
-	 * <foo >	<!-- No whitespace between "<" and "foo" -->
-	 * </foo >	<!-- No whitespace between "<" and "/" -->
-	 * <foo />	<!-- No whitespace between "/" and ">" -->
-	 * ```
-	 */
-	const tagRegex = {
-		/**
-		 * Matches a start tag.
-		 * * `$0`: The full start tag (e.g. `<!--` or `<tag>`)
-		 * * `$1`: `--` (undefined for normal tags)
-		 * * `$2`: `tag` (undefined for comment tags)
-		 *
-		 * NOTE: This regex also matches self-closing tags.
-		 */
-		start: /^<!(--)|^<(?!\/)([^>\s]+)(?:\s[^>]*)?>/,
-		/**
-		 * Matches an end tag.
-		 * * `$0`: The full end tag (e.g. `-->` or `</tag>`)
-		 * * `$1`: `--` (undefined for normal tags)
-		 * * `$2`: `tag` (undefined for comment tags)
-		 */
-		end: /^(--)>|^<\/([^>\s]+)(?:\s[^>]*)?>/,
-		/**
-		 * Matches the names of void tags. `<source>` is excluded because it is not considered void in wikitext.
-		 * @see https://developer.mozilla.org/en-US/docs/Glossary/Void_element
-		 */
-		void: /^(?:area|base|br|col|embed|hr|img|input|link|meta|param|track|wbr)$/,
-		/**
-		 * Matches a self-closing tag.
-		 */
-		self: /\/>$/,
-	};
-	/**
-	 * Regular expressions to parse `==heading==`s.
-	 *
-	 * Notes on the wiki markup of headings:
-	 * * `== 1 ===`: `<h2>1 =</h2>` (left equals: 2, right equals: 3)
-	 * * `=== 1 ==`: `<h2>= 1</h2>` (left equals: 3, right equals: 2)
-	 * * `== 1 ==\S+`: Not recognized as the beginning of a section (but see below)
-	 * * `== 1 ==<!--string-->`: `<h2>1</h2>`
-	 * * `======= 1 =======`: `<h6>= 1 =</h6>` (left equals: 7, right equals: 7)
-	 *
-	 * Capturing groups:
-	 * * `$1`: Left equals
-	 * * `$2`: Heading text
-	 * * `$3`: Right equals
-	 * * `$4`: Remaining characters
-	 *
-	 * In `$4`, the only characters that can appear are:
-	 * * `[\t\n\u0020\u00a0]` (i.e. tab, new line, space, and non-breaking space)
-	 *
-	 * Note that this is not the same as the JS `\s`, which is equivalent to
-	 * `[\t\n\v\f\r\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]`.
-	 */
-	const sectionRegex = {
-		heading: /^(=+)(.+?)(=+)([^\n]*)\n?$/gm,
-		whitespace: /[\t\u0020\u00a0]+/g
-	};
-	/**
-	 * A regular expression to parse `[[wikilink]]`s (more precisely, `[[target|display]]`).
-	 *
-	 * Capturing groups:
-	 * * `$1`: target
-	 * * `$2`: display
-	 *
-	 * NOTE: `$2` is "anything but the target and the pipe separator following it (if any)".
-	 * If the wikilink doesn't contain a separator or if the display component is empty,
-	 * this capturing group is an empty string. It might consist of multiple arguments in
-	 * the case of file wikilinks (i.e., `arg1|arg2|...`).
-	 */
-	const wikilinkRegex = /\[{2}([^\]|]+)\|?([^\]]*)\]{2}/g;
+	const namespaceIds = mw.config.get('wgNamespaceIds');
+	const NS_MAIN = namespaceIds[''];
+	const NS_FILE = namespaceIds.file;
+	const NS_TEMPLATE = namespaceIds.template;
 
 	/**
 	 * TODO: Add documentation
@@ -107,7 +35,9 @@ export default function(mw: Mwbot) {
 			tags: Tag[] | null;
 			parameters: Parameter[] | null;
 			sections: Section[] | null;
-			wikilinks: Wikilink[] | null;
+			wikilinks_fuzzy: FuzzyWikilink[] | null;
+			templates: Template[] | null;
+			wikilinks: (Wikilink | FileWikilink)[] | null;
 		};
 		/**
 		 * The names of tags in which elements shouldn't be parsed.
@@ -137,6 +67,8 @@ export default function(mw: Mwbot) {
 				tags: null,
 				parameters: null,
 				sections: null,
+				wikilinks_fuzzy: null,
+				templates: null,
 				wikilinks: null
 			};
 
@@ -185,22 +117,20 @@ export default function(mw: Mwbot) {
 			// If retrieving a value
 			if (typeof valueOrClone === 'boolean' || valueOrClone === undefined) {
 				const clone = valueOrClone ?? true; // Default to true
+				const val = (this.storage[key] ?? (() => {
+					switch (key) {
+						case 'content': return this.storage.content;
+						case 'tags': return this._parseTags();
+						case 'parameters': return this._parseParameters();
+						case 'sections': return this._parseSections();
+						case 'wikilinks_fuzzy': return this._parseWikilinksFuzzy();
+						case 'templates': return this._parseTemplates();
+						case 'wikilinks': return this._parseWikilinks();
+					}
+				})()) as NonNullable<typeof this.storage[K]>;
 				if (key === 'content') {
-					return this.storage.content;
-				}
-				// Get array from storage, or parse the wikitext if null
-				const methodMap = {
-					tags: this._parseTags,
-					parameters: this._parseParameters,
-					sections: this._parseSections,
-					wikilinks: this._parseWikilinks
-				};
-				const parseMethod = methodMap[key as Exclude<K, 'content'>] as () => NonNullable<typeof this.storage[K]>;
-				if (!parseMethod) {
-					throw new ReferenceError(`Invalid key: ${key}.`);
-				}
-				const val = this.storage[key] ?? parseMethod();
-				if (!Array.isArray(val)) {
+					return val;
+				} else if (!Array.isArray(val)) {
 					throw new TypeError(`Expected an array for storage["${key}"], but got ${typeof val}.`);
 				}
 				this.storage[key] = val; // Save
@@ -218,6 +148,8 @@ export default function(mw: Mwbot) {
 					tags: null,
 					parameters: null,
 					sections: null,
+					wikilinks_fuzzy: null,
+					templates: null,
 					wikilinks: null
 				};
 			} else if (key in this.storage) {
@@ -297,6 +229,44 @@ export default function(mw: Mwbot) {
 			 */
 			const startTags: StartTag[] = [];
 
+			/**
+			 * Regular expressions for matching HTML tags (including comment tags).
+			 *
+			 * Accepted formats:
+			 * ```html
+			 * <foo >	<!-- No whitespace between "<" and "foo" -->
+			 * </foo >	<!-- No whitespace between "<" and "/" -->
+			 * <foo />	<!-- No whitespace between "/" and ">" -->
+			 * ```
+			 */
+			const tagRegex = {
+				/**
+				 * Matches a start tag.
+				 * * `$0`: The full start tag (e.g. `<!--` or `<tag>`)
+				 * * `$1`: `--` (undefined for normal tags)
+				 * * `$2`: `tag` (undefined for comment tags)
+				 *
+				 * NOTE: This regex also matches self-closing tags.
+				 */
+				start: /^<!(--)|^<(?!\/)([^>\s]+)(?:\s[^>]*)?>/,
+				/**
+				 * Matches an end tag.
+				 * * `$0`: The full end tag (e.g. `-->` or `</tag>`)
+				 * * `$1`: `--` (undefined for normal tags)
+				 * * `$2`: `tag` (undefined for comment tags)
+				 */
+				end: /^(--)>|^<\/([^>\s]+)(?:\s[^>]*)?>/,
+				/**
+				 * Matches the names of void tags. `<source>` is excluded because it is not considered void in wikitext.
+				 * @see https://developer.mozilla.org/en-US/docs/Glossary/Void_element
+				 */
+				void: /^(?:area|base|br|col|embed|hr|img|input|link|meta|param|track|wbr)$/,
+				/**
+				 * Matches a self-closing tag.
+				 */
+				self: /\/>$/,
+			};
+
 			// Parse the wikitext string by checking each character
 			const wikitext = this.content;
 			const parsed: Tag[] = [];
@@ -345,7 +315,7 @@ export default function(mw: Mwbot) {
 					if (tagRegex.void.test(nodeName)) {
 						if (nodeName === 'br') {
 							// MediaWiki converts </br> to <br>
-							// Void start tags aren't stored in "startTags" (i.e. there's no need to look them up in the array)
+							// Void start tags aren't stored in "startTags" (i.e. there's no need to look them up in the stack)
 							parsed.push(
 								createVoidTagObject(nodeName, m[0], i, startTags.length, false)
 							);
@@ -358,7 +328,7 @@ export default function(mw: Mwbot) {
 						let closedTagCnt = 0;
 
 						// Check the collected start tags
-						startTags.some((start) => { // The most recenly collected tag is at index 0 (because of unshift)
+						startTags.some((start) => { // The most recently collected tag is at index 0 (because of unshift)
 
 							// true when e.g. <span></span>, false when e.g. <span><div></span>
 							const startTagMatched = start.name === nodeName;
@@ -482,7 +452,7 @@ export default function(mw: Mwbot) {
 		 * ```
 		 *
 		 * Note that {@link content} and tags will be updated based on the modification.
-		 * After running this method, **do not re-use copies of them initialized before running this method**.
+		 * After running this method, **do not re-use copies of them initialized beforehands**.
 		 *
 		 * @param modificationPredicate
 		 * A predicate that specifies how the tags should be modified. This is a function that takes an array of
@@ -649,12 +619,12 @@ export default function(mw: Mwbot) {
 			const isInSkipRange = this.getSkipPredicate();
 
 			// Extract HTML-style headings (h1–h6)
-			// TODO: Should we deal with cases like "this <span>is</span> a heading" and "this [[is]] a heading"?
 			const headings = this.storageManager('tags', false).reduce((acc: Heading[], tagObj) => {
 				const m = /^h([1-6])$/.exec(tagObj.name);
 				if (m && !isInSkipRange(tagObj.startIndex, tagObj.endIndex)) {
 					acc.push({
 						text: tagObj.text,
+						// TODO: Should we deal with cases like "this <span>is</span> a heading" and "this [[is]] a heading"?
 						title: mw.Title.clean(removeComments(tagObj.content!)),
 						level: parseInt(m[1]),
 						index: tagObj.startIndex
@@ -662,6 +632,33 @@ export default function(mw: Mwbot) {
 				}
 				return acc;
 			}, []);
+
+			/**
+			 * Regular expressions to parse `==heading==`s.
+			 *
+			 * Notes on the wiki markup of headings:
+			 * * `== 1 ===`: `<h2>1 =</h2>` (left equals: 2, right equals: 3)
+			 * * `=== 1 ==`: `<h2>= 1</h2>` (left equals: 3, right equals: 2)
+			 * * `== 1 ==\S+`: Not recognized as the beginning of a section (but see below)
+			 * * `== 1 ==<!--string-->`: `<h2>1</h2>`
+			 * * `======= 1 =======`: `<h6>= 1 =</h6>` (left equals: 7, right equals: 7)
+			 *
+			 * Capturing groups:
+			 * * `$1`: Left equals
+			 * * `$2`: Heading text
+			 * * `$3`: Right equals
+			 * * `$4`: Remaining characters
+			 *
+			 * In `$4`, the only characters that can appear are:
+			 * * `[\t\n\u0020\u00a0]` (i.e. tab, new line, space, and non-breaking space)
+			 *
+			 * Note that this is not the same as the JS `\s`, which is equivalent to
+			 * `[\t\n\v\f\r\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]`.
+			 */
+			const sectionRegex = {
+				heading: /^(=+)(.+?)(=+)([^\n]*)\n?$/gm,
+				whitespace: /[\t\u0020\u00a0]+/g
+			};
 
 			// Parse wikitext-style headings (==heading==)
 			const wikitext = this.content;
@@ -831,27 +828,47 @@ export default function(mw: Mwbot) {
 		}
 
 		/**
-		 * Parse `[[wikilink]]`s in the wikitext.
-		 * @returns Array of parsed wikilinks.
+		 * Fuzzily parse `[[wikilink]]`s in the wikitext. The right operand (i.e., `[[left|right]]`) will be incomplete.
+		 * @returns Array of fuzzily parsed wikilinks.
 		 */
-		private _parseWikilinks(): Wikilink[] {
+		private _parseWikilinksFuzzy(): FuzzyWikilink[] {
 
 			const isInSkipRange = this.getSkipPredicate();
 			const wikitext = this.content;
-			const links: Wikilink[] = [];
+			const links: FuzzyWikilink[] = [];
+
+			// TODO: This won't work if wikilinks are nested, e.g. [[something|{{template|[[something2]]}}]]
+			/**
+			 * A regular expression to parse `[[wikilink]]`s (more precisely, `[[target|display]]`).
+			 *
+			 * Capturing groups:
+			 * * `$1`: target
+			 * * `$2`: display
+			 *
+			 * NOTE: `$2` is "anything but the target and the pipe separator following it (if any)".
+			 * If the wikilink doesn't contain a separator or if the display component is empty,
+			 * this capturing group is an empty string. It might consist of multiple arguments in
+			 * the case of file wikilinks (i.e., `arg1|arg2|...`).
+			 */
+			const wikilinkRegex = /\[{2}([^\]|]+)\|?([^\]]*)\]{2}/g;
 
 			let match: RegExpExecArray | null;
 			while ((match = wikilinkRegex.exec(wikitext))) {
-				const target = match[1];
+				const text = match[0];
+				const left = match[1];
+				const right = match[2] ||
+					// Let empty strings fall back to null
+					// Links like [[left|]] aren't expected to exist because of "pipe tricks"
+					// See https://en.wikipedia.org/wiki/Help:Pipe_trick
+					null;
 				const startIndex = match.index;
-				const endIndex = startIndex + match[0].length;
+				const endIndex = startIndex + text.length;
 				links.push({
-					title: mw.Title.newFromText(target),
-					// TODO: [[File:]] links can contain multiple right operands
-					// TODO: The right operand can contain {{template}}s and {{{parameters}}}
-					display: match[2] ? mw.Title.clean(match[2]) : target,
-					text: match[0],
-					piped: !!match[2],
+					left,
+					right,
+					title: mw.Title.newFromText(left),
+					text,
+					piped: right !== null,
 					startIndex,
 					endIndex,
 					skip: isInSkipRange(startIndex, endIndex)
@@ -863,56 +880,303 @@ export default function(mw: Mwbot) {
 		}
 
 		/**
-		 * Parse `[[wikilink]]`s in the wikitext.
-		 * @returns Array of parsed wikilinks.
-		 */
-		parseWikilinks(): Wikilink[] {
-			return this.storageManager('wikilinks');
-		}
-
-		/**
 		 * Generates a mapping from the start index of each parsed element to its text content and type.
 		 *
 		 * The mapping includes:
 		 * * Skip tags (e.g., `<nowiki>`, `<!-- -->`)
 		 * * Parameters (`{{{parameter}}}`)
-		 * * Wikilinks (`[[wikilink]]`)
+		 * * Fuzzy wikilinks (`[[wikilink]]`; not included by default)
+		 * * Templates (`{{tempalte}}`; not included by default)
 		 *
+		 * @param options Options to index additional expressions.
 		 * @returns An object mapping start indices to their corresponding text content and type.
 		 */
-		private getIndexMap(): IndexMap {
+		private getIndexMap(options: {wikilinks_fuzzy?: boolean, templates?: boolean} = {}): IndexMap {
 
 			const indexMap: IndexMap = Object.create(null);
 
 			// Process skipTags
 			const rSkipTags = new RegExp(`^(?:${this.skipTags.join('|')})$`);
-			this.storageManager('tags', false).forEach(({name, text, startIndex}) => {
+			this.storageManager('tags', false).forEach(({text, startIndex, name, content}) => {
 				if (rSkipTags.test(name)) {
+					const inner = (() => {
+						if (content === null) {
+							return null;
+						}
+						const innerStartIndex = startIndex + text.indexOf(content);
+						return {start: innerStartIndex, end: innerStartIndex + content.length};
+					})();
 					indexMap[startIndex] = {
 						text,
-						type: 'tag'
+						type: 'tag',
+						inner
 					};
 				}
 			});
 
 			// Process {{{parameter}}}s
 			this.storageManager('parameters', false).forEach(({text, startIndex}) => {
+				// Wish we could use the d flag from ES2022!
+				const m = /^(\{{3}[^|}]*\|)([^}]+)\}{3}$/.exec(text);
+				const inner = m && {
+					start: startIndex + m[1].length,
+					end: startIndex + m[1].length + m[2].length
+				};
 				indexMap[startIndex] = {
 					text,
-					type: 'parameter'
+					type: 'parameter',
+					inner
 				};
 			});
 
-			// Process [[wikilink]]s
-			this.storageManager('wikilinks', false).forEach(({text, startIndex}) => {
-				indexMap[startIndex] = {
-					text,
-					type: 'wikilink'
-				};
-			});
+			// Process fuzzy [[wikilink]]s
+			if (options.wikilinks_fuzzy) {
+				this.storageManager('wikilinks_fuzzy', false).forEach(({text, startIndex, left, right}) => {
+					const innerStartIndex = startIndex + 2 + left.length + 1;
+					indexMap[startIndex] = {
+						text,
+						type: 'wikilink_fuzzy',
+						inner: right === null ? null : {
+							start: innerStartIndex,
+							end: innerStartIndex + right.length
+						}
+					};
+				});
+			}
+
+			// Process fuzzy {{template}}s
+			if (options.templates) {
+				this.storageManager('templates', false).forEach(({text, startIndex, params, rawTitle, endIndex}) => {
+					indexMap[startIndex] = {
+						text,
+						type: 'template',
+						inner: !params.length ? null : { // TODO: Not used anywhere
+							start: startIndex + 2 + rawTitle.length + 1,
+							end: endIndex - 2
+						}
+					};
+				});
+			}
 
 			return indexMap;
 
+		}
+
+		/**
+		 * Parse `{{template}}`s in the wikitext.
+		 * @param indexMap Optional index map to re-use.
+		 * @param nestLevel Nesting level of the parsing templates. Only passed from inside this method.
+		 * @param skip Whether we are parsing templates inside skip tags. (Default: `false`)
+		 * @param wikitext Alternative wikitext to parse. Should be passed when parsing nested templates.
+		 * All characters before the range where there can be nested templates should be replaced with `\x01`.
+		 * This method skips sequences of this control character, to reach the range early and efficiently.
+		 * @returns
+		 */
+		private _parseTemplates(indexMap = this.getIndexMap({wikilinks_fuzzy: true}), nestLevel = 0, skip = false, wikitext = this.content): Template[] {
+
+			let numUnclosed = 0;
+			let startIndex = 0;
+			let components: TemplateFragment[] = [];
+
+			// Character-by-character loop
+			const templates: Template[] = [];
+			for (let i = 0; i < wikitext.length; i++) {
+
+				const wkt = wikitext.slice(i);
+
+				// Skip sequences of "\x01", prepended instead of the usual text
+				// This makes it easy to retrieve the start indices of nested templates
+				// eslint-disable-next-line no-control-regex
+				const ctrlMatch = wkt.match(/^\x01+/);
+				if (ctrlMatch) {
+					i += ctrlMatch[0].length - 1;
+					continue;
+				}
+
+				// Skip or deep-parse certain expressions
+				if (indexMap[i]) {
+					if (numUnclosed !== 0) {
+						processTemplateFragment(components, indexMap[i].text, {nonNameComponent: true});
+					}
+					const inner = indexMap[i].inner;
+					if (inner && inner.end <= wikitext.length) {
+						// Parse templates inside the expressions
+						const {start, end} = inner;
+						const text = wikitext.slice(start, end);
+						if (text.includes('{{')) {
+							templates.push(
+								...this._parseTemplates(indexMap, nestLevel, indexMap[i].type === 'tag', '\x01'.repeat(inner.start) + text)
+							);
+						}
+					}
+					i += indexMap[i].text.length - 1;
+					continue;
+				}
+
+				if (numUnclosed === 0) {
+					// We are not in a template
+					if (/^\{\{/.test(wkt)) {
+						// Found the start of a template
+						startIndex = i;
+						components = [];
+						numUnclosed += 2;
+						i++;
+					}
+				} else if (numUnclosed === 2) {
+					// We are looking for closing braces
+					if (/^\{\{/.test(wkt)) {
+						// Found a nested template
+						numUnclosed += 2;
+						i++;
+						processTemplateFragment(components, '{{');
+					} else if (/^\}\}/.test(wkt)) {
+						// Found the end of the template
+						const [nameObj, ...rawParams] = components;
+						const name = nameObj ? nameObj.name : '';
+						const rawName = nameObj ? nameObj.text : '';
+						const endIndex = i + 2;
+						const text = wikitext.slice(startIndex, endIndex);
+						const temp = createTemplateObject({
+							// TODO: Handle parser functions
+							name,
+							rawName,
+							text,
+							rawParams,
+							startIndex,
+							endIndex,
+							nestLevel,
+							skip
+						});
+						if (temp) {
+							templates.push(temp);
+							const inner = temp.text.slice(2, -2);
+							if (inner.includes('{{')) {
+								templates.push(
+									...this._parseTemplates(indexMap, nestLevel + 1, skip, '\x01'.repeat(startIndex + 2) + inner)
+								);
+							}
+						}
+						numUnclosed -= 2;
+						i++;
+					} else {
+						// Just part of the template
+						processTemplateFragment(components, wkt[0], wkt[0] === '|' ? {isNew: true} : {});
+					}
+				} else {
+					// We are in a nested template
+					let fragment;
+					if (/^\{\{/.test(wkt)) {
+						// Found another nested template
+						fragment = '{{';
+						numUnclosed += 2;
+						i++;
+					} else if (/^\}\}/.test(wkt)) {
+						// Found the end of the nested template
+						fragment = '}}';
+						numUnclosed -= 2;
+						i++;
+					} else {
+						// Just part of the nested template
+						fragment = wkt[0];
+					}
+					processTemplateFragment(components, fragment);
+				}
+
+			}
+
+			return templates.sort((obj1, obj2) => obj1.startIndex - obj2.startIndex);
+
+		}
+
+		/**
+		 * Parse `{{template}}`s in the wikitext.
+		 * @param config
+		 * @returns
+		 */
+		parseTemplates(config: ParseTemplatesConfig = {}): Template[] {
+			let templates = this.storageManager('templates');
+			if (typeof config.titlePredicate === 'function') {
+				templates = templates.filter(({title}) => config.titlePredicate!(title));
+			}
+			if (typeof config.templatePredicate === 'function') {
+				templates = templates.filter((template) => config.templatePredicate!(template));
+			}
+			return templates;
+		}
+
+		/**
+		 * Parse `[[wikilink]]`s in the wikitext.
+		 * @returns Array of parsed wikilinks.
+		 */
+		private _parseWikilinks(): (Wikilink | FileWikilink)[] {
+			const indexMap = this.getIndexMap({templates: true});
+			// Deep copy with storageManager to handle Title instances
+			const wikilinks = this.storageManager('wikilinks_fuzzy').reduce((acc: (Wikilink | FileWikilink)[], obj) => {
+				const {left, right, ...rest} = obj;
+				if (rest.title && rest.title.getNamespaceId() === NS_FILE && !rest.title.hadLeadingColon()) {
+					// This is a [[File:...]] link
+					if (right === null) {
+						// This file link doesn't have any parameters
+						acc.push({
+							...rest,
+							params: []
+						});
+					} else if (!right.includes('|')) {
+						// This file link is like [[File:...|param]]
+						acc.push({
+							...rest,
+							params: [mw.Title.clean(right)]
+						});
+					} else {
+						// This file link is like [[File:...|param1|param2]]
+						const params: string[] = [];
+						let text = '';
+						for (let i = 0; i < right.length; i++) {
+							// start index + [[ + left + | + i
+							const realIndex = rest.startIndex + 2 + left.length + 1 + i;
+							let expr;
+							if (indexMap[realIndex] &&
+								// Ensure the param line doesn't overflow the end of this wikilink
+								// [[File:...| expr ]]
+								realIndex + (expr = indexMap[realIndex].text).length + 2 <= rest.endIndex
+							) {
+								// Found the start of an expression (skip tag, parameter, or template)
+								text += expr;
+								i += expr.length - 1;
+							} else if (right[i] === '|') {
+								// Found the start of a new file link parameter
+								params.push(mw.Title.clean(text));
+								text = '';
+							} else {
+								// Just part of a file link parameter
+								text += right[i];
+							}
+						}
+						params.push(text); // Push the remaining file link parameter
+						acc.push({
+							...rest,
+							params
+						});
+					}
+				} else {
+					// This is a normal [[wikilink]], including [[:File:...]]
+					acc.push({
+						...rest,
+						display: mw.Title.clean(right ?? left)
+					});
+				}
+				return acc;
+			}, []);
+			this.storageManager('wikilinks', wikilinks);
+			return wikilinks;
+		}
+
+		/**
+		 * Parse `[[wikilink]]`s in the wikitext.
+		 * @returns Array of parsed wikilinks.
+		 */
+		parseWikilinks(): (Wikilink | FileWikilink)[] {
+			return this.storageManager('wikilinks');
 		}
 
 		// Asynchronous methods
@@ -1005,6 +1269,75 @@ export default function(mw: Mwbot) {
 	}
 
 	return Wikitext;
+
+	function createTemplateObject(initializer: {
+		name: string;
+		rawName: string;
+		text: string;
+		rawParams: TemplateFragment[];
+		startIndex: number;
+		endIndex: number;
+		nestLevel: number;
+		skip: boolean;
+	}): Template | null {
+		let name = initializer.name;
+		const {rawName, text, rawParams, startIndex, endIndex, nestLevel, skip} = initializer;
+
+		// Validate the template title
+		name = mw.Title.clean(name);
+		if (name.includes('\n')) {
+			return null;
+		}
+		const namespace = name[0] === ':' ? NS_MAIN : NS_TEMPLATE; // TODO: Handle "/" (subpage) and "#" (in-page section)?
+
+		// Format template parameters
+		const numeralKeys: number[] = [];
+		let hasUnnamedKeys = false;
+		const params: TemplateParameter[] = rawParams.reduce((acc: TemplateParameter[], p) => {
+			const key = mw.Title.clean(p.name.replace(/^\|/, ''));
+			if (/^\d+$/.test(key) && !numeralKeys.includes(+key)) {
+				numeralKeys.push(+key);
+			}
+			const unnamed = !key;
+			hasUnnamedKeys = hasUnnamedKeys || unnamed;
+			let value = p.value.replace(/^\|/, '');
+			if (!unnamed) {
+				value = value.trim();
+			}
+			const duplicateIndex = unnamed ? -1 : acc.findIndex((obj) => obj.key === key);
+			if (duplicateIndex !== -1) {
+				acc.splice(duplicateIndex, 1);
+			}
+			acc.push({key, value, text: p.text, unnamed});
+			return acc;
+		}, []);
+
+		// Index unnamed parameters
+		if (hasUnnamedKeys) {
+			params.forEach((obj) => {
+				if (obj.unnamed) {
+					for (let i = 1; ; i++) {
+						if (!numeralKeys.includes(i)) {
+							obj.key = i.toString();
+							numeralKeys.push(i);
+							break;
+						}
+					}
+				}
+			});
+		}
+
+		return {
+			title: mw.Title.newFromText(name, namespace),
+			rawTitle: rawName,
+			text,
+			params,
+			startIndex,
+			endIndex,
+			nestLevel,
+			skip
+		};
+	}
 }
 
 // Interfaces for constructor
@@ -1311,12 +1644,12 @@ interface ParseParametersConfig {
 	parameterPredicate?: (parameter: Parameter) => boolean;
 }
 
-// Interfaces and private members for "parseWikilinks"
+// Interfaces and private members for "parseWikilinksFuzzy"
 
 /**
- * Object that holds information about a `[[wikilink]]`, parsed from wikitext.
+ * Object that holds basic information about a `[[wikilink]]`, parsed from wikitext.
  */
-export interface Wikilink {
+export interface BaseWikilink {
 	/**
 	 * The target title of the wikilink (the part before the `|`).
 	 *
@@ -1324,19 +1657,9 @@ export interface Wikilink {
 	 */
 	title: Title | null;
 	/**
-	 * The displayed text of the wikilink (the part after `|`).
-	 *
-	 * This is the raw text of `[[display]]` or `[[target|display]]`.
-	 */
-	display: string;
-	/**
 	 * The full wikitext representation of the wikilink (e.g., `[[target|display]]`).
 	 */
 	text: string;
-	/**
-	 * Whether the wikilink contains a pipe (`|`) separator.
-	 */
-	piped: boolean;
 	/**
 	 * The starting index of the wikilink in the wikitext.
 	 */
@@ -1346,11 +1669,267 @@ export interface Wikilink {
 	 */
 	endIndex: number;
 	/**
+	 * Whether the wikilink contains a pipe (`|`) separator.
+	 */
+	piped: boolean;
+	/**
 	 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
 	 */
 	skip: boolean;
 }
 
+/**
+ * Object that holds information about a fuzzily parsed `[[wikilink]]`.
+ * The right operand of the link needs to be parsed for the object to be a complete construct.
+ */
+export interface FuzzyWikilink extends BaseWikilink {
+	/**
+	 * The left operand.
+	 */
+	left: string;
+	/**
+	 * The right operand.
+	 */
+	right: string | null;
+}
+
 // Interfaces and private members for "parseTemplates"
 
-type IndexMap = Record<number, {text: string; type: 'tag' | 'parameter' | 'wikilink';}>;
+/**
+ * A mapping of expression start indexes to their corresponding details.
+ *
+ * This type is used to track expressions while skipping over tags, parameters, and wikilinks.
+ * Each entry includes:
+ * - `text`: The raw text of the expression.
+ * - `type`: The type of the expression.
+ * - `inner`: The start and end indexes of the inner content, or `null` if not applicable.
+ */
+type IndexMap = {
+	[startIndex: number]: {
+		text: string;
+		type: 'tag' | 'parameter' | 'wikilink_fuzzy' | 'template';
+		inner: {start: number; end: number} | null;
+	};
+};
+
+/**
+ * Configuration options for {@link Wikitext.parseTemplates}.
+ */
+export interface ParseTemplatesConfig {
+	/**
+	 * Template parameter hierarchies.
+	 *
+	 * Module-invoking templates may have nested parameters. For example, `{{#invoke:module|user={{{1|{{{user|}}}}}}}}`
+	 * can be transcluded as `{{template|user=value|1=value}}`. In this case, `|1=` and `|user=` should be treated as
+	 * instantiating the same template parameter. Any non-empty `|user=` parameter should override `|1=` if present.
+	 * To specify such parameter hierarchies, pass an array like `[['1', 'user'], [...]]`. When this hierarchy is set,
+	 * `|1=` will be overridden by `|user=` whenever both are present.
+	 */
+	hierarchy?: string[][]; // TODO: Not used anywhere
+	/**
+	 * A predicate function to filter templates by title.
+	 * Only templates whose titles satisfy this function will be included in the results.
+	 *
+	 * @param title A Title object representing the template. Could be `null` if the title is invalid.
+	 * @returns `true` if the template should be parsed, otherwise `false`.
+	 */
+	titlePredicate?: (title: Title | null) => boolean;
+	/**
+	 * A predicate function to filter parsed templates.
+	 * Only templates that satisfy this function will be included in the results.
+	 *
+	 * @param template The template object.
+	 * @returns `true` if the template should be included, otherwise `false`.
+	 */
+	templatePredicate?: (template: Template) => boolean;
+}
+
+/**
+ * Template fragments processed by {@link processTemplateFragment}.
+ */
+interface TemplateFragment {
+	/**
+	 * The entire text of the template parameter, starting with a pipe character (e.g., `|1=value`).
+	 */
+	text: string;
+	/**
+	 * The name of the template parameter, if any (e.g., `1`). If the parameter isn't named, this property will be an empty string.
+	 * This property directly reflects the parsing result and is always prefixed by a pipe character for named parameters.
+	 */
+	name: string;
+	/**
+	 * The value assigned to the template parameter (without a leading pipe character).
+	 */
+	value: string;
+}
+
+/**
+ * Options for {@link processTemplateFragment}.
+ */
+interface FragmentOptions {
+	/**
+	 * Whether the fragment is **not** part of a template name or template parameter name.
+	 * This applies when the fragment represents a value or another non-name component.
+	 */
+	nonNameComponent?: boolean;
+	/**
+	 * Whether the passed fragment starts a new template parameter.
+	 * This is used when a fragment marks the beginning of a new parameter within the template.
+	 */
+	isNew?: boolean;
+}
+
+/**
+ * Processes fragments of template parameters and updates the `components` array in place.
+ *
+ * #### How `components` is structured:
+ * - `components[0]` stores the **template name**.
+ *   - `text`: The full name, including any extra characters (e.g., `{{Template<!--1-->|arg1=}}`).
+ *   - `name`: The clean name without extra characters.
+ * - `components[1+]` store **template parameters**, each starting with a pipe (`|`).
+ *   - `text`: The full parameter (e.g., `|1=value`).
+ *   - `name`: The parameter key (e.g., `|1`).
+ *   - `value`: The assigned value.
+ *
+ * `components[1+].text` and `components[1+].name` always start with a pipe character to prevent misinterpretation
+ * when an unnamed parameter has a value starting with `=` (e.g., `{{Template|=}}`).
+ *
+ * @param components The array storing parsed template parameters.
+ * @param fragment The character(s) to add to the `components` array.
+ * @param options Optional settings for handling the fragment.
+ */
+function processTemplateFragment(components: TemplateFragment[], fragment: string, options: FragmentOptions = {}): void {
+
+	// Determine which element to modify: either a new element for a new parameter or an existing one
+	const {nonNameComponent, isNew} = options;
+	const i = isNew ? components.length : Math.max(components.length - 1, 0);
+
+	// Initialize the element if it does not exist
+	if (!(i in components)) {
+		components[i] = {text: '', name: '', value: ''};
+	}
+
+	// Process the fragment and update the `components` array
+	let equalIndex;
+	if (i === 0 && nonNameComponent) {
+		// `components[0]` handler (looking for a template name): extra characters
+		components[i].text += fragment;
+	} else if (i === 0) {
+		// `components[0]` handler (looking for a template name): part of the name
+		components[i].text += fragment;
+		components[i].name += fragment;
+	} else if ((equalIndex = fragment.indexOf('=')) !== -1 && !components[i].name && !nonNameComponent) {
+		// Found `=` when `name` is empty, indicating the start of a named parameter.
+		components[i].name = components[i].text + fragment.slice(0, equalIndex);
+		components[i].text += fragment;
+		components[i].value = components[i].text.slice(components[i].name.length + 1);
+	} else {
+		components[i].text += fragment;
+		components[i].value += fragment;
+	}
+
+}
+
+/**
+ * Object that holds information about a template, parsed from wikitext.
+ */
+export interface Template {
+	/**
+	 * A {@link Title} instance representing the transcluded target.
+	 * This is `null` if the title is invalid.
+	 *
+	 * NOTE: `{{template}}`, when used without a namespace prefix, transcludes a page from the Template namespace.
+	 * Thus, `title.getNamespaceId()` typically returns `10` for both `{{template}}` and `{{Template:template}}`.
+	 *
+	 * To distinguish `{{template}}` (template transclusion) from `{{:title}}` (page transclusion),
+	 * use {@link Title.hadLeadingColon}.
+	 */
+	title: Title | null;
+	/**
+	 * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
+	 */
+	rawTitle: string;
+	/**
+	 * The full wikitext of the template, including `{{` and `}}`.
+	 */
+	text: string;
+	/**
+	 * The parameters of the template.
+	 */
+	params: TemplateParameter[];
+	/**
+	 * The starting index of this template in the wikitext.
+	 */
+	startIndex: number;
+	/**
+	 * The ending index of this template in the wikitext (exclusive).
+	 */
+	endIndex: number;
+	/**
+	 * The nesting level of this template. `0` if not nested within another template.
+	 */
+	nestLevel: number;
+	/**
+	 * Whether the template appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+	 */
+	skip: boolean;
+}
+
+/**
+ * Object that holds information about a template parameter.
+ */
+export interface TemplateParameter {
+	/**
+	 * The parameter key with leading and trailing spaces removed.
+	 *
+	 * This property is never an empty string, even for unnamed parameters.
+	 */
+	key: string;
+	/**
+	 * The parameter value.
+	 *
+	 * Trimming behavior depends on whether the parameter is named:
+	 * - Named parameters collapse leading and trailing spaces.
+	 * - Unnamed parameters retain leading and trailing spaces.
+	 * See https://en.wikipedia.org/wiki/Help:Template#Whitespace_handling.
+	 *
+	 * Regardless, trailing linebreak characters are always removed.
+	 */
+	value: string;
+	/**
+	 * The parameter text, starting with a pipe character (`|`).
+	 *
+	 * For unnamed parameters, the key is not rendered.
+	 */
+	text: string;
+	/**
+	 * Whether the parameter is unnamed.
+	 */
+	unnamed: boolean;
+}
+
+// Interfaces and private members for "parseWikilinks"
+
+/**
+ * Object that holds information about a `[[wikilink]]`, parsed from wikitext.
+ */
+export interface Wikilink extends BaseWikilink {
+	/**
+	 * The displayed text of the wikilink (the part after `|`).
+	 *
+	 * This is the trimmed version of `display` in `[[display]]` or `[[target|display]]`.
+	 */
+	display: string;
+}
+
+/**
+ * Object that holds information about a `[[filelink]]`, parsed from wikitext.
+ */
+export interface FileWikilink extends BaseWikilink {
+	/**
+	 * The parameters of the file link (the part after `|`).
+	 *
+	 * These are the trimmed versions of `param(s)` in `[[file title|...params]]`.
+	 */
+	params: string[];
+}
