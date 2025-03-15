@@ -76,6 +76,8 @@ export default function(mw: Mwbot) {
 			const defaultSkipTags =
 				options.overwriteSkipTags ?
 				[] :
+				// TODO: Cannot handle rare cases like "<nowiki>[[link<!--]]-->|display]]</nowiki>", where a comment tag is nested
+				// inside a non-comment skip tag. To handle these, it'll be necessary to differentiate the types of skip tags.
 				['!--', 'nowiki', 'pre', 'syntaxhighlight', 'source', 'math'];
 			if (options.skipTags) {
 				defaultSkipTags.push(
@@ -828,70 +830,18 @@ export default function(mw: Mwbot) {
 		}
 
 		/**
-		 * Fuzzily parse `[[wikilink]]`s in the wikitext. The right operand (i.e., `[[left|right]]`) will be incomplete.
-		 * @returns Array of fuzzily parsed wikilinks.
-		 */
-		private _parseWikilinksFuzzy(): FuzzyWikilink[] {
-
-			const isInSkipRange = this.getSkipPredicate();
-			const wikitext = this.content;
-			const links: FuzzyWikilink[] = [];
-
-			// TODO: This won't work if wikilinks are nested, e.g. [[something|{{template|[[something2]]}}]]
-			/**
-			 * A regular expression to parse `[[wikilink]]`s (more precisely, `[[target|display]]`).
-			 *
-			 * Capturing groups:
-			 * * `$1`: target
-			 * * `$2`: display
-			 *
-			 * NOTE: `$2` is "anything but the target and the pipe separator following it (if any)".
-			 * If the wikilink doesn't contain a separator or if the display component is empty,
-			 * this capturing group is an empty string. It might consist of multiple arguments in
-			 * the case of file wikilinks (i.e., `arg1|arg2|...`).
-			 */
-			const wikilinkRegex = /\[{2}([^\]|]+)\|?([^\]]*)\]{2}/g;
-
-			let match: RegExpExecArray | null;
-			while ((match = wikilinkRegex.exec(wikitext))) {
-				const text = match[0];
-				const left = match[1];
-				const right = match[2] ||
-					// Let empty strings fall back to null
-					// Links like [[left|]] aren't expected to exist because of "pipe tricks"
-					// See https://en.wikipedia.org/wiki/Help:Pipe_trick
-					null;
-				const startIndex = match.index;
-				const endIndex = startIndex + text.length;
-				links.push({
-					left,
-					right,
-					title: mw.Title.newFromText(left),
-					text,
-					piped: right !== null,
-					startIndex,
-					endIndex,
-					skip: isInSkipRange(startIndex, endIndex)
-				});
-			}
-
-			return links;
-
-		}
-
-		/**
 		 * Generates a mapping from the start index of each parsed element to its text content and type.
 		 *
 		 * The mapping includes:
 		 * * Skip tags (e.g., `<nowiki>`, `<!-- -->`)
-		 * * Parameters (`{{{parameter}}}`)
+		 * * Parameters (`{{{parameter}}}`; not included by default)
 		 * * Fuzzy wikilinks (`[[wikilink]]`; not included by default)
 		 * * Templates (`{{tempalte}}`; not included by default)
 		 *
 		 * @param options Options to index additional expressions.
 		 * @returns An object mapping start indices to their corresponding text content and type.
 		 */
-		private getIndexMap(options: {wikilinks_fuzzy?: boolean, templates?: boolean} = {}): IndexMap {
+		private getIndexMap(options: {parameters?: boolean; wikilinks_fuzzy?: boolean, templates?: boolean} = {}): IndexMap {
 
 			const indexMap: IndexMap = Object.create(null);
 
@@ -915,19 +865,21 @@ export default function(mw: Mwbot) {
 			});
 
 			// Process {{{parameter}}}s
-			this.storageManager('parameters', false).forEach(({text, startIndex}) => {
-				// Wish we could use the d flag from ES2022!
-				const m = /^(\{{3}[^|}]*\|)([^}]+)\}{3}$/.exec(text);
-				const inner = m && {
-					start: startIndex + m[1].length,
-					end: startIndex + m[1].length + m[2].length
-				};
-				indexMap[startIndex] = {
-					text,
-					type: 'parameter',
-					inner
-				};
-			});
+			if (options.parameters) {
+				this.storageManager('parameters', false).forEach(({text, startIndex}) => {
+					// Wish we could use the d flag from ES2022!
+					const m = /^(\{{3}[^|}]*\|)([^}]+)\}{3}$/.exec(text);
+					const inner = m && {
+						start: startIndex + m[1].length,
+						end: startIndex + m[1].length + m[2].length
+					};
+					indexMap[startIndex] = {
+						text,
+						type: 'parameter',
+						inner
+					};
+				});
+			}
 
 			// Process fuzzy [[wikilink]]s
 			if (options.wikilinks_fuzzy) {
@@ -963,6 +915,120 @@ export default function(mw: Mwbot) {
 		}
 
 		/**
+		 * Fuzzily parse `[[wikilink]]`s in the wikitext. The right operand (i.e., `[[left|right]]`) will be incomplete.
+		 * @param indexMap Optional index map to re-use.
+		 * @param skip Whether we are parsing wikilinks inside skip tags. (Default: `false`)
+		 * @param wikitext Alternative wikitext to parse. Should be passed when parsing nested wikilinks.
+		 * All characters before the range where there can be nested wikilinks should be replaced with `\x01`.
+		 * This method skips sequences of this control character, to reach the range early and efficiently.
+		 * @returns Array of fuzzily parsed wikilinks.
+		 */
+		private _parseWikilinksFuzzy(indexMap = this.getIndexMap(), skip = false, wikitext = this.content): FuzzyWikilink[] {
+
+			/**
+			 * Regular expressions to parse `[[wikilink]]`s.
+			 *
+			 * Usually, wikilinks are easy to parse, just with a `g`-flagged regex and a `while` loop.
+			 * However, the following unusual cases (and the like) should be accounted for:
+			 *
+			 * - `<!--[[-->[[wikilink]]`
+			 * - `[[wikilink<!--]]-->]]`
+			 *
+			 * That is, cases where a double bracket appears in a skip tag (which the g-regex approach can't handle).
+			 */
+			const regex = {
+				start: /^\[{2}(?!\[)/,
+				end: /^\]{2}/,
+				leftEndsWithPipe: /\|$/
+			};
+			const links: FuzzyWikilink[] = [];
+			let inLink = false;
+			let startIndex = 0;
+			let left = '';
+			let rawTitle = '';
+			let isLeftSealed = false;
+
+			for (let i = 0; i < wikitext.length; i++) {
+
+				const wkt = wikitext.slice(i);
+
+				// Skip sequences of "\x01", prepended instead of the usual text
+				// This makes it easy to retrieve the start indices of nested wikilinks
+				// eslint-disable-next-line no-control-regex
+				const ctrlMatch = wkt.match(/^\x01+/);
+				if (ctrlMatch) {
+					i += ctrlMatch[0].length - 1;
+					continue;
+				}
+
+				// Skip over skip tags
+				if (indexMap[i]) {
+					const {inner} = indexMap[i]; // The index map of skip tags (only)
+					if (inner && inner.end <= wikitext.length) {
+						const {start, end} = inner;
+						const text = wikitext.slice(start, end); // innerHTML of the skip tag
+						if (text.includes('[[') && text.includes(']]')) {
+							// Parse wikilinks inside the skip tag
+							links.push(
+								...this._parseWikilinksFuzzy(indexMap, true, '\x01'.repeat(start) + text)
+							);
+						}
+					}
+					if (inLink && !isLeftSealed) {
+						rawTitle += indexMap[i].text;
+					}
+					i += indexMap[i].text.length - 1;
+					continue;
+				}
+
+				if (regex.start.test(wkt)) {
+					// Regard any occurrence of "[[" as the potential start of a wikilink
+					inLink = true;
+					startIndex = i;
+					left = '';
+					rawTitle = '';
+					isLeftSealed = false;
+					i++;
+				} else if (regex.end.test(wkt) && inLink) {
+					const endIndex = i + 2;
+					const text = wikitext.slice(startIndex, endIndex);
+					let right: string | null = null;
+					if (regex.leftEndsWithPipe.test(left)) {
+						right = wikitext.slice(startIndex + 2 + rawTitle.length, endIndex - 2) ||
+							// Let empty strings fall back to null
+							// Links like [[left|]] aren't expected to exist because of "pipe tricks"
+							// See https://en.wikipedia.org/wiki/Help:Pipe_trick
+							null;
+						left = left.slice(0, -1);
+					}
+					links.push({
+						left,
+						right,
+						title: mw.Title.newFromText(left),
+						rawTitle: rawTitle.replace(regex.leftEndsWithPipe, ''),
+						text,
+						piped: right !== null,
+						startIndex,
+						endIndex,
+						skip
+					});
+					inLink = false;
+					i++;
+				} else if (inLink && !isLeftSealed) {
+					if (wkt[0] === '|') {
+						isLeftSealed = true;
+					}
+					left += wkt[0]; // A sealed "left" ends with a pipe
+					rawTitle += wkt[0];
+				}
+
+			}
+
+			return links.sort((obj1, obj2) => obj1.startIndex - obj2.startIndex);
+
+		}
+
+		/**
 		 * Parse `{{template}}`s in the wikitext.
 		 * @param indexMap Optional index map to re-use.
 		 * @param nestLevel Nesting level of the parsing templates. Only passed from inside this method.
@@ -972,7 +1038,12 @@ export default function(mw: Mwbot) {
 		 * This method skips sequences of this control character, to reach the range early and efficiently.
 		 * @returns
 		 */
-		private _parseTemplates(indexMap = this.getIndexMap({wikilinks_fuzzy: true}), nestLevel = 0, skip = false, wikitext = this.content): Template[] {
+		private _parseTemplates(
+			indexMap = this.getIndexMap({parameters: true, wikilinks_fuzzy: true}),
+			nestLevel = 0,
+			skip = false,
+			wikitext = this.content
+		): Template[] {
 
 			let numUnclosed = 0;
 			let startIndex = 0;
@@ -1109,7 +1180,7 @@ export default function(mw: Mwbot) {
 		 * @returns Array of parsed wikilinks.
 		 */
 		private _parseWikilinks(): (Wikilink | FileWikilink)[] {
-			const indexMap = this.getIndexMap({templates: true});
+			const indexMap = this.getIndexMap({parameters: true, templates: true});
 			// Deep copy with storageManager to handle Title instances
 			const wikilinks = this.storageManager('wikilinks_fuzzy').reduce((acc: (Wikilink | FileWikilink)[], obj) => {
 				const {left, right, ...rest} = obj;
@@ -1167,7 +1238,6 @@ export default function(mw: Mwbot) {
 				}
 				return acc;
 			}, []);
-			this.storageManager('wikilinks', wikilinks);
 			return wikilinks;
 		}
 
@@ -1652,10 +1722,16 @@ interface ParseParametersConfig {
 export interface BaseWikilink {
 	/**
 	 * The target title of the wikilink (the part before the `|`).
-	 *
 	 * This can be `null` if the title is invalid.
+	 *
+	 * NOTE: Wikilinks with an invalid title aren't rendered as links (e.g., `[[{|foo]]`).
+	 * However, they could be valid after applying rendering transformations (e.g., `[[{{{paremeter}}}]]`).
 	 */
 	title: Title | null;
+	/**
+	 * The raw target title, as directly parsed from the first operand of a `[[wikilink|...]]` expression.
+	 */
+	rawTitle: string;
 	/**
 	 * The full wikitext representation of the wikilink (e.g., `[[target|display]]`).
 	 */
