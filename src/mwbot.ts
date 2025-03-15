@@ -42,7 +42,7 @@ import {
 	ApiResponseQueryMetaSiteinfoInterwikimap
 } from './api_types';
 import { mergeDeep, isPlainObject, sleep, isEmptyObject } from './util';
-import { ErrorBase, MwbotError } from './error';
+import { ErrorBase, MwbotError } from './MwbotError';
 import * as mwString from './String';
 import TitleFactory from './Title';
 import WikitextFactory from './Wikitext';

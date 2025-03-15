@@ -4,8 +4,8 @@
  * @module
  */
 
-import { MwbotError } from './error';
-import type { Mwbot } from './mwbot';
+import { MwbotError } from './MwbotError';
+import type { Mwbot } from './Mwbot';
 import { mergeDeep } from './util';
 /**
  * @internal

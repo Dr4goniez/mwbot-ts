@@ -20,7 +20,7 @@
  * @module
  */
 
-import type { Mwbot } from './mwbot';
+import type { Mwbot } from './Mwbot';
 import { toUpperMap, toLowerMap } from './phpCharMap';
 import * as mwString from './String';
 
