@@ -232,6 +232,128 @@ export default function(mw: Mwbot) {
 		}
 
 		/**
+		 * Modify a given type of expressions in the wikitext content.
+		 *
+		 * For example, if {@link type} is specified as `tags`:
+		 * ```typescript
+		 * // Close unclosed tags
+		 * const wkt = new mwbot.Wikitext('<span>a<div><del>b</span><span>c');
+		 * const oldContent = wkt.content;
+		 * const newContent = await wkt.modify('tags',
+		 * 	async (tags) => {
+		 * 		return tags.reduce((acc: (string | null)[], obj) => {
+		 * 			if (obj.unclosed) { // An end tag is missing
+		 * 				acc.push(obj.text + obj.end); // Register the new tag text
+		 * 			} else {
+		 * 				acc.push(null); // Register null for no change
+		 * 			}
+		 * 			return acc;
+		 * 		}, []);
+		 * 	}
+		 * );
+		 * if (oldContent !== newContent) {
+		 * 	console.log(newContent);
+		 * 	// Output: <span>a<div><del>b</del></div></span><span>c</span>
+		 * }
+		 * ```
+		 *
+		 * Note that the {@link content} and the specified expressions will be updated based on the modification.
+		 * After running this method, **do not re-use copies of them initialized beforehands**.
+		 *
+		 * @param type `tags`, `parameters`, `sections`, `templates`, or `wikilinks`.
+		 * @param modificationPredicate
+		 * A predicate that specifies how the expressions should be modified. This is a function that takes an array
+		 * of expression objects and returns a Promise resolving to an array of strings or `null`. Each string element
+		 * represents the new content for the corresponding expression, while `null` means no modification for that expression.
+		 * @returns A Promise resolving to the modified wikitext content as a string.
+		 * @throws {MwbotError}
+		 * - If the value of {@link type} is invalid.
+		 * - If {@link modificationPredicate} is not a function.
+		 * - If the length of the array returned by {@link modificationPredicate} does not match that of the "expressions" array.
+		 * @throws {Error} If {@link modificationPredicate} returns a rejected Promise.
+		 */
+		async modify<K extends keyof ModificationMap>(
+			type: K,
+			modificationPredicate: ModificationPredicate<ModificationMap[K]>
+		): Promise<string> {
+
+			// Validate the arguments
+			if (typeof type !== 'string' || !['tags', 'parameters', 'sections', 'templates', 'wikilinks'].includes(type)) {
+				throw new MwbotError({
+					code: 'mwbot_fatal_invalidtype',
+					info: `"${type}" is not a valid expression type for Wikitext.modify.`
+				});
+			} else if (typeof modificationPredicate !== 'function') {
+				throw new MwbotError({
+					code: 'mwbot_fatal_typemismatch',
+					info: 'modificationPredicate must be a function.'
+				});
+			}
+
+			// Get text modification settings
+			let expressions = this.storageManager(type) as ModificationMap[K][];
+			let mods: (string | null)[];
+			// eslint-disable-next-line no-useless-catch
+			try {
+				mods = await modificationPredicate(expressions);
+			} catch (err) {
+				throw err;
+			}
+			if (mods.length !== expressions.length) {
+				throw new MwbotError({
+					code: 'mwbot_fatal_lengthmismatch',
+					info: `The length of the array returned by modificationPredicate does not match that of the "${type}" array.`
+				});
+			} else if (!Array.isArray(mods)) {
+				throw new MwbotError({
+					code: 'mwbot_fatal_typemismatch',
+					info: 'modificationPredicate must return an array.'
+				});
+			}
+
+			// Apply the changes and update the entire wikitext content
+			expressions = this.storageManager(type, false) as ModificationMap[K][]; // Reference storage again because the array might have been mutated
+			let newContent = this.content;
+			mods.some((text, i, arr) => {
+				if (typeof text === 'string') {
+
+					// Replace the old expression with a new one
+					const initialEndIndex = expressions[i].endIndex;
+					const firstPart = newContent.slice(0, expressions[i].startIndex);
+					const secondPart = newContent.slice(initialEndIndex);
+					newContent = firstPart + text + secondPart;
+
+					// Exit early if this is the last loop iteration
+					if (i === arr.length - 1) {
+						return true;
+					} // Otherwise we need to update the character indexes to continue the iteration
+
+					// Adjust the end index of the modified expression based on new text length
+					// (the start index doesn't change)
+					const lengthGap = text.length - expressions[i].text.length;
+					expressions[i].endIndex += lengthGap;
+
+					// Adjust the start and end indices of all other expressions
+					expressions.forEach((obj, j) => {
+						if (i !== j) {
+							if (obj.startIndex > initialEndIndex) {
+								obj.startIndex += lengthGap;
+								obj.endIndex += lengthGap;
+							} else if (obj.endIndex > initialEndIndex) {
+								obj.endIndex += lengthGap;
+							}
+						}
+					});
+
+				}
+			});
+
+			this.storageManager('content', newContent); // Update the content
+			return this.content;
+
+		}
+
+		/**
 		 * Parse the wikitext for HTML tags.
 		 * @returns
 		 */
@@ -441,104 +563,13 @@ export default function(mw: Mwbot) {
 		/**
 		 * Modify tags in the wikitext content.
 		 *
-		 * For example:
-		 * ```typescript
-		 * // Close unclosed tags
-		 * const wkt = new mwbot.Wikitext('<span>a<div><del>b</span><span>c');
-		 * const oldContent = wkt.content;
-		 * const newContent = await wkt.modifyTags(
-		 * 	async (tags) => {
-		 * 		return tags.reduce((acc: (string | null)[], obj) => {
-		 * 			if (obj.unclosed) { // An end tag is missing
-		 * 				acc.push(obj.text + obj.end); // Register the new tag text
-		 * 			} else {
-		 * 				acc.push(null); // Register null for no change
-		 * 			}
-		 * 			return acc;
-		 * 		}, []);
-		 * 	}
-		 * );
-		 * if (oldContent !== newContent) {
-		 * 	console.log(newContent);
-		 * 	// Output: <span>a<div><del>b</del></div></span><span>c</span>
-		 * }
-		 * ```
-		 *
-		 * Note that {@link content} and tags will be updated based on the modification.
-		 * After running this method, **do not re-use copies of them initialized beforehands**.
+		 * This is a shorthand method of {@link modify} with its first argument set as `tags`.
 		 *
 		 * @param modificationPredicate
-		 * A predicate that specifies how the tags should be modified. This is a function that takes an array of
-		 * tag objects and returns a Promise resolving to an array of strings or `null`. Each string element
-		 * represents the new content for the corresponding tag, while `null` means no modification for that tag.
-		 * @returns A Promise resolving to the modified wikitext content as a string.
-		 * @throws {MwbotError}
-		 * If the length of the array returned by `modificationPredicate` does not match that of the "tags" array.
-		 * @throws {Error} If `modificationPredicate` returns a rejected Promise.
+		 * @returns
 		 */
-		async modifyTags(modificationPredicate: TagModificationPredicate): Promise<string> {
-
-			// Get text modification settings
-			let tags = this.storageManager('tags');
-			let mods: (string | null)[];
-			// eslint-disable-next-line no-useless-catch
-			try {
-				mods = await modificationPredicate(tags);
-			} catch (err) {
-				throw err;
-			}
-			if (mods.length !== tags.length) {
-				throw new MwbotError({
-					code: 'mwbot_fatal_lengthmismatch',
-					info: 'The length of the array returned by modificationPredicate does not match that of the "tags" array.'
-				});
-			} else if (!Array.isArray(mods)) {
-				throw new MwbotError({
-					code: 'mwbot_fatal_typemismatch',
-					info: 'modificationPredicate must return an array.'
-				});
-			}
-
-			// Apply the changes and update the entire wikitext content
-			tags = this.storageManager('tags', false); // Get the tags again because the passed "tags" might have been mutated
-			let newContent = this.content;
-			mods.some((text, i, arr) => {
-				if (typeof text === 'string') {
-
-					// Replace the old tag content with a new one
-					const initialEndIndex = tags[i].endIndex;
-					const firstPart = newContent.slice(0, tags[i].startIndex);
-					const secondPart = newContent.slice(initialEndIndex);
-					newContent = firstPart + text + secondPart;
-
-					// Exit early if this is the last loop iteration
-					if (i === arr.length - 1) {
-						return true;
-					} // Otherwise we need to update the character indexes to continue the iteration
-
-					// Adjust the end index of the modified tag based on new text length
-					// (the start index doesn't change)
-					const lengthGap = text.length - tags[i].text.length;
-					tags[i].endIndex += lengthGap;
-
-					// Adjust the start and end indices of all other tags
-					tags.forEach((obj, j) => {
-						if (i !== j) {
-							if (obj.startIndex > initialEndIndex) {
-								obj.startIndex += lengthGap;
-								obj.endIndex += lengthGap;
-							} else if (obj.endIndex > initialEndIndex) {
-								obj.endIndex += lengthGap;
-							}
-						}
-					});
-
-				}
-			});
-
-			this.storageManager('content', newContent); // Update the content
-			return this.content;
-
+		modifyTags(modificationPredicate: ModificationPredicate<Tag>): Promise<string> {
+			return this.modify('tags', modificationPredicate);
 		}
 
 		/**
@@ -723,7 +754,7 @@ export default function(mw: Mwbot) {
 					index: i,
 					startIndex: index,
 					endIndex: index + content.length,
-					content
+					text: content
 				};
 			});
 
@@ -742,6 +773,18 @@ export default function(mw: Mwbot) {
 				sections = sections.filter((sec) => config.sectionPredicate!(sec));
 			}
 			return sections;
+		}
+
+		/**
+		 * Modify sections in the wikitext content.
+		 *
+		 * This is a shorthand method of {@link modify} with its first argument set as `sections`.
+		 *
+		 * @param modificationPredicate
+		 * @returns
+		 */
+		modifySections(modificationPredicate: ModificationPredicate<Section>): Promise<string> {
+			return this.modify('sections', modificationPredicate);
 		}
 
 		/**
@@ -874,6 +917,18 @@ export default function(mw: Mwbot) {
 				parameters = parameters.filter((param) => config.parameterPredicate!(param));
 			}
 			return parameters;
+		}
+
+		/**
+		 * Modify parameters in the wikitext content.
+		 *
+		 * This is a shorthand method of {@link modify} with its first argument set as `parameters`.
+		 *
+		 * @param modificationPredicate
+		 * @returns
+		 */
+		modifyParameters(modificationPredicate: ModificationPredicate<Parameter>): Promise<string> {
+			return this.modify('parameters', modificationPredicate);
 		}
 
 		/**
@@ -1224,6 +1279,18 @@ export default function(mw: Mwbot) {
 		}
 
 		/**
+		 * Modify templates in the wikitext content.
+		 *
+		 * This is a shorthand method of {@link modify} with its first argument set as `templates`.
+		 *
+		 * @param modificationPredicate
+		 * @returns
+		 */
+		modifyTemplates(modificationPredicate: ModificationPredicate<Template>): Promise<string> {
+			return this.modify('templates', modificationPredicate);
+		}
+
+		/**
 		 * Parse `[[wikilink]]`s in the wikitext.
 		 * @returns Array of parsed wikilinks.
 		 */
@@ -1303,6 +1370,18 @@ export default function(mw: Mwbot) {
 				wikilinks = wikilinks.filter((link) => config.wikilinkPredicate!(link));
 			}
 			return wikilinks;
+		}
+
+		/**
+		 * Modify wikilinks in the wikitext content.
+		 *
+		 * This is a shorthand method of {@link modify} with its first argument set as `wikilinks`.
+		 *
+		 * @param modificationPredicate
+		 * @returns
+		 */
+		modifyWikilinks(modificationPredicate: ModificationPredicate<Wikilink | FileWikilink>): Promise<string> {
+			return this.modify('wikilinks', modificationPredicate);
 		}
 
 		// Asynchronous methods
@@ -1470,7 +1549,7 @@ export default function(mw: Mwbot) {
 	}
 }
 
-// Interfaces for constructor
+// Interfaces for constructor and the entire module
 
 /**
  * Options to initialize a {@link Wikitext} instance.
@@ -1499,6 +1578,22 @@ export interface WikitextOptions {
 	 * tags).
 	 */
 	overwriteSkipTags?: boolean;
+}
+
+/**
+ * Type of the callback function for {@link Wikitext.modify}.
+ */
+export type ModificationPredicate<T> = (expressions: T[]) => Promise<(string | null)[]>;
+
+/**
+ * A mapping of a type key to its object type, used in {@link Wikitext.modify}.
+ */
+export interface ModificationMap {
+	tags: Tag;
+	parameters: Parameter;
+	sections: Section;
+	templates: Template;
+	wikilinks: Wikilink | FileWikilink;
 }
 
 // Interfaces and private members for "parseTags"
@@ -1628,11 +1723,6 @@ export interface ParseTagsConfig {
 	tagPredicate?: (tag: Tag) => boolean;
 }
 
-/**
- * See {@link Wikitext.modifyTags}.
- */
-export type TagModificationPredicate = (tags: Tag[]) => Promise<(string | null)[]>;
-
 // Interfaces and private members for "parseSections"
 
 /**
@@ -1704,7 +1794,7 @@ export interface Section {
 	/**
 	 * The content of the section including the heading.
 	 */
-	content: string;
+	text: string;
 }
 
 /**
