@@ -94,6 +94,17 @@ export default function(mw: Mwbot) {
 		}
 
 		/**
+		 * Alias of `new mwbot.Wikitext` (see also {@link Wikitext.constructor}).
+		 *
+		 * @param content A wikitext content.
+		 * @param options Options for the initialization of the instance.
+		 * @throws If `content` is not a string.
+		 */
+		static new(content: string, options: WikitextOptions = {}): Wikitext {
+			return new Wikitext(content, options);
+		}
+
+		/**
 		 * Retrieves the value of `key` from {@link storage}.
 		 *
 		 * - If the stored value is `null`, the wikitext is parsed and the result is stored.
@@ -435,7 +446,7 @@ export default function(mw: Mwbot) {
 		 * // Close unclosed tags
 		 * const wkt = new mwbot.Wikitext('<span>a<div><del>b</span><span>c');
 		 * const oldContent = wkt.content;
-		 * const newContent = wkt.modifyTags(
+		 * const newContent = await wkt.modifyTags(
 		 * 	async (tags) => {
 		 * 		return tags.reduce((acc: (string | null)[], obj) => {
 		 * 			if (obj.unclosed) { // An end tag is missing
@@ -460,18 +471,12 @@ export default function(mw: Mwbot) {
 		 * A predicate that specifies how the tags should be modified. This is a function that takes an array of
 		 * tag objects and returns a Promise resolving to an array of strings or `null`. Each string element
 		 * represents the new content for the corresponding tag, while `null` means no modification for that tag.
-		 * @param outputTags
-		 * Whether to return (a deep copy of) an array of modified tag objects.
-		 * @returns
-		 * A promise resolving to the modified wikitext content as a string, or an array of tag objects, depending
-		 * on whether `outputTags` is true.
+		 * @returns A Promise resolving to the modified wikitext content as a string.
 		 * @throws {MwbotError}
 		 * If the length of the array returned by `modificationPredicate` does not match that of the "tags" array.
 		 * @throws {Error} If `modificationPredicate` returns a rejected Promise.
 		 */
-		async modifyTags(modificationPredicate: TagModificationPredicate, outputTags?: false): Promise<string>;
-		async modifyTags(modificationPredicate: TagModificationPredicate, outputTags: true): Promise<Tag[]>;
-		async modifyTags(modificationPredicate: TagModificationPredicate, outputTags = false): Promise<Tag[] | string> {
+		async modifyTags(modificationPredicate: TagModificationPredicate): Promise<string> {
 
 			// Get text modification settings
 			let tags = this.storageManager('tags');
@@ -531,15 +536,8 @@ export default function(mw: Mwbot) {
 				}
 			});
 
-			// Update the content
-			this.storageManager('content', newContent);
-
-			// Return the appropriate result based on the `outputTags` parameter
-			if (outputTags) {
-				return this.storageManager('tags'); // Must parse again because nesting levels and so on might have changed
-			} else {
-				return this.content;
-			}
+			this.storageManager('content', newContent); // Update the content
+			return this.content;
 
 		}
 
@@ -744,6 +742,28 @@ export default function(mw: Mwbot) {
 				sections = sections.filter((sec) => config.sectionPredicate!(sec));
 			}
 			return sections;
+		}
+
+		/**
+		 * Given the start and end indices of an expression, identify the section containing the expression.
+		 *
+		 * @param startIndex The start index of the expression.
+		 * @param endIndex The end index of the expression (exclusive).
+		 * @returns The deepest {@link Section} containing the expression, or `null` if none is found.
+		 */
+		identifySection(startIndex: number, endIndex: number): Section | null {
+			const sections = this.storageManager('sections');
+			let ret: Section | null = null;
+			for (const sect of sections) {
+				if (
+					sect.startIndex <= startIndex && endIndex <= sect.endIndex &&
+					// Ensure to pick up the deepest section
+					(ret === null || ret.level < sect.level)
+				) {
+					ret = sect;
+				}
+			}
+			return ret;
 		}
 
 		/**
