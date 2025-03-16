@@ -1,8 +1,8 @@
 {
 	"entryPoints": [
-		"src/mwbot.ts",
+		"src/Mwbot.ts",
 		"src/api_types.ts",
-		"src/error.ts",
+		"src/MwbotError.ts",
 		"src/String.ts",
 		"src/Title.ts",
 		"src/Wikitext.ts"

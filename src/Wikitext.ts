@@ -7,9 +7,7 @@
 import { MwbotError } from './MwbotError';
 import type { Mwbot } from './Mwbot';
 import { mergeDeep } from './util';
-/**
- * @internal
- */
+
 type Title = InstanceType<Mwbot['Title']>;
 
 /**
@@ -21,6 +19,8 @@ export default function(mw: Mwbot) {
 	const NS_MAIN = namespaceIds[''];
 	const NS_FILE = namespaceIds.file;
 	const NS_TEMPLATE = namespaceIds.template;
+	// eslint-disable-next-line no-control-regex
+	const rCtrlStart = /^\x01+/;
 
 	/**
 	 * TODO: Add documentation
@@ -241,7 +241,7 @@ export default function(mw: Mwbot) {
 			 * <foo />	<!-- No whitespace between "/" and ">" -->
 			 * ```
 			 */
-			const tagRegex = {
+			const regex = {
 				/**
 				 * Matches a start tag.
 				 * * `$0`: The full start tag (e.g. `<!--` or `<tag>`)
@@ -278,13 +278,13 @@ export default function(mw: Mwbot) {
 				const wkt = wikitext.slice(i);
 
 				// If a start tag is found
-				if ((m = tagRegex.start.exec(wkt))) {
+				if ((m = regex.start.exec(wkt))) {
 
 					const nodeName = (m[1] || m[2]).toLowerCase();
-					const selfClosing = tagRegex.self.test(m[0]);
+					const selfClosing = regex.self.test(m[0]);
 
 					// Check if the tag is a void tag
-					if (tagRegex.void.test(nodeName)) {
+					if (regex.void.test(nodeName)) {
 						// Add the void tag to the stack immediately
 						// In this case it doesn't matter whether the tag closes itself or not
 						parsed.push(
@@ -307,14 +307,14 @@ export default function(mw: Mwbot) {
 					// Skip ahead by the length of the matched tag to continue parsing
 					i += m[0].length - 1;
 
-				} else if ((m = tagRegex.end.exec(wkt))) {
+				} else if ((m = regex.end.exec(wkt))) {
 
 					// If an end tag is found, attempt to match it with the corresponding start tag
 					const nodeName = (m[1] || m[2]).toLowerCase();
 					const endTag = m[0];
 
 					// Different treatments for when this is the end of a void tag or a normal tag
-					if (tagRegex.void.test(nodeName)) {
+					if (regex.void.test(nodeName)) {
 						if (nodeName === 'br') {
 							// MediaWiki converts </br> to <br>
 							// Void start tags aren't stored in "startTags" (i.e. there's no need to look them up in the stack)
@@ -436,7 +436,7 @@ export default function(mw: Mwbot) {
 		 * const wkt = new mwbot.Wikitext('<span>a<div><del>b</span><span>c');
 		 * const oldContent = wkt.content;
 		 * const newContent = wkt.modifyTags(
-		 * 	(tags) => {
+		 * 	async (tags) => {
 		 * 		return tags.reduce((acc: (string | null)[], obj) => {
 		 * 			if (obj.unclosed) { // An end tag is missing
 		 * 				acc.push(obj.text + obj.end); // Register the new tag text
@@ -458,22 +458,30 @@ export default function(mw: Mwbot) {
 		 *
 		 * @param modificationPredicate
 		 * A predicate that specifies how the tags should be modified. This is a function that takes an array of
-		 * tag objects and returns an array of strings or `null`. Each string element represents the new content
-		 * for the corresponding tag, while `null` means no modification for that tag.
+		 * tag objects and returns a Promise resolving to an array of strings or `null`. Each string element
+		 * represents the new content for the corresponding tag, while `null` means no modification for that tag.
 		 * @param outputTags
 		 * Whether to return (a deep copy of) an array of modified tag objects.
 		 * @returns
-		 * The modified wikitext content as a string, or an array of tag objects, depending on whether `outputTags` is true.
+		 * A promise resolving to the modified wikitext content as a string, or an array of tag objects, depending
+		 * on whether `outputTags` is true.
 		 * @throws {MwbotError}
 		 * If the length of the array returned by `modificationPredicate` does not match that of the "tags" array.
+		 * @throws {Error} If `modificationPredicate` returns a rejected Promise.
 		 */
-		modifyTags(modificationPredicate: TagModificationPredicate, outputTags?: false): string;
-		modifyTags(modificationPredicate: TagModificationPredicate, outputTags: true): Tag[];
-		modifyTags(modificationPredicate: TagModificationPredicate, outputTags = false): Tag[] | string {
+		async modifyTags(modificationPredicate: TagModificationPredicate, outputTags?: false): Promise<string>;
+		async modifyTags(modificationPredicate: TagModificationPredicate, outputTags: true): Promise<Tag[]>;
+		async modifyTags(modificationPredicate: TagModificationPredicate, outputTags = false): Promise<Tag[] | string> {
 
 			// Get text modification settings
 			let tags = this.storageManager('tags');
-			const mods = modificationPredicate(tags);
+			let mods: (string | null)[];
+			// eslint-disable-next-line no-useless-catch
+			try {
+				mods = await modificationPredicate(tags);
+			} catch (err) {
+				throw err;
+			}
 			if (mods.length !== tags.length) {
 				throw new MwbotError({
 					code: 'mwbot_fatal_lengthmismatch',
@@ -620,9 +628,42 @@ export default function(mw: Mwbot) {
 
 			const isInSkipRange = this.getSkipPredicate();
 
+			/**
+			 * Regular expressions to parse `<hN>` tags and `==heading==`s.
+			 */
+			const regex = {
+				/**
+				 * Capturing groups:
+				 * * `$1`: Heading level (1 through 6)
+				 */
+				tag: /^h([1-6])$/,
+				/**
+				 * The wiki markup of headings:
+				 * * `== 1 ===`: `<h2>1 =</h2>` (left equals: 2, right equals: 3)
+				 * * `=== 1 ==`: `<h2>= 1</h2>` (left equals: 3, right equals: 2)
+				 * * `== 1 ==\S+`: Not recognized as the beginning of a section (but see below)
+				 * * `== 1 ==<!--string-->`: `<h2>1</h2>`
+				 * * `======= 1 =======`: `<h6>= 1 =</h6>` (left equals: 7, right equals: 7)
+				 *
+				 * Capturing groups:
+				 * * `$1`: Left equals
+				 * * `$2`: Heading text
+				 * * `$3`: Right equals
+				 * * `$4`: Remaining characters
+				 *
+				 * In `$4`, the only characters that can appear are:
+				 * * `[\t\n\u0020\u00a0]` (i.e. tab, new line, space, and non-breaking space)
+				 *
+				 * Note that this is not the same as the JS `\s`, which is equivalent to
+				 * `[\t\n\v\f\r\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]`.
+				 */
+				heading: /^(=+)(.+?)(=+)([^\n]*)\n?$/gm,
+				whitespace: /[\t\u0020\u00a0]+/g
+			};
+
 			// Extract HTML-style headings (h1–h6)
 			const headings = this.storageManager('tags', false).reduce((acc: Heading[], tagObj) => {
-				const m = /^h([1-6])$/.exec(tagObj.name);
+				const m = regex.tag.exec(tagObj.name);
 				if (m && !isInSkipRange(tagObj.startIndex, tagObj.endIndex)) {
 					acc.push({
 						text: tagObj.text,
@@ -635,41 +676,14 @@ export default function(mw: Mwbot) {
 				return acc;
 			}, []);
 
-			/**
-			 * Regular expressions to parse `==heading==`s.
-			 *
-			 * Notes on the wiki markup of headings:
-			 * * `== 1 ===`: `<h2>1 =</h2>` (left equals: 2, right equals: 3)
-			 * * `=== 1 ==`: `<h2>= 1</h2>` (left equals: 3, right equals: 2)
-			 * * `== 1 ==\S+`: Not recognized as the beginning of a section (but see below)
-			 * * `== 1 ==<!--string-->`: `<h2>1</h2>`
-			 * * `======= 1 =======`: `<h6>= 1 =</h6>` (left equals: 7, right equals: 7)
-			 *
-			 * Capturing groups:
-			 * * `$1`: Left equals
-			 * * `$2`: Heading text
-			 * * `$3`: Right equals
-			 * * `$4`: Remaining characters
-			 *
-			 * In `$4`, the only characters that can appear are:
-			 * * `[\t\n\u0020\u00a0]` (i.e. tab, new line, space, and non-breaking space)
-			 *
-			 * Note that this is not the same as the JS `\s`, which is equivalent to
-			 * `[\t\n\v\f\r\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]`.
-			 */
-			const sectionRegex = {
-				heading: /^(=+)(.+?)(=+)([^\n]*)\n?$/gm,
-				whitespace: /[\t\u0020\u00a0]+/g
-			};
-
 			// Parse wikitext-style headings (==heading==)
 			const wikitext = this.content;
 			let m;
-			while ((m = sectionRegex.heading.exec(wikitext))) {
+			while ((m = regex.heading.exec(wikitext))) {
 
 				// If `$4` isn't empty or the heading is within a skip range, ignore it
-				// See sectionRegex for capturing groups
-				const m4 = removeComments(m[4]).replace(sectionRegex.whitespace, '');
+				// See regex for capturing groups
+				const m4 = removeComments(m[4]).replace(regex.whitespace, '');
 				if (m4 || isInSkipRange(m.index, m.index + m[0].length)) {
 					continue;
 				}
@@ -721,10 +735,15 @@ export default function(mw: Mwbot) {
 
 		/**
 		 * Parse sections in the wikitext.
+		 * @param config Config to filter the output.
 		 * @returns Array of parsed sections.
 		 */
-		parseSections(): Section[] {
-			return this.storageManager('sections');
+		parseSections(config: ParseSectionsConfig = {}): Section[] {
+			let sections = this.storageManager('sections');
+			if (typeof config.sectionPredicate === 'function') {
+				sections = sections.filter((sec) => config.sectionPredicate!(sec));
+			}
+			return sections;
 		}
 
 		/**
@@ -735,12 +754,23 @@ export default function(mw: Mwbot) {
 
 			const isInSkipRange = this.getSkipPredicate();
 			const params: Parameter[] = [];
-			const regex = /\{{3}(?!{)([^|}]*)\|?([^}]*)\}{3}/g; // $1: name, $2: value
+			const regex = {
+				/**
+				 * Capturing groups:
+				 * * `$1`: Parameter name
+				 * * `$2`: Parameter value
+				 */
+				params: /\{{3}(?!{)([^|}]*)\|?([^}]*)\}{3}/g,
+				twoOrMoreLeftBreaces: /\{{2,}/g,
+				twoOrMoreRightBreaces: /\}{2,}/g,
+				startWithTwoOrMoreRightBreaces: /^\}{2,}/,
+				endWithThreeRightBraces: /\}{3}$/
+			};
 			const wikitext = this.content;
 			let nestLevel = 0;
 
 			let match: RegExpExecArray | null;
-			while ((match = regex.exec(wikitext))) {
+			while ((match = regex.params.exec(wikitext))) {
 
 				// Skip parameters that don't satisfy the namePredicate
 				const paramName = match[1].trim();
@@ -751,8 +781,8 @@ export default function(mw: Mwbot) {
 				 * Parameters can contain nested templates (e.g., `{{{1|{{{page|{{PAGENAME}}}}}}}}`).
 				 * In such cases, `exec` initially captures an incomplete parameter like `{{{1|{{{page|{{PAGENAME}}}`.
 				 */
-				const leftBraceCnt = (paramText.match(/\{{2,}/g) || []).join('').length;
-				let rightBraceCnt = (paramText.match(/\}{2,}/g) || []).join('').length;
+				const leftBraceCnt = (paramText.match(regex.twoOrMoreLeftBreaces) || []).join('').length;
+				let rightBraceCnt = (paramText.match(regex.twoOrMoreRightBreaces) || []).join('').length;
 				let isValid = true;
 
 				// If the number of opening and closing braces is unbalanced
@@ -763,16 +793,16 @@ export default function(mw: Mwbot) {
 
 					// Find the correct closing braces
 					for (let pos = rightBraceStartIndex; pos < wikitext.length; pos++) {
-						const closingMatch = wikitext.slice(pos).match(/^\}{2,}/);
+						const closingMatch = wikitext.slice(pos).match(regex.startWithTwoOrMoreRightBreaces);
 						if (closingMatch) {
 							const closingBraces = closingMatch[0].length;
 							if (leftBraceCnt <= rightBraceCnt + closingBraces) {
 								// If the right braces close all the left braces
 								const lastIndex = pos + (leftBraceCnt - rightBraceCnt);
 								paramText = wikitext.slice(match.index, lastIndex); // Get the correct parameter
-								paramValue += paramText.slice(rightBraceStartIndex - lastIndex).replace(/\}{3}$/, '');
+								paramValue += paramText.slice(rightBraceStartIndex - lastIndex).replace(regex.endWithThreeRightBraces, '');
 								isValid = true;
-								regex.lastIndex = lastIndex; // Update search position
+								regex.params.lastIndex = lastIndex; // Update search position
 								break;
 							} else {
 								// If not, continue searching
@@ -789,15 +819,15 @@ export default function(mw: Mwbot) {
 						value: paramValue.trim(),
 						text: paramText,
 						startIndex: match.index,
-						endIndex: regex.lastIndex,
+						endIndex: regex.params.lastIndex,
 						nestLevel,
-						skip: isInSkipRange(match.index, regex.lastIndex)
+						skip: isInSkipRange(match.index, regex.params.lastIndex)
 					};
 					params.push(param);
 
 					// Handle nested parameters
 					if (paramText.slice(3).includes('{{{')) {
-						regex.lastIndex = match.index + 3;
+						regex.params.lastIndex = match.index + 3;
 						nestLevel++;
 					} else {
 						nestLevel = 0;
@@ -812,14 +842,11 @@ export default function(mw: Mwbot) {
 
 		/**
 		 * Parse `{{{parameter}}}` expressions in the wikitext.
-		 * @param config Configuration options for parameter parsing.
+		 * @param config Config to filter the output.
 		 * @returns Array of parsed parameters.
 		 */
-		parseParameters(config: ParseParametersConfig = {recursive: true}): Parameter[] {
+		parseParameters(config: ParseParametersConfig = {}): Parameter[] {
 			let parameters = this.storageManager('parameters');
-			if (!config.recursive) {
-				parameters = parameters.filter(({nestLevel}) => nestLevel === 0);
-			}
 			if (typeof config.namePredicate === 'function') {
 				parameters = parameters.filter(({name}) => config.namePredicate!(name));
 			}
@@ -954,8 +981,7 @@ export default function(mw: Mwbot) {
 
 				// Skip sequences of "\x01", prepended instead of the usual text
 				// This makes it easy to retrieve the start indices of nested wikilinks
-				// eslint-disable-next-line no-control-regex
-				const ctrlMatch = wkt.match(/^\x01+/);
+				const ctrlMatch = wkt.match(rCtrlStart);
 				if (ctrlMatch) {
 					i += ctrlMatch[0].length - 1;
 					continue;
@@ -996,7 +1022,8 @@ export default function(mw: Mwbot) {
 					if (regex.leftEndsWithPipe.test(left)) {
 						right = wikitext.slice(startIndex + 2 + rawTitle.length, endIndex - 2) ||
 							// Let empty strings fall back to null
-							// Links like [[left|]] aren't expected to exist because of "pipe tricks"
+							// Links like [[left|]] aren't expected to exist because of "pipe tricks",
+							// and even if any, they aren't recognized as links but as raw texts.
 							// See https://en.wikipedia.org/wiki/Help:Pipe_trick
 							null;
 						left = left.slice(0, -1);
@@ -1048,6 +1075,10 @@ export default function(mw: Mwbot) {
 			let numUnclosed = 0;
 			let startIndex = 0;
 			let components: TemplateFragment[] = [];
+			const regex = {
+				templateStart: /^\{\{/,
+				templateEnd: /^\}\}/
+			};
 
 			// Character-by-character loop
 			const templates: Template[] = [];
@@ -1055,10 +1086,7 @@ export default function(mw: Mwbot) {
 
 				const wkt = wikitext.slice(i);
 
-				// Skip sequences of "\x01", prepended instead of the usual text
-				// This makes it easy to retrieve the start indices of nested templates
-				// eslint-disable-next-line no-control-regex
-				const ctrlMatch = wkt.match(/^\x01+/);
+				const ctrlMatch = wkt.match(rCtrlStart);
 				if (ctrlMatch) {
 					i += ctrlMatch[0].length - 1;
 					continue;
@@ -1086,7 +1114,7 @@ export default function(mw: Mwbot) {
 
 				if (numUnclosed === 0) {
 					// We are not in a template
-					if (/^\{\{/.test(wkt)) {
+					if (regex.templateStart.test(wkt)) {
 						// Found the start of a template
 						startIndex = i;
 						components = [];
@@ -1095,12 +1123,12 @@ export default function(mw: Mwbot) {
 					}
 				} else if (numUnclosed === 2) {
 					// We are looking for closing braces
-					if (/^\{\{/.test(wkt)) {
+					if (regex.templateStart.test(wkt)) {
 						// Found a nested template
 						numUnclosed += 2;
 						i++;
 						processTemplateFragment(components, '{{');
-					} else if (/^\}\}/.test(wkt)) {
+					} else if (regex.templateEnd.test(wkt)) {
 						// Found the end of the template
 						const [nameObj, ...rawParams] = components;
 						const name = nameObj ? nameObj.name : '';
@@ -1136,12 +1164,12 @@ export default function(mw: Mwbot) {
 				} else {
 					// We are in a nested template
 					let fragment;
-					if (/^\{\{/.test(wkt)) {
+					if (regex.templateStart.test(wkt)) {
 						// Found another nested template
 						fragment = '{{';
 						numUnclosed += 2;
 						i++;
-					} else if (/^\}\}/.test(wkt)) {
+					} else if (regex.templateEnd.test(wkt)) {
 						// Found the end of the nested template
 						fragment = '}}';
 						numUnclosed -= 2;
@@ -1161,7 +1189,7 @@ export default function(mw: Mwbot) {
 
 		/**
 		 * Parse `{{template}}`s in the wikitext.
-		 * @param config
+		 * @param config Config to filter the output.
 		 * @returns
 		 */
 		parseTemplates(config: ParseTemplatesConfig = {}): Template[] {
@@ -1243,10 +1271,18 @@ export default function(mw: Mwbot) {
 
 		/**
 		 * Parse `[[wikilink]]`s in the wikitext.
+		 * @param config Config to filter the output.
 		 * @returns Array of parsed wikilinks.
 		 */
-		parseWikilinks(): (Wikilink | FileWikilink)[] {
-			return this.storageManager('wikilinks');
+		parseWikilinks(config: ParseWikilinksConfig = {}): (Wikilink | FileWikilink)[] {
+			let wikilinks = this.storageManager('wikilinks');
+			if (typeof config.titlePredicate === 'function') {
+				wikilinks = wikilinks.filter(({title}) => config.titlePredicate!(title));
+			}
+			if (typeof config.wikilinkPredicate === 'function') {
+				wikilinks = wikilinks.filter((link) => config.wikilinkPredicate!(link));
+			}
+			return wikilinks;
 		}
 
 		// Asynchronous methods
@@ -1361,16 +1397,20 @@ export default function(mw: Mwbot) {
 		const namespace = name[0] === ':' ? NS_MAIN : NS_TEMPLATE; // TODO: Handle "/" (subpage) and "#" (in-page section)?
 
 		// Format template parameters
+		const regex = {
+			startWithPipe: /^\|/,
+			numeralOnly: /^\d+$/
+		};
 		const numeralKeys: number[] = [];
 		let hasUnnamedKeys = false;
 		const params: TemplateParameter[] = rawParams.reduce((acc: TemplateParameter[], p) => {
-			const key = mw.Title.clean(p.name.replace(/^\|/, ''));
-			if (/^\d+$/.test(key) && !numeralKeys.includes(+key)) {
+			const key = mw.Title.clean(p.name.replace(regex.startWithPipe, ''));
+			if (regex.numeralOnly.test(key) && !numeralKeys.includes(+key)) {
 				numeralKeys.push(+key);
 			}
 			const unnamed = !key;
 			hasUnnamedKeys = hasUnnamedKeys || unnamed;
-			let value = p.value.replace(/^\|/, '');
+			let value = p.value.replace(regex.startWithPipe, '');
 			if (!unnamed) {
 				value = value.trim();
 			}
@@ -1571,7 +1611,7 @@ export interface ParseTagsConfig {
 /**
  * See {@link Wikitext.modifyTags}.
  */
-export type TagModificationPredicate = (tags: Tag[]) => (string | null)[];
+export type TagModificationPredicate = (tags: Tag[]) => Promise<(string | null)[]>;
 
 // Interfaces and private members for "parseSections"
 
@@ -1647,12 +1687,27 @@ export interface Section {
 	content: string;
 }
 
+/**
+ * Configuration options for {@link Wikitext.parseSections}.
+ */
+export interface ParseSectionsConfig {
+	/**
+	 * A predicate function to filter parsed sections.
+	 * Only sections that satisfy this function will be included in the results.
+	 *
+	 * @param section The section object.
+	 *
+	 * @returns `true` if the section should be included, otherwise `false`.
+	 */
+	sectionPredicate?: (section: Section) => boolean;
+}
+
 // Interfaces and private members for "parseParameters"
 
 /**
  * Object that holds information about a `{{{parameter}}}`, parsed from wikitext.
  */
-interface Parameter {
+export interface Parameter {
 	/**
 	 * The parameter name (i.e. the left operand of `{{{name|value}}}`).
 	 */
@@ -1688,13 +1743,7 @@ interface Parameter {
 /**
  * Configuration options for {@link Wikitext.parseParameters}.
  */
-interface ParseParametersConfig {
-	/**
-	 * Whether to parse `{{{parameter}}}` expressions inside other `{{{parameter}}}` expressions.
-	 *
-	 * Default: `true`
-	 */
-	recursive?: boolean;
+export interface ParseParametersConfig {
 	/**
 	 * A predicate function to filter parameters by name.
 	 * Only parameters whose names satisfy this function will be parsed.
@@ -1757,6 +1806,11 @@ export interface BaseWikilink {
 /**
  * Object that holds information about a fuzzily parsed `[[wikilink]]`.
  * The right operand of the link needs to be parsed for the object to be a complete construct.
+ *
+ * This interface extends {@link BaseWikilink} and contains the additional {@link left} and
+ * {@link right} properties.
+ *
+ * @private
  */
 export interface FuzzyWikilink extends BaseWikilink {
 	/**
@@ -1779,6 +1833,7 @@ export interface FuzzyWikilink extends BaseWikilink {
  * - `text`: The raw text of the expression.
  * - `type`: The type of the expression.
  * - `inner`: The start and end indexes of the inner content, or `null` if not applicable.
+ * @private
  */
 type IndexMap = {
 	[startIndex: number]: {
@@ -1988,6 +2043,8 @@ export interface TemplateParameter {
 
 /**
  * Object that holds information about a `[[wikilink]]`, parsed from wikitext.
+ *
+ * This interface extends {@link BaseWikilink} and contains the additional {@link display} property.
  */
 export interface Wikilink extends BaseWikilink {
 	/**
@@ -2000,6 +2057,8 @@ export interface Wikilink extends BaseWikilink {
 
 /**
  * Object that holds information about a `[[filelink]]`, parsed from wikitext.
+ *
+ * This interface extends {@link BaseWikilink} and contains the additional {@link params} property.
  */
 export interface FileWikilink extends BaseWikilink {
 	/**
@@ -2008,4 +2067,26 @@ export interface FileWikilink extends BaseWikilink {
 	 * These are the trimmed versions of `param(s)` in `[[file title|...params]]`.
 	 */
 	params: string[];
+}
+
+/**
+ * Configuration options for {@link Wikitext.parseWikilinks}.
+ */
+export interface ParseWikilinksConfig {
+	/**
+	 * A predicate function to filter wikilinks by title.
+	 * Only wikilinks whose titles satisfy this function will be included in the results.
+	 *
+	 * @param title A Title object representing the wikilink. Could be `null` if the title is invalid.
+	 * @returns `true` if the wikilink should be parsed, otherwise `false`.
+	 */
+	titlePredicate?: (title: Title | null) => boolean;
+	/**
+	 * A predicate function to filter parsed wikilinks.
+	 * Only wikilinks that satisfy this function will be included in the results.
+	 *
+	 * @param wikilink The (file) wikilink object.
+	 * @returns `true` if the wikilink should be included, otherwise `false`.
+	 */
+	wikilinkPredicate?: (wikilink: Wikilink | FileWikilink) => boolean;
 }
