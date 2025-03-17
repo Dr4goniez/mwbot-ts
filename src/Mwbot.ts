@@ -42,7 +42,7 @@ import {
 	ApiResponseQueryMetaUserinfo,
 	ApiResponseQueryMetaSiteinfoInterwikimap
 } from './api_types';
-import { mergeDeep, isPlainObject, sleep, isEmptyObject } from './util';
+import { mergeDeep, isPlainObject, sleep, isEmptyObject, arraysEqual } from './util';
 import {
 	ErrorBase,
 	MwbotError,
@@ -1284,6 +1284,169 @@ export class Mwbot {
 		requestOptions.headers = requestOptions.headers || {};
 		requestOptions.headers['Promise-Non-Write-API-Action'] = true;
 		return this.request(parameters, requestOptions);
+	}
+
+	/**
+	 * Perform an API request that automatically continues until the limit is reached.
+	 *
+	 * This method is designed for API calls that include a `continue` property in the response.
+	 *
+	 * **Usage Note:** Ensure the API parameters include a `**limit` value set to `"max"` to retrieve the maximum
+	 * number of results per request.
+	 *
+	 * @param parameters Parameters to the API.
+	 * @param limit The maximum number of continuation. (Default: `10`)
+	 * @param rejectProof
+	 * By default, this method rejects the Promise if any internal API request fails, discarding all previously
+	 * retrieved responses. When set to `true`, it instead resolves with the incomplete responses merged into
+	 * one object, while logging the error to the console.
+	 *
+	 * NOTE: If the first request fails, the returned response object may be empty.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to a merged API response, or rejecting with an error.
+	 */
+	async continuedRequest(
+		parameters: ApiParams,
+		limit = 10,
+		rejectProof = false,
+		requestOptions: MwbotRequestConfig = {}
+	): Promise<ApiResponse> {
+
+		const ret: ApiResponse[] = [];
+		const query = (params: ApiParams, count: number): Promise<void> => {
+			return this.get(params, requestOptions)
+				.then((res) => {
+					ret.push(res);
+					if (res.continue && count < limit) {
+						return query(Object.assign({}, res.continue, params), ++count);
+					}
+				}).catch((err) => {
+					throw err;
+				});
+		};
+
+		await query(parameters, 1).catch((err) => {
+			if (!rejectProof) {
+				throw err;
+			} else {
+				console.error(err);
+			}
+		});
+
+		const flattened = ret.reduce((acc: ApiResponse, obj) => mergeDeep(acc, obj), Object.create(null));
+		if (ret[ret.length - 1] && !ret[ret.length - 1].continue) {
+			// Delete the continue property if the last response doesn't have it
+			delete flattened.continue;
+		}
+		return flattened;
+
+	}
+
+	/**
+	 * Perform API requests with a multi-value field that is subject to the apilimit, processing multiple requests
+	 * in parallel if necessary.
+	 *
+	 * For example:
+	 * ```ts
+	 * {
+	 * 	action: 'query',
+	 * 	titles: 'A|B|C|D|...', // This parameter is subject to the apilimit of 500 or 50
+	 * 	formatversion: '2'
+	 * }
+	 * ```
+	 * Pass the multi-value field as an array, and this method will automatically split it based on the
+	 * user's apilimit (`500` for bots, `50` otherwise). The key(s) of the multi-value field(s) must be passed
+	 * as the second parameter.
+	 *
+	 * @param parameters Parameters to the API, including multi-value fields.
+	 * @param keys The key(s) of the multi-value field(s) to split (e.g., `titles`).
+	 * @param batchSize
+	 * The number of elements of the multi-value field to query per request. Defaults to `500` for bots and `50` for others.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns
+	 * A Promise resolving to an array of API responses or {@link MwbotError} objects for failed requests.
+	 * The array will be empty if the multi-value field is empty.
+	 */
+	async massRequest(
+		parameters: ApiParams,
+		keys: string | string[],
+		batchSize?: number,
+		requestOptions: MwbotRequestConfig = {}
+	): Promise<(ApiResponse | MwbotError)[]> {
+
+		const apilimit = this.info.user.rights.includes('apihighlimits') ? 500 : 50;
+
+		if (batchSize !== undefined) {
+			if (!Number.isInteger(batchSize) || batchSize > apilimit || batchSize <= 0) {
+				throw new MwbotError({
+					code: 'mwbot_fatal_invalidsize',
+					info: `"batchSize" must be a positive integer less than or equal to ${apilimit}.`
+				});
+			}
+		} else {
+			batchSize = apilimit;
+		}
+
+		// Ensure "keys" is an array
+		keys = Array.isArray(keys) ? keys : [keys];
+		if (!keys.length) {
+			throw new MwbotError({
+				code: 'mwbot_fatal_emptykeys',
+				info: `"keys" cannot be an empty array.`
+			});
+		}
+
+		// Extract multi-value field
+		let batchValues: string[] | null = null;
+		for (const key of keys) {
+			const value = parameters[key];
+			if (value !== undefined) {
+				if (!Array.isArray(value)) {
+					throw new MwbotError({
+						code: 'mwbot_fatal_typemismatch',
+						info: `The multi-value fields (${keys.join(', ')}) must be arrays.`
+					});
+				}
+				if (batchValues === null) {
+					batchValues = [...value] as string[]; // Copy the array
+				} else if (!arraysEqual(batchValues, value, true)) {
+					throw new MwbotError({
+						code: 'mwbot_fatal_fieldmismatch',
+						info: 'All multi-value fields must be identical.'
+					});
+				}
+			}
+		}
+		if (!batchValues) {
+			throw new MwbotError({
+				code: 'mwbot_fatal_nofields',
+				info: 'No multi-value fields have been found.'
+			});
+		} else if (!batchValues.length) {
+			return [];
+		}
+
+		// Prepare API batches
+		const batchParams: ApiParams[] = [];
+		for (let i = 0; i < batchValues.length; i += batchSize) {
+			const batchArrayStr = batchValues.slice(i, i + batchSize).join('|');
+			batchParams.push({
+				...parameters,
+				...Object.fromEntries(keys.map((key) => [key, batchArrayStr]))
+			});
+		}
+
+		// Send API requests in batches of 100
+		const results: (ApiResponse | MwbotError)[] = [];
+		for (let i = 0; i < batchParams.length; i += 100) {
+			const batch = batchParams.slice(i, i + 100).map((params) =>
+				this.nonwritePost(params, requestOptions).catch((err: MwbotError) => err)
+			);
+			const batchResults = await Promise.all(batch);
+			results.push(...batchResults);
+		}
+		return results;
+
 	}
 
 	// ****************************** TOKEN-RELATED METHODS ******************************
