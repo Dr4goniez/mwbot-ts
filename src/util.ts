@@ -1,3 +1,5 @@
+// ********************************* SYNCHRONOUS FUNCTIONS *********************************
+
 /**
  * Perform a deep merge of objects and return a new object.
  * - Arrays are concatenated.
@@ -58,10 +60,10 @@ export function mergeDeep<T extends object[]>(...objects: T): UnionToIntersectio
 /**
  * Converts a union of objects into an intersection of their properties.
  */
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
+export type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
 
 /**
- * Check whether a value is an object. Arrays and `null` are not considered objects here.
+ * Check whether a value is an object. Arrays and `null` are not considered objects.
  * @param value
  * @returns
  */
@@ -111,13 +113,45 @@ export function isClassInstance(value: any): boolean {
 }
 
 /**
+ * A disjunctive union type for primitive types.
+ */
+export type primitive = string | number | boolean | bigint | symbol | undefined | null;
+
+/**
  * Check whether a value is a primitive type.
  * @param value
  * @returns
  */
-export function isPrimitive(value: unknown): value is string | number | boolean | bigint | symbol | undefined | null {
+export function isPrimitive(value: unknown): value is primitive {
     return value !== Object(value);
 }
+
+/**
+ * Escape `\ { } ( ) | . ? * + - ^ $ [ ]` in a string for safe inclusion in regular expressions.
+ * @param str
+ * @returns
+ */
+export function escapeRegExp(str: string): string {
+	// eslint-disable-next-line no-useless-escape
+	return str.replace(/([\\{}()|.?*+\-^$\[\]])/g, '\\$1');
+}
+
+/**
+ * Check whether two arrays are equal. Neither array should contain non-primitive values as its elements.
+ * @param array1
+ * @param array2
+ * @param orderInsensitive Default: `false`
+ * @returns
+ */
+export function arraysEqual(array1: primitive[], array2: primitive[], orderInsensitive = false): boolean {
+	if (orderInsensitive) {
+		return array1.length === array2.length && array1.every(el => array2.includes(el));
+	} else {
+		return array1.length === array2.length && array1.every((el, i) => array2[i] === el);
+	}
+}
+
+// ********************************* ASYNCHRONOUS FUNCTIONS *********************************
 
 /**
  * Pause execution for the specified duration.
