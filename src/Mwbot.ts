@@ -33,6 +33,7 @@ import packageJson from '../package.json';
 import {
 	ApiParams,
 	ApiParamsAction,
+	ApiEditPageParams,
 	ApiResponse,
 	ApiResponseQueryMetaSiteinfoGeneral,
 	ApiResponseQueryMetaSiteinfoNamespaces,
@@ -42,10 +43,17 @@ import {
 	ApiResponseQueryMetaSiteinfoInterwikimap
 } from './api_types';
 import { mergeDeep, isPlainObject, sleep, isEmptyObject } from './util';
-import { ErrorBase, MwbotError } from './MwbotError';
+import {
+	ErrorBase,
+	MwbotError,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	MwbotErrorConfig // Used in the doc of Mwbot.error
+} from './MwbotError';
 import * as mwString from './String';
 import TitleFactory from './Title';
 import WikitextFactory from './Wikitext';
+
+type Title = ReturnType<typeof TitleFactory>;
 
 /**
  * TODO: Add a doc comment here
@@ -140,7 +148,7 @@ export class Mwbot {
 	/**
 	 * Title class for this instance.
 	 */
-	protected _Title: ReturnType<typeof TitleFactory>;
+	protected _Title: Title;
 	/**
 	 * Title class for this instance.
 	 */
@@ -1528,6 +1536,322 @@ export class Mwbot {
 
 	}
 
+	/**
+	 * Validates and processes a title before editing.
+	 *
+	 * This method ensures that:
+	 * - The user is not anonymous unless `allowAnonymous` is `true`.
+	 * - The title is either a valid string or an instance of {@link Title}.
+	 * - If the title is a string, it is converted to a {@link Title} instance.
+	 * - The title is not empty.
+	 * - The title is not interwiki.
+	 *
+	 * If any validation fails, it returns an {@link MwbotError}.
+	 *
+	 * @param title The page title, either as a string or a {@link Title} instance.
+	 * @param allowAnonymous Whether to allow anonymous users to proceed. Defaults to `false`.
+	 * @returns A valid {@link Title} instance if successful, or an {@link MwbotError} if validation fails.
+	 */
+	protected prepEdit(title: string | InstanceType<Title>, allowAnonymous = false): InstanceType<Title> | MwbotError {
+		if (this.isAnonymous() && !allowAnonymous) {
+			return this.errorAnonymous();
+		} else if (typeof title !== 'string' && !(title instanceof this.Title)) {
+			return new MwbotError({
+				code: 'mwbot_fatal_typemismatch',
+				info: `"${typeof title}" is not a valid type.`
+			});
+		} else if (!(title instanceof this.Title)) {
+			const t = this.Title.newFromText(title);
+			if (!t) {
+				return new MwbotError({
+					code: 'invalidtitle',
+					info: `"${title}" is not a valid title.`
+				});
+			}
+			title = t;
+		}
+		if (!title.getMain()) {
+			return new MwbotError({
+				code: 'emptytitle',
+				info: 'The title is empty.'
+			});
+		} else if (title.isExternal()) {
+			return new MwbotError({
+				code: 'interwikititle',
+				info: `"${title.getPrefixedText()}" is an interwiki title.`
+			});
+		}
+		return title;
+	}
+
+	protected _edit(
+		title: InstanceType<Title>,
+		content: string,
+		summary?: string,
+		internalOptions: ApiEditPageParams = {},
+		options: ApiEditPageParams = {},
+		requestOptions: MwbotRequestConfig = {}
+	): Promise<ApiResponse> {
+		const params: ApiEditPageParams = Object.assign(
+			{
+				action: 'edit',
+				title: title.getPrefixedDb(),
+				text: content,
+				summary,
+				bot: true,
+				format: 'json',
+				formatversion: '2'
+			},
+			internalOptions,
+			options
+		);
+		return this.postWithCsrfToken(params as ApiParams, requestOptions);
+	}
+
+	/**
+	 * Create a new page with the given content.
+	 *
+	 * - To edit an (existing) page, use {@link edit} instead.
+	 * - To edit an existing page using a transformation predicate, use {@link transform} instead.
+	 *
+	 * Default parameters:
+	 * ```js
+	 * {
+	 * 	action: 'edit',
+	 * 	title: title,
+	 * 	text: content,
+	 * 	summary: summary,
+	 * 	bot: true,
+	 * 	createonly: true,
+	 * 	format: 'json',
+	 * 	formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param title The new page title, either as a string or a {@link Title} instance.
+	 * @param content The text content of the new page.
+	 * @param summary An optional edit summary.
+	 * @param options Additional parameters for the API request. These can be used to overwrite
+	 * the default parameters.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the API response or rejecting with {@link MwbotError}.
+	 */
+	async create(
+		title: string | InstanceType<Title>,
+		content: string,
+		summary?: string,
+		options: ApiEditPageParams = {},
+		requestOptions: MwbotRequestConfig = {}
+	): Promise<ApiResponse> {
+		const validatedTitle = this.prepEdit(title);
+		if (validatedTitle instanceof MwbotError) {
+			throw validatedTitle;
+		}
+		return this._edit(validatedTitle, content, summary, {createonly: true}, options, requestOptions);
+	}
+
+	/**
+	 * Edit a page with the given content.
+	 *
+	 * - To create a new page, use {@link create} instead.
+	 * - To edit an existing page using a transformation predicate, use {@link transform} instead.
+	 *
+	 * Default parameters:
+	 * ```js
+	 * {
+	 * 	action: 'edit',
+	 * 	title: title,
+	 * 	text: content,
+	 * 	summary: summary,
+	 * 	bot: true,
+	 * 	nocreate: true,
+	 * 	format: 'json',
+	 * 	formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param title The page title, either as a string or a {@link Title} instance.
+	 * @param content The text content of the page.
+	 * @param summary An optional edit summary.
+	 * @param options Additional parameters for the API request. These can be used to overwrite
+	 * the default parameters.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the API response or rejecting with {@link MwbotError}.
+	 */
+	async edit(
+		title: string | InstanceType<Title>,
+		content: string,
+		summary?: string,
+		options: ApiEditPageParams = {},
+		requestOptions: MwbotRequestConfig = {}
+	): Promise<ApiResponse> {
+		const validatedTitle = this.prepEdit(title);
+		if (validatedTitle instanceof MwbotError) {
+			throw validatedTitle;
+		}
+		return this._edit(validatedTitle, content, summary, {nocreate: true}, options, requestOptions);
+	}
+
+	/**
+	 * Read the content of the latest revision of a title from the API.
+	 *
+	 * @param title The page title, either as a string or a {@link Title} instance.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the revision information, or rejecting with {@link MwbotError}.
+	 */
+	async read(title: string | InstanceType<Title>, requestOptions: MwbotRequestConfig = {}): Promise<Revision> {
+		const validatedTitle = this.prepEdit(title, true);
+		if (validatedTitle instanceof MwbotError) {
+			throw validatedTitle;
+		}
+		return this.get({
+			action: 'query',
+			titles: validatedTitle.getPrefixedDb(),
+			prop: 'revisions',
+			rvprop: 'ids|timestamp|user|content',
+			rvslots: 'main',
+			curtimestamp: true,
+			formatversion: '2'
+		}, requestOptions)
+		.then((res) => {
+			const resPg = res.query?.pages?.[0];
+			const resRv = resPg?.revisions?.[0];
+			if (!resPg || !resRv) {
+				const err = new MwbotError({
+					code: 'empty',
+					info: 'OK response but empty result.'
+				});
+				err.response = res;
+				throw err;
+			} else if (typeof resPg.pageid !== 'number' || resPg.missing) {
+				const err = new MwbotError({
+					code: 'pagemissing',
+					info: 'The requested page does not exist.'
+				});
+				err.title = resPg.title;
+				throw err;
+			} else if (
+				typeof resRv.revid !== 'number' ||
+				typeof res.curtimestamp !== 'string' ||
+				!resRv.timestamp ||
+				typeof resRv.slots?.main.content !== 'string'
+			) {
+				const err = new MwbotError({
+					code: 'empty',
+					info: 'OK response but empty result.'
+				});
+				err.response = res;
+				throw err;
+			}
+			return {
+				pageid: resPg.pageid,
+				ns: resPg.ns,
+				title: resPg.title,
+				baserevid: resRv.revid,
+				user: resRv.user, // Could be missing if revdel'd
+				basetimestamp: resRv.timestamp,
+				starttimestamp: res.curtimestamp,
+				content: resRv.slots.main.content
+			};
+		}).catch((err) => {
+			throw err;
+		});
+	}
+
+	/**
+	 * Edit an existing page by first fetching its latest revision and applying a transformation
+	 * function to modify its content.
+	 *
+	 * This method automatically handles edit conflicts up to 3 times.
+	 *
+	 * Default parameters (into which the return value of `callback` is merged):
+	 * ```js
+	 * {
+	 * 	action: 'edit',
+	 * 	title: revision.title, // Erased if "pageid" is provided
+	 * 	bot: true,
+	 * 	baserevid: revision.baserevid,
+	 * 	basetimestamp: revision.basetimestamp,
+	 * 	starttimestamp: revision.starttimestamp,
+	 * 	nocreate: true,
+	 * 	format: 'json',
+	 * 	formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param title The page title, either as a string or a {@link Title} instance.
+	 * @param callback A function that receives a {@link Wikitext} instance initialized from the
+	 * fetched content and an object representing the metadata of the fetched revision. This function
+	 * should return a Promise resolving to {@link ApiEditPageParams} as a plain object, which will
+	 * be used for the edit request.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
+	 */
+	async transform(
+		title: string | InstanceType<Title>,
+		callback: (wikitext: InstanceType<typeof this.Wikitext>, revision: Revision) => Promise<ApiEditPageParams>,
+		requestOptions: MwbotRequestConfig = {},
+		/** @private */
+		retry = 0
+	): Promise<ApiResponse> {
+
+		if (typeof callback !== 'function') {
+			throw new MwbotError({
+				code: 'mwbot_fatal_typemismatch',
+				info: `Expected a function for "callback", but got ${typeof callback}.`
+			});
+		}
+
+		const revision = await this.read(title, requestOptions).catch((err: Error) => err);
+		if (revision instanceof Error) {
+			throw revision;
+		}
+
+		let params = await callback(new this.Wikitext(revision.content), {...revision}).catch((err: Error) => err);
+		if (params instanceof Error) {
+			throw params;
+		} else if (!isPlainObject(params)) {
+			const err = new MwbotError({
+				code: 'mwbot_fatal_typemismatch',
+				info: `The callback function of transform() must return a plain object.`
+			});
+			err.params = params;
+			throw err;
+		}
+		const defaultParams: ApiEditPageParams = {
+			action: 'edit',
+			title: revision.title,
+			bot: true,
+			baserevid: revision.baserevid,
+			basetimestamp: revision.basetimestamp,
+			starttimestamp: revision.starttimestamp,
+			nocreate: true,
+			format: 'json',
+			formatversion: '2'
+		};
+		if (typeof params.pageid === 'number') {
+			delete defaultParams.title; // Mutually exclusive
+		}
+		params = Object.assign(defaultParams, params);
+
+		const result = await this.postWithCsrfToken(params as ApiParams, requestOptions)
+			.catch((err: MwbotError) => err);
+		const {disableRetry, disableRetryAPI, disableRetryByCode = []} = requestOptions;
+		if (
+			result instanceof MwbotError && result.code === 'mwbot_api_editconflict' &&
+			typeof retry === 'number' && retry < 3 &&
+			!disableRetry && !disableRetryAPI &&
+			!disableRetryByCode.some((code) => /editconflict$/.test(code))
+		) {
+			console.warn('Warning: Encountered an edit conflict.');
+			console.log('Retrying in 5 seconds...');
+			await sleep(5000);
+			return this.transform(title, callback, requestOptions, ++retry);
+		}
+		return result;
+
+	}
+
 }
 
 // ****************************** HELPER TYPES AND INTERFACES ******************************
@@ -1658,6 +1982,7 @@ export type Credentials = XOR<
 
 /**
  * Processed {@link Credentials} stored in a {@link Mwbot} instance.
+ * @private
  */
 type MwbotCredentials = XOR<
 	{
@@ -1779,6 +2104,7 @@ export interface ConfigData {
 
 /**
  * Type used to define {@link MwConfig}.
+ * @private
  */
 export type TypeOrArray<T> = T | T[];
 
@@ -1788,6 +2114,7 @@ export type TypeOrArray<T> = T | T[];
 
 /**
  * Type used to define {@link MwConfig}.
+ * @private
  */
 export type GetOrDefault<V, K extends PropertyKey, TD, TX = unknown> = K extends keyof V
     ? V extends Required<Pick<V, K>>
@@ -1797,6 +2124,7 @@ export type GetOrDefault<V, K extends PropertyKey, TD, TX = unknown> = K extends
 
 /**
  * Type used to define {@link MwConfig}.
+ * @private
  */
 export type PickOrDefault<V, S extends TypeOrArray<PropertyKey>, TD, TX = unknown> = S extends Array<
     infer K
@@ -1812,6 +2140,7 @@ export type PickOrDefault<V, S extends TypeOrArray<PropertyKey>, TD, TX = unknow
  * from MediaWiki core, with some adjustments for improved usability.
  *
  * See {@link Mwbot.config} for implementation details.
+ * @private
  */
 export interface MwConfig<V extends Record<string, any>, TX = unknown> {
 	/**
@@ -1851,4 +2180,23 @@ export interface MwConfig<V extends Record<string, any>, TX = unknown> {
 	 */
 	exists(selection: keyof V): boolean;
 	exists(selection: string): boolean;
+}
+
+// -------- Copies end --------
+
+/**
+ * Object that holds information about a revision, returned by {@link Mwbot.read}.
+ *
+ * See also https://www.mediawiki.org/wiki/API:Edit.
+ */
+export interface Revision {
+	pageid: number;
+	ns: number;
+	title: string;
+	baserevid: number;
+	/** This property could be missing if the editor is revdel'd. */
+	user?: string;
+	basetimestamp: string;
+	starttimestamp: string;
+	content: string;
 }

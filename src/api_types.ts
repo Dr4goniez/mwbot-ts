@@ -5,6 +5,7 @@
  */
 
 import { ApiParams as ApiParamsTMW } from 'types-mediawiki/api_params';
+export { ApiEditPageParams } from 'types-mediawiki/api_params';
 import { XOR } from 'ts-xor';
 
 // ************************************** General types **************************************

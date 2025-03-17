@@ -1,5 +1,5 @@
 /**
- * This module is attached to {@link Mwbot.String} as a static member.
+ * This module is attached to Mwbot.String as a static member.
  *
  * @example
  * ```

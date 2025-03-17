@@ -5,8 +5,9 @@
  */
 
 import { MwbotError } from './MwbotError';
-import type { Mwbot } from './Mwbot';
+import type { Mwbot, MwbotRequestConfig, Revision } from './Mwbot';
 import { mergeDeep } from './util';
+import { ApiEditPageParams, ApiResponse } from './api_types';
 
 type Title = InstanceType<Mwbot['Title']>;
 
@@ -232,45 +233,76 @@ export default function(mw: Mwbot) {
 		}
 
 		/**
-		 * Modify a given type of expressions in the wikitext content.
+		 * Modify a specific type of expressions in the wikitext content.
 		 *
-		 * For example, if {@link type} is specified as `tags`:
+		 * This method extracts expressions of the given `type`, applies the `modificationPredicate`
+		 * to transform them, and updates the wikitext accordingly.
+		 *
+		 * #### Example: Closing Unclosed Tags
 		 * ```typescript
-		 * // Close unclosed tags
 		 * const wkt = new mwbot.Wikitext('<span>a<div><del>b</span><span>c');
 		 * const oldContent = wkt.content;
-		 * const newContent = await wkt.modify('tags',
-		 * 	async (tags) => {
-		 * 		return tags.reduce((acc: (string | null)[], obj) => {
-		 * 			if (obj.unclosed) { // An end tag is missing
-		 * 				acc.push(obj.text + obj.end); // Register the new tag text
-		 * 			} else {
-		 * 				acc.push(null); // Register null for no change
-		 * 			}
-		 * 			return acc;
-		 * 		}, []);
-		 * 	}
-		 * );
+		 * const newContent = await wkt.modify('tags', async (tags) => {
+		 *     return tags.map(obj => obj.unclosed ? obj.text + obj.end : null);
+		 * });
+		 *
 		 * if (oldContent !== newContent) {
-		 * 	console.log(newContent);
-		 * 	// Output: <span>a<div><del>b</del></div></span><span>c</span>
+		 *     console.log(newContent);
+		 *     // Output: <span>a<div><del>b</del></div></span><span>c</span>
 		 * }
 		 * ```
 		 *
-		 * Note that the {@link content} and the specified expressions will be updated based on the modification.
-		 * After running this method, **do not re-use copies of them initialized beforehands**.
+		 * **Important:** This method updates {@link content} and its associated expressions.
+		 * Any copies initialized before calling this method should **not** be reused.
 		 *
-		 * @param type `tags`, `parameters`, `sections`, `templates`, or `wikilinks`.
+		 * @param type The type of expressions to modify.
+		 * <table>
+		 * 	<thead>
+		 * 		<th>type</th>
+		 * 		<th>First argument of modificationPredicate</th>
+		 * 	</thead>
+		 * 	<tbody>
+		 * 		<tr>
+		 * 			<td>tags</td>
+		 * 			<td>An array of {@link Tag}</td>
+		 * 		</tr>
+		 * 		<tr>
+		 * 			<td>parameters</td>
+		 * 			<td>An array of {@link Parameter}</td>
+		 * 		</tr>
+		 * 		<tr>
+		 * 			<td>sections</td>
+		 * 			<td>An array of {@link Section}</td>
+		 * 		</tr>
+		 * 		<tr>
+		 * 			<td>templates</td>
+		 * 			<td>An array of {@link Template}</td>
+		 * 		</tr>
+		 * 		<tr>
+		 * 			<td>wikilinks</td>
+		 * 			<td>An array of {@link Wikilink} or {@link FileWikilink}</td>
+		 * 		</tr>
+		 * 	</tbody>
+		 * </table>
+		 * See also {@link ModificationMap} for the interface that defines this mapping.
+		 *
 		 * @param modificationPredicate
-		 * A predicate that specifies how the expressions should be modified. This is a function that takes an array
-		 * of expression objects and returns a Promise resolving to an array of strings or `null`. Each string element
-		 * represents the new content for the corresponding expression, while `null` means no modification for that expression.
+		 * A function that takes an array of expression objects and returns a Promise resolving
+		 * to an array of strings or `null` values.
+		 *
+		 * - The input array consists of objects corresponding to the specified `type`.
+		 * - The returned array must have the same length as the input array.
+		 *   - Each string element represents the new content for the corresponding expression.
+		 *   - `null` means no modification for that expression.
+		 *
 		 * @returns A Promise resolving to the modified wikitext content as a string.
+		 *
 		 * @throws {MwbotError}
-		 * - If the value of {@link type} is invalid.
-		 * - If {@link modificationPredicate} is not a function.
-		 * - If the length of the array returned by {@link modificationPredicate} does not match that of the "expressions" array.
-		 * @throws {Error} If {@link modificationPredicate} returns a rejected Promise.
+		 * - If `type` is invalid.
+		 * - If `modificationPredicate` is not a function.
+		 * - If the returned array length does not match the input expressions array.
+		 *
+		 * @throws {Error} If `modificationPredicate` returns a rejected Promise.
 		 */
 		async modify<K extends keyof ModificationMap>(
 			type: K,
@@ -1384,92 +1416,38 @@ export default function(mw: Mwbot) {
 			return this.modify('wikilinks', modificationPredicate);
 		}
 
-		// Asynchronous methods
-
 		/**
 		 * Fetch the content of the latest revision of a title from the API.
 		 *
-		 * @param title
-		 * @returns Promise resolving to the revision information on success, or `null` on failure.
+		 * This method does the same as {@link Mwbot.read}.
 		 *
-		 * *This method never rejects.*
+		 * @param title
+		 * @param requestOptions
+		 * @returns
 		 */
-		static fetch(title: string | Title) {
-			if (title instanceof mw.Title) {
-				title = title.toString();
-			} else if (typeof title !== 'string') {
-				throw new MwbotError({
-					code: 'mwbot_fatal_typemismatch',
-					info: `"${typeof title}" is not a valid type for fetch().`
-				});
-			}
-			return mw.get({
-				action: 'query',
-				titles: title,
-				prop: 'revisions',
-				rvprop: 'ids|timestamp|user|content',
-				rvslots: 'main',
-				curtimestamp: true,
-				formatversion: '2'
-			}).then((res) => {
-				const resPg = res.query?.pages?.[0];
-				const resRv = resPg?.revisions?.[0];
-				if (!resPg && res.query?.interwiki) {
-					const err = new MwbotError({
-						code: 'interwikititle',
-						info: 'Cannot fetch the content of an interwiki title.'
-					});
-					err.title = res.query.interwiki[0].title;
-					throw err;
-				} else if (!resPg || !resRv) {
-					const err = new MwbotError({
-						code: 'empty',
-						info: 'OK response but empty result.'
-					});
-					err.response = res;
-					throw err;
-				} else if (resPg.invalid) {
-					const err = new MwbotError({
-						code: 'invalidtitle',
-						info: resPg.invalidreason || 'The requested page title is invalid.'
-					});
-					err.title = resPg.title;
-					throw err;
-				} else if (typeof resPg.pageid !== 'number' || resPg.missing) {
-					const err = new MwbotError({
-						code: 'pagemissing',
-						info: 'The requested page does not exist.'
-					});
-					err.title = resPg.title;
-					throw err;
-				} else if (
-					typeof resRv.revid !== 'number' ||
-					typeof res.curtimestamp !== 'string' ||
-					!resRv.timestamp ||
-					typeof resRv.slots?.main.content !== 'string'
-				) {
-					const err = new MwbotError({
-						code: 'empty',
-						info: 'OK response but empty result.'
-					});
-					err.response = res;
-					throw err;
-				}
-				return {
-					pageid: resPg.pageid,
-					ns: resPg.ns,
-					title: resPg.title,
-					revid: resRv.revid,
-					user: resRv.user, // Could be missing if revdel'd
-					basetimestamp: resRv.timestamp,
-					starttimestamp: res.curtimestamp,
-					content: resRv.slots.main.content
-				};
-			}).catch((err) => {
-				console.warn(err);
-				return null;
-			});
+		static fetch(title: string | Title, requestOptions: MwbotRequestConfig = {}): Promise<Revision> {
+			return mw.read(title, requestOptions);
 		}
+
+		/**
+		 * Edit an existing page by first fetching its latest revision and applying a transformation
+		 * function to modify its content.
+		 *
+		 * This method does the same as {@link Mwbot.transform}.
+		 *
+		 * @param title
+		 * @param transform
+		 * @param requestOptions
+		 * @returns
+		 */
+		static submit(
+			title: string | Title,
+			transform: (wikitext: Wikitext, revision: Revision) => Promise<ApiEditPageParams>,
+			requestOptions: MwbotRequestConfig = {}
+		): Promise<ApiResponse> {
+			return mw.transform(title, transform, requestOptions);
+		}
+
 
 	}
 
