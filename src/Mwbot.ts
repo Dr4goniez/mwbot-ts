@@ -42,7 +42,7 @@ import {
 	ApiResponseQueryMetaUserinfo,
 	ApiResponseQueryMetaSiteinfoInterwikimap
 } from './api_types';
-import { mergeDeep, isPlainObject, sleep, isEmptyObject, arraysEqual } from './util';
+import { mergeDeep, isPlainObject, sleep, isEmptyObject, arraysEqual } from './Util';
 import {
 	ErrorBase,
 	MwbotError,

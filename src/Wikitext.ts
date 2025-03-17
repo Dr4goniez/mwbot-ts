@@ -6,7 +6,7 @@
 
 import { MwbotError } from './MwbotError';
 import type { Mwbot, MwbotRequestConfig, Revision } from './Mwbot';
-import { mergeDeep } from './util';
+import { mergeDeep } from './Util';
 import { ApiEditPageParams, ApiResponse } from './api_types';
 
 type Title = InstanceType<Mwbot['Title']>;

@@ -5,7 +5,7 @@
  */
 
 import type { ApiResponse } from './api_types';
-import { isPlainObject } from './util';
+import { isPlainObject } from './Util';
 import type { AxiosResponse } from 'axios';
 
 /**
