@@ -243,7 +243,7 @@ export interface ApiResponse {
 	// echomarkread?: ApiResponseEchomarkread;
 	// echomarkseen?: ApiResponseEchomarkseen;
 	// echomute?: ApiResponseEchomute;
-	// edit?: ApiResponseEdit;
+	edit?: ApiResponseEdit;
 	// editmassmessagelist?: ApiResponseEditmassmessagelist;
 	// emailuser?: ApiResponseEmailuser;
 	// expandtemplates?: ApiResponseExpandtemplates;
@@ -399,14 +399,20 @@ export type ApiResponseWarningsLegacy = PartialRecord<ApiParamsAction, XOR< // e
 // export interface ApiResponseEchomarkseen {}
 // export interface ApiResponseEchomute {}
 
-export interface ApiResponseEdit { // TODO: recheck
-	result: string;
-	pageid: number;
-	title: string;
-	contentmodel: string;
-	oldrevid: number;
-	newrevid: number;
-	newtimestamp: string;
+export interface ApiResponseEdit { // Fully checked (source code level)
+	result: 'Success' | 'Failure';
+	new?: true;
+	pageid?: number;
+	title?: string;
+	contentmodel?: string;
+	nochange?: true;
+	oldrevid?: number;
+	newrevid?: number;
+	newtimestamp?: string;
+	watched?: true;
+	watchlistexpiry?: string;
+	tempusercreated?: true;
+	tempusercreatedredirect?: string;
 }
 
 // export interface ApiResponseEditmassmessagelist {}
