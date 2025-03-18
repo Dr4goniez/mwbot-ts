@@ -209,7 +209,7 @@ export class Mwbot {
 
 		// Initialize other class properties
 		this.initialized = false;
-		this.userMwbotOptions = options; // Already shallow-copied; TODO: Should mergeDeep also handle functions?
+		this.userMwbotOptions = options;
 		this.userRequestOptions = mergeDeep(requestOptions);
 		this.abortions = [];
 		this.tokens = {};
@@ -715,7 +715,6 @@ export class Mwbot {
 	async request(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 
 		// Preprocess the request options
-		// TODO: Axios accepts non-plain objects in its request options, but mergeDeep only supports plain objects
 		requestOptions.params = mergeDeep(this.userRequestOptions.params, requestOptions.params, parameters);
 		requestOptions = mergeDeep(Mwbot.defaultRequestOptions, this.userRequestOptions, requestOptions);
 		const hasLongFields = this.preprocessParameters(requestOptions.params);
