@@ -4,6 +4,7 @@
 		"src/api_types.ts",
 		"src/MwbotError.ts",
 		"src/String.ts",
+		"src/Util.ts",
 		"src/Title.ts",
 		"src/Wikitext.ts"
 	],

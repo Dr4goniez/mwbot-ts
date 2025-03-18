@@ -1,3 +1,12 @@
+/**
+ * This module is attached to Mwbot.Util as a static member.
+ *
+ * Note that `Mwbot.Util` is different from `mw.util`. It is a collection of utility functions
+ * used in the `mwbot-ts` framework, exposed to the user to facilitate common operations.
+ *
+ * @module Util
+ */
+
 // ********************************* SYNCHRONOUS FUNCTIONS *********************************
 
 /**
@@ -73,13 +82,11 @@ export function isObject(value: any): boolean {
 
 /**
  * Check whether an object is a plain object.
- *
- * Adapted from {@link https://github.com/sindresorhus/is-plain-obj/blob/master/index.js}.
- *
  * @param value
  * @returns
  */
 export function isPlainObject(value: any): boolean {
+	// Adapted from https://github.com/sindresorhus/is-plain-obj/blob/master/index.js
 	if (Object.prototype.toString.call(value) !== '[object Object]') {
 		return false;
 	}

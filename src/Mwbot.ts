@@ -42,13 +42,14 @@ import {
 	ApiResponseQueryMetaUserinfo,
 	ApiResponseQueryMetaSiteinfoInterwikimap
 } from './api_types';
-import { mergeDeep, isPlainObject, sleep, isEmptyObject, arraysEqual } from './Util';
 import {
 	ErrorBase,
 	MwbotError,
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	MwbotErrorConfig // Used in the doc of Mwbot.error
 } from './MwbotError';
+import * as Util from './Util';
+const { mergeDeep, isPlainObject, sleep, isEmptyObject, arraysEqual } = Util;
 import * as mwString from './String';
 import TitleFactory from './Title';
 import WikitextFactory from './Wikitext';
@@ -127,6 +128,12 @@ export class Mwbot {
 	 */
 	protected static get defaultIntervalActions(): ApiParamsAction[] {
 		return ['edit', 'move', 'upload'];
+	}
+	/**
+	 * `Util` library with convenient functions.
+	 */
+	static get Util(): typeof Util {
+		return Util;
 	}
 	/**
 	 * `String` library.
