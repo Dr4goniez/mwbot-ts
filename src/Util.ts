@@ -14,6 +14,7 @@
  * - Arrays are concatenated.
  * - Plain objects are recursively merged.
  * - Class instances are cloned but overwritten by later instances.
+ * (Note: This cloning is not perfect.)
  * - Getters and setters are preserved.
  * - `Map`, `Set`, and `Date` instances are correctly cloned.
  *
@@ -45,10 +46,7 @@ export function mergeDeep<T extends object[]>(...objects: T): UnionToIntersectio
 			} else if (oVal instanceof Set) {
 				oVal = new Set([...oVal].map(v => (isObject(v) ? mergeDeep(v) : v)));
 			} else if (isClassInstance(oVal)) {
-				oVal = Object.create(
-					Object.getPrototypeOf(oVal),
-					Object.getOwnPropertyDescriptors(oVal)
-				);
+				oVal = deepCloneInstance(oVal);
 			}
 
 			if (Array.isArray(oVal)) {
@@ -117,6 +115,36 @@ export function isEmptyObject(object: any): boolean {
  */
 export function isClassInstance(value: any): boolean {
 	return isObject(value) && !isPlainObject(value);
+}
+
+/**
+ * Deeply clones a class instance, preserving its prototype and inherited properties.
+ *
+ * - Retains methods and properties from the entire prototype chain.
+ *
+ * @param obj The class instance to clone.
+ * @returns A deep-cloned instance of the given object.
+ */
+function deepCloneInstance<T extends object>(obj: T): T {
+	if (obj === null || typeof obj !== 'object') {
+		return obj;
+	}
+
+	// Create a new instance preserving the prototype
+	const clone = Object.create(Object.getPrototypeOf(obj));
+
+	// Collect property descriptors from the entire prototype chain
+	let currentObj: object | null = obj;
+	const descriptors: PropertyDescriptorMap = {};
+	while (currentObj !== null) {
+		Object.assign(descriptors, Object.getOwnPropertyDescriptors(currentObj));
+		currentObj = Object.getPrototypeOf(currentObj);
+	}
+
+	// Apply descriptors to clone
+	Object.defineProperties(clone, descriptors);
+
+	return mergeDeep(clone, obj) as T;
 }
 
 /**
