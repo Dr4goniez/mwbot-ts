@@ -40,7 +40,9 @@ import {
 	ApiResponseQueryMetaSiteinfoNamespacealiases,
 	ApiResponseQueryMetaTokens,
 	ApiResponseQueryMetaUserinfo,
-	ApiResponseQueryMetaSiteinfoInterwikimap
+	ApiResponseQueryMetaSiteinfoInterwikimap,
+	ApiResponseQueryMetaSiteinfoMagicwords,
+	ApiResponseQueryMetaSiteinfoFunctionhooks
 } from './api_types';
 import {
 	ErrorBase,
@@ -413,7 +415,7 @@ export class Mwbot {
 			formatversion: '2',
 			meta: 'userinfo|siteinfo',
 			uiprop: 'rights',
-			siprop: 'general|interwikimap|namespaces|namespacealiases',
+			siprop: 'functionhooks|general|magicwords|interwikimap|namespaces|namespacealiases',
 			maxlag: void 0
 		}).then((res) => res)
 		.catch((err) => err);
@@ -425,8 +427,8 @@ export class Mwbot {
 		}
 
 		// NOTE: interwikimap is built-in since MW v1.44 but was initially an extension
-		const {userinfo, general, interwikimap = [], namespaces, namespacealiases} = res.query;
-		if (!userinfo || !general || !namespaces || !namespacealiases) {
+		const {userinfo, functionhooks, general, magicwords, interwikimap = [], namespaces, namespacealiases} = res.query;
+		if (!userinfo || !functionhooks || !general || !magicwords || !namespaces || !namespacealiases) {
 			console.error('Error: Failed to establish connection.');
 			return await retryIfPossible(attemptIndex);
 		} else if (userinfo.anon && !this.isAnonymous()) {
@@ -445,11 +447,13 @@ export class Mwbot {
 		this.initialized = true; // This substitution must be done HERE (Mwbot.info and other getters call checkInit in them)
 		const config = this.config;
 		this._info = {
-			user: userinfo as SiteAndUserInfo['user'],
+			functionhooks,
 			general,
+			magicwords,
 			interwikimap,
 			namespaces,
-			namespacealiases
+			namespacealiases,
+			user: userinfo as SiteAndUserInfo['user']
 		};
 		this._Title = TitleFactory(
 			// Pass individual properties instead of the instance to avoid redundant deep copies
@@ -457,9 +461,9 @@ export class Mwbot {
 			config,
 			this._info
 		);
-		const {Template, ParsedTemplate, MalformedTemplate} = TemplateFactory(config, this._Title);
+		const {Template, ParsedTemplate, MalformedTemplate, ParserFunction} = TemplateFactory(config, this._info, this._Title);
 		this._Template = Template;
-		this._Wikitext = WikitextFactory(this, ParsedTemplate, MalformedTemplate);
+		this._Wikitext = WikitextFactory(this, ParsedTemplate, MalformedTemplate, ParserFunction);
 
 		console.log('Connection established: ' + config.get('wgServerName'));
 		return this;
@@ -2244,14 +2248,16 @@ export interface MwbotRequestConfig extends AxiosRequestConfig {
  */
 export interface SiteAndUserInfo {
 	// The utility types used here just make the verified properties non-optional
-	user: Required<Pick<ApiResponseQueryMetaUserinfo, 'id' | 'name' | 'rights'>>;
+	functionhooks: ApiResponseQueryMetaSiteinfoFunctionhooks[];
 	general: Pick<
 		ApiResponseQueryMetaSiteinfoGeneral,
 		'articlepath' | 'lang' | 'legaltitlechars' | 'script' | 'scriptpath' | 'server' | 'servername' | 'sitename' | 'generator' | 'wikiid'
 	> & ApiResponseQueryMetaSiteinfoGeneral;
+	magicwords: ApiResponseQueryMetaSiteinfoMagicwords[];
 	interwikimap: ApiResponseQueryMetaSiteinfoInterwikimap[];
 	namespaces: ApiResponseQueryMetaSiteinfoNamespaces;
 	namespacealiases: ApiResponseQueryMetaSiteinfoNamespacealiases[];
+	user: Required<Pick<ApiResponseQueryMetaUserinfo, 'id' | 'name' | 'rights'>>;
 }
 
 /**

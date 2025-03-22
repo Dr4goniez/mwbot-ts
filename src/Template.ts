@@ -20,13 +20,135 @@ import type { Title } from './Title';
 import type { WikitextOptions } from './Wikitext';
 
 /**
+ * A list of no-hash functions. The listed members must not have a leading hash to function as a parser function.
+ *
+ * This is hard-coded in
+ * https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/65e671bb809773bba40257288e890d8f24d824fd/includes/parser/CoreParserFunctions.php#81.
+ */
+const noHashFunctions = [
+	'ns', 'nse', 'urlencode', 'lcfirst', 'ucfirst', 'lc', 'uc',
+	'localurl', 'localurle', 'fullurl', 'fullurle', 'canonicalurl',
+	'canonicalurle', 'formatnum', 'grammar', 'gender', 'plural', 'formal',
+	'bidi', 'numberingroup', 'language',
+	'padleft', 'padright', 'anchorencode', 'defaultsort', 'filepath',
+	'pagesincategory', 'pagesize', 'protectionlevel', 'protectionexpiry',
+	// The following are the "parser function" forms of magic
+	// variables defined in CoreMagicVariables.  The no-args form will
+	// go through the magic variable code path (and be cached); the
+	// presence of arguments will cause the parser function form to
+	// be invoked. (Note that the actual implementation will pass
+	// a Parser object as first argument, in addition to the
+	// parser function parameters.)
+	// For this group, the first parameter to the parser function is
+	// "page title", and the no-args form (and the magic variable)
+	// defaults to "current page title".
+	'pagename', 'pagenamee',
+	'fullpagename', 'fullpagenamee',
+	'subpagename', 'subpagenamee',
+	'rootpagename', 'rootpagenamee',
+	'basepagename', 'basepagenamee',
+	'talkpagename', 'talkpagenamee',
+	'subjectpagename', 'subjectpagenamee',
+	'pageid', 'revisionid', 'revisionday',
+	'revisionday2', 'revisionmonth', 'revisionmonth1', 'revisionyear',
+	'revisiontimestamp',
+	'revisionuser',
+	'cascadingsources',
+	'namespace', 'namespacee', 'namespacenumber', 'talkspace', 'talkspacee',
+	'subjectspace', 'subjectspacee',
+	// More parser functions corresponding to CoreMagicVariables.
+	// For this group, the first parameter to the parser function is
+	// "raw" (uses the 'raw' format if present) and the no-args form
+	// (and the magic variable) defaults to 'not raw'.
+	'numberofarticles', 'numberoffiles',
+	'numberofusers',
+	'numberofactiveusers',
+	'numberofpages',
+	'numberofadmins',
+	'numberofedits',
+	// These magic words already contain the hash, and the no-args form
+	// is the same as passing an empty first argument
+	'bcp47',
+	'dir',
+	'interwikilink',
+	'interlanguagelink',
+];
+
+/**
  * @internal
  */
-export function TemplateFactory(config: Mwbot['config'], Title: Title) {
+export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], Title: Title) {
 
 	const namespaceIds = config.get('wgNamespaceIds');
 	const NS_MAIN = namespaceIds[''];
 	const NS_TEMPLATE = namespaceIds.template;
+
+	/**
+	 * Object that maps canonical parser function names to their validation regular expressions.
+	 * The validation includes the trailing colon, which can be a 2-byte character in some cases.
+	 */
+	const parserFunctionMap = info.magicwords.reduce((acc: Record<string, RegExp>, obj) => {
+		if (!info.functionhooks.includes(obj.name)) {
+			return acc;
+		}
+		const caseSensitive = obj['case-sensitive'];
+		const keys = [obj.name];
+		const hash = noHashFunctions.includes(obj.name) ? '' : '#?';
+		obj.aliases.forEach((alias) => {
+			if (alias !== obj.name && !/^[_＿].+[_＿]$/.test(alias)) {
+				keys.push(alias);
+			}
+		});
+		const arrRegExp = keys.reduce((ret: string[], key) => {
+			let h = hash;
+			if (key.startsWith('#')) {
+				h = '#';
+				key = key.slice(1);
+			}
+			if (!/[:：]$/.test(key)) {
+				key += ':';
+			}
+			if (caseSensitive) {
+				// The first letter is not case-sensitive even if this function hook is case-sensitive
+				ret.push(`^${h}[${key[0].toLowerCase() + key[0].toUpperCase()}]${key.slice(1)}$`);
+			} else {
+				ret.push(`^${h + key}$`);
+			}
+			return ret;
+		}, []);
+		acc[obj.name] = new RegExp(arrRegExp.join('|'), caseSensitive ? '' : 'i');
+		return acc;
+	}, Object.create(null));
+
+	/** @internal */
+	interface VerifiedParserFunction {
+		/** The canonical name of the parser function. */
+		canonical: string;
+		/** The matched name of the parser function, excluding the trailing colon. */
+		match: string;
+	}
+
+	/**
+	 * Verifies the given title as a parser function.
+	 * @param title A prefixed title.
+	 * @returns An object representing the canonical function name and the matched function name, or `null`.
+	 */
+	const verifyParserFunction = (title: string): VerifiedParserFunction | null => {
+		// Whitespace characters are illegal in a function hook, i.e. "#if:" is fine but not "# if:" or "#if :"
+		const m = /^#?[^:：\s]+[:：]/.exec(title.trim());
+		if (!m) {
+			return null;
+		}
+		for (const [canonical, regex] of Object.entries(parserFunctionMap)) {
+			if (regex.test(m[0])) {
+				return {
+					canonical,
+					match: m[0].replace(/[:：]$/, ''),
+				};
+			}
+		}
+		return null;
+	};
 
 	/**
 	 * @internal
@@ -535,33 +657,29 @@ export function TemplateFactory(config: Mwbot['config'], Title: Title) {
 		/**
 		 * Checks if the given object is an instance of the specified template-related class.
 		 *
-		 * This method is an alternative of the `instanceof` operator.
+		 * This method is an alternative of the `instanceof` operator, which cannot be used for
+		 * non-exported classes.
 		 *
 		 * **Example**:
 		 * ```ts
-		 * const wikitext = new mwbot.Wikitext('{{Foo}}{{}}');
-		 * const templates = wikitext.parseTemplates();
-		 * console.log(templates[0] instanceof mwbot.Template); // false
-		 * console.log(mwbot.Template.is(templates[0], 'ParsedTemplate')); // true
-		 * console.log(mwbot.Template.is(templates[1], 'MalformedTemplate')); // true
+		 * const wikitext = new mwbot.Wikitext('{{Foo}}');
+		 * const foo = wikitext.parseTemplates()[0];
+		 * foo instanceof mwbot.Template; // false
+		 * mwbot.Template.is(foo, 'ParsedTemplate'); // true
+		 * mwbot.Template.is(foo, 'MalformedTemplate'); // false
+		 * mwbot.Template.is(foo, 'ParserFunction'); // false
 		 * ```
 		 *
-		 * Note that `ParsedTemplate` and `MalformedTemplate` do not extend the `Template` class.
+		 * Note that none of the classes that can be checked with this method extend another.
 		 *
-		 * @template T The type of template to check for. Must be one of `'Template'`, `'ParsedTemplate'`, or `'MalformedTemplate'`.
+		 * @template T The type of template to check for. Must be one of `'Template'`, `'ParsedTemplate'`,
+		 * `'MalformedTemplate'`, or `'ParserFunction'`.
 		 * @param obj The object to check.
 		 * @param type The template type to compare against.
 		 * @returns `true` if `obj` is an instance of the specified template class, otherwise `false`.
 		 * @throws {Error} If an invalid `type` is provided.
 		 */
-		static is<T extends 'Template' | 'ParsedTemplate' | 'MalformedTemplate'>(
-			obj: unknown,
-			type: T
-		): obj is
-			T extends 'Template' ? Template :
-			T extends 'ParsedTemplate' ? ParsedTemplate :
-			T extends 'MalformedTemplate' ? MalformedTemplate : never
-		{
+		static is<T extends keyof TemplateTypeMap>(obj: unknown, type: T): obj is TemplateTypeMap[T] {
 			switch (type) {
 				case 'Template':
 					return obj instanceof Template;
@@ -569,8 +687,10 @@ export function TemplateFactory(config: Mwbot['config'], Title: Title) {
 					return obj instanceof ParsedTemplate;
 				case 'MalformedTemplate':
 					return obj instanceof MalformedTemplate;
+				case 'ParserFunction':
+					return obj instanceof ParserFunction;
 				default:
-					throw new Error(`"${type}" is not a valid input to is().`);
+					throw new Error(`"${type}" is not a valid input to Template.is().`);
 			}
 		}
 
@@ -657,13 +777,17 @@ export function TemplateFactory(config: Mwbot['config'], Title: Title) {
 		 */
 		endIndex: number;
 		/**
-		 * The nesting level of this template. `0` if not nested within another template.
+		 * The nesting level of this template. `0` if not nested within another double-braced expression.
 		 */
 		nestLevel: number;
 		/**
 		 * Whether the template appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
 		 */
 		skip: boolean;
+		/**
+		 * @hidden
+		 */
+		private _initializer: ParsedTemplateInitializer;
 
 		/**
 		 * @param initializer
@@ -674,6 +798,7 @@ export function TemplateFactory(config: Mwbot['config'], Title: Title) {
 			const {title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip} = initializer;
 			const t = Template.validateTitle(title);
 			super(t, params, options.hierarchies);
+			this._initializer = initializer;
 			this.rawTitle = rawTitle;
 			this._rawTitle = rawTitle.replace(title, '\x01');
 			this.text = text;
@@ -719,18 +844,8 @@ export function TemplateFactory(config: Mwbot['config'], Title: Title) {
 		}
 
 		/** @hidden */
-		clone() {
-			const initializer = {
-				title: this.title.getPrefixedDb(),
-				rawTitle: this.rawTitle,
-				text: this.text,
-				params: Object.values(this.params).map(({key, value, unnamed}) => ({key: unnamed ? '' : key, value})),
-				startIndex: this.startIndex,
-				endIndex: this.endIndex,
-				nestLevel: this.nestLevel,
-				skip: this.skip,
-			};
-			return new ParsedTemplate(initializer);
+		_clone() {
+			return new ParsedTemplate(this._initializer);
 		}
 
 	}
@@ -779,13 +894,17 @@ export function TemplateFactory(config: Mwbot['config'], Title: Title) {
 		 */
 		endIndex: number;
 		/**
-		 * The nesting level of this template. `0` if not nested within another template.
+		 * The nesting level of this template. `0` if not nested within another double-braced expression.
 		 */
 		nestLevel: number;
 		/**
 		 * Whether the template appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
 		 */
 		skip: boolean;
+		/**
+		 * @hidden
+		 */
+		private _initializer: ParsedTemplateInitializer;
 
 		/**
 		 * @param initializer
@@ -795,6 +914,7 @@ export function TemplateFactory(config: Mwbot['config'], Title: Title) {
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
 			const {title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip} = initializer;
 			super(title, params, options.hierarchies);
+			this._initializer = initializer;
 			this.rawTitle = rawTitle;
 			this._rawTitle = rawTitle.replace(title, '\x01');
 			this.text = text;
@@ -856,23 +976,107 @@ export function TemplateFactory(config: Mwbot['config'], Title: Title) {
 		}
 
 		/** @hidden */
-		clone() {
-			const initializer = {
-				title: this.title,
-				rawTitle: this.rawTitle,
-				text: this.text,
-				params: Object.values(this.params).map(({key, value, unnamed}) => ({key: unnamed ? '' : key, value})),
-				startIndex: this.startIndex,
-				endIndex: this.endIndex,
-				nestLevel: this.nestLevel,
-				skip: this.skip,
-			};
-			return new MalformedTemplate(initializer);
+		_clone() {
+			return new MalformedTemplate(this._initializer);
 		}
 
 	}
 
-	return {Template, ParsedTemplate, MalformedTemplate};
+	/**
+	 * Class for {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}. This class
+	 * represents a `{{#parserfunction:...}}` expression.
+	 *
+	 * The constructor of this class is inaccessible, and instances can only be referenced
+	 * in the result of `parseTemplates`.
+	 *
+	 * To check if an object is an instace of this class, use {@link Template.is}.
+	 *
+	 * **Important**:
+	 *
+	 * The instance properties of this class are pseudo-read-only, in the sense that altering them
+	 * does not affect the behaviour of {@link Mwbot.Wikitext.modifyTemplates | Wikitext.modifyTemplates}.
+	 */
+	class ParserFunction {
+
+		/**
+		 * The canonical parser function name.
+		 */
+		readonly title: string;
+		/**
+		 * The parser functions parameters. Note that these are *not* trimmed of leading and trailing whitespace.
+		 */
+		params: string[];
+		/**
+		 * The raw parser function name, as directly parsed from the wikitext.
+		 */
+		rawTitle: string;
+		/**
+		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
+		 */
+		private _rawTitle: string;
+		/**
+		 * The original text of the parser function parsed from the wikitext.
+		 * The value of this property is static.
+		 */
+		text: string;
+		/**
+		 * The starting index of this parser function in the wikitext.
+		 */
+		startIndex: number;
+		/**
+		 * The ending index of this parser function in the wikitext (exclusive).
+		 */
+		endIndex: number;
+		/**
+		 * The nesting level of this parser function. `0` if not nested within another double-braced expression.
+		 */
+		nestLevel: number;
+		/**
+		 * Whether the parser function appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+		 */
+		skip: boolean;
+		/**
+		 * @hidden
+		 */
+		private _initializer: ParsedTemplateInitializer;
+
+		/**
+		 * @param initializer
+		 * @hidden
+		 */
+		constructor(initializer: ParsedTemplateInitializer) {
+			this._initializer = initializer;
+			const {title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip} = initializer;
+			const verified = verifyParserFunction(title);
+			if (!verified) {
+				throw new Error(`"${title}" is not a parser function.`);
+			}
+			this.title = verified.canonical;
+			const paramPart = title.split(verified.match)[1];
+			this.params = [paramPart.slice(1)];
+			params.forEach(({key, value}) => {
+				this.params.push((key ? key + '=' : '') + value);
+			});
+			const rt = rawTitle.replace(paramPart, '');
+			this.rawTitle = rt;
+			this._rawTitle = rt.replace(verified.match, '\x01');
+			this.text = text;
+			this.startIndex = startIndex;
+			this.endIndex = endIndex;
+			this.nestLevel = nestLevel;
+			this.skip = skip;
+		}
+
+		/**
+		 * @hidden
+		 */
+		_clone() {
+			return new ParserFunction(this._initializer);
+		}
+
+	}
+
+	return {Template, ParsedTemplate, MalformedTemplate, ParserFunction};
 
 }
 
@@ -888,6 +1092,10 @@ export type ParsedTemplate = ReturnType<typeof TemplateFactory>['ParsedTemplate'
  * @internal
  */
 export type MalformedTemplate = ReturnType<typeof TemplateFactory>['MalformedTemplate'];
+/**
+ * @internal
+ */
+export type ParserFunction = ReturnType<typeof TemplateFactory>['ParserFunction'];
 
 /**
  * Object that is used to initialize template parameters in {@link Template.constructor}.
@@ -960,6 +1168,16 @@ export interface TemplateParameter {
  * whenever a parameter registration detects a lower-hierarchy parameter in the {@link Template} instance.
  */
 export type TemplateParameterHierarchies = string[][];
+
+/**
+ * Helper interface for {@link Template.is}.
+ */
+interface TemplateTypeMap {
+	Template: Template;
+	ParsedTemplate: ParsedTemplate;
+	MalformedTemplate: MalformedTemplate;
+	ParserFunction: ParserFunction;
+}
 
 /**
  * Options for {@link Template.stringify}.

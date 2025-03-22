@@ -6,12 +6,13 @@
 
 import { MwbotError } from './MwbotError';
 import type { Mwbot, MwbotRequestConfig, Revision } from './Mwbot';
-import { mergeDeep } from './Util';
+import { deepCloneInstance, isClassInstance, mergeDeep } from './Util';
 import { ApiEditPageParams, ApiResponse } from './api_types';
 import type { Title } from './Title';
 import type {
 	ParsedTemplate,
 	MalformedTemplate,
+	ParserFunction,
 	NewTemplateParameter,
 	TemplateParameterHierarchies,
 	ParsedTemplateOptions
@@ -23,7 +24,8 @@ import type {
 export function WikitextFactory(
 	mw: Mwbot,
 	ParsedTemplate: ParsedTemplate,
-	MalformedTemplate: MalformedTemplate
+	MalformedTemplate: MalformedTemplate,
+	ParserFunction: ParserFunction
 ) {
 
 	const namespaceIds = mw.config.get('wgNamespaceIds');
@@ -45,7 +47,7 @@ export function WikitextFactory(
 			parameters: Parameter[] | null;
 			sections: Section[] | null;
 			wikilinks_fuzzy: FuzzyWikilink[] | null;
-			templates: InstanceType<ParsedTemplate | MalformedTemplate>[] | null;
+			templates: InstanceType<ParsedTemplate | MalformedTemplate | ParserFunction>[] | null;
 			wikilinks: (Wikilink | FileWikilink)[] | null;
 		};
 		/**
@@ -167,7 +169,9 @@ export function WikitextFactory(
 					throw new TypeError(`Expected an array for storage["${key}"], but got ${typeof val}.`);
 				}
 				this.storage[key] = val; // Save
-				return clone ? val.map((obj) => 'clone' in obj ? obj.clone() : mergeDeep(obj)) : val;
+				return clone
+					? val.map((obj) => '_clone' in obj ? obj._clone() : isClassInstance(obj) ? deepCloneInstance(obj) : mergeDeep(obj))
+					: val;
 			}
 
 			// If setting a value
@@ -1197,7 +1201,7 @@ export function WikitextFactory(
 			nestLevel = 0,
 			skip = false,
 			wikitext = this.content
-		): InstanceType<ParsedTemplate | MalformedTemplate>[] {
+		): InstanceType<ParsedTemplate | MalformedTemplate | ParserFunction>[] {
 
 			let numUnclosed = 0;
 			let startIndex = 0;
@@ -1208,7 +1212,7 @@ export function WikitextFactory(
 			};
 
 			// Character-by-character loop
-			const templates: InstanceType<ParsedTemplate | MalformedTemplate>[] = [];
+			const templates: InstanceType<ParsedTemplate | MalformedTemplate | ParserFunction>[] = [];
 			for (let i = 0; i < wikitext.length; i++) {
 
 				const wkt = wikitext.slice(i);
@@ -1272,12 +1276,15 @@ export function WikitextFactory(
 							nestLevel,
 							skip
 						};
-						// TODO: Handle parser functions
-						let temp: InstanceType<ParsedTemplate | MalformedTemplate>;
+						let temp: InstanceType<ParsedTemplate | MalformedTemplate | ParserFunction>;
 						try {
-							temp = new ParsedTemplate(initializer, options);
+							temp = new ParserFunction(initializer);
 						} catch {
-							temp = new MalformedTemplate(initializer, options);
+							try {
+								temp = new ParsedTemplate(initializer, options);
+							} catch {
+								temp = new MalformedTemplate(initializer, options);
+							}
 						}
 						templates.push(temp);
 						const inner = temp.text.slice(2, -2);
@@ -1323,7 +1330,7 @@ export function WikitextFactory(
 		 * @param config Config to filter the output.
 		 * @returns
 		 */
-		parseTemplates(config: ParseTemplatesConfig = {}): InstanceType<ParsedTemplate | MalformedTemplate>[] {
+		parseTemplates(config: ParseTemplatesConfig = {}): InstanceType<ParsedTemplate | MalformedTemplate | ParserFunction>[] {
 			const {hierarchies, titlePredicate, templatePredicate} = config;
 			const options = {hierarchies};
 			let templates = this.storageManager('templates', true, options);
@@ -1344,7 +1351,7 @@ export function WikitextFactory(
 		 * @param modificationPredicate
 		 * @returns
 		 */
-		modifyTemplates(modificationPredicate: ModificationPredicate<InstanceType<ParsedTemplate | MalformedTemplate>>): Promise<string> {
+		modifyTemplates(modificationPredicate: ModificationPredicate<InstanceType<ParsedTemplate | MalformedTemplate | ParserFunction>>): Promise<string> {
 			return this.modify('templates', modificationPredicate);
 		}
 
@@ -1544,7 +1551,7 @@ export interface ModificationMap {
 	tags: Tag;
 	parameters: Parameter;
 	sections: Section;
-	templates: InstanceType<ParsedTemplate | MalformedTemplate>;
+	templates: InstanceType<ParsedTemplate | MalformedTemplate | ParserFunction>;
 	wikilinks: Wikilink | FileWikilink;
 }
 
@@ -1924,7 +1931,7 @@ export interface ParseTemplatesConfig {
 	 * @param template The template object.
 	 * @returns `true` if the template should be included, otherwise `false`.
 	 */
-	templatePredicate?: (template: InstanceType<ParsedTemplate | MalformedTemplate>) => boolean;
+	templatePredicate?: (template: InstanceType<ParsedTemplate | MalformedTemplate | ParserFunction>) => boolean;
 	/**
 	 * See {@link TemplateParameterHierarchies}.
 	 */
