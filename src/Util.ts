@@ -118,20 +118,61 @@ export function isClassInstance(value: any): boolean {
 }
 
 /**
- * Deeply clones a class instance, preserving its prototype and inherited properties.
+ * Deeply clones a class instance, preserving its prototype, inherited properties,
+ * and special object types like Map, Set, Date, and RegExp. Also handles cyclic references.
  *
- * - Retains methods and properties from the entire prototype chain.
+ * **Features**:
+ * - Retains the entire prototype chain, ensuring methods like `toString()` work as expected.
+ * - Recursively clones objects, including nested structures.
+ * - Supports special objects (`Date`, `RegExp`, `Map` and `Set`).
+ * - Handles cyclic references to prevent infinite loops.
+ *
+ * **Limitations**:
+ * - WeakMap & WeakSet: Cannot be cloned because their entries are weakly held.
+ * - Functions & Closures: Functions are copied by reference; closures are not recreated.
+ * - DOM Elements & Buffers: Not supported, as they require specialized handling.
  *
  * @param obj The class instance to clone.
+ * @param seen (Internal) A WeakMap to track visited objects for cyclic reference handling.
  * @returns A deep-cloned instance of the given object.
  */
-function deepCloneInstance<T extends object>(obj: T): T {
+export function deepCloneInstance<T extends object>(obj: T, /** @private */ seen = new WeakMap()): T {
 	if (obj === null || typeof obj !== 'object') {
 		return obj;
 	}
 
+	// Handle cyclic references
+	if (seen.has(obj)) {
+		return seen.get(obj) as T;
+	}
+
+	// Handle built-in objects
+	if (obj instanceof Date) {
+		return new Date(obj.getTime()) as T;
+	}
+	if (obj instanceof RegExp) {
+		return new RegExp(obj.source, obj.flags) as T;
+	}
+	if (obj instanceof Map) {
+		const mapClone = new Map();
+		seen.set(obj, mapClone);
+		obj.forEach((value, key) => {
+			mapClone.set(deepCloneInstance(key, seen), deepCloneInstance(value, seen));
+		});
+		return mapClone as T;
+	}
+	if (obj instanceof Set) {
+		const setClone = new Set();
+		seen.set(obj, setClone);
+		obj.forEach((value) => {
+			setClone.add(deepCloneInstance(value, seen));
+		});
+		return setClone as T;
+	}
+
 	// Create a new instance preserving the prototype
 	const clone = Object.create(Object.getPrototypeOf(obj));
+	seen.set(obj, clone);
 
 	// Collect property descriptors from the entire prototype chain
 	let currentObj: object | null = obj;
@@ -141,10 +182,21 @@ function deepCloneInstance<T extends object>(obj: T): T {
 		currentObj = Object.getPrototypeOf(currentObj);
 	}
 
+	// Deep clone properties
+	for (const key of Object.keys(descriptors)) {
+		const desc = descriptors[key];
+		if ('value' in desc) {
+			desc.value = deepCloneInstance(desc.value, seen);
+		}
+	}
+
 	// Apply descriptors to clone
 	Object.defineProperties(clone, descriptors);
 
-	return mergeDeep(clone, obj) as T;
+	// Ensure prototype methods like toString() remain intact
+	Object.setPrototypeOf(clone, Object.getPrototypeOf(obj));
+
+	return clone as T;
 }
 
 /**
