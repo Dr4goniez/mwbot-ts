@@ -8,18 +8,27 @@ import { MwbotError } from './MwbotError';
 import type { Mwbot, MwbotRequestConfig, Revision } from './Mwbot';
 import { mergeDeep } from './Util';
 import { ApiEditPageParams, ApiResponse } from './api_types';
+import type {
+	ParsedTemplate,
+	MalformedTemplate,
+	NewTemplateParameter,
+	TemplateParameterHierarchies,
+	ParsedTemplateOptions
+} from './Template';
 
 type Title = InstanceType<Mwbot['Title']>;
 
 /**
  * @internal
  */
-export default function(mw: Mwbot) {
+export default function(
+	mw: Mwbot,
+	ParsedTemplate: ParsedTemplate,
+	MalformedTemplate: MalformedTemplate
+) {
 
 	const namespaceIds = mw.config.get('wgNamespaceIds');
-	const NS_MAIN = namespaceIds[''];
 	const NS_FILE = namespaceIds.file;
-	const NS_TEMPLATE = namespaceIds.template;
 	// eslint-disable-next-line no-control-regex
 	const rCtrlStart = /^\x01+/;
 
@@ -37,7 +46,7 @@ export default function(mw: Mwbot) {
 			parameters: Parameter[] | null;
 			sections: Section[] | null;
 			wikilinks_fuzzy: FuzzyWikilink[] | null;
-			templates: Template[] | null;
+			templates: InstanceType<ParsedTemplate | MalformedTemplate>[] | null;
 			wikilinks: (Wikilink | FileWikilink)[] | null;
 		};
 		/**
@@ -115,7 +124,11 @@ export default function(mw: Mwbot) {
 		 * @param clone Whether to return a deep copy of the value (default: `true`).
 		 * @returns The stored or parsed value.
 		 */
-		private storageManager<K extends keyof typeof this.storage>(key: K, clone?: boolean): NonNullable<typeof this.storage[K]>;
+		private storageManager<K extends keyof typeof this.storage>(
+			key: K,
+			clone?: boolean,
+			args?: StorageArgumentMap[K]
+		): NonNullable<typeof this.storage[K]>;
 		/**
 		 * Updates `key` in {@link storage} with the provided `value`.
 		 *
@@ -125,8 +138,15 @@ export default function(mw: Mwbot) {
 		 * @param value The new value to set.
 		 * @returns The current instance for method chaining.
 		 */
-		private storageManager<K extends keyof typeof this.storage>(key: K, value: NonNullable<typeof this.storage[K]>): typeof this;
-		private storageManager<K extends keyof typeof this.storage>(key: K, valueOrClone?: NonNullable<typeof this.storage[K]> | boolean) {
+		private storageManager<K extends keyof typeof this.storage>(
+			key: K,
+			value: NonNullable<typeof this.storage[K]>
+		): typeof this;
+		private storageManager<K extends keyof typeof this.storage>(
+			key: K,
+			valueOrClone?: NonNullable<typeof this.storage[K]> | boolean,
+			args?: StorageArgumentMap[K]
+		) {
 
 			// If retrieving a value
 			if (typeof valueOrClone === 'boolean' || valueOrClone === undefined) {
@@ -138,7 +158,7 @@ export default function(mw: Mwbot) {
 						case 'parameters': return this._parseParameters();
 						case 'sections': return this._parseSections();
 						case 'wikilinks_fuzzy': return this._parseWikilinksFuzzy();
-						case 'templates': return this._parseTemplates();
+						case 'templates': return this._parseTemplates(args);
 						case 'wikilinks': return this._parseWikilinks();
 					}
 				})()) as NonNullable<typeof this.storage[K]>;
@@ -148,7 +168,7 @@ export default function(mw: Mwbot) {
 					throw new TypeError(`Expected an array for storage["${key}"], but got ${typeof val}.`);
 				}
 				this.storage[key] = val; // Save
-				return clone ? val.map((obj) => mergeDeep(obj)) : val;
+				return clone ? val.map((obj) => 'clone' in obj ? obj.clone() : mergeDeep(obj)) : val;
 			}
 
 			// If setting a value
@@ -1173,22 +1193,23 @@ export default function(mw: Mwbot) {
 		 * @returns
 		 */
 		private _parseTemplates(
+			options: ParsedTemplateOptions = {},
 			indexMap = this.getIndexMap({parameters: true, wikilinks_fuzzy: true}),
 			nestLevel = 0,
 			skip = false,
 			wikitext = this.content
-		): Template[] {
+		): InstanceType<ParsedTemplate | MalformedTemplate>[] {
 
 			let numUnclosed = 0;
 			let startIndex = 0;
-			let components: TemplateFragment[] = [];
+			let components: Required<NewTemplateParameter>[] = [];
 			const regex = {
 				templateStart: /^\{\{/,
 				templateEnd: /^\}\}/
 			};
 
 			// Character-by-character loop
-			const templates: Template[] = [];
+			const templates: InstanceType<ParsedTemplate | MalformedTemplate>[] = [];
 			for (let i = 0; i < wikitext.length; i++) {
 
 				const wkt = wikitext.slice(i);
@@ -1211,7 +1232,7 @@ export default function(mw: Mwbot) {
 						const text = wikitext.slice(start, end);
 						if (text.includes('{{')) {
 							templates.push(
-								...this._parseTemplates(indexMap, nestLevel, indexMap[i].type === 'tag', '\x01'.repeat(inner.start) + text)
+								...this._parseTemplates(options, indexMap, nestLevel, indexMap[i].type === 'tag', '\x01'.repeat(inner.start) + text)
 							);
 						}
 					}
@@ -1237,30 +1258,34 @@ export default function(mw: Mwbot) {
 						processTemplateFragment(components, '{{');
 					} else if (regex.templateEnd.test(wkt)) {
 						// Found the end of the template
-						const [nameObj, ...rawParams] = components;
-						const name = nameObj ? nameObj.name : '';
-						const rawName = nameObj ? nameObj.text : '';
+						const [titleObj, ...params] = components;
+						const title = titleObj ? titleObj.key : '';
+						const rawTitle = titleObj ? titleObj.value : '';
 						const endIndex = i + 2;
 						const text = wikitext.slice(startIndex, endIndex);
-						const temp = createTemplateObject({
-							// TODO: Handle parser functions
-							name,
-							rawName,
+						const initializer = {
+							title,
+							rawTitle,
 							text,
-							rawParams,
+							params,
 							startIndex,
 							endIndex,
 							nestLevel,
 							skip
-						});
-						if (temp) {
-							templates.push(temp);
-							const inner = temp.text.slice(2, -2);
-							if (inner.includes('{{')) {
-								templates.push(
-									...this._parseTemplates(indexMap, nestLevel + 1, skip, '\x01'.repeat(startIndex + 2) + inner)
-								);
-							}
+						};
+						// TODO: Handle parser functions
+						let temp: InstanceType<ParsedTemplate | MalformedTemplate>;
+						try {
+							temp = new ParsedTemplate(initializer, options);
+						} catch {
+							temp = new MalformedTemplate(initializer, options);
+						}
+						templates.push(temp);
+						const inner = temp.text.slice(2, -2);
+						if (inner.includes('{{')) {
+							templates.push(
+								...this._parseTemplates(options, indexMap, nestLevel + 1, skip, '\x01'.repeat(startIndex + 2) + inner)
+							);
 						}
 						numUnclosed -= 2;
 						i++;
@@ -1299,13 +1324,15 @@ export default function(mw: Mwbot) {
 		 * @param config Config to filter the output.
 		 * @returns
 		 */
-		parseTemplates(config: ParseTemplatesConfig = {}): Template[] {
-			let templates = this.storageManager('templates');
-			if (typeof config.titlePredicate === 'function') {
-				templates = templates.filter(({title}) => config.titlePredicate!(title));
+		parseTemplates(config: ParseTemplatesConfig = {}): InstanceType<ParsedTemplate | MalformedTemplate>[] {
+			const {hierarchies, titlePredicate, templatePredicate} = config;
+			const options = {hierarchies};
+			let templates = this.storageManager('templates', true, options);
+			if (typeof titlePredicate === 'function') {
+				templates = templates.filter(({title}) => titlePredicate(title));
 			}
-			if (typeof config.templatePredicate === 'function') {
-				templates = templates.filter((template) => config.templatePredicate!(template));
+			if (typeof templatePredicate === 'function') {
+				templates = templates.filter((template) => templatePredicate(template));
 			}
 			return templates;
 		}
@@ -1318,7 +1345,7 @@ export default function(mw: Mwbot) {
 		 * @param modificationPredicate
 		 * @returns
 		 */
-		modifyTemplates(modificationPredicate: ModificationPredicate<Template>): Promise<string> {
+		modifyTemplates(modificationPredicate: ModificationPredicate<InstanceType<ParsedTemplate | MalformedTemplate>>): Promise<string> {
 			return this.modify('templates', modificationPredicate);
 		}
 
@@ -1453,78 +1480,6 @@ export default function(mw: Mwbot) {
 
 	return Wikitext;
 
-	function createTemplateObject(initializer: {
-		name: string;
-		rawName: string;
-		text: string;
-		rawParams: TemplateFragment[];
-		startIndex: number;
-		endIndex: number;
-		nestLevel: number;
-		skip: boolean;
-	}): Template | null {
-		let name = initializer.name;
-		const {rawName, text, rawParams, startIndex, endIndex, nestLevel, skip} = initializer;
-
-		// Validate the template title
-		name = mw.Title.clean(name);
-		if (name.includes('\n')) {
-			return null;
-		}
-		const namespace = name[0] === ':' ? NS_MAIN : NS_TEMPLATE; // TODO: Handle "/" (subpage) and "#" (in-page section)?
-
-		// Format template parameters
-		const regex = {
-			startWithPipe: /^\|/,
-			numeralOnly: /^\d+$/
-		};
-		const numeralKeys: number[] = [];
-		let hasUnnamedKeys = false;
-		const params: TemplateParameter[] = rawParams.reduce((acc: TemplateParameter[], p) => {
-			const key = mw.Title.clean(p.name.replace(regex.startWithPipe, ''));
-			if (regex.numeralOnly.test(key) && !numeralKeys.includes(+key)) {
-				numeralKeys.push(+key);
-			}
-			const unnamed = !key;
-			hasUnnamedKeys = hasUnnamedKeys || unnamed;
-			let value = p.value.replace(regex.startWithPipe, '');
-			if (!unnamed) {
-				value = value.trim();
-			}
-			const duplicateIndex = unnamed ? -1 : acc.findIndex((obj) => obj.key === key);
-			if (duplicateIndex !== -1) {
-				acc.splice(duplicateIndex, 1);
-			}
-			acc.push({key, value, text: p.text, unnamed});
-			return acc;
-		}, []);
-
-		// Index unnamed parameters
-		if (hasUnnamedKeys) {
-			params.forEach((obj) => {
-				if (obj.unnamed) {
-					for (let i = 1; ; i++) {
-						if (!numeralKeys.includes(i)) {
-							obj.key = i.toString();
-							numeralKeys.push(i);
-							break;
-						}
-					}
-				}
-			});
-		}
-
-		return {
-			title: mw.Title.newFromText(name, namespace),
-			rawTitle: rawName,
-			text,
-			params,
-			startIndex,
-			endIndex,
-			nestLevel,
-			skip
-		};
-	}
 }
 
 // Interfaces for constructor and the entire module
@@ -1559,6 +1514,21 @@ export interface WikitextOptions {
 }
 
 /**
+ * A mapping of a storage key to parser methods' arguments, used to make it possible to pass
+ * function arguments to storageManager.
+ * @internal
+ */
+interface StorageArgumentMap {
+	content: never;
+	tags: never;
+	parameters: never;
+	sections: never;
+	wikilinks_fuzzy: never;
+	templates: ParsedTemplateOptions;
+	wikilinks: never;
+}
+
+/**
  * Type of the callback function for {@link Wikitext.modify}.
  */
 export type ModificationPredicate<T> = (expressions: T[]) => Promise<(string | null)[]>;
@@ -1570,7 +1540,7 @@ export interface ModificationMap {
 	tags: Tag;
 	parameters: Parameter;
 	sections: Section;
-	templates: Template;
+	templates: InstanceType<ParsedTemplate | MalformedTemplate>;
 	wikilinks: Wikilink | FileWikilink;
 }
 
@@ -1936,23 +1906,13 @@ type IndexMap = {
  */
 export interface ParseTemplatesConfig {
 	/**
-	 * Template parameter hierarchies.
-	 *
-	 * Module-invoking templates may have nested parameters. For example, `{{#invoke:module|user={{{1|{{{user|}}}}}}}}`
-	 * can be transcluded as `{{template|user=value|1=value}}`. In this case, `|1=` and `|user=` should be treated as
-	 * instantiating the same template parameter. Any non-empty `|user=` parameter should override `|1=` if present.
-	 * To specify such parameter hierarchies, pass an array like `[['1', 'user'], [...]]`. When this hierarchy is set,
-	 * `|1=` will be overridden by `|user=` whenever both are present.
-	 */
-	hierarchy?: string[][]; // TODO: Not used anywhere
-	/**
 	 * A predicate function to filter templates by title.
 	 * Only templates whose titles satisfy this function will be included in the results.
 	 *
-	 * @param title A Title object representing the template. Could be `null` if the title is invalid.
+	 * @param title A Title object for ParsedTemplate, or a string for MalformedTemplate.
 	 * @returns `true` if the template should be parsed, otherwise `false`.
 	 */
-	titlePredicate?: (title: Title | null) => boolean;
+	titlePredicate?: (title: Title | string) => boolean;
 	/**
 	 * A predicate function to filter parsed templates.
 	 * Only templates that satisfy this function will be included in the results.
@@ -1960,26 +1920,11 @@ export interface ParseTemplatesConfig {
 	 * @param template The template object.
 	 * @returns `true` if the template should be included, otherwise `false`.
 	 */
-	templatePredicate?: (template: Template) => boolean;
-}
-
-/**
- * Template fragments processed by {@link processTemplateFragment}.
- */
-interface TemplateFragment {
+	templatePredicate?: (template: InstanceType<ParsedTemplate | MalformedTemplate>) => boolean;
 	/**
-	 * The entire text of the template parameter, starting with a pipe character (e.g., `|1=value`).
+	 * See {@link TemplateParameterHierarchies}.
 	 */
-	text: string;
-	/**
-	 * The name of the template parameter, if any (e.g., `1`). If the parameter isn't named, this property will be an empty string.
-	 * This property directly reflects the parsing result and is always prefixed by a pipe character for named parameters.
-	 */
-	name: string;
-	/**
-	 * The value assigned to the template parameter (without a leading pipe character).
-	 */
-	value: string;
+	hierarchies?: TemplateParameterHierarchies;
 }
 
 /**
@@ -2002,22 +1947,22 @@ interface FragmentOptions {
  * Processes fragments of template parameters and updates the `components` array in place.
  *
  * #### How `components` is structured:
- * - `components[0]` stores the **template name**.
- *   - `text`: The full name, including any extra characters (e.g., `{{Template<!--1-->|arg1=}}`).
- *   - `name`: The clean name without extra characters.
- * - `components[1+]` store **template parameters**, each starting with a pipe (`|`).
- *   - `text`: The full parameter (e.g., `|1=value`).
- *   - `name`: The parameter key (e.g., `|1`).
- *   - `value`: The assigned value.
+ * - `components[0]` stores the **template title**.
+ * 	- `key`: The clean title without extra characters.
+ * 	- `value`: The full title, including any extra characters (e.g., `{{Template<!--1-->|arg1=}}`).
  *
- * `components[1+].text` and `components[1+].name` always start with a pipe character to prevent misinterpretation
+ * - `components[1+]` store **template parameters**.
+ * 	- `key`: The parameter key (e.g., `|1`), starting with a pipe (`|`).
+ * 	- `value`: The assigned value.
+ *
+ * `components[1+].key` always starts with a pipe character to prevent misinterpretation
  * when an unnamed parameter has a value starting with `=` (e.g., `{{Template|=}}`).
  *
  * @param components The array storing parsed template parameters.
  * @param fragment The character(s) to add to the `components` array.
  * @param options Optional settings for handling the fragment.
  */
-function processTemplateFragment(components: TemplateFragment[], fragment: string, options: FragmentOptions = {}): void {
+function processTemplateFragment(components: Required<NewTemplateParameter>[], fragment: string, options: FragmentOptions = {}): void {
 
 	// Determine which element to modify: either a new element for a new parameter or an existing one
 	const {nonNameComponent, isNew} = options;
@@ -2025,106 +1970,29 @@ function processTemplateFragment(components: TemplateFragment[], fragment: strin
 
 	// Initialize the element if it does not exist
 	if (!(i in components)) {
-		components[i] = {text: '', name: '', value: ''};
+		components[i] = {key: '', value: ''};
 	}
 
 	// Process the fragment and update the `components` array
 	let equalIndex;
 	if (i === 0 && nonNameComponent) {
-		// `components[0]` handler (looking for a template name): extra characters
-		components[i].text += fragment;
+		// `components[0]` handler (looking for a template title): extra characters
+		components[i].value += fragment;
 	} else if (i === 0) {
-		// `components[0]` handler (looking for a template name): part of the name
-		components[i].text += fragment;
-		components[i].name += fragment;
-	} else if ((equalIndex = fragment.indexOf('=')) !== -1 && !components[i].name && !nonNameComponent) {
-		// Found `=` when `name` is empty, indicating the start of a named parameter.
-		components[i].name = components[i].text + fragment.slice(0, equalIndex);
-		components[i].text += fragment;
-		components[i].value = components[i].text.slice(components[i].name.length + 1);
+		// `components[0]` handler (looking for a template title): part of the title
+		components[i].key += fragment;
+		components[i].value += fragment;
+	} else if ((equalIndex = fragment.indexOf('=')) !== -1 && !components[i].key && !nonNameComponent) { // TODO: Handle {{=}}
+		// Found `=` when `key` is empty, indicating the start of a named parameter.
+		components[i].key = components[i].value + fragment.slice(0, equalIndex);
+		components[i].value = components[i].value.slice(components[i].key.length + 1);
 	} else {
-		components[i].text += fragment;
+		if (!components[i].value && fragment.startsWith('|')) {
+			fragment = fragment.slice(1); // Exclude the pipe that starts a template parameter
+		}
 		components[i].value += fragment;
 	}
 
-}
-
-/**
- * Object that holds information about a template, parsed from wikitext.
- */
-export interface Template {
-	/**
-	 * A {@link Title} instance representing the transcluded target.
-	 * This is `null` if the title is invalid.
-	 *
-	 * NOTE: `{{template}}`, when used without a namespace prefix, transcludes a page from the Template namespace.
-	 * Thus, `title.getNamespaceId()` typically returns `10` for both `{{template}}` and `{{Template:template}}`.
-	 *
-	 * To distinguish `{{template}}` (template transclusion) from `{{:title}}` (page transclusion),
-	 * use {@link Title.hadLeadingColon}.
-	 */
-	title: Title | null;
-	/**
-	 * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
-	 */
-	rawTitle: string;
-	/**
-	 * The full wikitext of the template, including `{{` and `}}`.
-	 */
-	text: string;
-	/**
-	 * The parameters of the template.
-	 */
-	params: TemplateParameter[];
-	/**
-	 * The starting index of this template in the wikitext.
-	 */
-	startIndex: number;
-	/**
-	 * The ending index of this template in the wikitext (exclusive).
-	 */
-	endIndex: number;
-	/**
-	 * The nesting level of this template. `0` if not nested within another template.
-	 */
-	nestLevel: number;
-	/**
-	 * Whether the template appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
-	 */
-	skip: boolean;
-}
-
-/**
- * Object that holds information about a template parameter.
- */
-export interface TemplateParameter {
-	/**
-	 * The parameter key with leading and trailing spaces removed.
-	 *
-	 * This property is never an empty string, even for unnamed parameters.
-	 */
-	key: string;
-	/**
-	 * The parameter value.
-	 *
-	 * Trimming behavior depends on whether the parameter is named:
-	 * - Named parameters collapse leading and trailing spaces.
-	 * - Unnamed parameters retain leading and trailing spaces.
-	 * See https://en.wikipedia.org/wiki/Help:Template#Whitespace_handling.
-	 *
-	 * Regardless, trailing linebreak characters are always removed.
-	 */
-	value: string;
-	/**
-	 * The parameter text, starting with a pipe character (`|`).
-	 *
-	 * For unnamed parameters, the key is not rendered.
-	 */
-	text: string;
-	/**
-	 * Whether the parameter is unnamed.
-	 */
-	unnamed: boolean;
 }
 
 // Interfaces and private members for "parseWikilinks"

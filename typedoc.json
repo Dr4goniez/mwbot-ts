@@ -6,6 +6,7 @@
 		"src/String.ts",
 		"src/Util.ts",
 		"src/Title.ts",
+		"src/Template.ts",
 		"src/Wikitext.ts"
 	],
 	"excludeInternal": true,

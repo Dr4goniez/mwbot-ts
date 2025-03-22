@@ -52,6 +52,7 @@ import * as Util from './Util';
 const { mergeDeep, isPlainObject, sleep, isEmptyObject, arraysEqual } = Util;
 import * as mwString from './String';
 import TitleFactory from './Title';
+import { TemplateFactory, Template } from './Template';
 import WikitextFactory from './Wikitext';
 
 type Title = ReturnType<typeof TitleFactory>;
@@ -164,6 +165,17 @@ export class Mwbot {
 		return this._Title;
 	}
 	/**
+	 * Template class for this instance.
+	 */
+	protected _Template: Template;
+	/**
+	 * Template class for this instance.
+	 */
+	get Template() {
+		this.checkInit();
+		return this._Template;
+	}
+	/**
 	 * Wikitext class for this instance.
 	 */
 	protected _Wikitext: ReturnType<typeof WikitextFactory>;
@@ -217,6 +229,7 @@ export class Mwbot {
 		this.lastRequestTime = null;
 		this._info = Object.create(null);
 		this._Title = Object.create(null);
+		this._Template = Object.create(null);
 		this._Wikitext = Object.create(null);
 
 	}
@@ -413,7 +426,7 @@ export class Mwbot {
 			return initError();
 		}
 
-		// NOTE: interwikimap is built-in since MW v1.44, but was just an extension
+		// NOTE: interwikimap is built-in since MW v1.44 but was initially an extension
 		const {userinfo, general, interwikimap = [], namespaces, namespacealiases} = res.query;
 		if (!userinfo || !general || !namespaces || !namespacealiases) {
 			console.error('Error: Failed to establish connection.');
@@ -432,6 +445,7 @@ export class Mwbot {
 
 		// Set up instance properties
 		this.initialized = true; // This substitution must be done HERE (Mwbot.info and other getters call checkInit in them)
+		const config = this.config;
 		this._info = {
 			user: userinfo as SiteAndUserInfo['user'],
 			general,
@@ -442,12 +456,14 @@ export class Mwbot {
 		this._Title = TitleFactory(
 			// Pass individual properties instead of the instance to avoid redundant deep copies
 			// from getter functions, improving efficiency in the factory function
-			this.config,
+			config,
 			this._info
 		);
-		this._Wikitext = WikitextFactory(this);
+		const {Template, ParsedTemplate, MalformedTemplate} = TemplateFactory(config, this._Title);
+		this._Template = Template;
+		this._Wikitext = WikitextFactory(this, ParsedTemplate, MalformedTemplate);
 
-		console.log('Connection established: ' + this.config.get('wgServerName'));
+		console.log('Connection established: ' + config.get('wgServerName'));
 		return this;
 
 	}
