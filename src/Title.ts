@@ -27,7 +27,7 @@ import * as mwString from './String';
 /**
  * @internal
  */
-export default function(config: Mwbot['config'], info: Mwbot['_info']) {
+export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']) {
 
 	// Private members
 
@@ -1447,6 +1447,11 @@ export default function(config: Mwbot['config'], info: Mwbot['_info']) {
 
 	return Title;
 }
+
+/**
+ * @internal
+ */
+export type Title = ReturnType<typeof TitleFactory>;
 
 /**
  * Options for {@link Mwbot.Title.getPrefixedDb | Title.getPrefixedDb} and

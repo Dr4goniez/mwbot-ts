@@ -8,6 +8,7 @@ import { MwbotError } from './MwbotError';
 import type { Mwbot, MwbotRequestConfig, Revision } from './Mwbot';
 import { mergeDeep } from './Util';
 import { ApiEditPageParams, ApiResponse } from './api_types';
+import type { Title } from './Title';
 import type {
 	ParsedTemplate,
 	MalformedTemplate,
@@ -16,12 +17,10 @@ import type {
 	ParsedTemplateOptions
 } from './Template';
 
-type Title = InstanceType<Mwbot['Title']>;
-
 /**
  * @internal
  */
-export default function(
+export function WikitextFactory(
 	mw: Mwbot,
 	ParsedTemplate: ParsedTemplate,
 	MalformedTemplate: MalformedTemplate
@@ -1452,7 +1451,7 @@ export default function(
 		 * @param requestOptions
 		 * @returns
 		 */
-		static fetch(title: string | Title, requestOptions: MwbotRequestConfig = {}): Promise<Revision> {
+		static fetch(title: string | InstanceType<Title>, requestOptions: MwbotRequestConfig = {}): Promise<Revision> {
 			return mw.read(title, requestOptions);
 		}
 
@@ -1468,7 +1467,7 @@ export default function(
 		 * @returns
 		 */
 		static submit(
-			title: string | Title,
+			title: string | InstanceType<Title>,
 			transform: (wikitext: Wikitext, revision: Revision) => Promise<ApiEditPageParams>,
 			requestOptions: MwbotRequestConfig = {}
 		): Promise<ApiResponse> {
@@ -1481,6 +1480,11 @@ export default function(
 	return Wikitext;
 
 }
+
+/**
+ * @internal
+ */
+export type Wikitext = ReturnType<typeof WikitextFactory>;
 
 // Interfaces for constructor and the entire module
 
@@ -1834,7 +1838,7 @@ export interface BaseWikilink {
 	 * NOTE: Wikilinks with an invalid title aren't rendered as links (e.g., `[[{|foo]]`).
 	 * However, they could be valid after applying rendering transformations (e.g., `[[{{{paremeter}}}]]`).
 	 */
-	title: Title | null;
+	title: InstanceType<Title> | null;
 	/**
 	 * The raw target title, as directly parsed from the first operand of a `[[wikilink|...]]` expression.
 	 */
@@ -1912,7 +1916,7 @@ export interface ParseTemplatesConfig {
 	 * @param title A Title object for ParsedTemplate, or a string for MalformedTemplate.
 	 * @returns `true` if the template should be parsed, otherwise `false`.
 	 */
-	titlePredicate?: (title: Title | string) => boolean;
+	titlePredicate?: (title: InstanceType<Title> | string) => boolean;
 	/**
 	 * A predicate function to filter parsed templates.
 	 * Only templates that satisfy this function will be included in the results.
@@ -2036,7 +2040,7 @@ export interface ParseWikilinksConfig {
 	 * @param title A Title object representing the wikilink. Could be `null` if the title is invalid.
 	 * @returns `true` if the wikilink should be parsed, otherwise `false`.
 	 */
-	titlePredicate?: (title: Title | null) => boolean;
+	titlePredicate?: (title: InstanceType<Title> | null) => boolean;
 	/**
 	 * A predicate function to filter parsed wikilinks.
 	 * Only wikilinks that satisfy this function will be included in the results.

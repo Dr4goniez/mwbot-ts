@@ -13,11 +13,7 @@
 import { XOR } from 'ts-xor';
 import type { Mwbot } from './Mwbot';
 import { escapeRegExp, mergeDeep } from './Util';
-
-/**
- * @internal
- */
-type Title =  Mwbot['Title'];
+import type { Title } from './Title';
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

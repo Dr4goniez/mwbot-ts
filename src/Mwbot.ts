@@ -51,11 +51,9 @@ import {
 import * as Util from './Util';
 const { mergeDeep, isPlainObject, sleep, isEmptyObject, arraysEqual } = Util;
 import * as mwString from './String';
-import TitleFactory from './Title';
+import { TitleFactory, Title } from './Title';
 import { TemplateFactory, Template } from './Template';
-import WikitextFactory from './Wikitext';
-
-type Title = ReturnType<typeof TitleFactory>;
+import { WikitextFactory, Wikitext } from './Wikitext';
 
 /**
  * TODO: Add a doc comment here
@@ -178,7 +176,7 @@ export class Mwbot {
 	/**
 	 * Wikitext class for this instance.
 	 */
-	protected _Wikitext: ReturnType<typeof WikitextFactory>;
+	protected _Wikitext: Wikitext;
 	/**
 	 * Wikitext class for this instance.
 	 */
@@ -1974,7 +1972,7 @@ export class Mwbot {
 	 */
 	async transform(
 		title: string | InstanceType<Title>,
-		callback: (wikitext: InstanceType<typeof this.Wikitext>, revision: Revision) => Promise<ApiEditPageParams>,
+		callback: (wikitext: InstanceType<Wikitext>, revision: Revision) => Promise<ApiEditPageParams>,
 		requestOptions: MwbotRequestConfig = {},
 		/** @private */
 		retry = 0
