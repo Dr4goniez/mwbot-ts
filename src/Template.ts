@@ -6,6 +6,10 @@
  * {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}.
  * - Class {@link MalformedTemplate}: Represents a malformed template in the result of
  * {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}.
+ * - Class {@link ParserFunction}: Attached to {@link Mwbot.ParserFunction} as an instance
+ * member.
+ * - Class {@link ParsedParserFunction}: Represents a parser function in the result of
+ * {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}.
  *
  * @module
  */
@@ -93,16 +97,16 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 		const caseSensitive = obj['case-sensitive'];
 		const keys = [obj.name];
-		const hash = noHashFunctions.includes(obj.name) ? '' : '#?';
+		const noHash = noHashFunctions.includes(obj.name);
 		obj.aliases.forEach((alias) => {
 			if (alias !== obj.name && !/^[_＿].+[_＿]$/.test(alias)) {
 				keys.push(alias);
 			}
 		});
 		const arrRegExp = keys.reduce((ret: string[], key) => {
-			let h = hash;
+			let hash = noHash ? '' : '#';
 			if (key.startsWith('#')) {
-				h = '#';
+				hash = '#';
 				key = key.slice(1);
 			}
 			if (!/[:：]$/.test(key)) {
@@ -110,45 +114,16 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			}
 			if (caseSensitive) {
 				// The first letter is not case-sensitive even if this function hook is case-sensitive
-				ret.push(`^${h}[${key[0].toLowerCase() + key[0].toUpperCase()}]${key.slice(1)}$`);
+				ret.push(`^${hash}[${key[0].toLowerCase() + key[0].toUpperCase()}]${key.slice(1)}$`);
 			} else {
-				ret.push(`^${h + key}$`);
+				ret.push(`^${hash + key}$`);
 			}
 			return ret;
 		}, []);
-		acc[obj.name] = new RegExp(arrRegExp.join('|'), caseSensitive ? '' : 'i');
+		const canonical = (noHash ? '' : '#') + obj.name + ':';
+		acc[canonical] = new RegExp(arrRegExp.join('|'), caseSensitive ? '' : 'i');
 		return acc;
 	}, Object.create(null));
-
-	/** @internal */
-	interface VerifiedParserFunction {
-		/** The canonical name of the parser function. */
-		canonical: string;
-		/** The matched name of the parser function, excluding the trailing colon. */
-		match: string;
-	}
-
-	/**
-	 * Verifies the given title as a parser function.
-	 * @param title A prefixed title.
-	 * @returns An object representing the canonical function name and the matched function name, or `null`.
-	 */
-	const verifyParserFunction = (title: string): VerifiedParserFunction | null => {
-		// Whitespace characters are illegal in a function hook, i.e. "#if:" is fine but not "# if:" or "#if :"
-		const m = /^#?[^:：\s]+[:：]/.exec(title.trim());
-		if (!m) {
-			return null;
-		}
-		for (const [canonical, regex] of Object.entries(parserFunctionMap)) {
-			if (regex.test(m[0])) {
-				return {
-					canonical,
-					match: m[0].replace(/[:：]$/, ''),
-				};
-			}
-		}
-		return null;
-	};
 
 	/**
 	 * @internal
@@ -203,13 +178,36 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		/**
-		 * Validates a title and returns a Title instance. On failure, this throws an error.
-		 * @param title
+		 * Validates the given title as a template title and returns a Title instance. The title must not be
+		 * a parser function hook. On failure, this method throws an error.
+		 *
+		 * @param title The (prefixed) title to validate as a template title.
+		 * @param asHook Whether to validate the title as a function hook.
 		 * @returns
 		 */
-		protected static validateTitle(title: string | InstanceType<Title>): InstanceType<Title> {
+		protected static validateTitle(title: string | InstanceType<Title>, asHook?: false): InstanceType<Title>;
+		/**
+		 * Validates the given title as a function hook and returns a verified hook object. On failure, this method
+		 * throws an error.
+		 *
+		 * @param title The (prefixed) title to validate as a function hook.
+		 * @param asHook Whether to validate the title as a function hook.
+		 * @returns
+		 */
+		protected static validateTitle(title: string | InstanceType<Title>, asHook: true): VerifiedFunctionHook;
+		protected static validateTitle(title: string | InstanceType<Title>, asHook = false): InstanceType<Title> | VerifiedFunctionHook {
 			if (typeof title !== 'string' && !(title instanceof Title)) {
 				throw new TypeError(`Expected a string or Title instance for "title", but got ${typeof title}.`);
+			}
+			const hook = ParserFunction.verify(
+				typeof title === 'string'
+				? title
+				: title.getPrefixedDb({colon: true, fragment: true})
+			);
+			if (hook && asHook) {
+				return hook;
+			} else if (hook) {
+				throw new TypeError(`"${hook}" is a parser function hook.`);
 			} else if (typeof title === 'string') {
 				title = Title.clean(title);
 				const namespace = title[0] === ':' ? NS_MAIN : NS_TEMPLATE; // TODO: Handle "/" (subpage) and "#" (in-page section)?
@@ -624,7 +622,13 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 	 */
 	class Template extends TemplateBase<InstanceType<Title>> {
 
-		/** @inheritdoc */
+		/**
+		 * Creates a new instance.
+		 *
+		 * @param title The title that the template transcludes.
+		 * @param params Template parameters.
+		 * @param hierarchies Optional template parameter hierarchies.
+		 */
 		constructor(
 			title: string | InstanceType<Title>,
 			params: NewTemplateParameter[] = [],
@@ -664,16 +668,21 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 * ```ts
 		 * const wikitext = new mwbot.Wikitext('{{Foo}}');
 		 * const foo = wikitext.parseTemplates()[0];
-		 * foo instanceof mwbot.Template; // false
+		 * foo instanceof mwbot.Template; // true
 		 * mwbot.Template.is(foo, 'ParsedTemplate'); // true
 		 * mwbot.Template.is(foo, 'MalformedTemplate'); // false
-		 * mwbot.Template.is(foo, 'ParserFunction'); // false
+		 * foo instanceof mwbot.ParserFunction; // false
+		 * mwbot.Template.is(foo, 'ParsedParserFunction'); // false
 		 * ```
 		 *
-		 * Note that none of the classes that can be checked with this method extend another.
+		 * Be noted about the hierarchies of the template-related classes:
+		 * - {@link ParsedTemplate} extends {@link Template}.
+		 * - {@link MalformedTemplate} extends nothing, meaning that its instances are ***not*** instances of
+		 * {@link Template}, {@link ParsedTemplate}, {@link ParserFunction}, or {@link ParsedParserFunction}.
+		 * - {@link ParsedParserFunction} extends {@link ParserFunction}.
 		 *
 		 * @template T The type of template to check for. Must be one of `'Template'`, `'ParsedTemplate'`,
-		 * `'MalformedTemplate'`, or `'ParserFunction'`.
+		 * `'MalformedTemplate'`, `'ParserFunction'`, or `'ParsedParserFunction'`.
 		 * @param obj The object to check.
 		 * @param type The template type to compare against.
 		 * @returns `true` if `obj` is an instance of the specified template class, otherwise `false`.
@@ -689,6 +698,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 					return obj instanceof MalformedTemplate;
 				case 'ParserFunction':
 					return obj instanceof ParserFunction;
+				case 'ParsedParserFunction':
+					return obj instanceof ParsedParserFunction;
 				default:
 					throw new Error(`"${type}" is not a valid input to Template.is().`);
 			}
@@ -699,7 +710,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 *
 		 * @param title The new title to set.
 		 * @param verbose Whether to log errors. (Default: `false`)
-		 * @returns Boolean indicating whether the new title is set.
+		 * @returns A boolean indicating whether the new title is set.
 		 */
 		setTitle(title: string | InstanceType<Title>, verbose = false): boolean {
 			try {
@@ -715,7 +726,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		/**
-		 * Stringify the instance.
+		 * Stringifies the instance.
 		 *
 		 * @param options Options to format the output.
 		 * @returns
@@ -739,9 +750,11 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 	 * represents a well-formed `{{template}}` expression with a valid title. For the class
 	 * that represents a malformed `{{template}}` expression, see {@link MalformedTemplate}.
 	 *
-	 * This class differs from {@link MalformedTemplate} only in that the {@link title} property
-	 * is an instace of {@link Title} instead of a string, and that {@link setTitle} is an in-place
-	 * operation that only returns a boolean value.
+	 * This class differs from {@link MalformedTemplate} in that:
+	 * - It extends the {@link Template} class.
+	 * - The {@link title} property is an instace of {@link Title} instead of a string.
+	 * - {@link setTitle} is an in-place operation that only returns a boolean value
+	 * (unless a `toHook` parameter is provided).
 	 *
 	 * The constructor of this class is inaccessible, and instances can only be referenced
 	 * in the result of `parseTemplates`.
@@ -753,7 +766,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 	 * The instance properties of this class are pseudo-read-only, in the sense that altering them
 	 * does not affect the behaviour of {@link Mwbot.Wikitext.modifyTemplates | Wikitext.modifyTemplates}.
 	 */
-	class ParsedTemplate extends TemplateBase<InstanceType<Title>> {
+	class ParsedTemplate extends Template {
 
 		/**
 		 * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
@@ -799,8 +812,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			const t = Template.validateTitle(title);
 			super(t, params, options.hierarchies);
 			this._initializer = initializer;
-			this.rawTitle = rawTitle;
-			this._rawTitle = rawTitle.replace(title, '\x01');
+			this.rawTitle = rawTitle.replace('\x01', title);
+			this._rawTitle = rawTitle;
 			this.text = text;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
@@ -809,22 +822,62 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		/**
-		 * Set a new title on the instance.
+		 * Sets a new title on the instance.
 		 *
 		 * @param title The new title to set.
 		 * @param verbose Whether to log errors. (Default: `false`)
-		 * @returns Boolean indicating whether the new title is set.
+		 * @returns A boolean indicating whether the new title was set.
 		 */
-		setTitle(title: string | InstanceType<Title>, verbose = false): boolean {
-			try {
-				// @ts-expect-error
-				this.title = Template.validateTitle(title);
-				return true;
-			} catch (err) {
-				if (verbose) {
-					console.error(err);
+		setTitle(title: string | InstanceType<Title>, verbose?: boolean): boolean;
+		/**
+		 * Converts the instance to a {@link ParsedParserFunction}.
+		 *
+		 * This method should only be used for `ParsedTemplate` instances that represent invalid
+		 * parser functions (e.g., `{{if:1|1|2}}`, where `"if:"` is not a valid function hook
+		 * and is therefore recognized as part of a template title).
+		 *
+		 * The conversion is based on the data used to initialize this instance, and any modifications
+		 * made after initialization will be discarded. Therefore, this method should be called before
+		 * making any changes to the instance properties.
+		 *
+		 * @param title The parser function hook to convert this title to, **including** a trailing
+		 * colon character (e.g., `"#if:"`; see also {@link ParserFunction.verify}). If a `Title`
+		 * instance is passed, the output of `title.getPrefixedDb({ colon: true, fragment: true })`
+		 * is validated.
+		 *
+		 * When passing a string, it can include the function’s first parameter (e.g., `"#if:1"`).
+		 * The second and subsequent parameters are initialized based on {@link params}.
+		 *
+		 * @param verbose Whether to log errors (default: `false`).
+		 * @param toHook Whether to convert the instance to a parser function.
+		 * @returns A new {@link ParsedParserFunction} instance on success; otherwise, `null`.
+		 */
+		setTitle(title: string | InstanceType<Title>, verbose: boolean, toHook: true): ParsedParserFunction | null;
+		setTitle(title: string | InstanceType<Title>, verbose = false, toHook = false): boolean | ParsedParserFunction | null {
+			if (toHook) {
+				title = typeof title === 'string' ? title : title.getPrefixedDb({colon: true, fragment: true});
+				try {
+					Template.validateTitle(title, true);
+				} catch (err) {
+					if (verbose) {
+						console.error(err);
+					}
+					return null;
 				}
-				return false;
+				const initializer = mergeDeep(this._initializer);
+				initializer.title = title;
+				return new ParsedParserFunction(initializer);
+			} else {
+				try {
+					// @ts-expect-error
+					this.title = Template.validateTitle(title);
+					return true;
+				} catch (err) {
+					if (verbose) {
+						console.error(err);
+					}
+					return false;
+				}
 			}
 		}
 
@@ -854,11 +907,13 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 	 * Class for {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}. This class
 	 * represents a malformed `{{template}}` expression with an invalid title (i.e., the title
 	 * is empty or contains illegal characters). For the class that represents a well-formed
-	 * `{{template}}` expression, see {@link ParsedTemplate}.
+	 * `{{template}}` expression, see {@link ParsedTemplate} (and {@link ParsedParserFunction}).
 	 *
-	 * This class differs from {@link ParsedTemplate} only in that the {@link title} property
-	 * is a string instead of an instace of {@link Title}, and that {@link setTitle} returns
-	 * a new {@link ParsedTemplate} instance when a valid title is provided.
+	 * This class differs from {@link ParsedTemplate} in that:
+	 * - It does not extend any class.
+	 * - The {@link title} property is a string instead of an instace of {@link Title}.
+	 * - {@link setTitle} returns a new {@link ParsedTemplate} instance (or a new
+	 * {@link ParsedParserFunction} instance) when a valid title is provided.
 	 *
 	 * The constructor of this class is inaccessible, and instances can only be referenced
 	 * in the result of `parseTemplates`.
@@ -915,8 +970,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			const {title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip} = initializer;
 			super(title, params, options.hierarchies);
 			this._initializer = initializer;
-			this.rawTitle = rawTitle;
-			this._rawTitle = rawTitle.replace(title, '\x01');
+			this.rawTitle = rawTitle.replace('\x01', title);
+			this._rawTitle = rawTitle;
 			this.text = text;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
@@ -925,39 +980,63 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		/**
-		 * Set a new title on the instance.
+		 * Sets a new template title and converts the instance to a new {@link ParsedTemplate} instance.
 		 *
-		 * On success, a new {@link ParsedTemplate} instance is returned.
+		 * The conversion is based on the data used to initialize this instance, and any modifications
+		 * made after initialization will be discarded. Therefore, this method should be called before
+		 * making any changes to the instance properties.
 		 *
 		 * @param title The new title to set.
 		 * @param verbose Whether to log errors. (Default: `false`)
-		 * @returns Boolean indicating whether the new title is set.
+		 * @returns A new {@link ParsedTemplate} instance on success; otherwise, `null`.
 		 */
-		setTitle(title: string | InstanceType<Title>, verbose = false): ParsedTemplate | null {
+		setTitle(title: string | InstanceType<Title>, verbose?: boolean): ParsedTemplate | null;
+		/**
+		 * Sets a new function hook and converts the instance to a new {@link ParsedParserFunction} instance.
+		 *
+		 * The conversion is based on the data used to initialize this instance, and any modifications
+		 * made after initialization will be discarded. Therefore, this method should be called before
+		 * making any changes to the instance properties.
+		 *
+		 * @param title The parser function hook to convert this title to, **including** a trailing
+		 * colon character (e.g., `"#if:"`; see also {@link ParserFunction.verify}). If a `Title`
+		 * instance is passed, the output of `title.getPrefixedDb({ colon: true, fragment: true })`
+		 * is validated.
+		 *
+		 * When passing a string, it can include the function’s first parameter (e.g., `"#if:1"`).
+		 * The second and subsequent parameters are initialized based on {@link params}.
+		 *
+		 * @param verbose Whether to log errors (default: `false`).
+		 * @param toHook Whether to convert the instance to a parser function.
+		 * @returns A new {@link ParsedParserFunction} instance on success; otherwise, `null`.
+		 */
+		setTitle(title: string | InstanceType<Title>, verbose: boolean, toHook: true): ParsedParserFunction | null;
+		setTitle(title: string | InstanceType<Title>, verbose = false, toHook = false): ParsedTemplate | ParsedParserFunction | null {
+			title = typeof title === 'string' ? title : title.getPrefixedDb({colon: true, fragment: toHook});
 			try {
-				title = Template.validateTitle(title);
-				const o = Object.create(ParsedTemplate.prototype);
-				o.title = title;
-				o.params = this.params;
-				o.paramOrder = this.paramOrder;
-				o.hierarchies = this.hierarchies;
-				o.rawTitle = this.rawTitle;
-				o._rawTitle = this._rawTitle;
-				o.text = this.text;
-				o.startIndex = this.startIndex;
-				o.endIndex = this.endIndex;
-				o.nestLevel = this.nestLevel;
-				o.skip = this.skip;
-				return o;
+				// @ts-expect-error
+				Template.validateTitle(title, toHook);
 			} catch (err) {
 				if (verbose) {
 					console.error(err);
 				}
 				return null;
 			}
+			const initializer = mergeDeep(this._initializer);
+			initializer.title = title;
+			if (toHook) {
+				return new ParsedParserFunction(initializer);
+			} else {
+				return new ParsedTemplate(initializer);
+			}
 		}
 
-		/** @inheritdoc */
+		/**
+		 * Stringifies the instance.
+		 *
+		 * @param options Options to format the output.
+		 * @returns
+		 */
 		stringify(options: MalformedTemplateOutputConfig = {}): string {
 			const {rawTitle: optRawTitle, ...rawOptions} = options;
 			let title = this.title;
@@ -983,6 +1062,249 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 	}
 
 	/**
+	 * Parses parser functions into an object structure. This class is attached to {@link Mwbot.ParserFunction}
+	 * as an instance member.
+	 */
+	class ParserFunction {
+
+		/**
+		 * The parser function hook. This may be an alias of the canonical hook.
+		 *
+		 * This property is read-only. To update it, use {@link setHook}.
+		 */
+		readonly hook: string;
+		/**
+		 * The canonical parser function hook.
+		 *
+		 * This property is automatically set and updated on a successful call of {@link setHook}.
+		 */
+		readonly canonicalHook: string;
+		/**
+		 * Parameters of the parser function. These are *not* automatically trimmed of leading and trailing whitespace.
+		 */
+		params: string[];
+
+		/**
+		 * Creates a new instance.
+		 *
+		 * @param hook The function hook. This ***must*** end with a colon character.
+		 * @param params Parameters of the parser function.
+		 */
+		constructor(hook: string, params: string[] = []) {
+			const verified = ParserFunction.verify(hook);
+			if (!verified) {
+				throw new Error(`"${hook}" is not a valid function hook.`);
+			}
+			this.hook = verified.match;
+			this.canonicalHook = verified.canonical;
+			this.params = params.slice();
+		}
+
+		/**
+		 * Verifies the given string as a parser function hook.
+		 *
+		 * @param hook A potential parser function hook as a string. This **must** end with a colon character.
+		 * @returns An object representing the canonical function hook and the matched function hook, or `null`.
+		 */
+		static verify(hook: string): VerifiedFunctionHook | null {
+			// Whitespace characters are illegal in a function hook, i.e. "#if:" is fine but not "# if:" or "#if :"
+			const m = /^#?[^:：\s]+[:：]/.exec(hook.trim());
+			if (!m) {
+				return null;
+			}
+			for (const [canonical, regex] of Object.entries(parserFunctionMap)) {
+				if (regex.test(m[0])) {
+					return {
+						canonical,
+						match: m[0],
+					};
+				}
+			}
+			return null;
+		}
+
+		/**
+		 * Sets a new function hook, overwriting the current one.
+		 *
+		 * @param hook The new hook.
+		 * @returns A boolean indicating whether the new hook has been set, after validation.
+		 */
+		setHook(hook: string): boolean {
+			const verified = ParserFunction.verify(hook);
+			if (!verified) {
+				return false;
+			}
+			// @ts-expect-error
+			this.hook = verified.match;
+			// @ts-expect-error
+			this.canonicalHook = verified.canonical;
+			return true;
+		}
+
+		/**
+		 * Adds a parameter (to the end of the {@link params} array).
+		 *
+		 * @param param The new parameter.
+		 * @returns
+		 */
+		addParam(param: string): this {
+			this.params.push(param);
+			return this;
+		}
+
+		/**
+		 * Sets a parameter at the given index.
+		 *
+		 * @param param The new parameter.
+		 * @param index The index of the parameter to update.
+		 * @param options Options to set the new parameter.
+		 * @returns A boolean indicating whether the new parameter has been set.
+		 */
+		setParam(param: string, index: number, options: {
+			/**
+			 * Whether to overwrite existing parameters. If `false`, the new parameter is not registered
+			 * if there is an existing parameter at the specified index. (Default: `true`)
+			 */
+			overwrite?: boolean;
+			/**
+			 * Whether to set the parameter only if a parameter is already set at the specified index.
+			 */
+			ifexist?: boolean;
+		} = {}): boolean {
+			const {overwrite = true, ifexist = false} = options;
+			if (
+				typeof this.params[index] !== 'string' && !ifexist ||
+				typeof this.params[index] === 'string' && !overwrite
+			) {
+				return false;
+			}
+			this.params[index] = param;
+			return true;
+		}
+
+		/**
+		 * Gets a parameter at the given index.
+		 *
+		 * @param index The index of the parameter to retrieve.
+		 * @returns The parameter value, or `null` if no value is found at the specified index.
+		 */
+		getParam(index: number): string | null {
+			return this.params[index] === 'string' ? this.params[index] : null;
+		}
+
+		/**
+		 * Checks if a function parameter at the specified index exists, optionally matching its value.
+		 *
+		 * @param index The parameter index to match.
+		 * @param value The optional value matcher.
+		 * - If a string, checks for an exact value match.
+		 * - If a regular expression, tests the parameter value against the pattern.
+		 * - If omitted, only the parameter index is checked.
+		 * @returns `true` if a matching parameter exists; otherwise, `false`.
+		 */
+		hasParam(index: number, value?: string | RegExp): boolean;
+		/**
+		 * Checks if a function parameter exists based on a custom predicate function.
+		 *
+		 * @param predicate A function that tests each parameter.
+		 * @returns `true` if a matching parameter exists; otherwise, `false`.
+		 */
+		hasParam(predicate: (index: number, value: string) => boolean): boolean;
+		hasParam(
+			indexOrPred: number | ((index: number, value: string) => boolean),
+			value?: string | RegExp
+		): boolean {
+			if (typeof indexOrPred !== 'number' && typeof indexOrPred !== 'function') {
+				return false;
+			}
+			if (typeof indexOrPred === 'function') {
+				return this.params.some((val, i) => indexOrPred(i, val));
+			}
+			if (typeof this.params[indexOrPred] !== 'string') {
+				return false;
+			} else if (value === undefined) {
+				return true;
+			}
+			value = value instanceof RegExp ? value : new RegExp(`^${escapeRegExp(value)}$`);
+			return value.test(this.params[indexOrPred]);
+		}
+
+		/**
+		 * Deletes a parameter from the function.
+		 *
+		 * @param index The parameter index to delete.
+		 * @param leftShift Whether to shift the remaining parameters to the left after deletion. (Default: `true`)
+		 * @returns `true` if the parameter was deleted, otherwise `false`.
+		 */
+		deleteParam(index: number, leftShift = true): boolean {
+			const param = this.params[index];
+			if (typeof param !== 'string') {
+				return false;
+			}
+			if (leftShift) {
+				this.params.splice(index, 1);
+			} else {
+				delete this.params[index];
+			}
+			return true;
+		}
+
+		/**
+		 * Internal stringification handler.
+		 *
+		 * @param hook The function hook.
+		 * @param options Options to format the output. Note that this method does not reference the
+		 * {@link ParserFunctionOutputConfig.useCanonical | useCanonical} option, meaning that it must
+		 * be processed beforehands.
+		 * @returns
+		 */
+		protected _stringify(hook: string, options: ParserFunctionOutputConfig): string {
+			const {prepend = '', sortPredicate, brPredicate} = options;
+			const ret = [
+				'{{',
+				prepend,
+				hook
+			];
+			const params = this.params.slice();
+			if (params.length) {
+				if (typeof sortPredicate === 'function') {
+					params.sort(sortPredicate);
+				}
+				if (typeof brPredicate === 'function') {
+					for (let i = 0; i < params.length; i++) {
+						if (brPredicate(params[i], i)) {
+							params[i] += '\n';
+						}
+					}
+				}
+				ret.push(params.join('|'));
+			}
+			ret.push('}}');
+			return ret.join('');
+		}
+
+		/**
+		 * Stringifies the instance.
+		 *
+		 * @param options Options to format the output.
+		 * @returns
+		 */
+		stringify(options: ParserFunctionOutputConfig = {}): string {
+			const hook = options.useCanonical ? this.canonicalHook : this.hook;
+			return this._stringify(hook, options);
+		}
+
+		/**
+		 * Alias of {@link stringify} called without arguments.
+		 * @returns
+		 */
+		toString() {
+			return this.stringify();
+		}
+
+	}
+
+	/**
 	 * Class for {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}. This class
 	 * represents a `{{#parserfunction:...}}` expression.
 	 *
@@ -996,24 +1318,16 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 	 * The instance properties of this class are pseudo-read-only, in the sense that altering them
 	 * does not affect the behaviour of {@link Mwbot.Wikitext.modifyTemplates | Wikitext.modifyTemplates}.
 	 */
-	class ParserFunction {
+	class ParsedParserFunction extends ParserFunction {
 
 		/**
-		 * The canonical parser function name.
+		 * The raw parser function hook, as directly parsed from the wikitext.
 		 */
-		readonly title: string;
+		rawHook: string;
 		/**
-		 * The parser functions parameters. Note that these are *not* trimmed of leading and trailing whitespace.
+		 * {@link rawHook} with the insertion point of {@link hook} replaced with a control character.
 		 */
-		params: string[];
-		/**
-		 * The raw parser function name, as directly parsed from the wikitext.
-		 */
-		rawTitle: string;
-		/**
-		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
-		 */
-		private _rawTitle: string;
+		private _rawHook: string;
 		/**
 		 * The original text of the parser function parsed from the wikitext.
 		 * The value of this property is static.
@@ -1045,38 +1359,101 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 * @hidden
 		 */
 		constructor(initializer: ParsedTemplateInitializer) {
-			this._initializer = initializer;
+
 			const {title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip} = initializer;
-			const verified = verifyParserFunction(title);
+			const verified = ParserFunction.verify(title);
 			if (!verified) {
-				throw new Error(`"${title}" is not a parser function.`);
+				throw new Error(`"${title}" is not a valid function hook.`);
 			}
-			this.title = verified.canonical;
-			const paramPart = title.split(verified.match)[1];
-			this.params = [paramPart.slice(1)];
+
+			// Separate the function hook and the first argument
+			const titleIndex = rawTitle.indexOf('\x01');
+			let rawHook, _rawHook, paramPart;
+			if (titleIndex !== -1) {
+				// `rawTitle` contains a control character: we already know where to insert `title`
+				// Here, '\x01' = verified.match + paramPart
+				const leadingPart = rawTitle.slice(0, titleIndex);
+				const trailingParamPart = rawTitle.slice(titleIndex + 1);
+				paramPart = title.replace(verified.match, '').trim() + trailingParamPart;
+				rawHook = leadingPart + verified.match;
+				_rawHook = leadingPart + '\x01';
+			} else {
+				// We don't know the insertion point. This block is reached if redundant characters interrupt the title,
+				// e.g., title = "#if:", rawTitle = "#<!---->if:", or if the parser skipped indexMap expressions and
+				// generated unmatching title and rawTitle, e.g., title = "\n #if: \n", rawTitle = "\n #if: {{{1}}} \n"
+				let j = 0; // Pointer for `title`
+				let hookEnd = -1; // Track where `verified.match` ends in `rawTitle`
+				for (let i = 0; i < rawTitle.length; i++) {
+					if (rawTitle[i] === verified.match[j]) {
+						j++;
+						if (j === verified.match.length) { // Full match found
+							hookEnd = i + 1;
+							const potentialHookStart = hookEnd - j;
+							if (rawTitle.slice(potentialHookStart, hookEnd) === verified.match) {
+								_rawHook = rawTitle.slice(0, potentialHookStart) + '\x01';
+							}
+							break;
+						}
+					}
+				}
+				if (hookEnd === -1) {
+					// TODO: setTitle might reach here because there's no guarantee that `rawTitle` includes the new title
+					console.warn('[Warning] ParsedParserFunction.contructor encountered an unparsable "rawTitle".');
+					console.warn({
+						title,
+						rawTitle,
+						hook: verified.match
+					});
+					throw new Error('Unable to parse rawTitle.');
+				}
+				paramPart = rawTitle.slice(hookEnd);
+				const hook = rawTitle.slice(0, hookEnd);
+				rawHook = hook;
+				_rawHook = _rawHook || hook;
+			}
+
+			const initParams =  [paramPart];
 			params.forEach(({key, value}) => {
-				this.params.push((key ? key + '=' : '') + value);
+				initParams.push((key ? key + '=' : '') + value);
 			});
-			const rt = rawTitle.replace(paramPart, '');
-			this.rawTitle = rt;
-			this._rawTitle = rt.replace(verified.match, '\x01');
+			super(title, initParams);
+			this._initializer = initializer;
+
+			this.rawHook = rawHook;
+			this._rawHook = _rawHook;
 			this.text = text;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
 			this.nestLevel = nestLevel;
 			this.skip = skip;
+
+		}
+
+		/** @inheritdoc */
+		stringify(options: ParsedParserFunctionOutputConfig = {}): string {
+			const {rawHook: optRawHook, useCanonical, ...rawOptions} = options;
+			let hook = useCanonical ? this.canonicalHook : this.hook;
+			if (optRawHook && this._rawHook.includes('\x01')) {
+				hook = this._rawHook.replace('\x01', hook);
+			}
+			return this._stringify(hook, rawOptions);
+		}
+
+		/** @inheritdoc */
+		toString() {
+			return this.stringify();
 		}
 
 		/**
 		 * @hidden
 		 */
 		_clone() {
-			return new ParserFunction(this._initializer);
+			return new ParsedParserFunction(this._initializer);
 		}
 
 	}
 
-	return {Template, ParsedTemplate, MalformedTemplate, ParserFunction};
+	return {Template, ParsedTemplate, MalformedTemplate, ParserFunction, ParsedParserFunction};
 
 }
 
@@ -1096,6 +1473,10 @@ export type MalformedTemplate = ReturnType<typeof TemplateFactory>['MalformedTem
  * @internal
  */
 export type ParserFunction = ReturnType<typeof TemplateFactory>['ParserFunction'];
+/**
+ * @internal
+ */
+export type ParsedParserFunction = ReturnType<typeof TemplateFactory>['ParsedParserFunction'];
 
 /**
  * Object that is used to initialize template parameters in {@link Template.constructor}.
@@ -1177,6 +1558,7 @@ interface TemplateTypeMap {
 	ParsedTemplate: ParsedTemplate;
 	MalformedTemplate: MalformedTemplate;
 	ParserFunction: ParserFunction;
+	ParsedParserFunction: ParsedParserFunction;
 }
 
 /**
@@ -1280,4 +1662,70 @@ interface ParsedTemplateInitializer {
  */
 export interface ParsedTemplateOptions {
 	hierarchies?: TemplateParameterHierarchies;
+}
+
+/**
+ * The return type of {@link ParserFunction.verify}.
+ */
+export interface VerifiedFunctionHook {
+	/**
+	 * The canonical name of the parser function, including the trailing colon
+	 * (e.g., `"#if:"`).
+	 *
+	 * This usually starts with a hash character (`#`) but may not if the hook
+	 * cannot start with it.
+	 */
+	canonical: string;
+	/**
+	 * The matched name of the parser function, including the trailing colon.
+	 */
+	match: string;
+}
+
+/**
+ * Options for {@link ParserFunction.stringify}.
+ */
+export interface ParserFunctionOutputConfig {
+	/**
+	 * Optional text to add before the function hook (e.g., `subst:`).
+	 */
+	prepend?: string;
+	/**
+	 * Whether to use the canonical function hook.
+	 */
+	useCanonical?: boolean;
+	/**
+	 * Callback function to {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort | Array.prototype.sort},
+	 * called on a deep copy of {@link ParserFunction.params} (i.e., the original array is not mutated).
+	 *
+	 * @param param1
+	 * @param param2
+	 */
+	sortPredicate?: (param1: string, param2: string) => number;
+	/**
+	 * A predicate function to determine whether there should be a line break after each function parameter.
+	 *
+	 * This predicate is called on every parameter if provided. If {@link sortPredicate} is also provided,
+	 * the predicate is evaluated against the reordered array.
+	 *
+	 * @param param A function parameter string.
+	 * @param index The parameter index.
+	 * @returns `true` to add a trailing line break, or `false` otherwise.
+	 */
+	brPredicate?: (param: string, index: number) => boolean;
+}
+
+/**
+ * Options for {@link ParsedParserFunction.stringify}.
+ */
+export interface ParsedParserFunctionOutputConfig extends ParserFunctionOutputConfig {
+	/**
+	 * Whether to preserve redundant characters before the hook, as found in
+	 * {@link ParsedParserFunction.rawHook | rawHook}.
+	 *
+	 * Where possible, use {@link prepend} instead.
+	 *
+	 * This option is ignored if such characters interrupt the hook itself (e.g., `'#f<!---->oo:'`).
+	 */
+	rawHook?: boolean;
 }

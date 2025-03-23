@@ -54,7 +54,7 @@ import * as Util from './Util';
 const { mergeDeep, isPlainObject, sleep, isEmptyObject, arraysEqual } = Util;
 import * as mwString from './String';
 import { TitleFactory, Title } from './Title';
-import { TemplateFactory, Template } from './Template';
+import { TemplateFactory, Template, ParserFunction } from './Template';
 import { WikitextFactory, Wikitext } from './Wikitext';
 
 /**
@@ -176,6 +176,17 @@ export class Mwbot {
 		return this._Template;
 	}
 	/**
+	 * ParserFunction class for this instance.
+	 */
+	protected _ParserFunction: ParserFunction;
+	/**
+	 * ParserFunction class for this instance.
+	 */
+	get ParserFunction() {
+		this.checkInit();
+		return this._ParserFunction;
+	}
+	/**
 	 * Wikitext class for this instance.
 	 */
 	protected _Wikitext: Wikitext;
@@ -230,6 +241,7 @@ export class Mwbot {
 		this._info = Object.create(null);
 		this._Title = Object.create(null);
 		this._Template = Object.create(null);
+		this._ParserFunction = Object.create(null);
 		this._Wikitext = Object.create(null);
 
 	}
@@ -461,9 +473,10 @@ export class Mwbot {
 			config,
 			this._info
 		);
-		const {Template, ParsedTemplate, MalformedTemplate, ParserFunction} = TemplateFactory(config, this._info, this._Title);
+		const {Template, ParsedTemplate, MalformedTemplate, ParserFunction, ParsedParserFunction} = TemplateFactory(config, this._info, this._Title);
+		this._ParserFunction = ParserFunction;
 		this._Template = Template;
-		this._Wikitext = WikitextFactory(this, ParsedTemplate, MalformedTemplate, ParserFunction);
+		this._Wikitext = WikitextFactory(this, ParsedTemplate, MalformedTemplate, ParsedParserFunction);
 
 		console.log('Connection established: ' + config.get('wgServerName'));
 		return this;

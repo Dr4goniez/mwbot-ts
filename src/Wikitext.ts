@@ -12,11 +12,16 @@ import type { Title } from './Title';
 import type {
 	ParsedTemplate,
 	MalformedTemplate,
-	ParserFunction,
+	ParsedParserFunction,
 	NewTemplateParameter,
 	TemplateParameterHierarchies,
 	ParsedTemplateOptions
 } from './Template';
+
+/**
+ * @expand
+ */
+type DoubleBracedClasses = ParsedTemplate | MalformedTemplate | ParsedParserFunction;
 
 /**
  * @internal
@@ -25,7 +30,7 @@ export function WikitextFactory(
 	mw: Mwbot,
 	ParsedTemplate: ParsedTemplate,
 	MalformedTemplate: MalformedTemplate,
-	ParserFunction: ParserFunction
+	ParsedParserFunction: ParsedParserFunction
 ) {
 
 	const namespaceIds = mw.config.get('wgNamespaceIds');
@@ -47,7 +52,7 @@ export function WikitextFactory(
 			parameters: Parameter[] | null;
 			sections: Section[] | null;
 			wikilinks_fuzzy: FuzzyWikilink[] | null;
-			templates: InstanceType<ParsedTemplate | MalformedTemplate | ParserFunction>[] | null;
+			templates: InstanceType<DoubleBracedClasses>[] | null;
 			wikilinks: (Wikilink | FileWikilink)[] | null;
 		};
 		/**
@@ -1055,7 +1060,9 @@ export function WikitextFactory(
 
 			// Process fuzzy {{template}}s
 			if (options.templates) {
-				this.storageManager('templates', false).forEach(({text, startIndex, params, rawTitle, endIndex}) => {
+				this.storageManager('templates', false).forEach((obj) => {
+					const {text, startIndex, params, endIndex} = obj;
+					const rawTitle = 'rawTitle' in obj ? obj.rawTitle : obj.rawHook;
 					indexMap[startIndex] = {
 						text,
 						type: 'template',
@@ -1201,7 +1208,7 @@ export function WikitextFactory(
 			nestLevel = 0,
 			skip = false,
 			wikitext = this.content
-		): InstanceType<ParsedTemplate | MalformedTemplate | ParserFunction>[] {
+		): InstanceType<DoubleBracedClasses>[] {
 
 			let numUnclosed = 0;
 			let startIndex = 0;
@@ -1212,7 +1219,7 @@ export function WikitextFactory(
 			};
 
 			// Character-by-character loop
-			const templates: InstanceType<ParsedTemplate | MalformedTemplate | ParserFunction>[] = [];
+			const templates: InstanceType<DoubleBracedClasses>[] = [];
 			for (let i = 0; i < wikitext.length; i++) {
 
 				const wkt = wikitext.slice(i);
@@ -1263,7 +1270,35 @@ export function WikitextFactory(
 						// Found the end of the template
 						const [titleObj, ...params] = components;
 						const title = titleObj ? titleObj.key : '';
-						const rawTitle = titleObj ? titleObj.value : '';
+						let rawTitle = titleObj ? titleObj.value : '';
+						let titlesMatch = false;
+						if (rawTitle !== title) {
+							// If `rawTitle` contains redundant characters, replace `title` in `rawTitle` with a control character.
+							// This makes it easy to identify the insertion point of `title` in `rawTitle`.
+							for (let n = 0; n < rawTitle.length; n++) {
+								const realIndex = n + startIndex;
+								if (indexMap[realIndex]) {
+									n += indexMap[realIndex].text.length - 1;
+									continue;
+								}
+								const tempWkt = rawTitle.slice(n);
+								if (tempWkt.startsWith(title)) {
+									rawTitle = rawTitle.slice(0, n) + tempWkt.replace(title, '\x01');
+									break;
+								}
+							}
+						} else if (!/^\s+/.test(title)) {
+							// If `title` and `rawTitle` are identical, we just want to replace `rawTitle` with "\x01".
+							// But this isn't always so for parser functions, which must be parsed again for the function
+							// hook and the first argument. For example:
+							// `title` & `rawTitle` = "\n #switch: {{FULLPAGENAME}} \n"
+							// In this case, `rawHook` and `_rawHook`, which are properties of ParsedParserFunction, should be:
+							// `rawHook` = "\n #switch:", `_rawHook` =  "\n \x01" (not "\x01")
+							// We therefore defer the replacement to when we've tried to make a PPF instance.
+							// Here, substitute `rawTitle` with "\x01" only if it doesn't have leading whitespace.
+							titlesMatch = true;
+							rawTitle = '\x01';
+						}
 						const endIndex = i + 2;
 						const text = wikitext.slice(startIndex, endIndex);
 						const initializer = {
@@ -1276,10 +1311,14 @@ export function WikitextFactory(
 							nestLevel,
 							skip
 						};
-						let temp: InstanceType<ParsedTemplate | MalformedTemplate | ParserFunction>;
+						let temp: InstanceType<DoubleBracedClasses>;
 						try {
-							temp = new ParserFunction(initializer);
+							temp = new ParsedParserFunction(initializer);
 						} catch {
+							if (titlesMatch) {
+								// `title` and `rawTitle` are identical, and we verified that the {{template}} isn't a parser function
+								initializer.rawTitle = '\x01';
+							}
 							try {
 								temp = new ParsedTemplate(initializer, options);
 							} catch {
@@ -1330,12 +1369,12 @@ export function WikitextFactory(
 		 * @param config Config to filter the output.
 		 * @returns
 		 */
-		parseTemplates(config: ParseTemplatesConfig = {}): InstanceType<ParsedTemplate | MalformedTemplate | ParserFunction>[] {
+		parseTemplates(config: ParseTemplatesConfig = {}): InstanceType<DoubleBracedClasses>[] {
 			const {hierarchies, titlePredicate, templatePredicate} = config;
 			const options = {hierarchies};
 			let templates = this.storageManager('templates', true, options);
 			if (typeof titlePredicate === 'function') {
-				templates = templates.filter(({title}) => titlePredicate(title));
+				templates = templates.filter((template) => titlePredicate('title' in template ? template.title : template.canonicalHook));
 			}
 			if (typeof templatePredicate === 'function') {
 				templates = templates.filter((template) => templatePredicate(template));
@@ -1351,7 +1390,7 @@ export function WikitextFactory(
 		 * @param modificationPredicate
 		 * @returns
 		 */
-		modifyTemplates(modificationPredicate: ModificationPredicate<InstanceType<ParsedTemplate | MalformedTemplate | ParserFunction>>): Promise<string> {
+		modifyTemplates(modificationPredicate: ModificationPredicate<InstanceType<DoubleBracedClasses>>): Promise<string> {
 			return this.modify('templates', modificationPredicate);
 		}
 
@@ -1551,7 +1590,7 @@ export interface ModificationMap {
 	tags: Tag;
 	parameters: Parameter;
 	sections: Section;
-	templates: InstanceType<ParsedTemplate | MalformedTemplate | ParserFunction>;
+	templates: InstanceType<DoubleBracedClasses>;
 	wikilinks: Wikilink | FileWikilink;
 }
 
@@ -1920,7 +1959,7 @@ export interface ParseTemplatesConfig {
 	 * A predicate function to filter templates by title.
 	 * Only templates whose titles satisfy this function will be included in the results.
 	 *
-	 * @param title A Title object for ParsedTemplate, or a string for MalformedTemplate.
+	 * @param title A Title object for ParsedTemplate, or a string for MalformedTemplate and ParsedParserFunction.
 	 * @returns `true` if the template should be parsed, otherwise `false`.
 	 */
 	titlePredicate?: (title: InstanceType<Title> | string) => boolean;
@@ -1931,7 +1970,7 @@ export interface ParseTemplatesConfig {
 	 * @param template The template object.
 	 * @returns `true` if the template should be included, otherwise `false`.
 	 */
-	templatePredicate?: (template: InstanceType<ParsedTemplate | MalformedTemplate | ParserFunction>) => boolean;
+	templatePredicate?: (template: InstanceType<DoubleBracedClasses>) => boolean;
 	/**
 	 * See {@link TemplateParameterHierarchies}.
 	 */
