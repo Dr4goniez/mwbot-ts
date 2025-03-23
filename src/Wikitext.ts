@@ -1505,7 +1505,7 @@ export function WikitextFactory(
 		 * Edit an existing page by first fetching its latest revision and applying a transformation
 		 * function to modify its content.
 		 *
-		 * This method does the same as {@link Mwbot.transform}.
+		 * This method does the same as {@link Mwbot.edit}.
 		 *
 		 * @param title
 		 * @param transform
@@ -1517,7 +1517,7 @@ export function WikitextFactory(
 			transform: (wikitext: Wikitext, revision: Revision) => Promise<ApiEditPageParams>,
 			requestOptions: MwbotRequestConfig = {}
 		): Promise<ApiResponse> {
-			return mw.transform(title, transform, requestOptions);
+			return mw.edit(title, transform, requestOptions);
 		}
 
 

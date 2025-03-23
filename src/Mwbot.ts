@@ -1784,7 +1784,7 @@ export class Mwbot {
 		return title;
 	}
 
-	protected _edit(
+	protected _save(
 		title: InstanceType<Title>,
 		content: string,
 		summary?: string,
@@ -1811,8 +1811,8 @@ export class Mwbot {
 	/**
 	 * Create a new page with the given content.
 	 *
-	 * - To edit an (existing) page, use {@link edit} instead.
-	 * - To edit an existing page using a transformation predicate, use {@link transform} instead.
+	 * - To save a content to an (existing) page, use {@link save} instead.
+	 * - To edit an existing page using a transformation predicate, use {@link edit} instead.
 	 *
 	 * Default parameters:
 	 * ```js
@@ -1847,14 +1847,14 @@ export class Mwbot {
 		if (validatedTitle instanceof MwbotError) {
 			throw validatedTitle;
 		}
-		return this._edit(validatedTitle, content, summary, {createonly: true}, options, requestOptions);
+		return this._save(validatedTitle, content, summary, {createonly: true}, options, requestOptions);
 	}
 
 	/**
-	 * Edit a page with the given content.
+	 * Save the given content to a page.
 	 *
 	 * - To create a new page, use {@link create} instead.
-	 * - To edit an existing page using a transformation predicate, use {@link transform} instead.
+	 * - To edit an existing page using a transformation predicate, use {@link edit} instead.
 	 *
 	 * Default parameters:
 	 * ```js
@@ -1878,7 +1878,7 @@ export class Mwbot {
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the API response or rejecting with {@link MwbotError}.
 	 */
-	async edit(
+	async save(
 		title: string | InstanceType<Title>,
 		content: string,
 		summary?: string,
@@ -1889,7 +1889,7 @@ export class Mwbot {
 		if (validatedTitle instanceof MwbotError) {
 			throw validatedTitle;
 		}
-		return this._edit(validatedTitle, content, summary, {nocreate: true}, options, requestOptions);
+		return this._save(validatedTitle, content, summary, {nocreate: true}, options, requestOptions);
 	}
 
 	/**
@@ -1964,7 +1964,7 @@ export class Mwbot {
 	 *
 	 * This method automatically handles edit conflicts up to 3 times.
 	 *
-	 * Default parameters (into which the return value of `callback` is merged):
+	 * Default parameters (into which the return value of `transform` is merged):
 	 * ```js
 	 * {
 	 * 	action: 'edit',
@@ -1980,25 +1980,25 @@ export class Mwbot {
 	 * ```
 	 *
 	 * @param title The page title, either as a string or a {@link Title} instance.
-	 * @param callback A function that receives a {@link Wikitext} instance initialized from the
+	 * @param transform A function that receives a {@link Wikitext} instance initialized from the
 	 * fetched content and an object representing the metadata of the fetched revision. This function
 	 * should return a Promise resolving to {@link ApiEditPageParams} as a plain object, which will
 	 * be used for the edit request.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
 	 */
-	async transform(
+	async edit(
 		title: string | InstanceType<Title>,
-		callback: (wikitext: InstanceType<Wikitext>, revision: Revision) => Promise<ApiEditPageParams>,
+		transform: (wikitext: InstanceType<Wikitext>, revision: Revision) => Promise<ApiEditPageParams>,
 		requestOptions: MwbotRequestConfig = {},
 		/** @private */
 		retry = 0
 	): Promise<ApiResponse> {
 
-		if (typeof callback !== 'function') {
+		if (typeof transform !== 'function') {
 			throw new MwbotError({
 				code: 'mwbot_fatal_typemismatch',
-				info: `Expected a function for "callback", but got ${typeof callback}.`
+				info: `Expected a function for "transform", but got ${typeof transform}.`
 			});
 		}
 
@@ -2007,13 +2007,13 @@ export class Mwbot {
 			throw revision;
 		}
 
-		let params = await callback(new this.Wikitext(revision.content), {...revision}).catch((err: Error) => err);
+		let params = await transform(new this.Wikitext(revision.content), {...revision}).catch((err: Error) => err);
 		if (params instanceof Error) {
 			throw params;
 		} else if (!isPlainObject(params)) {
 			const err = new MwbotError({
 				code: 'mwbot_fatal_typemismatch',
-				info: `The callback function of transform() must return a plain object.`
+				info: `The callback function of edit() must return a plain object.`
 			});
 			err.params = params;
 			throw err;
@@ -2046,7 +2046,7 @@ export class Mwbot {
 			console.warn('Warning: Encountered an edit conflict.');
 			console.log('Retrying in 5 seconds...');
 			await sleep(5000);
-			return this.transform(title, callback, requestOptions, ++retry);
+			return this.edit(title, transform, requestOptions, ++retry);
 		}
 		return result;
 
