@@ -71,7 +71,7 @@ export function WikitextFactory(
 			 */
 			'abbr', 'b', 'bdi', 'bdo', 'big', 'blockquote', 'br', 'caption', 'cite', 'code', 'data', 'dd', 'del',
 			'dfn', 'div', 'dl', 'dt', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'ins', 'kbd', 'li',
-			'link', 'mark', 'meta', 'ol', 'p', 'pre', 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'small', 'span',
+			'link', 'mark', 'meta', 'ol', 'p', /*'pre',*/ 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'small', 'span',
 			'strong', 'sub', 'sup', 'table', 'td', 'th', 'time', 'tr', 'u', 'ul', 'var', 'wbr',
 			// Deprecated HTML tags
 			'center', 'font', 'rb', 'rtc', 'strike', 'tt',
@@ -84,7 +84,7 @@ export function WikitextFactory(
 			 * @see https://www.mediawiki.org/wiki/Parser_extension_tags
 			 */
 			'categorytree', 'ce', 'chem', 'charinsert', 'gallery', 'graph', 'hiero', 'imagemap', 'indicator',
-			'inputbox', 'langconvert', 'mapframe', 'maplink', 'math', 'nowiki', 'poem', /*'pre',*/ 'ref', 'references',
+			'inputbox', 'langconvert', 'mapframe', 'maplink', 'math', 'nowiki', 'poem', 'pre', 'ref', 'references',
 			'score', 'section', 'source', 'syntaxhighlight', 'templatedata', 'timeline',
 			// Other MediaWiki tags, added by extensions
 			'dynamicpagelist', 'languages', 'rss', 'talkpage', 'thread', 'html',
