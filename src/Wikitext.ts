@@ -38,6 +38,64 @@ export function WikitextFactory(
 	const rCtrlStart = /^\x01+/;
 
 	/**
+	 * List of valid HTML tag names that can be used in wikitext. All tag names are in lowercase.
+	 *
+	 * #### Behaviour of self-closure
+	 *
+	 * In HTML5, self-closure isn't a valid markup. For example:
+	 * ```html
+	 * <span style="color:red;" />foo</span>
+	 * ```
+	 * In this case, `'foo'` will be coloured red because the self-closed `span` tag isn't recognized
+	 * as closed. However, this doesn't apply to tags that are void by nature: `'<br />'` is ok in
+	 * wiki markup, and recognized as closed.
+	 *
+	 * On the other hand, MediaWiki-defined parser extension tags are "pseudo-void" in the sense that
+	 * they allow both self-closure and content-wrapping. Thus, both of the following are fine, and
+	 * the former self-closing tag is recognized as closed:
+	 * ```html
+	 * foo<pre />bar	<!-- "bar" won't be wrapped in the pre element (i.e., pre is closed) -->
+	 * <pre>foo</pre>	<!-- This is also a valid markup -->
+	 * ```
+	 * Note further that some of these tags aren't even parsed if self-closed. For example, the self-closing
+	 * tag in the following markup is displayed as raw text:
+	 * ```html
+	 * foo<tvar />bar
+	 * ```
+	 */
+	const validTags = {
+		native: [
+			/**
+			 * Standard HTML tags
+			 * @see https://www.mediawiki.org/wiki/Help:HTML_in_wikitext
+			 */
+			'abbr', 'b', 'bdi', 'bdo', 'big', 'blockquote', 'br', 'caption', 'cite', 'code', 'data', 'dd', 'del',
+			'dfn', 'div', 'dl', 'dt', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'ins', 'kbd', 'li',
+			'link', 'mark', 'meta', 'ol', 'p', 'pre', 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'small', 'span',
+			'strong', 'sub', 'sup', 'table', 'td', 'th', 'time', 'tr', 'u', 'ul', 'var', 'wbr',
+			// Deprecated HTML tags
+			'center', 'font', 'rb', 'rtc', 'strike', 'tt',
+			// Comment tag, used in mwbot-ts
+			'!--'
+		],
+		mediawiki: [
+			/**
+			 * MediaWiki parser extension tags
+			 * @see https://www.mediawiki.org/wiki/Parser_extension_tags
+			 */
+			'categorytree', 'ce', 'chem', 'charinsert', 'gallery', 'graph', 'hiero', 'imagemap', 'indicator',
+			'inputbox', 'langconvert', 'mapframe', 'maplink', 'math', 'nowiki', 'poem', /*'pre',*/ 'ref', 'references',
+			'score', 'section', 'source', 'syntaxhighlight', 'templatedata', 'timeline',
+			// Other MediaWiki tags, added by extensions
+			'dynamicpagelist', 'languages', 'rss', 'talkpage', 'thread', 'html',
+			// Special MediaWiki inclusion/exclusion tags
+			'includeonly', 'noinclude', 'onlyinclude',
+			// Tags from Extension:Translate
+			'translate', 'tvar'
+		]
+	};
+
+	/**
 	 * TODO: Add documentation
 	 */
 	class Wikitext {
@@ -225,44 +283,12 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * List of valid HTML tag names that can be used in wikitext.
-		 * All tag names are in lowercase.
-		 */
-		private static readonly _validTags = [
-			/**
-			 * Standard HTML tags
-			 * @see https://www.mediawiki.org/wiki/Help:HTML_in_wikitext
-			 */
-			'abbr', 'b', 'bdi', 'bdo', 'big', 'blockquote', 'br', 'caption', 'cite', 'code', 'data', 'dd', 'del',
-			'dfn', 'div', 'dl', 'dt', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'ins', 'kbd', 'li',
-			'link', 'mark', 'meta', 'ol', 'p', 'pre', 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'small', 'span',
-			'strong', 'sub', 'sup', 'table', 'td', 'th', 'time', 'tr', 'u', 'ul', 'var', 'wbr',
-			// Deprecated HTML tags
-			'center', 'font', 'rb', 'rtc', 'strike', 'tt',
-			/**
-			 * MediaWiki parser extension tags
-			 * @see https://www.mediawiki.org/wiki/Parser_extension_tags
-			 */
-			'categorytree', 'ce', 'chem', 'charinsert', 'gallery', 'graph', 'hiero', 'imagemap', 'indicator',
-			'inputbox', 'langconvert', 'mapframe', 'maplink', 'math', 'nowiki', 'poem', /*'pre',*/ 'ref', 'references',
-			'score', 'section', 'source', 'templatedata', 'timeline',
-			// Other MediaWiki tags, added by extensions
-			'dynamicpagelist', 'languages', 'rss', 'talkpage', 'thread', 'html',
-			// Special MediaWiki inclusion/exclusion tags
-			'includeonly', 'noinclude', 'onlyinclude',
-			// Tags from Extension:Translate
-			'translate', 'tvar',
-			// Comment tag
-			'!--'
-		];
-
-		/**
 		 * Returns a list of valid HTML tag names that can be used in wikitext.
 		 *
 		 * @returns Array of tag names (all elements are in lowercase).
 		 */
 		static getValidTags(): string[] {
-			return this._validTags.slice();
+			return Object.values(validTags).flat();
 		}
 
 		/**
@@ -272,7 +298,8 @@ export function WikitextFactory(
 		 * @returns A boolean indicating whether the tag name is valid.
 		 */
 		static isValidTag(tagName: string): boolean {
-			return this._validTags.includes(String(tagName).toLowerCase());
+			tagName = String(tagName).toLowerCase();
+			return Object.values(validTags).some((arr) => arr.includes(tagName));
 		}
 
 		/**
@@ -493,9 +520,9 @@ export function WikitextFactory(
 					const selfClosing = regex.self.test(m[0]);
 
 					// Check if the tag is a void tag
-					if (regex.void.test(nodeName)) {
-						// Add the void tag to the stack immediately
-						// In this case it doesn't matter whether the tag closes itself or not
+					if (regex.void.test(nodeName) || selfClosing && validTags.mediawiki.includes(nodeName)) {
+						// Add void and "pseudo-void" self-closing tags to the stack immediately
+						// For "pseudo-void" tags, see the comments in the definition of `validTags`
 						parsed.push(
 							createVoidTagObject(nodeName, m[0], i, startTags.length, selfClosing)
 						);
