@@ -122,6 +122,19 @@ export function WikitextFactory(
 		}
 
 		/**
+		 * Creates a new instance by fetching the content of the given title.
+		 *
+		 * @param title The page title, either as a string or a {@link Title} instance.
+		 * @param options Options for the initialization of the instance.
+		 * @param requestOptions Optional HTTP request options.
+		 * @returns A Promise resolving to a new `Wikitext` instance.
+		 */
+		static async newFromTitle(title: string | InstanceType<Title>, options: WikitextOptions = {}, requestOptions: MwbotRequestConfig = {}) {
+			const rev = await mw.read(title, requestOptions);
+			return new Wikitext(rev.content, options);
+		}
+
+		/**
 		 * Retrieves the value of `key` from {@link storage}.
 		 *
 		 * - If the stored value is `null`, the wikitext is parsed and the result is stored.
