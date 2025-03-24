@@ -5,9 +5,8 @@
  */
 
 import { MwbotError } from './MwbotError';
-import type { Mwbot, MwbotRequestConfig, Revision } from './Mwbot';
+import type { Mwbot, MwbotRequestConfig } from './Mwbot';
 import { deepCloneInstance, isClassInstance, mergeDeep } from './Util';
-import { ApiEditPageParams, ApiResponse } from './api_types';
 import type { Title } from './Title';
 import type {
 	ParsedTemplate,
@@ -1522,38 +1521,6 @@ export function WikitextFactory(
 		 */
 		modifyWikilinks(modificationPredicate: ModificationPredicate<Wikilink | FileWikilink>): Promise<string> {
 			return this.modify('wikilinks', modificationPredicate);
-		}
-
-		/**
-		 * Fetches the content of the latest revision of a title from the API.
-		 *
-		 * This method does the same as {@link Mwbot.read}.
-		 *
-		 * @param title
-		 * @param requestOptions
-		 * @returns
-		 */
-		static fetch(title: string | InstanceType<Title>, requestOptions: MwbotRequestConfig = {}): Promise<Revision> {
-			return mw.read(title, requestOptions);
-		}
-
-		/**
-		 * Edits an existing page by first fetching its latest revision and applying a transformation
-		 * function to modify its content.
-		 *
-		 * This method does the same as {@link Mwbot.edit}.
-		 *
-		 * @param title
-		 * @param transform
-		 * @param requestOptions
-		 * @returns
-		 */
-		static submit(
-			title: string | InstanceType<Title>,
-			transform: (wikitext: Wikitext, revision: Revision) => Promise<ApiEditPageParams>,
-			requestOptions: MwbotRequestConfig = {}
-		): Promise<ApiResponse> {
-			return mw.edit(title, transform, requestOptions);
 		}
 
 	}
