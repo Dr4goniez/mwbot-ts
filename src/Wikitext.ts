@@ -65,7 +65,8 @@ export function WikitextFactory(
 		private skipTags: string[];
 
 		/**
-		 * Create a `Wikitext` instance.
+		 * Creates a new `Wikitext` instance.
+		 *
 		 * @param content A wikitext content.
 		 * @param options Options for the initialization of the instance.
 		 * @throws If `content` is not a string.
@@ -110,7 +111,7 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Alias of `new mwbot.Wikitext` (see also {@link Wikitext.constructor}).
+		 * Alias of the {@link Wikitext.constructor | constructor}.
 		 *
 		 * @param content A wikitext content.
 		 * @param options Options for the initialization of the instance.
@@ -245,6 +246,7 @@ export function WikitextFactory(
 
 		/**
 		 * Returns a list of valid HTML tag names that can be used in wikitext.
+		 *
 		 * @returns Array of tag names (all elements are in lowercase).
 		 */
 		static getValidTags(): string[] {
@@ -252,16 +254,17 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Check whether a given tag name is valid in wikitext.
+		 * Checks whether a given tag name is valid in wikitext.
+		 *
 		 * @param tagName The tag name to check.
-		 * @returns
+		 * @returns A boolean indicating whether the tag name is valid.
 		 */
 		static isValidTag(tagName: string): boolean {
 			return this._validTags.includes(String(tagName).toLowerCase());
 		}
 
 		/**
-		 * Modify a specific type of expressions in the wikitext content.
+		 * Modifies a specific type of expressions in the wikitext content.
 		 *
 		 * This method extracts expressions of the given `type`, applies the `modificationPredicate`
 		 * to transform them, and updates the wikitext accordingly.
@@ -304,7 +307,7 @@ export function WikitextFactory(
 		 * 		</tr>
 		 * 		<tr>
 		 * 			<td>templates</td>
-		 * 			<td>An array of {@link Template}</td>
+		 * 			<td>An array of {@link ParsedTemplate}, {@link ParsedParserFunction}, or {@link MalformedTemplate}</td>
 		 * 		</tr>
 		 * 		<tr>
 		 * 			<td>wikilinks</td>
@@ -414,7 +417,8 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Parse the wikitext for HTML tags.
+		 * Parses the wikitext for HTML tags.
+		 *
 		 * @returns
 		 */
 		private _parseTags(): Tag[] {
@@ -605,9 +609,10 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Parse the wikitext content for HTML tags.
+		 * Parses the wikitext content for HTML tags.
+		 *
 		 * @param config Config to filter the output.
-		 * @returns
+		 * @returns An array of {@link Tag} objects.
 		 */
 		parseTags(config: ParseTagsConfig = {}): Tag[] {
 			let tags = this.storageManager('tags');
@@ -621,7 +626,7 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Modify tags in the wikitext content.
+		 * Modifies tags in the wikitext content.
 		 *
 		 * This is a shorthand method of {@link modify} with its first argument set as `tags`.
 		 *
@@ -633,7 +638,8 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Add tags in which elements shouldn't be parsed, if the tags are not already registered.
+		 * Adds tags in which elements shouldn't be parsed, if the tags are not already registered.
+		 *
 		 * @param skipTags Array of tag names to add.
 		 * @returns The current Wikitext instance.
 		 */
@@ -647,7 +653,8 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Set tags in which elements shouldn't be parsed, overwriting any existing settings.
+		 * Sets tags in which elements shouldn't be parsed, overwriting any existing settings.
+		 *
 		 * @param skipTags Array of tag names to set.
 		 * @returns The current Wikitext instance.
 		 */
@@ -662,18 +669,22 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Remove tags from the list of tags in which elements shouldn't be parsed.
+		 * Removes tags from the list of tags in which elements shouldn't be parsed.
+		 *
 		 * @param skipTags Array of tag names to remove.
 		 * @returns The current Wikitext instance.
 		 */
 		removeSkipTags(skipTags: string[]): Wikitext {
-			const rSkipTags = new RegExp(`^(?:${skipTags.join('|')})$`);
-			this.skipTags = this.skipTags.filter((el) => rSkipTags.test(el));
+			if (skipTags.join('')) {
+				const rSkipTags = new RegExp(`^(?:${skipTags.join('|')})$`);
+				this.skipTags = this.skipTags.filter((el) => rSkipTags.test(el));
+			}
 			return this;
 		}
 
 		/**
-		 * Get a copy of the names of currently registered tags in which elements shouldn't be parsed.
+		 * Gets a copy of the names of currently registered tags in which elements shouldn't be parsed.
+		 *
 		 * @returns An array of the current tag names.
 		 */
 		getSkipTags(): string[] {
@@ -681,8 +692,9 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Generate a function that evaluates whether a string starting at an index and ending at another
+		 * Generates a function that evaluates whether a string starting at an index and ending at another
 		 * is inside a tag in which that string shouldn't be parsed.
+		 *
 		 * @returns A function that checks whether a given range is inside any tag to skip parsing.
 		 */
 		private getSkipPredicate(): (startIndex: number, endIndex: number) => boolean {
@@ -710,8 +722,9 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Parse sections in the wikitext.
-		 * @returns Array of parsed sections.
+		 * Parses sections in the wikitext.
+		 *
+		 * @returns An array of parsed sections.
 		 */
 		private _parseSections(): Section[] {
 
@@ -823,9 +836,10 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Parse sections in the wikitext.
+		 * Parses sections in the wikitext.
+		 *
 		 * @param config Config to filter the output.
-		 * @returns Array of parsed sections.
+		 * @returns An array of parsed sections.
 		 */
 		parseSections(config: ParseSectionsConfig = {}): Section[] {
 			let sections = this.storageManager('sections');
@@ -836,7 +850,7 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Modify sections in the wikitext content.
+		 * Modifies sections in the wikitext content.
 		 *
 		 * This is a shorthand method of {@link modify} with its first argument set as `sections`.
 		 *
@@ -848,7 +862,7 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Given the start and end indices of an expression, identify the section containing the expression.
+		 * Given the start and end indices of an expression, identifies the section containing the expression.
 		 *
 		 * @param startIndex The start index of the expression.
 		 * @param endIndex The end index of the expression (exclusive).
@@ -870,8 +884,9 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Parse `{{{parameter}}}` expressions in the wikitext.
-		 * @returns Array of parsed parameters.
+		 * Parses `{{{parameter}}}` expressions in the wikitext.
+		 *
+		 * @returns An array of parsed parameters.
 		 */
 		private _parseParameters(): Parameter[]  {
 
@@ -964,9 +979,10 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Parse `{{{parameter}}}` expressions in the wikitext.
+		 * Parses `{{{parameter}}}` expressions in the wikitext.
+		 *
 		 * @param config Config to filter the output.
-		 * @returns Array of parsed parameters.
+		 * @returns An array of parsed parameters.
 		 */
 		parseParameters(config: ParseParametersConfig = {}): Parameter[] {
 			let parameters = this.storageManager('parameters');
@@ -980,7 +996,7 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Modify parameters in the wikitext content.
+		 * Modifies `{{{parameter}}}` expressions in the wikitext content.
 		 *
 		 * This is a shorthand method of {@link modify} with its first argument set as `parameters`.
 		 *
@@ -1079,13 +1095,14 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Fuzzily parse `[[wikilink]]`s in the wikitext. The right operand (i.e., `[[left|right]]`) will be incomplete.
+		 * Fuzzily parses `[[wikilink]]`s in the wikitext. The right operand (i.e., `[[left|right]]`) will be incomplete.
+		 *
 		 * @param indexMap Optional index map to re-use.
 		 * @param skip Whether we are parsing wikilinks inside skip tags. (Default: `false`)
 		 * @param wikitext Alternative wikitext to parse. Should be passed when parsing nested wikilinks.
 		 * All characters before the range where there can be nested wikilinks should be replaced with `\x01`.
 		 * This method skips sequences of this control character, to reach the range early and efficiently.
-		 * @returns Array of fuzzily parsed wikilinks.
+		 * @returns An array of fuzzily parsed wikilinks.
 		 */
 		private _parseWikilinksFuzzy(indexMap = this.getIndexMap(), skip = false, wikitext = this.content): FuzzyWikilink[] {
 
@@ -1193,14 +1210,15 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Parse `{{template}}`s in the wikitext.
+		 * Parses `{{template}}` expressions in the wikitext.
+		 *
 		 * @param indexMap Optional index map to re-use.
 		 * @param nestLevel Nesting level of the parsing templates. Only passed from inside this method.
 		 * @param skip Whether we are parsing templates inside skip tags. (Default: `false`)
 		 * @param wikitext Alternative wikitext to parse. Should be passed when parsing nested templates.
 		 * All characters before the range where there can be nested templates should be replaced with `\x01`.
 		 * This method skips sequences of this control character, to reach the range early and efficiently.
-		 * @returns
+		 * @returns An array of parsed templates.
 		 */
 		private _parseTemplates(
 			options: ParsedTemplateOptions = {},
@@ -1365,9 +1383,12 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Parse `{{template}}`s in the wikitext.
+		 * Parses `{{template}}` expressions in the wikitext.
+		 *
+		 * This method parses any double-braced markups, including magic words and parser functions.
+		 *
 		 * @param config Config to filter the output.
-		 * @returns
+		 * @returns An array of {@link ParsedTemplate}, {@link ParsedParserFunction}, and {@link MalformedTemplate} instances.
 		 */
 		parseTemplates(config: ParseTemplatesConfig = {}): InstanceType<DoubleBracedClasses>[] {
 			const {hierarchies, titlePredicate, templatePredicate} = config;
@@ -1383,7 +1404,7 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Modify templates in the wikitext content.
+		 * Modifies `{{template}}` expressions in the wikitext content.
 		 *
 		 * This is a shorthand method of {@link modify} with its first argument set as `templates`.
 		 *
@@ -1395,8 +1416,9 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Parse `[[wikilink]]`s in the wikitext.
-		 * @returns Array of parsed wikilinks.
+		 * Parses `[[wikilink]]` expressions in the wikitext.
+		 *
+		 * @returns An array of parsed wikilinks.
 		 */
 		private _parseWikilinks(): (Wikilink | FileWikilink)[] {
 			const indexMap = this.getIndexMap({parameters: true, templates: true});
@@ -1461,9 +1483,10 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Parse `[[wikilink]]`s in the wikitext.
+		 * Parses `[[wikilink]]` expressions in the wikitext.
+		 *
 		 * @param config Config to filter the output.
-		 * @returns Array of parsed wikilinks.
+		 * @returns An array of parsed wikilinks.
 		 */
 		parseWikilinks(config: ParseWikilinksConfig = {}): (Wikilink | FileWikilink)[] {
 			let wikilinks = this.storageManager('wikilinks');
@@ -1477,7 +1500,7 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Modify wikilinks in the wikitext content.
+		 * Modifies `[[wikilink]]` expressions in the wikitext content.
 		 *
 		 * This is a shorthand method of {@link modify} with its first argument set as `wikilinks`.
 		 *
@@ -1489,7 +1512,7 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Fetch the content of the latest revision of a title from the API.
+		 * Fetches the content of the latest revision of a title from the API.
 		 *
 		 * This method does the same as {@link Mwbot.read}.
 		 *
@@ -1502,7 +1525,7 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Edit an existing page by first fetching its latest revision and applying a transformation
+		 * Edits an existing page by first fetching its latest revision and applying a transformation
 		 * function to modify its content.
 		 *
 		 * This method does the same as {@link Mwbot.edit}.
@@ -1519,7 +1542,6 @@ export function WikitextFactory(
 		): Promise<ApiResponse> {
 			return mw.edit(title, transform, requestOptions);
 		}
-
 
 	}
 
