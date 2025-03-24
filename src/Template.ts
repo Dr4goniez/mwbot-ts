@@ -207,7 +207,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			if (hook && asHook) {
 				return hook;
 			} else if (hook) {
-				throw new TypeError(`"${hook}" is a parser function hook.`);
+				throw new Error(`"${hook}" is a parser function hook.`);
 			} else if (typeof title === 'string') {
 				title = Title.clean(title);
 				const namespace = title[0] === ':' ? NS_MAIN : NS_TEMPLATE; // TODO: Handle "/" (subpage) and "#" (in-page section)?
