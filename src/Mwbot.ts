@@ -473,10 +473,10 @@ export class Mwbot {
 			config,
 			this._info
 		);
-		const {Template, ParsedTemplate, MalformedTemplate, ParserFunction, ParsedParserFunction} = TemplateFactory(config, this._info, this._Title);
+		const {Template, ParsedTemplate, RawTemplate, ParserFunction, ParsedParserFunction} = TemplateFactory(config, this._info, this._Title);
 		this._ParserFunction = ParserFunction;
 		this._Template = Template;
-		this._Wikitext = WikitextFactory(this, ParsedTemplate, MalformedTemplate, ParsedParserFunction);
+		this._Wikitext = WikitextFactory(this, ParsedTemplate, RawTemplate, ParsedParserFunction);
 
 		console.log('Connection established: ' + config.get('wgServerName'));
 		return this;

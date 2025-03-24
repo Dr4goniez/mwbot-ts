@@ -4,7 +4,7 @@
  * - Class {@link Template}: Attached to {@link Mwbot.Template} as an instance member.
  * - Class {@link ParsedTemplate}: Represents a well-formed template in the result of
  * {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}.
- * - Class {@link MalformedTemplate}: Represents a malformed template in the result of
+ * - Class {@link RawTemplate}: Represents a malformed template in the result of
  * {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}.
  * - Class {@link ParserFunction}: Attached to {@link Mwbot.ParserFunction} as an instance
  * member.
@@ -670,19 +670,19 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 * const foo = wikitext.parseTemplates()[0];
 		 * foo instanceof mwbot.Template; // true
 		 * mwbot.Template.is(foo, 'ParsedTemplate'); // true
-		 * mwbot.Template.is(foo, 'MalformedTemplate'); // false
+		 * mwbot.Template.is(foo, 'RawTemplate'); // false
 		 * foo instanceof mwbot.ParserFunction; // false
 		 * mwbot.Template.is(foo, 'ParsedParserFunction'); // false
 		 * ```
 		 *
 		 * Be noted about the hierarchies of the template-related classes:
 		 * - {@link ParsedTemplate} extends {@link Template}.
-		 * - {@link MalformedTemplate} extends nothing, meaning that its instances are ***not*** instances of
+		 * - {@link RawTemplate} extends nothing, meaning that its instances are ***not*** instances of
 		 * {@link Template}, {@link ParsedTemplate}, {@link ParserFunction}, or {@link ParsedParserFunction}.
 		 * - {@link ParsedParserFunction} extends {@link ParserFunction}.
 		 *
 		 * @template T The type of template to check for. Must be one of `'Template'`, `'ParsedTemplate'`,
-		 * `'MalformedTemplate'`, `'ParserFunction'`, or `'ParsedParserFunction'`.
+		 * `'RawTemplate'`, `'ParserFunction'`, or `'ParsedParserFunction'`.
 		 * @param obj The object to check.
 		 * @param type The template type to compare against.
 		 * @returns `true` if `obj` is an instance of the specified template class, otherwise `false`.
@@ -694,8 +694,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 					return obj instanceof Template;
 				case 'ParsedTemplate':
 					return obj instanceof ParsedTemplate;
-				case 'MalformedTemplate':
-					return obj instanceof MalformedTemplate;
+				case 'RawTemplate':
+					return obj instanceof RawTemplate;
 				case 'ParserFunction':
 					return obj instanceof ParserFunction;
 				case 'ParsedParserFunction':
@@ -748,9 +748,9 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 	/**
 	 * Class for {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}. This class
 	 * represents a well-formed `{{template}}` expression with a valid title. For the class
-	 * that represents a malformed `{{template}}` expression, see {@link MalformedTemplate}.
+	 * that represents a malformed `{{template}}` expression, see {@link RawTemplate}.
 	 *
-	 * This class differs from {@link MalformedTemplate} in that:
+	 * This class differs from {@link RawTemplate} in that:
 	 * - It extends the {@link Template} class.
 	 * - The {@link title} property is an instace of {@link Title} instead of a string.
 	 * - {@link setTitle} is an in-place operation that only returns a boolean value
@@ -925,7 +925,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 	 * The instance properties of this class are pseudo-read-only, in the sense that altering them
 	 * does not affect the behaviour of {@link Mwbot.Wikitext.modifyTemplates | Wikitext.modifyTemplates}.
 	 */
-	class MalformedTemplate extends TemplateBase<string> {
+	class RawTemplate extends TemplateBase<string> {
 
 		/**
 		 * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
@@ -1037,7 +1037,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 * @param options Options to format the output.
 		 * @returns
 		 */
-		stringify(options: MalformedTemplateOutputConfig = {}): string {
+		stringify(options: RawTemplateOutputConfig = {}): string {
 			const {rawTitle: optRawTitle, ...rawOptions} = options;
 			let title = this.title;
 			if (optRawTitle && this._rawTitle.includes('\x01')) {
@@ -1056,7 +1056,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		/** @hidden */
 		_clone() {
-			return new MalformedTemplate(this._initializer);
+			return new RawTemplate(this._initializer);
 		}
 
 	}
@@ -1453,7 +1453,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 	}
 
-	return {Template, ParsedTemplate, MalformedTemplate, ParserFunction, ParsedParserFunction};
+	return {Template, ParsedTemplate, RawTemplate, ParserFunction, ParsedParserFunction};
 
 }
 
@@ -1468,7 +1468,7 @@ export type ParsedTemplate = ReturnType<typeof TemplateFactory>['ParsedTemplate'
 /**
  * @internal
  */
-export type MalformedTemplate = ReturnType<typeof TemplateFactory>['MalformedTemplate'];
+export type RawTemplate = ReturnType<typeof TemplateFactory>['RawTemplate'];
 /**
  * @internal
  */
@@ -1556,7 +1556,7 @@ export type TemplateParameterHierarchies = string[][];
 interface TemplateTypeMap {
 	Template: Template;
 	ParsedTemplate: ParsedTemplate;
-	MalformedTemplate: MalformedTemplate;
+	RawTemplate: RawTemplate;
 	ParserFunction: ParserFunction;
 	ParsedParserFunction: ParsedParserFunction;
 }
@@ -1565,7 +1565,7 @@ interface TemplateTypeMap {
  * Options for {@link Template.stringify}.
  *
  * @template T For {@link Template} and {@link ParsedTemplate}, this is an instance of {@link Title}.
- * For {@link MalformedTemplate}, this is a string.
+ * For {@link RawTemplate}, this is a string.
  */
 export interface TemplateOutputConfig<T> {
 	/**
@@ -1609,7 +1609,7 @@ export interface TemplateOutputConfig<T> {
 /**
  * Options for {@link ParsedTemplate.stringify}.
  *
- * This interface differs from {@link MalformedTemplateOutputConfig} in that the argument of
+ * This interface differs from {@link RawTemplateOutputConfig} in that the argument of
  * {@link brPredicateTitle} is an instance of {@link Title} instead of a string.
  */
 export interface ParsedTemplateOutputConfig extends TemplateOutputConfig<InstanceType<Title>> {
@@ -1625,15 +1625,15 @@ export interface ParsedTemplateOutputConfig extends TemplateOutputConfig<Instanc
 }
 
 /**
- * Options for {@link MalformedTemplate.stringify}.
+ * Options for {@link RawTemplate.stringify}.
  *
  * This interface differs from {@link ParsedTemplateOutputConfig} in that the argument of
  * {@link brPredicateTitle} is a string instead of an instance of {@link Title}.
  */
-export interface MalformedTemplateOutputConfig extends TemplateOutputConfig<string> {
+export interface RawTemplateOutputConfig extends TemplateOutputConfig<string> {
 	/**
 	 * Whether to preserve redundant characters surrounding the title, as found in
-	 * {@link MalformedTemplate.rawTitle | rawTitle}.
+	 * {@link RawTemplate.rawTitle | rawTitle}.
 	 *
 	 * Where possible, use {@link prepend} and {@link append} instead.
 	 *
@@ -1643,7 +1643,7 @@ export interface MalformedTemplateOutputConfig extends TemplateOutputConfig<stri
 }
 
 /**
- * The initializer object for ParsedTemplate and MalformedTemplate constructors.
+ * The initializer object for ParsedTemplate and RawTemplate constructors.
  * @internal
  */
 interface ParsedTemplateInitializer {

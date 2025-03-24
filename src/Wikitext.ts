@@ -10,7 +10,7 @@ import { deepCloneInstance, isClassInstance, mergeDeep } from './Util';
 import type { Title } from './Title';
 import type {
 	ParsedTemplate,
-	MalformedTemplate,
+	RawTemplate,
 	ParsedParserFunction,
 	NewTemplateParameter,
 	TemplateParameterHierarchies,
@@ -20,7 +20,7 @@ import type {
 /**
  * @expand
  */
-type DoubleBracedClasses = ParsedTemplate | MalformedTemplate | ParsedParserFunction;
+type DoubleBracedClasses = ParsedTemplate | RawTemplate | ParsedParserFunction;
 
 /**
  * @internal
@@ -28,7 +28,7 @@ type DoubleBracedClasses = ParsedTemplate | MalformedTemplate | ParsedParserFunc
 export function WikitextFactory(
 	mw: Mwbot,
 	ParsedTemplate: ParsedTemplate,
-	MalformedTemplate: MalformedTemplate,
+	RawTemplate: RawTemplate,
 	ParsedParserFunction: ParsedParserFunction
 ) {
 
@@ -319,7 +319,7 @@ export function WikitextFactory(
 		 * 		</tr>
 		 * 		<tr>
 		 * 			<td>templates</td>
-		 * 			<td>An array of {@link ParsedTemplate}, {@link ParsedParserFunction}, or {@link MalformedTemplate}</td>
+		 * 			<td>An array of {@link ParsedTemplate}, {@link ParsedParserFunction}, or {@link RawTemplate}</td>
 		 * 		</tr>
 		 * 		<tr>
 		 * 			<td>wikilinks</td>
@@ -1352,7 +1352,7 @@ export function WikitextFactory(
 							try {
 								temp = new ParsedTemplate(initializer, options);
 							} catch {
-								temp = new MalformedTemplate(initializer, options);
+								temp = new RawTemplate(initializer, options);
 							}
 						}
 						templates.push(temp);
@@ -1400,7 +1400,7 @@ export function WikitextFactory(
 		 * This method parses any double-braced markups, including magic words and parser functions.
 		 *
 		 * @param config Config to filter the output.
-		 * @returns An array of {@link ParsedTemplate}, {@link ParsedParserFunction}, and {@link MalformedTemplate} instances.
+		 * @returns An array of {@link ParsedTemplate}, {@link ParsedParserFunction}, and {@link RawTemplate} instances.
 		 */
 		parseTemplates(config: ParseTemplatesConfig = {}): InstanceType<DoubleBracedClasses>[] {
 			const {hierarchies, titlePredicate, templatePredicate} = config;
@@ -1961,7 +1961,7 @@ export interface ParseTemplatesConfig {
 	 * A predicate function to filter templates by title.
 	 * Only templates whose titles satisfy this function will be included in the results.
 	 *
-	 * @param title A Title object for ParsedTemplate, or a string for MalformedTemplate and ParsedParserFunction.
+	 * @param title A Title object for ParsedTemplate, or a string for RawTemplate and ParsedParserFunction.
 	 * @returns `true` if the template should be parsed, otherwise `false`.
 	 */
 	titlePredicate?: (title: InstanceType<Title> | string) => boolean;
