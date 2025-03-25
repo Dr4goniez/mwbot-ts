@@ -666,8 +666,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 *
 		 * **Example**:
 		 * ```ts
-		 * const wikitext = new mwbot.Wikitext('{{Foo}}');
-		 * const foo = wikitext.parseTemplates()[0];
+		 * const [foo] = new mwbot.Wikitext('{{Foo}}').parseTemplates();
 		 * foo instanceof mwbot.Template; // true
 		 * mwbot.Template.is(foo, 'ParsedTemplate'); // true
 		 * mwbot.Template.is(foo, 'RawTemplate'); // false
