@@ -55,6 +55,7 @@ const { mergeDeep, isPlainObject, sleep, isEmptyObject, arraysEqual } = Util;
 import * as mwString from './String';
 import { TitleFactory, Title } from './Title';
 import { TemplateFactory, Template, ParserFunction } from './Template';
+import { WikilinkFactory, Wikilink, FileWikilink, RawWikilink } from './Wikilink';
 import { WikitextFactory, Wikitext } from './Wikitext';
 
 /**
@@ -187,6 +188,39 @@ export class Mwbot {
 		return this._ParserFunction;
 	}
 	/**
+	 * Wikilink class for this instance.
+	 */
+	protected _Wikilink: Wikilink;
+	/**
+	 * Wikilink class for this instance.
+	 */
+	get Wikilink() {
+		this.checkInit();
+		return this._Wikilink;
+	}
+	/**
+	 * FileWikilink class for this instance.
+	 */
+	protected _FileWikilink: FileWikilink;
+	/**
+	 * FileWikilink class for this instance.
+	 */
+	get FileWikilink() {
+		this.checkInit();
+		return this._FileWikilink;
+	}
+	/**
+	 * RawWikilink class for this instance.
+	 */
+	protected _RawWikilink: RawWikilink;
+	/**
+	 * RawWikilink class for this instance.
+	 */
+	get RawWikilink() {
+		this.checkInit();
+		return this._RawWikilink;
+	}
+	/**
 	 * Wikitext class for this instance.
 	 */
 	protected _Wikitext: Wikitext;
@@ -242,6 +276,9 @@ export class Mwbot {
 		this._Title = Object.create(null);
 		this._Template = Object.create(null);
 		this._ParserFunction = Object.create(null);
+		this._Wikilink = Object.create(null);
+		this._FileWikilink = Object.create(null);
+		this._RawWikilink = Object.create(null);
 		this._Wikitext = Object.create(null);
 
 	}
@@ -476,7 +513,11 @@ export class Mwbot {
 		const {Template, ParsedTemplate, RawTemplate, ParserFunction, ParsedParserFunction} = TemplateFactory(config, this._info, this._Title);
 		this._ParserFunction = ParserFunction;
 		this._Template = Template;
-		this._Wikitext = WikitextFactory(this, ParsedTemplate, RawTemplate, ParsedParserFunction);
+		const {Wikilink, ParsedWikilink, FileWikilink, ParsedFileWikilink, RawWikilink, ParsedRawWikilink} = WikilinkFactory(config, this._Title);
+		this._Wikilink = Wikilink;
+		this._FileWikilink = FileWikilink;
+		this._RawWikilink = RawWikilink;
+		this._Wikitext = WikitextFactory(this, ParsedTemplate, RawTemplate, ParsedParserFunction, ParsedWikilink, ParsedFileWikilink, ParsedRawWikilink);
 
 		console.log('Connection established: ' + config.get('wgServerName'));
 		return this;

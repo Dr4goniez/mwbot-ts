@@ -16,11 +16,20 @@ import type {
 	TemplateParameterHierarchies,
 	ParsedTemplateOptions
 } from './Template';
+import type {
+	ParsedWikilink,
+	ParsedFileWikilink,
+	ParsedRawWikilink
+} from './Wikilink';
 
 /**
  * @expand
  */
 type DoubleBracedClasses = ParsedTemplate | RawTemplate | ParsedParserFunction;
+/**
+ * @expand
+ */
+type DoubleBracketedClasses = ParsedWikilink | ParsedFileWikilink | ParsedRawWikilink;
 
 /**
  * @internal
@@ -29,7 +38,10 @@ export function WikitextFactory(
 	mw: Mwbot,
 	ParsedTemplate: ParsedTemplate,
 	RawTemplate: RawTemplate,
-	ParsedParserFunction: ParsedParserFunction
+	ParsedParserFunction: ParsedParserFunction,
+	ParsedWikilink: ParsedWikilink,
+	ParsedFileWikilink: ParsedFileWikilink,
+	ParsedRawWikilink: ParsedRawWikilink
 ) {
 
 	const namespaceIds = mw.config.get('wgNamespaceIds');
@@ -110,7 +122,7 @@ export function WikitextFactory(
 			sections: Section[] | null;
 			wikilinks_fuzzy: FuzzyWikilink[] | null;
 			templates: InstanceType<DoubleBracedClasses>[] | null;
-			wikilinks: (Wikilink | FileWikilink)[] | null;
+			wikilinks: InstanceType<DoubleBracketedClasses>[] | null;
 		};
 		/**
 		 * The names of tags in which elements shouldn't be parsed.
@@ -350,7 +362,7 @@ export function WikitextFactory(
 		 * 		</tr>
 		 * 		<tr>
 		 * 			<td>wikilinks</td>
-		 * 			<td>An array of {@link Wikilink} or {@link FileWikilink}</td>
+		 * 			<td>An array of {@link ParsedWikilink}, {@link ParsedFileWikilink}, or {@link ParsedRawWikilink}</td>
 		 * 		</tr>
 		 * 	</tbody>
 		 * </table>
@@ -654,12 +666,13 @@ export function WikitextFactory(
 		 * @returns An array of {@link Tag} objects.
 		 */
 		parseTags(config: ParseTagsConfig = {}): Tag[] {
+			const {namePredicate, tagPredicate} = config;
 			let tags = this.storageManager('tags');
-			if (typeof config.namePredicate === 'function') {
-				tags = tags.filter(({name}) => config.namePredicate!(name));
+			if (typeof namePredicate === 'function') {
+				tags = tags.filter(({name}) => namePredicate(name));
 			}
-			if (typeof config.tagPredicate === 'function') {
-				tags = tags.filter((obj) => config.tagPredicate!(obj));
+			if (typeof tagPredicate === 'function') {
+				tags = tags.filter((obj) => tagPredicate(obj));
 			}
 			return tags;
 		}
@@ -881,9 +894,10 @@ export function WikitextFactory(
 		 * @returns An array of parsed sections.
 		 */
 		parseSections(config: ParseSectionsConfig = {}): Section[] {
+			const {sectionPredicate} = config;
 			let sections = this.storageManager('sections');
-			if (typeof config.sectionPredicate === 'function') {
-				sections = sections.filter((sec) => config.sectionPredicate!(sec));
+			if (typeof sectionPredicate === 'function') {
+				sections = sections.filter((sec) => sectionPredicate(sec));
 			}
 			return sections;
 		}
@@ -1024,12 +1038,13 @@ export function WikitextFactory(
 		 * @returns An array of parsed parameters.
 		 */
 		parseParameters(config: ParseParametersConfig = {}): Parameter[] {
+			const {namePredicate, parameterPredicate} = config;
 			let parameters = this.storageManager('parameters');
-			if (typeof config.namePredicate === 'function') {
-				parameters = parameters.filter(({name}) => config.namePredicate!(name));
+			if (typeof namePredicate === 'function') {
+				parameters = parameters.filter(({name}) => namePredicate(name));
 			}
-			if (typeof config.parameterPredicate === 'function') {
-				parameters = parameters.filter((param) => config.parameterPredicate!(param));
+			if (typeof parameterPredicate === 'function') {
+				parameters = parameters.filter((param) => parameterPredicate(param));
 			}
 			return parameters;
 		}
@@ -1100,8 +1115,8 @@ export function WikitextFactory(
 
 			// Process fuzzy [[wikilink]]s
 			if (options.wikilinks_fuzzy) {
-				this.storageManager('wikilinks_fuzzy', false).forEach(({text, startIndex, left, right}) => {
-					const innerStartIndex = startIndex + 2 + left.length + 1;
+				this.storageManager('wikilinks_fuzzy', false).forEach(({text, startIndex, rawTitle, right}) => {
+					const innerStartIndex = startIndex + 2 + rawTitle.length + 1;
 					indexMap[startIndex] = {
 						text,
 						type: 'wikilink_fuzzy',
@@ -1137,13 +1152,14 @@ export function WikitextFactory(
 		 * Fuzzily parses `[[wikilink]]`s in the wikitext. The right operand (i.e., `[[left|right]]`) will be incomplete.
 		 *
 		 * @param indexMap Optional index map to re-use.
+		 * @param nestLevel Nesting level of the parsing fuzzy wikilinks. Only passed from inside this method.
 		 * @param skip Whether we are parsing wikilinks inside skip tags. (Default: `false`)
 		 * @param wikitext Alternative wikitext to parse. Should be passed when parsing nested wikilinks.
 		 * All characters before the range where there can be nested wikilinks should be replaced with `\x01`.
 		 * This method skips sequences of this control character, to reach the range early and efficiently.
 		 * @returns An array of fuzzily parsed wikilinks.
 		 */
-		private _parseWikilinksFuzzy(indexMap = this.getIndexMap(), skip = false, wikitext = this.content): FuzzyWikilink[] {
+		private _parseWikilinksFuzzy(indexMap = this.getIndexMap(), nestLevel = 0, skip = false, wikitext = this.content): FuzzyWikilink[] {
 
 			/**
 			 * Regular expressions to parse `[[wikilink]]`s.
@@ -1158,13 +1174,12 @@ export function WikitextFactory(
 			 */
 			const regex = {
 				start: /^\[{2}(?!\[)/,
-				end: /^\]{2}/,
-				leftEndsWithPipe: /\|$/
+				end: /^\]{2}/
 			};
 			const links: FuzzyWikilink[] = [];
 			let inLink = false;
 			let startIndex = 0;
-			let left = '';
+			let title = '';
 			let rawTitle = '';
 			let isLeftSealed = false;
 
@@ -1189,7 +1204,7 @@ export function WikitextFactory(
 						if (text.includes('[[') && text.includes(']]')) {
 							// Parse wikilinks inside the skip tag
 							links.push(
-								...this._parseWikilinksFuzzy(indexMap, true, '\x01'.repeat(start) + text)
+								...this._parseWikilinksFuzzy(indexMap, nestLevel + 1, true, '\x01'.repeat(start) + text)
 							);
 						}
 					}
@@ -1204,7 +1219,7 @@ export function WikitextFactory(
 					// Regard any occurrence of "[[" as the potential start of a wikilink
 					inLink = true;
 					startIndex = i;
-					left = '';
+					title = '';
 					rawTitle = '';
 					isLeftSealed = false;
 					i++;
@@ -1212,33 +1227,36 @@ export function WikitextFactory(
 					const endIndex = i + 2;
 					const text = wikitext.slice(startIndex, endIndex);
 					let right: string | null = null;
-					if (regex.leftEndsWithPipe.test(left)) {
+					if (title.endsWith('|')) {
 						right = wikitext.slice(startIndex + 2 + rawTitle.length, endIndex - 2) ||
 							// Let empty strings fall back to null
-							// Links like [[left|]] aren't expected to exist because of "pipe tricks",
+							// Links like [[title|]] aren't expected to exist because of "pipe tricks",
 							// and even if any, they aren't recognized as links but as raw texts.
 							// See https://en.wikipedia.org/wiki/Help:Pipe_trick
 							null;
-						left = left.slice(0, -1);
+						title = title.slice(0, -1); // Remove the trailing pipe
+						rawTitle = rawTitle.slice(0, -1);
 					}
 					links.push({
-						left,
 						right,
-						title: mw.Title.newFromText(left),
-						rawTitle: rawTitle.replace(regex.leftEndsWithPipe, ''),
+						title,
+						rawTitle,
 						text,
-						piped: right !== null,
 						startIndex,
 						endIndex,
+						nestLevel,
 						skip
 					});
 					inLink = false;
 					i++;
 				} else if (inLink && !isLeftSealed) {
+					// TODO: This doesn't work well if the tile contains {{{parameter}}}s or {{template}}s
+					// with a pipe character, e.g., `[[H:NS#{{ns|{{{nsId}}}}}|{{ns|{{{nsId}}}}}]]`, where
+					// `title` is parsed as "H:NS#{{ns"
 					if (wkt[0] === '|') {
 						isLeftSealed = true;
 					}
-					left += wkt[0]; // A sealed "left" ends with a pipe
+					title += wkt[0]; // A sealed "title" ends with a pipe
 					rawTitle += wkt[0];
 				}
 
@@ -1427,7 +1445,7 @@ export function WikitextFactory(
 		 * This method parses any double-braced markups, including magic words and parser functions.
 		 *
 		 * @param config Config to filter the output.
-		 * @returns An array of {@link ParsedTemplate}, {@link ParsedParserFunction}, and {@link RawTemplate} instances.
+		 * @returns An array of parsed templates.
 		 */
 		parseTemplates(config: ParseTemplatesConfig = {}): InstanceType<DoubleBracedClasses>[] {
 			const {hierarchies, titlePredicate, templatePredicate} = config;
@@ -1459,32 +1477,48 @@ export function WikitextFactory(
 		 *
 		 * @returns An array of parsed wikilinks.
 		 */
-		private _parseWikilinks(): (Wikilink | FileWikilink)[] {
+		private _parseWikilinks(): InstanceType<DoubleBracketedClasses>[] {
 			const indexMap = this.getIndexMap({parameters: true, templates: true});
-			// Deep copy with storageManager to handle Title instances
-			const wikilinks = this.storageManager('wikilinks_fuzzy').reduce((acc: (Wikilink | FileWikilink)[], obj) => {
-				const {left, right, ...rest} = obj;
-				if (rest.title && rest.title.getNamespaceId() === NS_FILE && !rest.title.hadLeadingColon()) {
+			return this.storageManager('wikilinks_fuzzy', false).reduce((acc: InstanceType<DoubleBracketedClasses>[], obj) => {
+
+				const {right, title, ...rest} = obj;
+
+				// Process `rawTitle` and identify the insertion point of `title`
+				let _rawTitle = rest.rawTitle;
+				if (title === rest.rawTitle) {
+					_rawTitle = '\x01';
+				} else {
+					for (let n = 0; n < rest.rawTitle.length; n++) {
+						const realIndex = n + rest.startIndex;
+						if (indexMap[realIndex]) {
+							n += indexMap[realIndex].text.length - 1;
+							continue;
+						}
+						const tempWkt = rest.rawTitle.slice(n);
+						if (tempWkt.startsWith(title)) {
+							_rawTitle = rest.rawTitle.slice(0, n) + tempWkt.replace(title, '\x01');
+							break;
+						}
+					}
+				}
+
+				// Verify the title, process the right part, and create an instance
+				const verifiedTitle = mw.Title.newFromText(title);
+				if (verifiedTitle && verifiedTitle.getNamespaceId() === NS_FILE && !verifiedTitle.hadLeadingColon()) {
+					const params: string[] = [];
 					// This is a [[File:...]] link
 					if (right === null) {
 						// This file link doesn't have any parameters
-						acc.push({
-							...rest,
-							params: []
-						});
+						// Do nothing
 					} else if (!right.includes('|')) {
 						// This file link is like [[File:...|param]]
-						acc.push({
-							...rest,
-							params: [mw.Title.clean(right)]
-						});
+						params.push(mw.Title.clean(right));
 					} else {
 						// This file link is like [[File:...|param1|param2]]
-						const params: string[] = [];
 						let text = '';
 						for (let i = 0; i < right.length; i++) {
-							// start index + [[ + left + | + i
-							const realIndex = rest.startIndex + 2 + left.length + 1 + i;
+							// start index + [[ + rawTitle + | + i
+							const realIndex = rest.startIndex + 2 + rest.rawTitle.length + 1 + i;
 							let expr;
 							if (indexMap[realIndex] &&
 								// Ensure the param line doesn't overflow the end of this wikilink
@@ -1504,21 +1538,35 @@ export function WikitextFactory(
 							}
 						}
 						params.push(text); // Push the remaining file link parameter
-						acc.push({
-							...rest,
-							params
-						});
 					}
-				} else {
+					const initializer = {
+						params,
+						_rawTitle,
+						title: verifiedTitle,
+						...rest
+					};
+					acc.push(new ParsedFileWikilink(initializer));
+				} else if (verifiedTitle) {
 					// This is a normal [[wikilink]], including [[:File:...]]
-					acc.push({
-						...rest,
-						display: mw.Title.clean(right ?? left)
-					});
+					const initializer = {
+						display: right || undefined,
+						_rawTitle,
+						title: verifiedTitle,
+						...rest
+					};
+					acc.push(new ParsedWikilink(initializer));
+				} else {
+					// `title` is invalid or unparsable
+					const initializer = {
+						display: right || undefined,
+						_rawTitle,
+						title,
+						...rest
+					};
+					acc.push(new ParsedRawWikilink(initializer));
 				}
 				return acc;
 			}, []);
-			return wikilinks;
 		}
 
 		/**
@@ -1527,13 +1575,14 @@ export function WikitextFactory(
 		 * @param config Config to filter the output.
 		 * @returns An array of parsed wikilinks.
 		 */
-		parseWikilinks(config: ParseWikilinksConfig = {}): (Wikilink | FileWikilink)[] {
+		parseWikilinks(config: ParseWikilinksConfig = {}): InstanceType<DoubleBracketedClasses>[] {
+			const {titlePredicate, wikilinkPredicate} = config;
 			let wikilinks = this.storageManager('wikilinks');
-			if (typeof config.titlePredicate === 'function') {
-				wikilinks = wikilinks.filter(({title}) => config.titlePredicate!(title));
+			if (typeof titlePredicate === 'function') {
+				wikilinks = wikilinks.filter(({title}) => titlePredicate(title));
 			}
-			if (typeof config.wikilinkPredicate === 'function') {
-				wikilinks = wikilinks.filter((link) => config.wikilinkPredicate!(link));
+			if (typeof wikilinkPredicate === 'function') {
+				wikilinks = wikilinks.filter((link) => wikilinkPredicate(link));
 			}
 			return wikilinks;
 		}
@@ -1546,7 +1595,7 @@ export function WikitextFactory(
 		 * @param modificationPredicate
 		 * @returns
 		 */
-		modifyWikilinks(modificationPredicate: ModificationPredicate<Wikilink | FileWikilink>): Promise<string> {
+		modifyWikilinks(modificationPredicate: ModificationPredicate<InstanceType<DoubleBracketedClasses>>): Promise<string> {
 			return this.modify('wikilinks', modificationPredicate);
 		}
 
@@ -1620,7 +1669,7 @@ export interface ModificationMap {
 	parameters: Parameter;
 	sections: Section;
 	templates: InstanceType<DoubleBracedClasses>;
-	wikilinks: Wikilink | FileWikilink;
+	wikilinks: InstanceType<DoubleBracketedClasses>;
 }
 
 // Interfaces and private members for "parseTags"
@@ -1903,17 +1952,20 @@ export interface ParseParametersConfig {
 // Interfaces and private members for "parseWikilinksFuzzy"
 
 /**
- * Object that holds basic information about a `[[wikilink]]`, parsed from wikitext.
+ * Object that holds information about a fuzzily parsed `[[wikilink]]`.
+ * The right operand of the link needs to be parsed for the object to be a complete construct.
+ * @private
  */
-export interface BaseWikilink {
+export interface FuzzyWikilink {
 	/**
-	 * The target title of the wikilink (the part before the `|`).
-	 * This can be `null` if the title is invalid.
-	 *
-	 * NOTE: Wikilinks with an invalid title aren't rendered as links (e.g., `[[{|foo]]`).
-	 * However, they could be valid after applying rendering transformations (e.g., `[[{{{paremeter}}}]]`).
+	 * The right operand.
 	 */
-	title: InstanceType<Title> | null;
+	right: string | null;
+	/**
+	 * The target title of the wikilink (the part before the `|`). This is a string that is ready to be
+	 * passed to the Title constructor.
+	 */
+	title: string;
 	/**
 	 * The raw target title, as directly parsed from the first operand of a `[[wikilink|...]]` expression.
 	 */
@@ -1931,33 +1983,13 @@ export interface BaseWikilink {
 	 */
 	endIndex: number;
 	/**
-	 * Whether the wikilink contains a pipe (`|`) separator.
+	 * The nesting level of this wikilink. `0` if not nested within another double-bracketed expression.
 	 */
-	piped: boolean;
+	nestLevel: number;
 	/**
 	 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
 	 */
 	skip: boolean;
-}
-
-/**
- * Object that holds information about a fuzzily parsed `[[wikilink]]`.
- * The right operand of the link needs to be parsed for the object to be a complete construct.
- *
- * This interface extends {@link BaseWikilink} and contains the additional {@link left} and
- * {@link right} properties.
- *
- * @private
- */
-export interface FuzzyWikilink extends BaseWikilink {
-	/**
-	 * The left operand.
-	 */
-	left: string;
-	/**
-	 * The right operand.
-	 */
-	right: string | null;
 }
 
 // Interfaces and private members for "parseTemplates"
@@ -2077,34 +2109,6 @@ function processTemplateFragment(components: Required<NewTemplateParameter>[], f
 // Interfaces and private members for "parseWikilinks"
 
 /**
- * Object that holds information about a `[[wikilink]]`, parsed from wikitext.
- *
- * This interface extends {@link BaseWikilink} and contains the additional {@link display} property.
- */
-export interface Wikilink extends BaseWikilink {
-	/**
-	 * The displayed text of the wikilink (the part after `|`).
-	 *
-	 * This is the trimmed version of `display` in `[[display]]` or `[[target|display]]`.
-	 */
-	display: string;
-}
-
-/**
- * Object that holds information about a `[[filelink]]`, parsed from wikitext.
- *
- * This interface extends {@link BaseWikilink} and contains the additional {@link params} property.
- */
-export interface FileWikilink extends BaseWikilink {
-	/**
-	 * The parameters of the file link (the part after `|`).
-	 *
-	 * These are the trimmed versions of `param(s)` in `[[file title|...params]]`.
-	 */
-	params: string[];
-}
-
-/**
  * Configuration options for {@link Wikitext.parseWikilinks}.
  */
 export interface ParseWikilinksConfig {
@@ -2112,10 +2116,11 @@ export interface ParseWikilinksConfig {
 	 * A predicate function to filter wikilinks by title.
 	 * Only wikilinks whose titles satisfy this function will be included in the results.
 	 *
-	 * @param title A Title object representing the wikilink. Could be `null` if the title is invalid.
+	 * @param title A Title object for {@link ParsedWikilink} and {@link ParsedFileWikilink}
+	 * instances, or a string for {@link ParsedRawWikilink} instances.
 	 * @returns `true` if the wikilink should be parsed, otherwise `false`.
 	 */
-	titlePredicate?: (title: InstanceType<Title> | null) => boolean;
+	titlePredicate?: (title: string | InstanceType<Title>) => boolean;
 	/**
 	 * A predicate function to filter parsed wikilinks.
 	 * Only wikilinks that satisfy this function will be included in the results.
@@ -2123,5 +2128,5 @@ export interface ParseWikilinksConfig {
 	 * @param wikilink The (file) wikilink object.
 	 * @returns `true` if the wikilink should be included, otherwise `false`.
 	 */
-	wikilinkPredicate?: (wikilink: Wikilink | FileWikilink) => boolean;
+	wikilinkPredicate?: (wikilink: InstanceType<DoubleBracketedClasses>) => boolean;
 }

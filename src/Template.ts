@@ -213,6 +213,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				title = Title.clean(title);
 				const namespace = title[0] === ':' ? NS_MAIN : NS_TEMPLATE; // TODO: Handle "/" (subpage) and "#" (in-page section)?
 				title = new Title(title, namespace);
+			} else {
+				title = new Title(title.getPrefixedDb({colon: true, fragment: true}));
 			}
 			if (!title.getMain()) {
 				throw new Error('The empty title cannot be transcluded.');
@@ -706,7 +708,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		/**
-		 * Set a new title on the instance.
+		 * Set a new title to the instance.
 		 *
 		 * @param title The new title to set.
 		 * @param verbose Whether to log errors. (Default: `false`)
@@ -822,7 +824,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		/**
-		 * Sets a new title on the instance.
+		 * Sets a new title to the instance.
 		 *
 		 * @param title The new title to set.
 		 * @param verbose Whether to log errors. (Default: `false`)
@@ -1440,6 +1442,7 @@ export type TemplateParameterHierarchies = string[][];
 
 /**
  * Helper interface for {@link Template.is}.
+ * @private
  */
 interface TemplateTypeMap {
 	Template: Template;
