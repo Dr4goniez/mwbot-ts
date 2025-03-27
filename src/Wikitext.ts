@@ -751,6 +751,9 @@ export function WikitextFactory(
 		 */
 		private getSkipPredicate(): (startIndex: number, endIndex: number) => boolean {
 
+			if (!this.skipTags.join('')) {
+				return () => false;
+			}
 			const rSkipTags = new RegExp(`^(?:${this.skipTags.join('|')})$`);
 
 			// Create an array to store the start and end indices of tags to skip
@@ -1081,6 +1084,7 @@ export function WikitextFactory(
 			const rSkipTags = new RegExp(`^(?:${this.skipTags.join('|')})$`);
 			this.storageManager('tags', false).forEach(({text, startIndex, name, content}) => {
 				if (rSkipTags.test(name)) {
+					// `inner` is the innerHTML of the tag
 					const inner = (() => {
 						if (content === null) {
 							return null;
@@ -1099,8 +1103,8 @@ export function WikitextFactory(
 			// Process {{{parameter}}}s
 			if (options.parameters) {
 				this.storageManager('parameters', false).forEach(({text, startIndex}) => {
-					// Wish we could use the d flag from ES2022!
-					const m = /^(\{{3}[^|}]*\|)([^}]+)\}{3}$/.exec(text);
+					const m = /^(\{{3}[^|}]*\|)(.+)\}{3}$/.exec(text);
+					// `inner` is the right operand of the parameter
 					const inner = m && {
 						start: startIndex + m[1].length,
 						end: startIndex + m[1].length + m[2].length
@@ -1115,31 +1119,43 @@ export function WikitextFactory(
 
 			// Process fuzzy [[wikilink]]s
 			if (options.wikilinks_fuzzy) {
-				this.storageManager('wikilinks_fuzzy', false).forEach(({text, startIndex, rawTitle, right}) => {
-					const innerStartIndex = startIndex + 2 + rawTitle.length + 1;
+				this.storageManager('wikilinks_fuzzy', false).forEach(({text, startIndex, endIndex}) => {
+					// `inner` is the inner text of the wikilink (the text without "[[" and "]]")
+					const inner = (() => {
+						const start = startIndex + 2;
+						const end = endIndex - 2;
+						return end - start > 1 ? {start, end} : null;
+					})();
 					indexMap[startIndex] = {
 						text,
 						type: 'wikilink_fuzzy',
-						inner: right === null ? null : {
-							start: innerStartIndex,
-							end: innerStartIndex + right.length
-						}
+						inner
 					};
 				});
 			}
 
-			// Process fuzzy {{template}}s
+			// Process {{template}}s
 			if (options.templates) {
 				this.storageManager('templates', false).forEach((obj) => {
-					const {text, startIndex, params, endIndex} = obj;
-					const rawTitle = 'rawTitle' in obj ? obj.rawTitle : obj.rawHook;
+					const {text, startIndex, endIndex} = obj;
+					let rawTitle;
+					let isTemplate = true;
+					if ('rawTitle' in obj) {
+						rawTitle = obj.rawTitle;
+					} else {
+						rawTitle = obj.rawHook;
+						isTemplate = false;
+					}
+					// `inner` is, for templates, their right operand, and for parser functions, the text after their hook
+					const inner = (() => {
+						const start = startIndex + 2 + rawTitle.length + (isTemplate ? 1 : 0);
+						const end = endIndex - 2;
+						return end - start > 1 ? {start, end} : null;
+					})();
 					indexMap[startIndex] = {
 						text,
 						type: 'template',
-						inner: !params.length ? null : { // TODO: Not used anywhere
-							start: startIndex + 2 + rawTitle.length + 1,
-							end: endIndex - 2
-						}
+						inner
 					};
 				});
 			}
@@ -1159,7 +1175,14 @@ export function WikitextFactory(
 		 * This method skips sequences of this control character, to reach the range early and efficiently.
 		 * @returns An array of fuzzily parsed wikilinks.
 		 */
-		private _parseWikilinksFuzzy(indexMap = this.getIndexMap(), nestLevel = 0, skip = false, wikitext = this.content): FuzzyWikilink[] {
+		private _parseWikilinksFuzzy(
+			// Must not include `{templates: true}` because `parseTemplates` uses the index map of `wikilinks_fuzzy`
+			// If included, that will be circular
+			indexMap = this.getIndexMap({parameters: true}),
+			isInSkipRange = this.getSkipPredicate(),
+			nestLevel = 0,
+			wikitext = this.content
+		): FuzzyWikilink[] {
 
 			/**
 			 * Regular expressions to parse `[[wikilink]]`s.
@@ -1195,16 +1218,24 @@ export function WikitextFactory(
 					continue;
 				}
 
-				// Skip over skip tags
+				// Skip or deep-parse certain expressions
 				if (indexMap[i]) {
-					const {inner} = indexMap[i]; // The index map of skip tags (only)
+					const {inner} = indexMap[i];
 					if (inner && inner.end <= wikitext.length) {
 						const {start, end} = inner;
-						const text = wikitext.slice(start, end); // innerHTML of the skip tag
+						// innerHTML of a skip tag or the right operand of a parameter
+						// TODO: This can cause a bug if the left operand of the parameter contains a nested wikilink,
+						// but could there be any occurrence of `{{{ [[wikilink]] | right }}}`?
+						// Modify getIndexMap() in case it turns out that this needs to be handled
+						const text = wikitext.slice(start, end);
 						if (text.includes('[[') && text.includes(']]')) {
-							// Parse wikilinks inside the skip tag
+							// Parse wikilinks inside the expressions
 							links.push(
-								...this._parseWikilinksFuzzy(indexMap, nestLevel + 1, true, '\x01'.repeat(start) + text)
+								// TODO: `nestLevel` is inaccurate here because there's no guarantee that the wikilinks
+								// inside the expressions handled here are actually nested inside a wrapper wikilink
+								// TODO: Remove `nestLevel` entirely because it doesn't make sense for a wikilink to
+								// nest another wikilink
+								...this._parseWikilinksFuzzy(indexMap, isInSkipRange, nestLevel + 1, '\x01'.repeat(start) + text)
 							);
 						}
 					}
@@ -1245,14 +1276,11 @@ export function WikitextFactory(
 						startIndex,
 						endIndex,
 						nestLevel,
-						skip
+						skip: isInSkipRange(startIndex, endIndex)
 					});
 					inLink = false;
 					i++;
 				} else if (inLink && !isLeftSealed) {
-					// TODO: This doesn't work well if the tile contains {{{parameter}}}s or {{template}}s
-					// with a pipe character, e.g., `[[H:NS#{{ns|{{{nsId}}}}}|{{ns|{{{nsId}}}}}]]`, where
-					// `title` is parsed as "H:NS#{{ns"
 					if (wkt[0] === '|') {
 						isLeftSealed = true;
 					}
@@ -1280,8 +1308,8 @@ export function WikitextFactory(
 		private _parseTemplates(
 			options: ParsedTemplateOptions = {},
 			indexMap = this.getIndexMap({parameters: true, wikilinks_fuzzy: true}),
+			isInSkipRange = this.getSkipPredicate(),
 			nestLevel = 0,
-			skip = false,
 			wikitext = this.content
 		): InstanceType<DoubleBracedClasses>[] {
 
@@ -1308,16 +1336,26 @@ export function WikitextFactory(
 				// Skip or deep-parse certain expressions
 				if (indexMap[i]) {
 					if (numUnclosed !== 0) {
+						// TODO: `nonNameComponent` should be true only for skip tags
 						processTemplateFragment(components, indexMap[i].text, {nonNameComponent: true});
 					}
-					const inner = indexMap[i].inner;
-					if (inner && inner.end <= wikitext.length) {
-						// Parse templates inside the expressions
+					/**
+					 * Parse the inner content of this expression only if `nestLevel` is 0.
+					 *
+					 * Given a structure like "{{ temp | [[{{PAGENAME}}]] }}":
+					 * - The inner content of "{{temp}}" is parsed again for nested templates when "{{temp}}" is fully processed.
+					 * - However, "{{PAGENAME}}" is already parsed within this block.
+					 *
+					 * We cannot simply remove the `if` block below, as that would cause `indexMap` expressions to be skipped
+					 * entirely, preventing their inner contents from being parsed.
+					 */
+					let inner;
+					if (nestLevel === 0 && (inner = indexMap[i].inner) && inner.end <= wikitext.length) {
 						const {start, end} = inner;
 						const text = wikitext.slice(start, end);
-						if (text.includes('{{')) {
+						if (text.includes('{{') && text.includes('}}')) {
 							templates.push(
-								...this._parseTemplates(options, indexMap, nestLevel, indexMap[i].type === 'tag', '\x01'.repeat(inner.start) + text)
+								...this._parseTemplates(options, indexMap, isInSkipRange, nestLevel, '\x01'.repeat(inner.start) + text)
 							);
 						}
 					}
@@ -1384,7 +1422,7 @@ export function WikitextFactory(
 							startIndex,
 							endIndex,
 							nestLevel,
-							skip
+							skip: isInSkipRange(startIndex, endIndex)
 						};
 						let temp: InstanceType<DoubleBracedClasses>;
 						try {
@@ -1402,9 +1440,9 @@ export function WikitextFactory(
 						}
 						templates.push(temp);
 						const inner = temp.text.slice(2, -2);
-						if (inner.includes('{{')) {
+						if (inner.includes('{{') && inner.includes('}}')) {
 							templates.push(
-								...this._parseTemplates(options, indexMap, nestLevel + 1, skip, '\x01'.repeat(startIndex + 2) + inner)
+								...this._parseTemplates(options, indexMap, isInSkipRange, nestLevel + 1, '\x01'.repeat(startIndex + 2) + inner)
 							);
 						}
 						numUnclosed -= 2;
@@ -1428,6 +1466,7 @@ export function WikitextFactory(
 						i++;
 					} else {
 						// Just part of the nested template
+						// TODO: Can we make this more efficient by registering multiple characters, not just one?
 						fragment = wkt[0];
 					}
 					processTemplateFragment(components, fragment);
@@ -1478,8 +1517,9 @@ export function WikitextFactory(
 		 * @returns An array of parsed wikilinks.
 		 */
 		private _parseWikilinks(): InstanceType<DoubleBracketedClasses>[] {
+			// Call _parseWikilinksFuzzy() with an index map including templates (this avoids circular calls)
 			const indexMap = this.getIndexMap({parameters: true, templates: true});
-			return this.storageManager('wikilinks_fuzzy', false).reduce((acc: InstanceType<DoubleBracketedClasses>[], obj) => {
+			return this._parseWikilinksFuzzy(indexMap).reduce((acc: InstanceType<DoubleBracketedClasses>[], obj) => {
 
 				const {right, title, ...rest} = obj;
 
