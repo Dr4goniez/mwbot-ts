@@ -540,10 +540,6 @@ export function WikitextFactory(
 						);
 					} else {
 						// Store non-void start tags for later matching with end tags.
-						// NOTE: Self-closing tags are invalid in HTML5, but MediaWiki seems to apply
-						// some crazy conversions sometimes. At least, in a markup like:
-						// <span style="color:blue;">aaa<span style="color:red;" />bbb</span>ccc</span>
-						// "bbb" is colored red, indicating that the self-closure is ignored.
 						startTags.unshift({
 							name: nodeName,
 							startIndex: i,
@@ -1728,8 +1724,6 @@ export interface Tag {
 	readonly text: string;
 	/**
 	 * The start tag.
-	 *
-	 * NOTE: The end tag of a void tag is considered to be an end tag. Try `</br>` in WikiEditor.
 	 */
 	start: string;
 	/**
