@@ -51,7 +51,7 @@ import {
 	MwbotErrorConfig // Used in the doc of Mwbot.error
 } from './MwbotError';
 import * as Util from './Util';
-const { mergeDeep, isPlainObject, sleep, isEmptyObject, arraysEqual } = Util;
+const { mergeDeep, isPlainObject, sleep, isEmptyObject, arraysEqual, deepCloneInstance } = Util;
 import * as mwString from './String';
 import { TitleFactory, Title } from './Title';
 import { TemplateFactory, Template, ParserFunction } from './Template';
@@ -1850,7 +1850,7 @@ export class Mwbot {
 	}
 
 	/**
-	 * Create a new page with the given content.
+	 * Creates a new page with the given content.
 	 *
 	 * - To save a content to an (existing) page, use {@link save} instead.
 	 * - To edit an existing page using a transformation predicate, use {@link edit} instead.
@@ -1892,7 +1892,7 @@ export class Mwbot {
 	}
 
 	/**
-	 * Save the given content to a page.
+	 * Saves the given content to a page.
 	 *
 	 * - To create a new page, use {@link create} instead.
 	 * - To edit an existing page using a transformation predicate, use {@link edit} instead.
@@ -1934,73 +1934,212 @@ export class Mwbot {
 	}
 
 	/**
-	 * Read the content of the latest revision of a title from the API.
+	 * Retrieves the latest revision content of a given title from the API.
 	 *
 	 * @param title The page title, either as a string or a {@link Title} instance.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the revision information, or rejecting with {@link MwbotError}.
+	 * @returns A Promise resolving to the revision information.
+	 * @throws If:
+	 * - `title` is neither a string nor a {@link Title} instance.
+	 * - `title` is invalid or empty.
+	 * - `title` is an interwiki title.
+	 * - The requested title does not exist.
 	 */
-	async read(title: string | InstanceType<Title>, requestOptions: MwbotRequestConfig = {}): Promise<Revision> {
-		const validatedTitle = this.prepEdit(title, true);
-		if (validatedTitle instanceof MwbotError) {
-			throw validatedTitle;
+	async read(title: string | InstanceType<Title>, requestOptions?: MwbotRequestConfig): Promise<Revision>;
+	/**
+	 * Retrieves the latest revision contents of multiple titles from the API.
+	 *
+	 * This method returns a Promise resolving to an array of API responses, whose length is exactly the same
+	 * as the input `titles` array. This ensures that each title at a specific index in `titles` will have its
+	 * corresponding response at the same index in the returned array, preserving a strict mapping between inputs
+	 * and outputs.
+	 *
+	 * @param titles An array of the page titles, either as strings or {@link Title} instances, or mixed.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to an array of API responses, with errors for invalid titles at their respective indexes.
+	 */
+	async read(titles: (string | InstanceType<Title>)[], requestOptions?: MwbotRequestConfig): Promise<(Revision | MwbotError)[]>;
+	async read(
+		titles: string | InstanceType<Title> | (string | InstanceType<Title>)[],
+		requestOptions: MwbotRequestConfig = {}
+	): Promise<Revision | (Revision | MwbotError)[]> {
+
+		const titlesTemp = Array.isArray(titles) ? titles : [titles];
+		/**
+		 * The result array, initialized with the same length as `titlesTemp`.
+		 * Each index in this array corresponds to an index in `titlesTemp` to maintain order.
+		 */
+		const ret: (Revision | MwbotError)[] = [
+			// Spread undefined because Array.prototype.reduce skips empty slots
+			// TODO: Remove this spreader if we remove the undefined checker at the bottom of this method
+			...Array(titlesTemp.length)
+		];
+		/**
+		 * Maps canonicalized page titles to their corresponding indexes in `ret`.
+		 * This ensures correct mapping even if duplicate titles exist in `titlesTemp`.
+		 */
+		const titleMap: Record<string, number[]> = Object.create(null);
+		/**
+		 * A chunked list of title batches for API requests. This is used when we need to map
+		 * one error response to multiple titles.
+		 */
+		const multiValues: string[][] = [];
+		/**
+		 * The limit is 50 for `rvprop=content`.
+		 */
+		const apilimit = 50;
+
+		// Pre-process and validate titles
+		let errCount = 0;
+		for (let i = 0; i < titlesTemp.length; i++) {
+			const validatedTitle = this.prepEdit(titlesTemp[i], true);
+			if (validatedTitle instanceof MwbotError) {
+				// Store errors immediately in the corresponding index
+				ret[i] = validatedTitle;
+				errCount++;
+			} else {
+				// Canonicalize all titles as in the API response and remember the array index
+				const page = validatedTitle.getPrefixedText();
+				titleMap[page] = titleMap[page] || [];
+				titleMap[page].push(i);
+				if (!multiValues.length || multiValues[multiValues.length - 1].length === apilimit) {
+					multiValues.push([]);
+				}
+				multiValues[multiValues.length - 1].push(page);
+			}
 		}
-		return this.get({
+
+		// If all titles are invalid, return early without making API requests
+		if (Array.isArray(titles) && errCount === titles.length) {
+			return ret;
+		} else if (!Array.isArray(titles) && errCount === 1) {
+			if (ret[0] instanceof MwbotError) {
+				throw ret[0];
+			} else {
+				throw new Error('[Internal] Unexpected error.');
+			}
+		}
+
+		// Set a twice-as-long timeout because content-fetching is time-consuming
+		if (typeof requestOptions.timeout !== 'number') {
+			requestOptions.timeout = 120 * 1000; // 120 seconds
+		}
+
+		// Perform batch API requests
+		const responses = await this.massRequest({
 			action: 'query',
-			titles: validatedTitle.getPrefixedDb(),
+			titles: multiValues.flat(),
 			prop: 'revisions',
 			rvprop: 'ids|timestamp|user|content',
 			rvslots: 'main',
+			rvlimit: apilimit,
 			curtimestamp: true,
 			formatversion: '2'
-		}, requestOptions)
-		.then((res) => {
-			const resPg = res.query?.pages?.[0];
-			const resRv = resPg?.revisions?.[0];
-			if (!resPg || !resRv) {
-				const err = new MwbotError({
-					code: 'empty',
-					info: 'OK response but empty result.'
-				});
-				err.response = res;
-				throw err;
-			} else if (typeof resPg.pageid !== 'number' || resPg.missing) {
-				const err = new MwbotError({
-					code: 'pagemissing',
-					info: 'The requested page does not exist.'
-				});
-				err.title = resPg.title;
-				throw err;
-			} else if (
-				typeof resRv.revid !== 'number' ||
-				typeof res.curtimestamp !== 'string' ||
-				!resRv.timestamp ||
-				typeof resRv.slots?.main.content !== 'string'
-			) {
-				const err = new MwbotError({
-					code: 'empty',
-					info: 'OK response but empty result.'
-				});
-				err.response = res;
-				throw err;
+		}, 'titles', apilimit, requestOptions);
+
+		// Process the response
+		for (let batchIndex = 0; batchIndex < responses.length; batchIndex++) {
+
+			const res = responses[batchIndex];
+			if (res instanceof MwbotError) {
+				setToAll(res, batchIndex);
+				continue;
 			}
-			return {
-				pageid: resPg.pageid,
-				ns: resPg.ns,
-				title: resPg.title,
-				baserevid: resRv.revid,
-				user: resRv.user, // Could be missing if revdel'd
-				basetimestamp: resRv.timestamp,
-				starttimestamp: res.curtimestamp,
-				content: resRv.slots.main.content
-			};
-		}).catch((err) => {
-			throw err;
-		});
+
+			const resPages = res.query?.pages;
+			if (!resPages) {
+				const err = new MwbotError({
+					code: 'empty',
+					info: 'OK response but empty result.'
+				});
+				setToAll(err, batchIndex);
+				continue;
+			}
+
+			for (const pageObj of resPages) {
+				const resRevision = pageObj.revisions?.[0];
+				let value: Revision | MwbotError;
+				if (typeof pageObj.pageid !== 'number' || pageObj.missing) {
+					value = new MwbotError({
+						code: 'pagemissing',
+						info: 'The requested page does not exist.'
+					});
+					value.title = pageObj.title;
+				} else if (
+					!resRevision ||
+					typeof resRevision.revid !== 'number' ||
+					typeof res.curtimestamp !== 'string' ||
+					!resRevision.timestamp ||
+					typeof resRevision.slots?.main.content !== 'string'
+				) {
+					value = new MwbotError({
+						code: 'empty',
+						info: 'OK response but empty result.'
+					});
+					value.title = pageObj.title;
+				} else {
+					value = {
+						pageid: pageObj.pageid,
+						ns: pageObj.ns,
+						title: pageObj.title,
+						baserevid: resRevision.revid,
+						user: resRevision.user, // Could be missing if revdel'd
+						basetimestamp: resRevision.timestamp,
+						starttimestamp: res.curtimestamp,
+						content: resRevision.slots.main.content
+					};
+				}
+				setToTitle(value, pageObj.title);
+			}
+
+		}
+
+		// At this point there shouldn't be any empty slots in `ret`
+		const emptyIndexes = ret.reduce((acc: number[], el, i) => {
+			if (!el) {
+				acc.push(i);
+			}
+			return acc;
+		}, []);
+		if (emptyIndexes.length) {
+			throw new Error(`[Internal] \`ret\` has empty slots at index ${emptyIndexes.join(', ')}.`);
+		}
+
+		if (Array.isArray(titles)) {
+			return ret;
+		} else {
+			if (ret[0] instanceof Error) {
+				throw ret[0];
+			} else {
+				return ret[0] as Revision;
+			}
+		}
+
+		function setToAll(error: MwbotError, batchIndex: number): void {
+			multiValues[batchIndex].forEach((title) => {
+				titleMap[title].forEach((retIndex, i) => {
+					// Ensure pass-by-value as in JSON outputs
+					ret[retIndex] = i === 0 ? error : deepCloneInstance(error);
+				});
+			});
+		}
+
+		function setToTitle(value: Revision | MwbotError, title: string): void {
+			titleMap[title].forEach((retIndex, i) => {
+				if (i === 0) {
+					ret[retIndex] = value;
+				} else if (value instanceof MwbotError) {
+					ret[retIndex] = deepCloneInstance(value);
+				} else {
+					ret[retIndex] = Object.assign({}, value);
+				}
+			});
+		}
+
 	}
 
 	/**
-	 * Edit an existing page by first fetching its latest revision and applying a transformation
+	 * Edits an existing page by first fetching its latest revision and applying a transformation
 	 * function to modify its content.
 	 *
 	 * This method automatically handles edit conflicts up to 3 times.
