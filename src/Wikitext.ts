@@ -1164,8 +1164,8 @@ export function WikitextFactory(
 		 * Fuzzily parses `[[wikilink]]`s in the wikitext. The right operand (i.e., `[[left|right]]`) will be incomplete.
 		 *
 		 * @param indexMap Optional index map to re-use.
-		 * @param nestLevel Nesting level of the parsing fuzzy wikilinks. Only passed from inside this method.
-		 * @param skip Whether we are parsing wikilinks inside skip tags. (Default: `false`)
+		 * @param isInSkipRange A function that evaluates whether parsed wikilinks are within a skip range.
+		 * Only passed from inside this method.
 		 * @param wikitext Alternative wikitext to parse. Should be passed when parsing nested wikilinks.
 		 * All characters before the range where there can be nested wikilinks should be replaced with `\x01`.
 		 * This method skips sequences of this control character, to reach the range early and efficiently.
@@ -1176,7 +1176,6 @@ export function WikitextFactory(
 			// If included, that will be circular
 			indexMap = this.getIndexMap({parameters: true}),
 			isInSkipRange = this.getSkipPredicate(),
-			nestLevel = 0,
 			wikitext = this.content
 		): FuzzyWikilink[] {
 
@@ -1227,11 +1226,7 @@ export function WikitextFactory(
 						if (text.includes('[[') && text.includes(']]')) {
 							// Parse wikilinks inside the expressions
 							links.push(
-								// TODO: `nestLevel` is inaccurate here because there's no guarantee that the wikilinks
-								// inside the expressions handled here are actually nested inside a wrapper wikilink
-								// TODO: Remove `nestLevel` entirely because it doesn't make sense for a wikilink to
-								// nest another wikilink
-								...this._parseWikilinksFuzzy(indexMap, isInSkipRange, nestLevel + 1, '\x01'.repeat(start) + text)
+								...this._parseWikilinksFuzzy(indexMap, isInSkipRange, '\x01'.repeat(start) + text)
 							);
 						}
 					}
@@ -1271,7 +1266,6 @@ export function WikitextFactory(
 						text,
 						startIndex,
 						endIndex,
-						nestLevel,
 						skip: isInSkipRange(startIndex, endIndex)
 					});
 					inLink = false;
@@ -1293,9 +1287,11 @@ export function WikitextFactory(
 		/**
 		 * Parses `{{template}}` expressions in the wikitext.
 		 *
+		 * @param options Parser options.
 		 * @param indexMap Optional index map to re-use.
+		 * @param isInSkipRange A function that evaluates whether parsed templates are within a skip range.
+		 * Only passed from inside this method.
 		 * @param nestLevel Nesting level of the parsing templates. Only passed from inside this method.
-		 * @param skip Whether we are parsing templates inside skip tags. (Default: `false`)
 		 * @param wikitext Alternative wikitext to parse. Should be passed when parsing nested templates.
 		 * All characters before the range where there can be nested templates should be replaced with `\x01`.
 		 * This method skips sequences of this control character, to reach the range early and efficiently.
@@ -2016,10 +2012,6 @@ export interface FuzzyWikilink {
 	 * The ending index of the wikilink in the wikitext (exclusive).
 	 */
 	endIndex: number;
-	/**
-	 * The nesting level of this wikilink. `0` if not nested within another double-bracketed expression.
-	 */
-	nestLevel: number;
 	/**
 	 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
 	 */

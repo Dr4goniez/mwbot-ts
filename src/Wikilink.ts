@@ -331,10 +331,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 		 */
 		endIndex: number;
 		/**
-		 * The nesting level of this wikilink. `0` if not nested within another double-bracketed expression.
-		 */
-		nestLevel: number;
-		/**
 		 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
 		 */
 		skip: boolean;
@@ -349,7 +345,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 		 * @hidden
 		 */
 		constructor(initializer: ParsedWikilinkInitializer) {
-			const {display, title, rawTitle, _rawTitle, text, startIndex, endIndex, nestLevel, skip} = initializer;
+			const {display, title, rawTitle, _rawTitle, text, startIndex, endIndex, skip} = initializer;
 			super(title, display);
 			this._initializer = initializer;
 			this.rawTitle = rawTitle;
@@ -357,7 +353,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 			this.text = text;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
-			this.nestLevel = nestLevel;
 			this.skip = skip;
 		}
 
@@ -623,10 +618,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 		 */
 		endIndex: number;
 		/**
-		 * The nesting level of this wikilink. `0` if not nested within another double-bracketed expression.
-		 */
-		nestLevel: number;
-		/**
 		 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
 		 */
 		skip: boolean;
@@ -641,7 +632,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 		 * @hidden
 		 */
 		constructor(initializer: ParsedFileWikilinkInitializer) {
-			const {params, title, rawTitle, _rawTitle, text, startIndex, endIndex, nestLevel, skip} = initializer;
+			const {params, title, rawTitle, _rawTitle, text, startIndex, endIndex, skip} = initializer;
 			super(title, params);
 			this._initializer = initializer;
 			this.rawTitle = rawTitle;
@@ -649,7 +640,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 			this.text = text;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
-			this.nestLevel = nestLevel;
 			this.skip = skip;
 		}
 
@@ -855,10 +845,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 		 */
 		endIndex: number;
 		/**
-		 * The nesting level of this wikilink. `0` if not nested within another double-bracketed expression.
-		 */
-		nestLevel: number;
-		/**
 		 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
 		 */
 		skip: boolean;
@@ -873,7 +859,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 		 * @hidden
 		 */
 		constructor(initializer: ParsedRawWikilinkInitializer) {
-			const {display, title, rawTitle, _rawTitle, text, startIndex, endIndex, nestLevel, skip} = initializer;
+			const {display, title, rawTitle, _rawTitle, text, startIndex, endIndex, skip} = initializer;
 			super(title, display);
 			this._initializer = initializer;
 			this.rawTitle = rawTitle;
@@ -881,7 +867,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 			this.text = text;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
-			this.nestLevel = nestLevel;
 			this.skip = skip;
 		}
 
@@ -1092,7 +1077,6 @@ interface ParsedWikilinkInitializerBase<T extends string | InstanceType<Title>> 
 	text: string;
 	startIndex: number;
 	endIndex: number;
-	nestLevel: number;
 	skip: boolean;
 }
 
