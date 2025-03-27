@@ -13,6 +13,9 @@
     "build": "tsc -p .",
     "docs": "node -e \"require('fs-extra').emptyDir('docs');\" & npx typedoc --options typedoc.json"
   },
+  "engines": {
+    "node": ">=12"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Dr4goniez/mwbot-ts.git"
