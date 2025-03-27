@@ -7,6 +7,7 @@
 import { MwbotError } from './MwbotError';
 import type { Mwbot, MwbotRequestConfig } from './Mwbot';
 import { deepCloneInstance, isClassInstance, mergeDeep } from './Util';
+import { byteLength } from './String';
 import type { Title } from './Title';
 import type {
 	ParsedTemplate,
@@ -177,6 +178,20 @@ export function WikitextFactory(
 			}
 			this.skipTags = [...new Set(defaultSkipTags)];
 
+		}
+
+		/**
+		 * Returns the length of the wikitext.
+		 */
+		get length(): number {
+			return this.storage.content.length;
+		}
+
+		/**
+		 * Returns the byte length of the wikitext.
+		 */
+		get byteLength(): number {
+			return byteLength(this.storage.content);
 		}
 
 		/**
