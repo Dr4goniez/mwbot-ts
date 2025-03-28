@@ -1830,7 +1830,7 @@ export class Mwbot {
 		content: string,
 		summary?: string,
 		internalOptions: ApiEditPageParams = {},
-		options: ApiEditPageParams = {},
+		additionalParams: ApiEditPageParams = {},
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponse> {
 		const params: ApiEditPageParams = Object.assign(
@@ -1844,7 +1844,7 @@ export class Mwbot {
 				formatversion: '2'
 			},
 			internalOptions,
-			options
+			additionalParams
 		);
 		return this.postWithCsrfToken(params as ApiParams, requestOptions);
 	}
@@ -1872,8 +1872,8 @@ export class Mwbot {
 	 * @param title The new page title, either as a string or a {@link Title} instance.
 	 * @param content The text content of the new page.
 	 * @param summary An optional edit summary.
-	 * @param options Additional parameters for the API request. These can be used to overwrite
-	 * the default parameters.
+	 * @param additionalParams Additional parameters for the API request. These can be used to
+	 * overwrite the default parameters.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the API response or rejecting with {@link MwbotError}.
 	 */
@@ -1881,14 +1881,14 @@ export class Mwbot {
 		title: string | InstanceType<Title>,
 		content: string,
 		summary?: string,
-		options: ApiEditPageParams = {},
+		additionalParams: ApiEditPageParams = {},
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponse> {
 		const validatedTitle = this.prepEdit(title);
 		if (validatedTitle instanceof MwbotError) {
 			throw validatedTitle;
 		}
-		return this._save(validatedTitle, content, summary, {createonly: true}, options, requestOptions);
+		return this._save(validatedTitle, content, summary, {createonly: true}, additionalParams, requestOptions);
 	}
 
 	/**
@@ -1914,8 +1914,8 @@ export class Mwbot {
 	 * @param title The page title, either as a string or a {@link Title} instance.
 	 * @param content The text content of the page.
 	 * @param summary An optional edit summary.
-	 * @param options Additional parameters for the API request. These can be used to overwrite
-	 * the default parameters.
+	 * @param additionalParams Additional parameters for the API request. These can be used to
+	 * overwrite the default parameters.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the API response or rejecting with {@link MwbotError}.
 	 */
@@ -1923,14 +1923,14 @@ export class Mwbot {
 		title: string | InstanceType<Title>,
 		content: string,
 		summary?: string,
-		options: ApiEditPageParams = {},
+		additionalParams: ApiEditPageParams = {},
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponse> {
 		const validatedTitle = this.prepEdit(title);
 		if (validatedTitle instanceof MwbotError) {
 			throw validatedTitle;
 		}
-		return this._save(validatedTitle, content, summary, {nocreate: true}, options, requestOptions);
+		return this._save(validatedTitle, content, summary, {nocreate: true}, additionalParams, requestOptions);
 	}
 
 	/**
@@ -2193,7 +2193,7 @@ export class Mwbot {
 		} else if (!isPlainObject(params)) {
 			const err = new MwbotError({
 				code: 'mwbot_fatal_typemismatch',
-				info: `The callback function of edit() must return a plain object.`
+				info: `The transformation predicate must resolve to a plain object.`
 			});
 			err.params = params;
 			throw err;
@@ -2232,6 +2232,47 @@ export class Mwbot {
 
 	}
 
+	/**
+	 * Posts a new section to the given page.
+	 *
+	 * Default parameters:
+	 * ```js
+	 * {
+	 * 	action: 'edit',
+	 * 	title: title,
+	 * 	section: 'new',
+	 * 	sectiontitle: sectiontitle,
+	 * 	text: content,
+	 * 	summary: summary,
+	 * 	bot: true,
+	 * 	format: 'json',
+	 * 	formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param title The title of the page to edit.
+	 * @param sectiontitle The section title.
+	 * @param content The content of the new section.
+	 * @param summary An optional edit summary. If not provided, the API generates one automatically.
+	 * @param additionalParams Additional parameters for the API request. These can be used to overwrite the default parameters.
+	 * @param requestOptions Optional HTTP request options.
+	 * @return A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
+	 */
+	newSection(
+		title: string | InstanceType<Title>,
+		sectiontitle: string,
+		content: string,
+		summary?: string,
+		additionalParams: ApiEditPageParams = {},
+		requestOptions: MwbotRequestConfig = {}
+	): Promise<ApiResponse> {
+		const validatedTitle = this.prepEdit(title);
+		if (validatedTitle instanceof MwbotError) {
+			return Promise.reject(validatedTitle);
+		}
+		return this._save(validatedTitle, content, summary, {section: 'new', sectiontitle}, additionalParams, requestOptions);
+	}
+
 }
 
 // ****************************** HELPER TYPES AND INTERFACES ******************************
@@ -2239,7 +2280,7 @@ export class Mwbot {
 /**
  * Options to be passed as the first argument of {@link Mwbot.constructor}.
  */
-export type MwbotInitOptions = MwbotOptions & {credentials: Credentials;};
+export type MwbotInitOptions = MwbotOptions & {credentials: Credentials};
 
 /**
  * Configuration options for {@link Mwbot.constructor}. These options can also be updated later
