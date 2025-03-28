@@ -703,6 +703,8 @@ export function WikitextFactory(
 		/**
 		 * Adds tags in which elements shouldn't be parsed, if the tags are not already registered.
 		 *
+		 * CAUTION: This might result in unexpected parsing behaviour.
+		 *
 		 * @param skipTags Array of tag names to add.
 		 * @returns The current Wikitext instance.
 		 */
@@ -717,6 +719,8 @@ export function WikitextFactory(
 
 		/**
 		 * Sets tags in which elements shouldn't be parsed, overwriting any existing settings.
+		 *
+		 * CAUTION: This might result in unexpected parsing behaviour.
 		 *
 		 * @param skipTags Array of tag names to set.
 		 * @returns The current Wikitext instance.
@@ -733,6 +737,8 @@ export function WikitextFactory(
 
 		/**
 		 * Removes tags from the list of tags in which elements shouldn't be parsed.
+		 *
+		 * CAUTION: This might result in unexpected parsing behaviour.
 		 *
 		 * @param skipTags Array of tag names to remove.
 		 * @returns The current Wikitext instance.
@@ -1343,7 +1349,8 @@ export function WikitextFactory(
 				// Skip or deep-parse certain expressions
 				if (indexMap[i]) {
 					if (numUnclosed !== 0) {
-						// TODO: `nonNameComponent` should be true only for skip tags
+						// TODO: Should this `nonNameComponent` include all the indexMap expressions?
+						// Maybe we should limit it to the skip tags only.
 						processTemplateFragment(components, indexMap[i].text, {nonNameComponent: true});
 					}
 					/**
