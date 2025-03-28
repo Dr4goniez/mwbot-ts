@@ -2141,7 +2141,15 @@ function processTemplateFragment(components: Required<NewTemplateParameter>[], f
 		// `components[0]` handler (looking for a template title): part of the title
 		components[i].key += fragment;
 		components[i].value += fragment;
-	} else if ((equalIndex = fragment.indexOf('=')) !== -1 && !components[i].key && !nonNameComponent) { // TODO: Handle {{=}}
+	} else if (
+		// `equalIndex` is basically 0 if found
+		(equalIndex = fragment.indexOf('=')) !== -1 &&
+		!components[i].key &&
+		// Ignore {{=}}. `components[i].value` should end with "{{" when `equalIndex` is 0
+		// TODO: This doesn't handle "<!--{{=}}-->"
+		!/\{\{[\s_\u200E\u200F\u202A-\u202E]*$/.test(components[i].value) &&
+		!nonNameComponent
+	) {
 		// Found `=` when `key` is empty, indicating the start of a named parameter.
 		components[i].key = components[i].value + fragment.slice(0, equalIndex);
 		components[i].value = components[i].value.slice(components[i].key.length + 1);
