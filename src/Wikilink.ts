@@ -984,12 +984,12 @@ export type ParsedRawWikilink = ReturnType<typeof WikilinkFactory>['ParsedRawWik
  * @private
  */
 interface WikilinkTypeMap {
-	Wikilink: Wikilink;
-	ParsedWikilink: ParsedWikilink;
-	FileWikilink: FileWikilink;
-	ParsedFileWikilink: ParsedFileWikilink;
-	RawWikilink: RawWikilink;
-	ParsedRawWikilink: ParsedRawWikilink;
+	Wikilink: InstanceType<Wikilink>;
+	ParsedWikilink: InstanceType<ParsedWikilink>;
+	FileWikilink: InstanceType<FileWikilink>;
+	ParsedFileWikilink: InstanceType<ParsedFileWikilink>;
+	RawWikilink: InstanceType<RawWikilink>;
+	ParsedRawWikilink: InstanceType<ParsedRawWikilink>;
 }
 
 /**

@@ -1445,11 +1445,11 @@ export type TemplateParameterHierarchies = string[][];
  * @private
  */
 interface TemplateTypeMap {
-	Template: Template;
-	ParsedTemplate: ParsedTemplate;
-	RawTemplate: RawTemplate;
-	ParserFunction: ParserFunction;
-	ParsedParserFunction: ParsedParserFunction;
+	Template: InstanceType<Template>;
+	ParsedTemplate: InstanceType<ParsedTemplate>;
+	RawTemplate: InstanceType<RawTemplate>;
+	ParserFunction: InstanceType<ParserFunction>;
+	ParsedParserFunction: InstanceType<ParsedParserFunction>;
 }
 
 /**
