@@ -1735,57 +1735,7 @@ export class Mwbot {
 		return this.getToken('csrf', void 0, requestOptions);
 	}
 
-	// ****************************** SPECIFIC REQUEST METHODS ******************************
-
-	/**
-	 * Log in to the wiki for which this instance has been initialized.
-	 *
-	 * @param username
-	 * @param password
-	 * @returns
-	 */
-	protected async login(username: string, password: string): Promise<ApiResponse> { // TODO: Make this method public?
-
-		// Fetch a login token
-		const disableRetryAPI = {disableRetryAPI: true};
-		const token = await this.getToken('login', {maxlag: void 0}, disableRetryAPI).then((res) => res).catch((err) => err);
-		if (typeof token !== 'string') {
-			return Promise.reject(token); // Error object
-		}
-
-		// Login
-		const resLogin: ApiResponse | MwbotError = await this.post({
-			action: 'login',
-			lgname: username,
-			lgpassword: password,
-			lgtoken: token,
-			format: 'json',
-			formatversion: '2',
-			maxlag: void 0 // Overwrite maxlag to have this request prioritized
-		}, disableRetryAPI).then((res) => res).catch((err) => err);
-
-		if (resLogin instanceof MwbotError) {
-			return Promise.reject(resLogin);
-		} else if (!resLogin.login) {
-			const err = new MwbotError({
-				code: 'empty',
-				info: 'OK response but empty result.'
-			});
-			err.response = resLogin;
-			return Promise.reject(err);
-		} else if (resLogin.login.result !== 'Success') {
-			const err = new MwbotError({
-				code: 'loginfailed',
-				info: 'Failed to log in.'
-			});
-			err.response = resLogin;
-			return Promise.reject(err);
-		} else {
-			this.tokens = {}; // Clear cashed tokens because these can't be used for the newly logged-in user
-			return Promise.resolve(resLogin);
-		}
-
-	}
+	// ****************************** EDIT-RELATED REQUEST METHODS ******************************
 
 	/**
 	 * Validates and processes a title before editing.
@@ -2281,6 +2231,109 @@ export class Mwbot {
 			return Promise.reject(validatedTitle);
 		}
 		return this._save(validatedTitle, content, summary, {section: 'new', sectiontitle}, additionalParams, requestOptions);
+	}
+
+	// ****************************** SPECIFIC REQUEST METHODS ******************************
+
+	/**
+	 * Log in to the wiki for which this instance has been initialized.
+	 *
+	 * @param username
+	 * @param password
+	 * @returns
+	 */
+	protected async login(username: string, password: string): Promise<ApiResponse> { // TODO: Make this method public?
+
+		// Fetch a login token
+		const disableRetryAPI = {disableRetryAPI: true};
+		const token = await this.getToken('login', {maxlag: void 0}, disableRetryAPI).then((res) => res).catch((err) => err);
+		if (typeof token !== 'string') {
+			return Promise.reject(token); // Error object
+		}
+
+		// Login
+		const resLogin: ApiResponse | MwbotError = await this.post({
+			action: 'login',
+			lgname: username,
+			lgpassword: password,
+			lgtoken: token,
+			format: 'json',
+			formatversion: '2',
+			maxlag: void 0 // Overwrite maxlag to have this request prioritized
+		}, disableRetryAPI).then((res) => res).catch((err) => err);
+
+		if (resLogin instanceof MwbotError) {
+			return Promise.reject(resLogin);
+		} else if (!resLogin.login) {
+			const err = new MwbotError({
+				code: 'empty',
+				info: 'OK response but empty result.'
+			});
+			err.response = resLogin;
+			return Promise.reject(err);
+		} else if (resLogin.login.result !== 'Success') {
+			const err = new MwbotError({
+				code: 'loginfailed',
+				info: 'Failed to log in.'
+			});
+			err.response = resLogin;
+			return Promise.reject(err);
+		} else {
+			this.tokens = {}; // Clear cashed tokens because these can't be used for the newly logged-in user
+			return Promise.resolve(resLogin);
+		}
+
+	}
+
+	/**
+	 * Purges the cache for the given titles.
+	 *
+	 * Default parameters:
+	 * ```js
+	 * {
+	 * 	action: 'purge',
+	 * 	forcelinkupdate: true,
+	 * 	titles: titles,
+	 * 	format: 'json',
+	 * 	formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param titles The titles to purge the cache for.
+	 *
+	 * The maximum number of values is 50 or 500 (see also {@link apilimit}).
+	 * @param additionalParams Additional parameters for the API request. These can be used to overwrite the default parameters.
+	 * @param requestOptions Optional HTTP request options.
+	 * @return A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
+	 * @throws If `titles` contains non-strings or non-Titles.
+	 */
+	async purge(titles: (string | InstanceType<Title>)[], additionalParams: ApiParams = {}, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
+		const titleSet = new Set<string>();
+		const invalid: unknown[] = [];
+		titles.forEach((t) => {
+			if (t instanceof this.Title) {
+				titleSet.add(t.toString());
+			} else if (typeof t === 'string') {
+				titleSet.add(t);
+			} else {
+				invalid.push(t);
+			}
+		});
+		if (invalid.length) {
+			const err = new MwbotError({
+				code: 'mwbot_fatal_typemismatch',
+				info: 'The array passed as the first argument of purge() must only contain strings or Title instances.'
+			});
+			err.invalid = invalid;
+			throw err;
+		}
+		return this.post(Object.assign({
+			action: 'purge',
+			forcelinkupdate: true,
+			titles: [...titleSet],
+			format: 'json',
+			formatversion: '2'
+		}, additionalParams), requestOptions);
 	}
 
 }

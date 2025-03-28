@@ -281,7 +281,7 @@ export interface ApiResponse {
 	parse?: ApiResponseParse;
 	// patrol?: ApiResponsePatrol;
 	// protect?: ApiResponseProtect;
-	// purge?: ApiResponsePurge;
+	purge?: ApiResponsePurge[];
 	query?: ApiResponseQuery;
 	// removeauthenticationdata?: ApiResponseRemoveauthenticationdata;
 	// resetpassword?: ApiResponseResetpassword;
@@ -592,11 +592,16 @@ export interface ApiResponseParse { // TODO: recheck
 // export interface ApiResponsePatrol {}
 // export interface ApiResponseProtect {}
 
-export interface ApiResponsePurge { // TODO: recheck
-	ns: number;
+export interface ApiResponsePurge { // Fully checked (source code level)
 	title: string;
-	missing?: boolean;
-	purged?: boolean;
+	ns?: number; // Missing for invalid titles
+	purged?: true;
+	linkupdate?: true;
+	invalid?: true;
+	invalidreason?: string;
+	special?: true;
+	missing?: true;
+	iw?: string;
 }
 
 // export interface ApiResponseQuery {} // Defined below
