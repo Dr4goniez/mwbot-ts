@@ -536,6 +536,16 @@ export class Mwbot {
 		}
 	}
 
+	/**
+	 * Returns the user's API limit for multi-value requests.
+	 *
+	 * @returns `500` for users with the `apihighlimits` permission; otherwise, `50`.
+	 */
+	get apilimit(): 500 | 50 {
+		this.checkInit();
+		return this._info.user.rights.includes('apihighlimits') ? 500 : 50;
+	}
+
 	// ****************************** SITE-RELATED CONFIG ******************************
 
 	/**
@@ -1452,7 +1462,7 @@ export class Mwbot {
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<(ApiResponse | MwbotError)[]> {
 
-		const apilimit = this.info.user.rights.includes('apihighlimits') ? 500 : 50;
+		const apilimit = this.apilimit;
 
 		if (batchSize !== undefined) {
 			if (!Number.isInteger(batchSize) || batchSize > apilimit || batchSize <= 0) {
