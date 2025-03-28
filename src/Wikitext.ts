@@ -1093,14 +1093,17 @@ export function WikitextFactory(
 		 * @param options Options to index additional expressions.
 		 * @returns An object mapping start indices to their corresponding text content and type.
 		 */
-		private getIndexMap(options: {parameters?: boolean; wikilinks_fuzzy?: boolean, templates?: boolean} = {}): IndexMap {
+		private getIndexMap(
+			options: {gallery?: boolean; parameters?: boolean; wikilinks_fuzzy?: boolean, templates?: boolean} = {}
+		): IndexMap {
 
 			const indexMap: IndexMap = Object.create(null);
 
 			// Process skipTags
 			const rSkipTags = new RegExp(`^(?:${this.skipTags.join('|')})$`);
 			this.storageManager('tags', false).forEach(({text, startIndex, name, content}) => {
-				if (rSkipTags.test(name)) {
+				// If this is a skip tag or a gallery tag whose content contains a pipe character
+				if (rSkipTags.test(name) || name === 'gallery' && options.gallery && content && content.includes('|')) {
 					// `inner` is the innerHTML of the tag
 					const inner = (() => {
 						if (content === null) {
@@ -1111,7 +1114,7 @@ export function WikitextFactory(
 					})();
 					indexMap[startIndex] = {
 						text,
-						type: 'tag',
+						type: name === 'gallery' ? 'gallery' : 'tag',
 						inner
 					};
 				}
@@ -1153,28 +1156,7 @@ export function WikitextFactory(
 
 			// Process {{template}}s
 			if (options.templates) {
-				this.storageManager('templates', false).forEach((obj) => {
-					const {text, startIndex, endIndex} = obj;
-					let rawTitle;
-					let isTemplate = true;
-					if ('rawTitle' in obj) {
-						rawTitle = obj.rawTitle;
-					} else {
-						rawTitle = obj.rawHook;
-						isTemplate = false;
-					}
-					// `inner` is, for templates, their right operand, and for parser functions, the text after their hook
-					const inner = (() => {
-						const start = startIndex + 2 + rawTitle.length + (isTemplate ? 1 : 0);
-						const end = endIndex - 2;
-						return end - start > 1 ? {start, end} : null;
-					})();
-					indexMap[startIndex] = {
-						text,
-						type: 'template',
-						inner
-					};
-				});
+				this.storageManager('templates', false).forEach((obj) => createTemplateIndexMap(indexMap, obj));
 			}
 
 			return indexMap;
@@ -1316,14 +1298,16 @@ export function WikitextFactory(
 		 * @param wikitext Alternative wikitext to parse. Should be passed when parsing nested templates.
 		 * All characters before the range where there can be nested templates should be replaced with `\x01`.
 		 * This method skips sequences of this control character, to reach the range early and efficiently.
+		 * @param checkGallery Whether to check gallery tags.
 		 * @returns An array of parsed templates.
 		 */
 		private _parseTemplates(
 			options: ParsedTemplateOptions = {},
-			indexMap = this.getIndexMap({parameters: true, wikilinks_fuzzy: true}),
+			indexMap = this.getIndexMap({gallery: true, parameters: true, wikilinks_fuzzy: true}),
 			isInSkipRange = this.getSkipPredicate(),
 			nestLevel = 0,
-			wikitext = this.content
+			wikitext = this.content,
+			checkGallery = true
 		): InstanceType<DoubleBracedClasses>[] {
 
 			let numUnclosed = 0;
@@ -1347,7 +1331,7 @@ export function WikitextFactory(
 				}
 
 				// Skip or deep-parse certain expressions
-				if (indexMap[i]) {
+				if (indexMap[i] && indexMap[i].type !== 'gallery') {
 					if (numUnclosed !== 0) {
 						// TODO: Should this `nonNameComponent` include all the indexMap expressions?
 						// Maybe we should limit it to the skip tags only.
@@ -1369,7 +1353,7 @@ export function WikitextFactory(
 						const text = wikitext.slice(start, end);
 						if (text.includes('{{') && text.includes('}}')) {
 							templates.push(
-								...this._parseTemplates(options, indexMap, isInSkipRange, nestLevel, '\x01'.repeat(inner.start) + text)
+								...this._parseTemplates(options, indexMap, isInSkipRange, nestLevel, '\x01'.repeat(inner.start) + text, false)
 							);
 						}
 					}
@@ -1456,7 +1440,7 @@ export function WikitextFactory(
 						const inner = temp.text.slice(2, -2);
 						if (inner.includes('{{') && inner.includes('}}')) {
 							templates.push(
-								...this._parseTemplates(options, indexMap, isInSkipRange, nestLevel + 1, '\x01'.repeat(startIndex + 2) + inner)
+								...this._parseTemplates(options, indexMap, isInSkipRange, nestLevel + 1, '\x01'.repeat(startIndex + 2) + inner, false)
 							);
 						}
 						numUnclosed -= 2;
@@ -1487,6 +1471,107 @@ export function WikitextFactory(
 				}
 
 			}
+
+			// <gallery> tags might contain pipe characters and can cause inaccuracy in the parsing results
+			do { // Just creating a block to prevent deep nests
+
+				if (!checkGallery) {
+					break;
+				}
+
+				// Collect the start and end indices of gallery tags containing "|"
+				// Note: getIndexMap() has already filtered out gallery tags that don't contain any pipe
+				const galleryIndexMap = Object.entries(indexMap).reduce((acc: number[][], [index, obj]) => {
+					if (obj.type === 'gallery') {
+						const startIndex = parseInt(index);
+						acc.push([startIndex, startIndex + obj.text.length]);
+					}
+					return acc;
+				}, []);
+				if (!galleryIndexMap.length) {
+					break;
+				}
+
+				const containsGallery = (startIndex: number, endIndex: number) => {
+					return galleryIndexMap.some(([galStartIndex, galEndIndex]) => startIndex < galStartIndex && galEndIndex < endIndex);
+				};
+				const inGallery = (index: number) => {
+					return galleryIndexMap.some(([galStartIndex, galEndIndex]) => galStartIndex <= index && index <= galEndIndex);
+				};
+
+				// Update indexMap to include parsed templates
+				// Note that this can't be done at the beginning of this method because that'll be circular
+				templates.forEach((obj) => createTemplateIndexMap(indexMap, obj));
+
+				// Check each parsed template and if it contains a gallery tag, modify the parsing result
+				for (let i = 0; i < templates.length; i++) {
+					const temp = templates[i];
+
+					// We have nothing to do with templates not containing <gallery>
+					if (!containsGallery(temp.startIndex, temp.endIndex)) {
+						continue;
+					}
+
+					// Get the param part of the template
+					// This always works because we updated indexMap for the parsed templates
+					const {inner} = indexMap[temp.startIndex];
+					if (inner === null) {
+						continue;
+					}
+
+					// Get the param text with all pipes in it replaced with a control character
+					const paramText = wikitext.slice(inner.start, inner.end).replace(/\|/g, '\x02');
+
+					// `components[0]` represents the title part but this isn't what we're looking at here
+					const components: Required<NewTemplateParameter>[] = [{key: '', value: ''}, {key: '', value: ''}];
+					for (let j = 0; j < paramText.length; j++) {
+						const realIndex = j + inner.start;
+						if (indexMap[realIndex] && indexMap[realIndex].type !== 'gallery') {
+							// Skip over skip tags, parameters, wikilinks, and templates
+							// No need to handle nested templates here because they're already in `templates`
+							// The outer `for` with `i` handles them recursively
+							processTemplateFragment(components, indexMap[realIndex].text, {nonNameComponent: true});
+							j += indexMap[realIndex].text.length - 1;
+						} else if (inGallery(realIndex)) {
+							// If we're in a gallery tag, register this character without restoring pipes
+							processTemplateFragment(components, paramText[j]);
+						} else if (paramText[j] === '\x02') {
+							// If we're NOT in a gallery tag and this is '\x02', restore the pipe
+							processTemplateFragment(components, '|', {isNew: true});
+						} else {
+							// Just part of the parameter
+							processTemplateFragment(components, paramText[j]);
+						}
+					}
+
+					// Restore pipes in the newly parsed params
+					const params = components.slice(1).map(({key, value}) => {
+						// eslint-disable-next-line no-control-regex
+						return {key: key.replace(/\x02/g, '|'), value: value.replace(/\x02/g, '|')};
+					});
+
+					// Hack: Update the `params` and `_initializer` properties
+					if (temp instanceof mw.ParserFunction) {
+						// @ts-expect-error Modifying a private property
+						temp._initializer.params = [temp._initializer.params[0]].concat(params);
+						const initParams =  [temp.params[0]];
+						params.forEach(({key, value}) => {
+							initParams.push((key ? key + '=' : '') + value);
+						});
+						temp.params = initParams;
+					} else {
+						// @ts-expect-error Modifying a read-only property
+						temp.params = params.map(({key, value}) => {
+							// @ts-expect-error Calling a private method
+							temp.registerParam(key || '', value, {overwrite: true, append: true, listDuplicates: true});
+						});
+						// @ts-expect-error Modifying a private property
+						temp._initializer.params = params;
+					}
+				}
+
+			// eslint-disable-next-line no-constant-condition
+			} while (false); // Always get out of the loop automatically
 
 			return templates.sort((obj1, obj2) => obj1.startIndex - obj2.startIndex);
 
@@ -2055,10 +2140,39 @@ export interface FuzzyWikilink {
 type IndexMap = {
 	[startIndex: number]: {
 		text: string;
-		type: 'tag' | 'parameter' | 'wikilink_fuzzy' | 'template';
+		type: 'tag' | 'gallery' | 'parameter' | 'wikilink_fuzzy' | 'template';
 		inner: {start: number; end: number} | null;
 	};
 };
+
+/**
+ * Internal function to generate the index map of a template.
+ *
+ * @param indexMap The index map to modify in place.
+ * @param obj The template instance.
+ */
+function createTemplateIndexMap(indexMap: IndexMap, obj: InstanceType<DoubleBracedClasses>): void {
+	const {text, startIndex, endIndex} = obj;
+	let rawTitle;
+	let isTemplate = true;
+	if ('rawTitle' in obj) {
+		rawTitle = obj.rawTitle;
+	} else {
+		rawTitle = obj.rawHook;
+		isTemplate = false;
+	}
+	// `inner` is, for templates, their right operand, and for parser functions, the text after their hook
+	const inner = (() => {
+		const start = startIndex + 2 + rawTitle.length + (isTemplate ? 1 : 0);
+		const end = endIndex - 2;
+		return end - start > 1 ? {start, end} : null;
+	})();
+	indexMap[startIndex] = {
+		text,
+		type: 'template',
+		inner
+	};
+}
 
 /**
  * Configuration options for {@link Wikitext.parseTemplates}.
