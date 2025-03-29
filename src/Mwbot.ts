@@ -54,7 +54,7 @@ import * as Util from './Util';
 const { mergeDeep, isPlainObject, sleep, isEmptyObject, arraysEqual, deepCloneInstance } = Util;
 import * as mwString from './String';
 import { TitleFactory, TitleStatic, Title } from './Title';
-import { TemplateFactory, Template, ParserFunction } from './Template';
+import { TemplateFactory, TemplateStatic, ParserFunctionStatic } from './Template';
 import { WikilinkFactory, Wikilink, FileWikilink, RawWikilink } from './Wikilink';
 import { WikitextFactory, Wikitext } from './Wikitext';
 
@@ -168,22 +168,22 @@ export class Mwbot {
 	/**
 	 * Template class for this instance.
 	 */
-	protected _Template: Template;
+	protected _Template: TemplateStatic;
 	/**
 	 * Template class for this instance.
 	 */
-	get Template(): Template {
+	get Template(): TemplateStatic {
 		this.checkInit();
 		return this._Template;
 	}
 	/**
 	 * ParserFunction class for this instance.
 	 */
-	protected _ParserFunction: ParserFunction;
+	protected _ParserFunction: ParserFunctionStatic;
 	/**
 	 * ParserFunction class for this instance.
 	 */
-	get ParserFunction(): ParserFunction {
+	get ParserFunction(): ParserFunctionStatic {
 		this.checkInit();
 		return this._ParserFunction;
 	}

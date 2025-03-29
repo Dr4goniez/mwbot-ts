@@ -17,7 +17,7 @@
 import { XOR } from 'ts-xor';
 import type { Mwbot } from './Mwbot';
 import { escapeRegExp, mergeDeep } from './Util';
-import type { Title } from './Title';
+import type { TitleStatic, Title } from './Title';
 import { ParamBase } from './baseClasses';
 
 // Imported only for docs
@@ -80,9 +80,611 @@ const noHashFunctions = [
 ];
 
 /**
+ * The base class for {@link TemplateStatic} and {@link RawTemplateStatic}.
+ *
+ * This interface defines the static members of the `TemplateBase` class. For instance members,
+ * see {@link TemplateBase} (defined separately due to TypeScript limitations).
+ */
+export interface TemplateBaseStatic<T extends string | Title> {
+	/**
+	 * Creates a new instance.
+	 *
+	 * @param title The title that the template transcludes.
+	 * @param params Template parameters.
+	 * @param hierarchies Optional template parameter hierarchies.
+	 */
+	new(
+		title: T,
+		params?: NewTemplateParameter[],
+		hierarchies?: TemplateParameterHierarchies
+	): TemplateBase<T>;
+}
+
+/**
+ * The instance members of the `TemplateBase` class. For static members,
+ * see {@link TemplateBaseStatic} (defined separately due to TypeScript limitations).
+ */
+export interface TemplateBase<T extends string | Title> {
+
+	/**
+	 * The template's title.
+	 *
+	 * This property is read-only. To update it, use {@link setTitle}.
+	 */
+	readonly title: T;
+	/**
+	 * The template's parameters.
+	 *
+	 * This property is read-only. To update it, use {@link addParam}, {@link setParam},
+	 * or {@link deleteParam} as per your needs.
+	 */
+	readonly params: Record<string, TemplateParameter>;
+
+	/**
+	 * Adds a template parameter to the end of the list.
+	 *
+	 * If a parameter with the same `key` already exists:
+	 * - If `overwrite` is `true`, it replaces the existing value and **moves it to the end** of the list.
+	 *   - This may alter the position of the parameter, e.g., `|1=|2=|3=` could become `|1=|3=|2=`.
+	 * - If `overwrite` is `false`, the parameter is not added, and the existing entry remains unchanged.
+	 *
+	 * This differs from {@link setParam}, which updates an existing key without changing its order.
+	 *
+	 * Note that the order of parameters in the final output can be controlled via {@link stringify}
+	 * using {@link TemplateOutputConfig.sortPredicate}, regardless of the insertion order tracked by this instance.
+	 *
+	 * @param key The key of the parameter. This can be an empty string for unnamed parameters.
+	 * @param value The value of the parameter.
+	 * @param overwrite
+	 * Whether to overwrite the existing value (`true`) or cancel the addition (`false`). (Default: `true`)
+	 */
+	addParam(key: string, value: string, overwrite?: boolean): this;
+	/**
+	 * Sets a template parameter while preserving its original position in the list.
+	 *
+	 * If a parameter with the same `key` already exists:
+	 * - If `overwrite` is `true`, it replaces the existing value while **keeping its original position**.
+	 *   - This ensures that the order remains unchanged, e.g., `|1=|2=|3=` stays the same.
+	 * - If `overwrite` is `false`, the parameter remains unchanged.
+	 *
+	 * This differs from {@link addParam}, which moves the parameter to the end of the list.
+	 *
+	 * Note that the order of parameters in the final output can be controlled via {@link stringify}
+	 * using {@link TemplateOutputConfig.sortPredicate}, regardless of the insertion order tracked by this instance.
+	 *
+	 * @param key The key of the parameter. This can be an empty string for unnamed parameters.
+	 * @param value The new value of the parameter.
+	 * @param overwrite
+	 * Whether to overwrite the existing value (`true`) or cancel the update (`false`). (Default: `true`)
+	 */
+	setParam(key: string, value: string, overwrite?: boolean): this;
+	/**
+	 * Gets a parameter object by key.
+	 *
+	 * **Caution**: The returned object is mutable.
+	 *
+	 * @param key The parameter key.
+	 * @param resolveHierarchy Whether to consider {@link hierarchies} when searching for a matching parameter.
+	 * If `true`, this method first checks if `key` belongs to a hierarchy array. If {@link params} contains a
+	 * parameter with a higher-priority key in that hierarchy, it returns that parameter instead.
+	 * (Default: `false`).
+	 *
+	 * Example:
+	 * - Given `key = '1'`, `hierarchies = [['1', 'user', 'User']]`, and `params` containing a parameter keyed `'user'`,
+	 *   this method returns the `'user'` parameter.
+	 *
+	 * Note that if `key` does not belong to any hierarchy array, this method behaves the same as when
+	 * `resolveHierarchy` is `false`.
+	 *
+	 * @returns The parameter object if found, otherwise `null`.
+	 */
+	getParam(key: string, resolveHierarchy?: boolean): TemplateParameter | null;
+	/**
+	 * Checks if a template parameter with the specified key exists, optionally matching its value.
+	 *
+	 * @param key The parameter key to match, either as an exact string or a regular expression.
+	 * @param value The optional value matcher.
+	 * - If a string, checks for an exact value match.
+	 * - If a regular expression, tests the parameter value against the pattern.
+	 * - If omitted, only the parameter key is checked.
+	 * @returns `true` if a matching parameter exists; otherwise, `false`.
+	 *
+	 * @example
+	 * hasParam("user"); // Checks if a parameter named "user" exists.
+	 * hasParam(/^data-/); // Checks for parameters starting with "data-".
+	 * hasParam("id", "123"); // Checks if "id" exists and equals "123".
+	 */
+	hasParam(key: string | RegExp, value?: string | RegExp): boolean;
+	/**
+	 * Checks if a template parameter exists based on a custom predicate function.
+	 *
+	 * @param predicate A function that tests each parameter.
+	 * @returns `true` if a matching parameter exists; otherwise, `false`.
+	 *
+	 * @example
+	 * hasParam((key, param) => key.startsWith("meta") && param.value.length > 10);
+	 */
+	hasParam(predicate: (key: string, param: TemplateParameter) => boolean): boolean;
+	/**
+	 * Deletes a parameter from the template.
+	 *
+	 * @param key The parameter key to delete.
+	 * @returns `true` if the parameter was deleted, otherwise `false`.
+	 */
+	deleteParam(key: string): boolean;
+}
+
+/**
+ * This interface defines the static members of the `Template` class. For instance members,
+ * see {@link Template} (defined separately due to TypeScript limitations).
+ *
+ * `Template` is a class that serves to parse `{{template}}` markups into an object structure,
+ * which is accessible via {@link Mwbot.Template}. Note that `{{#parserfunction:}}` markups
+ * are treated differently by the {@link ParserFunctionStatic | ParserFunction} class.
+ *
+ * @example
+ * const foo = new mwbot.Template('Foo');
+ * foo.addParam('', 'bar').addParam('user', 'baz');
+ * foo.stringify(); // {{Foo|bar|user=baz}}
+ */
+export interface TemplateStatic extends TemplateBaseStatic<Title> {
+	/**
+	 * @inheritdoc
+	 */
+	new(
+		title: string | Title,
+		params?: NewTemplateParameter[],
+		hierarchies?: TemplateParameterHierarchies
+	): Template;
+	/**
+	 * Error-proof constructor.
+	 *
+	 * @param title The title that the template transcludes.
+	 * @param params Template parameters.
+	 * @param hierarchies Optional template parameter hierarchies.
+	 * @returns `null` if initialization fails.
+	 * @static
+	 */
+	'new'(
+		title: string | Title,
+		params?: NewTemplateParameter[],
+		hierarchies?: TemplateParameterHierarchies
+	): Template | null;
+	/**
+	 * Checks if the given object is an instance of the specified template-related class.
+	 *
+	 * This method is an alternative of the `instanceof` operator, which cannot be used for
+	 * non-exported classes.
+	 *
+	 * **Example**:
+	 * ```ts
+	 * const [foo] = new mwbot.Wikitext('{{Foo}}').parseTemplates();
+	 * foo instanceof mwbot.Template; // true
+	 * mwbot.Template.is(foo, 'ParsedTemplate'); // true
+	 * mwbot.Template.is(foo, 'RawTemplate'); // false
+	 * foo instanceof mwbot.ParserFunction; // false
+	 * mwbot.Template.is(foo, 'ParsedParserFunction'); // false
+	 * ```
+	 *
+	 * Be noted about the hierarchies of the template-related classes:
+	 * - {@link ParsedTemplateStatic | ParsedTemplate} extends {@link TemplateStatic | Template}.
+	 * - {@link RawTemplateStatic | RawTemplate} extends nothing, meaning that its instances are
+	 * ***not*** instances of {@link TemplateStatic | Template}, {@link ParsedTemplateStatic | ParsedTemplate},
+	 * {@link ParserFunctionStatic | ParserFunction}, or {@link ParsedParserFunctionStatic | ParsedParserFunction}.
+	 * - {@link ParsedParserFunctionStatic | ParsedParserFunction} extends {@link ParserFunctionStatic | ParserFunction}.
+	 *
+	 * @template T The type of template to check for. Must be one of `'Template'`, `'ParsedTemplate'`,
+	 * `'RawTemplate'`, `'ParserFunction'`, or `'ParsedParserFunction'`.
+	 * @param obj The object to check.
+	 * @param type The template type to compare against.
+	 * @returns `true` if `obj` is an instance of the specified template class, otherwise `false`.
+	 * @throws {Error} If an invalid `type` is provided.
+	 * @static
+	 */
+	is<T extends keyof TemplateTypeMap>(obj: unknown, type: T): obj is TemplateTypeMap[T];
+}
+
+/**
+ * The instance members of the `Template` class. For static members,
+ * see {@link TemplateStatic} (defined separately due to TypeScript limitations).
+ */
+export interface Template extends TemplateBase<Title> {
+	/**
+	 * Set a new title to the instance.
+	 *
+	 * @param title The new title to set.
+	 * @param verbose Whether to log errors. (Default: `false`)
+	 * @returns A boolean indicating whether the new title is set.
+	 */
+	setTitle(title: string | Title, verbose?: boolean): boolean;
+	/**
+	 * Stringifies the instance.
+	 *
+	 * @param options Options to format the output.
+	 * @returns
+	 */
+	stringify(options?: TemplateOutputConfig<Title>): string;
+	/**
+	 * Alias of {@link stringify} called without arguments.
+	 * @returns
+	 */
+	toString(): string;
+}
+
+/**
+ * This interface defines the static members of the `ParsedTemplate` class. For instance members,
+ * see {@link ParsedTemplate} (defined separately due to TypeScript limitations).
+ *
+ * This class is exclusive to {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}.
+ * It represents a well-formed `{{template}}` markup with a valid title. For the class
+ * that represents a malformed `{{template}}` markup, see {@link RawTemplateStatic}.
+ *
+ * This class differs from {@link RawTemplateStatic | RawTemplate} in that:
+ * - It extends the {@link TemplateStatic | Template} class.
+ * - The {@link ParsedTemplate.title | title} property is an instance of {@link Title} instead of a string.
+ * - {@link ParsedTemplate.setTitle} is an in-place operation that only returns a boolean value
+ * (unless a `toHook` parameter is provided).
+ *
+ * The constructor of this class is inaccessible, and instances can only be referenced
+ * in the result of `parseTemplates`.
+ *
+ * To check if an object is an instance of this class, use {@link TemplateStatic.is}.
+ *
+ * **Important**:
+ *
+ * The instance properties of this class are pseudo-read-only, in the sense that altering them
+ * does not affect the behaviour of {@link Mwbot.Wikitext.modifyTemplates | Wikitext.modifyTemplates}.
+ */
+export interface ParsedTemplateStatic extends Omit<TemplateStatic, 'new'> {
+	/**
+	 * @param initializer
+	 * @param options
+	 * @hidden
+	 */
+	new(initializer: ParsedTemplateInitializer, options?: ParsedTemplateOptions): ParsedTemplate;
+}
+
+/**
+ * The instance members of the `ParsedTemplate` class. For static members,
+ * see {@link ParsedTemplateStatic} (defined separately due to TypeScript limitations).
+ */
+export interface ParsedTemplate extends Template {
+	/**
+	 * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
+	 */
+	rawTitle: string;
+	/**
+	 * The original text of the template parsed from the wikitext.
+	 * The value of this property is static.
+	 */
+	text: string;
+	/**
+	 * The starting index of this template in the wikitext.
+	 */
+	startIndex: number;
+	/**
+	 * The ending index of this template in the wikitext (exclusive).
+	 */
+	endIndex: number;
+	/**
+	 * The nesting level of this template. `0` if not nested within another double-braced expression.
+	 */
+	nestLevel: number;
+	/**
+	 * Whether the template appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+	 */
+	skip: boolean;
+
+	/**
+	 * Sets a new title to the instance.
+	 *
+	 * @param title The new title to set.
+	 * @param verbose Whether to log errors. (Default: `false`)
+	 * @returns A boolean indicating whether the new title was set.
+	 */
+	setTitle(title: string | Title, verbose?: boolean): boolean;
+	/**
+	 * Converts the instance to a {@link ParsedParserFunction}.
+	 *
+	 * This method should only be used for `ParsedTemplate` instances that represent invalid
+	 * parser functions (e.g., `{{if:1|1|2}}`, where `"if:"` is not a valid function hook
+	 * and is therefore recognized as part of a template title).
+	 *
+	 * The conversion is based on the data used to initialize this instance, and any modifications
+	 * made after initialization will be discarded. Therefore, this method should be called before
+	 * making any changes to the instance properties.
+	 *
+	 * @param title The parser function hook to convert this title to, **including** a trailing
+	 * colon character (e.g., `"#if:"`; see also {@link ParserFunction.verify}). If a `Title`
+	 * instance is passed, the output of `title.getPrefixedDb({ colon: true, fragment: true })`
+	 * is validated.
+	 *
+	 * When passing a string, it can include the function’s first parameter (e.g., `"#if:1"`).
+	 * The second and subsequent parameters are initialized based on {@link params}.
+	 *
+	 * @param verbose Whether to log errors (default: `false`).
+	 * @param toHook Whether to convert the instance to a parser function.
+	 * @returns A new {@link ParsedParserFunction} instance on success; otherwise, `null`.
+	 */
+	setTitle(title: string | Title, verbose: boolean, toHook: true): ParsedParserFunction | null;
+	/**
+	 * @inheritdoc
+	 */
+	stringify(options?: ParsedTemplateOutputConfig): string;
+	/**
+	 * @inheritdoc
+	 */
+	toString(): string;
+	/**
+	 * @hidden
+	 */
+	_clone(): ParsedTemplate;
+}
+
+/**
+ * This interface defines the static members of the `RawTemplate` class. For instance members,
+ * see {@link RawTemplate} (defined separately due to TypeScript limitations).
+ *
+ * This class is exclusive to {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}.
+ * It represents a malformed `{{template}}` markup with an invalid title. For the class
+ * that represents a well-formed `{{template}}` markup, see {@link ParsedTemplateStatic}
+ * (and {@link ParsedParserFunctionStatic}).
+ *
+ * This class differs from {@link ParsedTemplateStatic | ParsedTemplate} in that:
+ * - It does not extend any class (that the user can access).
+ * - The {@link RawTemplate.title | title} property is a string instead of an instance of {@link Title}.
+ * - {@link RawTemplate.setTitle} returns a new {@link ParsedTemplate} instance (or a new
+ * {@link ParsedParserFunction} instance) when a valid title is provided.
+ *
+ * The constructor of this class is inaccessible, and instances can only be referenced
+ * in the result of `parseTemplates`.
+ *
+ * To check if an object is an instance of this class, use {@link TemplateStatic.is}.
+ *
+ * **Important**:
+ *
+ * The instance properties of this class are pseudo-read-only, in the sense that altering them
+ * does not affect the behaviour of {@link Mwbot.Wikitext.modifyTemplates | Wikitext.modifyTemplates}.
+ */
+export interface RawTemplateStatic extends Omit<TemplateBaseStatic<string>, 'new'> {
+	/**
+	 * @param initializer
+	 * @param options
+	 * @hidden
+	 */
+	new(initializer: ParsedTemplateInitializer, options?: ParsedTemplateOptions): RawTemplate;
+}
+
+/**
+ * The instance members of the `RawTemplate` class. For static members,
+ * see {@link RawTemplateStatic} (defined separately due to TypeScript limitations).
+ */
+export interface RawTemplate extends TemplateBase<string> {
+	/**
+	 * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
+	 */
+	rawTitle: string;
+	/**
+	 * The original text of the template parsed from the wikitext.
+	 * The value of this property is static.
+	 */
+	text: string;
+	/**
+	 * The starting index of this template in the wikitext.
+	 */
+	startIndex: number;
+	/**
+	 * The ending index of this template in the wikitext (exclusive).
+	 */
+	endIndex: number;
+	/**
+	 * The nesting level of this template. `0` if not nested within another double-braced expression.
+	 */
+	nestLevel: number;
+	/**
+	 * Whether the template appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+	 */
+	skip: boolean;
+
+	/**
+	 * Sets a new template title and converts the instance to a new {@link ParsedTemplate} instance.
+	 *
+	 * The conversion is based on the data used to initialize this instance, and any modifications
+	 * made after initialization will be discarded. Therefore, this method should be called before
+	 * making any changes to the instance properties.
+	 *
+	 * @param title The new title to set.
+	 * @param verbose Whether to log errors. (Default: `false`)
+	 * @returns A new {@link ParsedTemplate} instance on success; otherwise, `null`.
+	 */
+	setTitle(title: string | Title, verbose?: boolean): ParsedTemplate | null;
+	/**
+	 * Sets a new function hook and converts the instance to a new {@link ParsedParserFunction} instance.
+	 *
+	 * The conversion is based on the data used to initialize this instance, and any modifications
+	 * made after initialization will be discarded. Therefore, this method should be called before
+	 * making any changes to the instance properties.
+	 *
+	 * @param title The parser function hook to convert this title to, **including** a trailing
+	 * colon character (e.g., `"#if:"`; see also {@link ParserFunctionStatic.verify}). If a {@link Title}
+	 * instance is passed, the output of `title.getPrefixedDb({ colon: true, fragment: true })`
+	 * is validated.
+	 *
+	 * When passing a string, it can (and should) include the function’s first parameter (e.g., `'#if:1'`).
+	 * The second and subsequent parameters are initialized based on {@link params}.
+	 *
+	 * @param verbose Whether to log errors (default: `false`).
+	 * @param toHook Whether to convert the instance to a parser function.
+	 * @returns A new {@link ParsedParserFunction} instance on success; otherwise, `null`.
+	 */
+	setTitle(title: string | Title, verbose: boolean, toHook: true): ParsedParserFunction | null;
+	/**
+	 * Stringifies the instance.
+	 *
+	 * @param options Options to format the output.
+	 * @returns
+	 */
+	stringify(options?: RawTemplateOutputConfig): string;
+	/**
+	 * Alias of {@link stringify} called without arguments.
+	 * @returns
+	 */
+	toString(): string;
+	/**
+	 * @hidden
+	 */
+	_clone(): RawTemplate;
+}
+
+/**
+ * This interface defines the static members of the `ParserFunction` class. For instance members,
+ * see {@link ParserFunction} (defined separately due to TypeScript limitations).
+ *
+ * `ParserFunction` is a class that serves to parse `{{#func:}}` markups into an object structure,
+ * which is accessible via {@link Mwbot.ParserFunction}. Note that `{{template}}` markups
+ * are treated differently by the {@link TemplateStatic | Template} class.
+ *
+ * @example
+ * const func = new mwbot.ParserFunction('#if:', ['{{{1|}}}']);
+ * func.addParam('{{{1}}}');
+ * func.stringify(); // {{#if:{{{1|}}}|{{{1}}}}}
+ */
+export interface ParserFunctionStatic extends Omit<typeof ParamBase, 'prototype'> {
+	/**
+	 * Creates a new instance.
+	 *
+	 * @param hook The function hook. This ***must*** end with a colon character.
+	 * @param params Parameters of the parser function.
+	 */
+	new(hook: string, params?: string[]): ParserFunction;
+	/**
+	 * Verifies the given string as a parser function hook.
+	 *
+	 * @param hook A potential parser function hook as a string. This **must** end with a colon character.
+	 * @returns An object representing the canonical function hook and the matched function hook, or `null`.
+	 * @static
+	 */
+	verify(hook: string): VerifiedFunctionHook | null;
+}
+
+/**
+ * The instance members of the `ParserFunction` class. For static members,
+ * see {@link ParserFunctionStatic} (defined separately due to TypeScript limitations).
+ */
+export interface ParserFunction extends InstanceType<typeof ParamBase> {
+	/**
+	 * The parser function hook. This may be an alias of the canonical hook.
+	 *
+	 * This property is read-only. To update it, use {@link setHook}.
+	 */
+	readonly hook: string;
+	/**
+	 * The canonical parser function hook.
+	 *
+	 * This property is automatically set and updated on a successful call of {@link setHook}.
+	 */
+	readonly canonicalHook: string;
+
+	/**
+	 * Sets a new function hook, overwriting the current one.
+	 *
+	 * @param hook The new hook.
+	 * @returns A boolean indicating whether the new hook has been set, after validation.
+	 */
+	setHook(hook: string): boolean;
+	/**
+	 * Stringifies the instance.
+	 *
+	 * @param options Options to format the output.
+	 * @returns
+	 */
+	stringify(options?: ParserFunctionOutputConfig): string;
+	/**
+	 * Alias of {@link stringify} called without arguments.
+	 * @returns
+	 */
+	toString(): string;
+}
+
+/**
+ * This interface defines the static members of the `ParsedParserFunction` class. For instance members,
+ * see {@link ParsedParserFunction} (defined separately due to TypeScript limitations).
+ *
+ * This class is exclusive to {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}.
+ * It represents a well-formed `{{#parserfunction:...}}` markup with a valid title. For the class
+ * that represents a well-formed `{{template}}` markup, see {@link ParsedTemplateStatic}.
+ * (and also {@link RawTemplateStatic}).
+ *
+ * This class differs from {@link ParsedTemplateStatic | ParsedTemplate} in that:
+ * - It extends the {@link ParserFunctionStatic | ParserFunction} class.
+ *
+ * The constructor of this class is inaccessible, and instances can only be referenced
+ * in the result of `parseTemplates`.
+ *
+ * To check if an object is an instance of this class, use {@link TemplateStatic.is}.
+ *
+ * **Important**:
+ *
+ * The instance properties of this class are pseudo-read-only, in the sense that altering them
+ * does not affect the behaviour of {@link Mwbot.Wikitext.modifyTemplates | Wikitext.modifyTemplates}.
+ */
+export interface ParsedParserFunctionStatic extends Omit<ParserFunctionStatic, 'new'> {
+	/**
+	 * @param initializer
+	 * @hidden
+	 */
+	new(initializer: ParsedTemplateInitializer): ParsedParserFunction;
+}
+
+/**
+ * The instance members of the `ParsedParserFunction` class. For static members,
+ * see {@link ParsedParserFunctionStatic} (defined separately due to TypeScript limitations).
+ */
+export interface ParsedParserFunction extends ParserFunction {
+	/**
+	 * The raw parser function hook, as directly parsed from the wikitext.
+	 */
+	rawHook: string;
+	/**
+	 * The original text of the parser function parsed from the wikitext.
+	 * The value of this property is static.
+	 */
+	text: string;
+	/**
+	 * The starting index of this parser function in the wikitext.
+	 */
+	startIndex: number;
+	/**
+	 * The ending index of this parser function in the wikitext (exclusive).
+	 */
+	endIndex: number;
+	/**
+	 * The nesting level of this parser function. `0` if not nested within another double-braced expression.
+	 */
+	nestLevel: number;
+	/**
+	 * Whether the parser function appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+	 */
+	skip: boolean;
+
+	/**
+	 * @inheritdoc
+	 */
+	stringify(options?: ParsedParserFunctionOutputConfig): string;
+	/**
+	 * @inheritdoc
+	 */
+	toString(): string;
+	/**
+	 * @hidden
+	 */
+	_clone(): ParsedParserFunction;
+}
+
+/**
  * @internal
  */
-export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], Title: Title) {
+export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], Title: TitleStatic) {
 
 	const namespaceIds = config.get('wgNamespaceIds');
 	const NS_MAIN = namespaceIds[''];
@@ -129,20 +731,9 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 	/**
 	 * @internal
 	 */
-	abstract class TemplateBase<T extends string | InstanceType<Title>> {
+	class TemplateBase<T extends string | Title> implements TemplateBase<T> {
 
-		/**
-		 * The template's title.
-		 *
-		 * This property is read-only. To update it, use {@link setTitle}.
-		 */
 		readonly title: T;
-		/**
-		 * The template's parameters.
-		 *
-		 * This property is read-only. To update it, use {@link addParam}, {@link setParam},
-		 * or {@link deleteParam} as per your needs.
-		 */
 		readonly params: Record<string, TemplateParameter>;
 		/**
 		 * The order of parameter registration.
@@ -153,13 +744,6 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 */
 		protected hierarchies: TemplateParameterHierarchies;
 
-		/**
-		 * Creates a new instance.
-		 *
-		 * @param title The title that the template transcludes.
-		 * @param params Template parameters.
-		 * @param hierarchies Optional template parameter hierarchies.
-		 */
 		constructor(
 			title: T,
 			params: NewTemplateParameter[] = [],
@@ -178,6 +762,71 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		}
 
+		addParam(key: string, value: string, overwrite = true): this {
+			return this.registerParam(key, value, {overwrite, append: true});
+		}
+
+		setParam(key: string, value: string, overwrite = true): this {
+			return this.registerParam(key, value, {overwrite, append: false});
+		}
+
+		getParam(key: string, resolveHierarchy = false): TemplateParameter | null {
+			if (resolveHierarchy) {
+				const hier = this.hierarchies.find((arr) => arr.includes(key));
+				if (hier) {
+					for (let i = hier.length - 1; i >= 0; i--) {
+						if (hier[i] in this.params) {
+							return this.params[hier[i]];
+						}
+					}
+				}
+			}
+			return this.params[key] || null;
+		}
+
+		hasParam(
+			keyOrPred: string | RegExp | ((key: string, param: TemplateParameter) => boolean),
+			value?: string | RegExp
+		): boolean {
+			if (
+				typeof keyOrPred !== 'string' &&
+				!(keyOrPred instanceof RegExp) &&
+				typeof keyOrPred !== 'function' ||
+				keyOrPred === ''
+			) {
+				return false;
+			}
+
+			// If `keyOrPred` is a function, check against each param
+			if (typeof keyOrPred === 'function') {
+				return Object.entries(this.params).some(([k, obj]) => keyOrPred(k, mergeDeep(obj)));
+			}
+
+			// Convert string key to a strict RegExp match
+			const keyPattern = typeof keyOrPred === 'string'
+				? new RegExp(`^${escapeRegExp(keyOrPred)}$`)
+				: keyOrPred;
+
+			// Search for a matching key and validate its value
+			return Object.entries(this.params).some(([k, obj]) =>
+				keyPattern.test(k) &&
+				(
+					value === undefined ||
+					(typeof value === 'string' && value === obj.value) ||
+					(value instanceof RegExp && value.test(obj.value))
+				)
+			);
+		}
+
+		deleteParam(key: string): boolean {
+			if (!this.params[key]) {
+				return false;
+			}
+			delete this.params[key];
+			this.paramOrder.delete(key);
+			return true;
+		}
+
 		/**
 		 * Validates the given title as a template title and returns a Title instance. The title must not be
 		 * a parser function hook. On failure, this method throws an error.
@@ -186,7 +835,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 * @param asHook Whether to validate the title as a function hook.
 		 * @returns
 		 */
-		protected static validateTitle(title: string | InstanceType<Title>, asHook?: false): InstanceType<Title>;
+		protected static validateTitle(title: string | Title, asHook?: false): Title;
 		/**
 		 * Validates the given title as a function hook and returns a verified hook object. On failure, this method
 		 * throws an error.
@@ -195,8 +844,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 * @param asHook Whether to validate the title as a function hook.
 		 * @returns
 		 */
-		protected static validateTitle(title: string | InstanceType<Title>, asHook: true): VerifiedFunctionHook;
-		protected static validateTitle(title: string | InstanceType<Title>, asHook = false): InstanceType<Title> | VerifiedFunctionHook {
+		protected static validateTitle(title: string | Title, asHook: true): VerifiedFunctionHook;
+		protected static validateTitle(title: string | Title, asHook = false): Title | VerifiedFunctionHook {
 			if (typeof title !== 'string' && !(title instanceof Title)) {
 				throw new TypeError(`Expected a string or Title instance for "title", but got ${typeof title}.`);
 			}
@@ -412,160 +1061,6 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		/**
-		 * Adds a template parameter to the end of the list.
-		 *
-		 * If a parameter with the same `key` already exists:
-		 * - If `overwrite` is `true`, it replaces the existing value and **moves it to the end** of the list.
-		 *   - This may alter the position of the parameter, e.g., `|1=|2=|3=` could become `|1=|3=|2=`.
-		 * - If `overwrite` is `false`, the parameter is not added, and the existing entry remains unchanged.
-		 *
-		 * This differs from {@link setParam}, which updates an existing key without changing its order.
-		 *
-		 * Note that the order of parameters in the final output can be controlled via {@link stringify}
-		 * using {@link TemplateOutputConfig.sortPredicate}, regardless of the insertion order tracked by this instance.
-		 *
-		 * @param key The key of the parameter. This can be an empty string for unnamed parameters.
-		 * @param value The value of the parameter.
-		 * @param overwrite
-		 * Whether to overwrite the existing value (`true`) or cancel the addition (`false`). (Default: `true`)
-		 */
-		addParam(key: string, value: string, overwrite = true): this {
-			return this.registerParam(key, value, {overwrite, append: true});
-		}
-
-		/**
-		 * Sets a template parameter while preserving its original position in the list.
-		 *
-		 * If a parameter with the same `key` already exists:
-		 * - If `overwrite` is `true`, it replaces the existing value while **keeping its original position**.
-		 *   - This ensures that the order remains unchanged, e.g., `|1=|2=|3=` stays the same.
-		 * - If `overwrite` is `false`, the parameter remains unchanged.
-		 *
-		 * This differs from {@link addParam}, which moves the parameter to the end of the list.
-		 *
-		 * Note that the order of parameters in the final output can be controlled via {@link stringify}
-		 * using {@link TemplateOutputConfig.sortPredicate}, regardless of the insertion order tracked by this instance.
-		 *
-		 * @param key The key of the parameter. This can be an empty string for unnamed parameters.
-		 * @param value The new value of the parameter.
-		 * @param overwrite
-		 * Whether to overwrite the existing value (`true`) or cancel the update (`false`). (Default: `true`)
-		 */
-		setParam(key: string, value: string, overwrite = true): this {
-			return this.registerParam(key, value, {overwrite, append: false});
-		}
-
-		/**
-		 * Gets a parameter object by key.
-		 *
-		 * **Caution**: The returned object is mutable.
-		 *
-		 * @param key The parameter key.
-		 * @param resolveHierarchy Whether to consider {@link hierarchies} when searching for a matching parameter.
-		 * If `true`, this method first checks if `key` belongs to a hierarchy array. If {@link params} contains a
-		 * parameter with a higher-priority key in that hierarchy, it returns that parameter instead.
-		 * (Default: `false`).
-		 *
-		 * Example:
-		 * - Given `key = '1'`, `hierarchies = [['1', 'user', 'User']]`, and `params` containing a parameter keyed `'user'`,
-		 *   this method returns the `'user'` parameter.
-		 *
-		 * Note that if `key` does not belong to any hierarchy array, this method behaves the same as when
-		 * `resolveHierarchy` is `false`.
-		 *
-		 * @returns The parameter object if found, otherwise `null`.
-		 */
-		getParam(key: string, resolveHierarchy = false): TemplateParameter | null {
-			if (resolveHierarchy) {
-				const hier = this.hierarchies.find((arr) => arr.includes(key));
-				if (hier) {
-					for (let i = hier.length - 1; i >= 0; i--) {
-						if (hier[i] in this.params) {
-							return this.params[hier[i]];
-						}
-					}
-				}
-			}
-			return this.params[key] || null;
-		}
-
-		/**
-		 * Checks if a template parameter with the specified key exists, optionally matching its value.
-		 *
-		 * @param key The parameter key to match, either as an exact string or a regular expression.
-		 * @param value The optional value matcher.
-		 * - If a string, checks for an exact value match.
-		 * - If a regular expression, tests the parameter value against the pattern.
-		 * - If omitted, only the parameter key is checked.
-		 * @returns `true` if a matching parameter exists; otherwise, `false`.
-		 *
-		 * @example
-		 * hasParam("user"); // Checks if a parameter named "user" exists.
-		 * hasParam(/^data-/); // Checks for parameters starting with "data-".
-		 * hasParam("id", "123"); // Checks if "id" exists and equals "123".
-		 */
-		hasParam(key: string | RegExp, value?: string | RegExp): boolean;
-		/**
-		 * Checks if a template parameter exists based on a custom predicate function.
-		 *
-		 * @param predicate A function that tests each parameter.
-		 * @returns `true` if a matching parameter exists; otherwise, `false`.
-		 *
-		 * @example
-		 * hasParam((key, param) => key.startsWith("meta") && param.value.length > 10);
-		 */
-		hasParam(predicate: (key: string, param: TemplateParameter) => boolean): boolean;
-		/** @inheritdoc */
-		hasParam(
-			keyOrPred: string | RegExp | ((key: string, param: TemplateParameter) => boolean),
-			value?: string | RegExp
-		): boolean {
-			if (
-				typeof keyOrPred !== 'string' &&
-				!(keyOrPred instanceof RegExp) &&
-				typeof keyOrPred !== 'function' ||
-				keyOrPred === ''
-			) {
-				return false;
-			}
-
-			// If `keyOrPred` is a function, check against each param
-			if (typeof keyOrPred === 'function') {
-				return Object.entries(this.params).some(([k, obj]) => keyOrPred(k, mergeDeep(obj)));
-			}
-
-			// Convert string key to a strict RegExp match
-			const keyPattern = typeof keyOrPred === 'string'
-				? new RegExp(`^${escapeRegExp(keyOrPred)}$`)
-				: keyOrPred;
-
-			// Search for a matching key and validate its value
-			return Object.entries(this.params).some(([k, obj]) =>
-				keyPattern.test(k) &&
-				(
-					value === undefined ||
-					(typeof value === 'string' && value === obj.value) ||
-					(value instanceof RegExp && value.test(obj.value))
-				)
-			);
-		}
-
-		/**
-		 * Deletes a parameter from the template.
-		 *
-		 * @param key The parameter key to delete.
-		 * @returns `true` if the parameter was deleted, otherwise `false`.
-		 */
-		deleteParam(key: string): boolean {
-			if (!this.params[key]) {
-				return false;
-			}
-			delete this.params[key];
-			this.paramOrder.delete(key);
-			return true;
-		}
-
-		/**
 		 * Internal stringification handler.
 		 * @param title The template title. This must be formatted to a string.
 		 * @param options
@@ -614,26 +1109,13 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 	}
 
-	/**
-	 * Parses templates into an object structure. This class is attached to {@link Mwbot.Template}
-	 * as an instance member.
-	 *
-	 * @example
-	 * const foo = new mwbot.Template('Foo');
-	 * foo.addParam('', 'bar').addParam('user', 'baz');
-	 * foo.stringify(); // {{Foo|bar|user=baz}}
-	 */
-	class Template extends TemplateBase<InstanceType<Title>> {
+	// Check missing members
+    const _templateBaseCheck: TemplateBaseStatic<string> = TemplateBase;
 
-		/**
-		 * Creates a new instance.
-		 *
-		 * @param title The title that the template transcludes.
-		 * @param params Template parameters.
-		 * @param hierarchies Optional template parameter hierarchies.
-		 */
+	class Template extends TemplateBase<Title> implements Template {
+
 		constructor(
-			title: string | InstanceType<Title>,
+			title: string | Title,
 			params: NewTemplateParameter[] = [],
 			hierarchies?: TemplateParameterHierarchies
 		) {
@@ -641,16 +1123,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			super(title, params, hierarchies);
 		}
 
-		/**
-		 * Error-proof constructor.
-		 *
-		 * @param title The title that the template transcludes.
-		 * @param params Template parameters.
-		 * @param hierarchies Optional template parameter hierarchies.
-		 * @returns `null` if initialization fails.
-		 */
 		static new(
-			title: string | InstanceType<Title>,
+			title: string | Title,
 			params: NewTemplateParameter[] = [],
 			hierarchies?: TemplateParameterHierarchies
 		): Template | null {
@@ -661,35 +1135,6 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			}
 		}
 
-		/**
-		 * Checks if the given object is an instance of the specified template-related class.
-		 *
-		 * This method is an alternative of the `instanceof` operator, which cannot be used for
-		 * non-exported classes.
-		 *
-		 * **Example**:
-		 * ```ts
-		 * const [foo] = new mwbot.Wikitext('{{Foo}}').parseTemplates();
-		 * foo instanceof mwbot.Template; // true
-		 * mwbot.Template.is(foo, 'ParsedTemplate'); // true
-		 * mwbot.Template.is(foo, 'RawTemplate'); // false
-		 * foo instanceof mwbot.ParserFunction; // false
-		 * mwbot.Template.is(foo, 'ParsedParserFunction'); // false
-		 * ```
-		 *
-		 * Be noted about the hierarchies of the template-related classes:
-		 * - {@link ParsedTemplate} extends {@link Template}.
-		 * - {@link RawTemplate} extends nothing, meaning that its instances are ***not*** instances of
-		 * {@link Template}, {@link ParsedTemplate}, {@link ParserFunction}, or {@link ParsedParserFunction}.
-		 * - {@link ParsedParserFunction} extends {@link ParserFunction}.
-		 *
-		 * @template T The type of template to check for. Must be one of `'Template'`, `'ParsedTemplate'`,
-		 * `'RawTemplate'`, `'ParserFunction'`, or `'ParsedParserFunction'`.
-		 * @param obj The object to check.
-		 * @param type The template type to compare against.
-		 * @returns `true` if `obj` is an instance of the specified template class, otherwise `false`.
-		 * @throws {Error} If an invalid `type` is provided.
-		 */
 		static is<T extends keyof TemplateTypeMap>(obj: unknown, type: T): obj is TemplateTypeMap[T] {
 			switch (type) {
 				case 'Template':
@@ -707,14 +1152,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			}
 		}
 
-		/**
-		 * Set a new title to the instance.
-		 *
-		 * @param title The new title to set.
-		 * @param verbose Whether to log errors. (Default: `false`)
-		 * @returns A boolean indicating whether the new title is set.
-		 */
-		setTitle(title: string | InstanceType<Title>, verbose = false): boolean {
+		setTitle(title: string | Title, verbose = false): boolean {
 			try {
 				// @ts-expect-error
 				this.title = Template.validateTitle(title);
@@ -727,88 +1165,38 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			}
 		}
 
-		/**
-		 * Stringifies the instance.
-		 *
-		 * @param options Options to format the output.
-		 * @returns
-		 */
-		stringify(options: TemplateOutputConfig<InstanceType<Title>> = {}): string  {
+		stringify(options: TemplateOutputConfig<Title> = {}): string  {
 			return this._stringify(this.title.getPrefixedText({colon: true}), options);
 		}
 
-		/**
-		 * Alias of {@link stringify} called without arguments.
-		 * @returns
-		 */
-		toString() {
+		override toString() {
 			return this.stringify();
 		}
 
 	}
 
-	/**
-	 * Class for {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}. This class
-	 * represents a well-formed `{{template}}` expression with a valid title. For the class
-	 * that represents a malformed `{{template}}` expression, see {@link RawTemplate}.
-	 *
-	 * This class differs from {@link RawTemplate} in that:
-	 * - It extends the {@link Template} class.
-	 * - The {@link title} property is an instace of {@link Title} instead of a string.
-	 * - {@link setTitle} is an in-place operation that only returns a boolean value
-	 * (unless a `toHook` parameter is provided).
-	 *
-	 * The constructor of this class is inaccessible, and instances can only be referenced
-	 * in the result of `parseTemplates`.
-	 *
-	 * To check if an object is an instace of this class, use {@link Template.is}.
-	 *
-	 * **Important**:
-	 *
-	 * The instance properties of this class are pseudo-read-only, in the sense that altering them
-	 * does not affect the behaviour of {@link Mwbot.Wikitext.modifyTemplates | Wikitext.modifyTemplates}.
-	 */
-	class ParsedTemplate extends Template {
+	// Check missing members
+	type _CheckTemplateStatic = TemplateStatic & { new (...args: any[]): Template };
+	const _templateCheckStatic: _CheckTemplateStatic = Template;
+	// const _templateCheckInstance: Template = new Template('');
 
-		/**
-		 * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
-		 */
+	class ParsedTemplate extends Template implements ParsedTemplate {
+
 		rawTitle: string;
+		text: string;
+		startIndex: number;
+		endIndex: number;
+		nestLevel: number;
+		skip: boolean;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
 		private _rawTitle: string;
 		/**
-		 * The original text of the template parsed from the wikitext.
-		 * The value of this property is static.
-		 */
-		text: string;
-		/**
-		 * The starting index of this template in the wikitext.
-		 */
-		startIndex: number;
-		/**
-		 * The ending index of this template in the wikitext (exclusive).
-		 */
-		endIndex: number;
-		/**
-		 * The nesting level of this template. `0` if not nested within another double-braced expression.
-		 */
-		nestLevel: number;
-		/**
-		 * Whether the template appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
-		 */
-		skip: boolean;
-		/**
 		 * @hidden
 		 */
 		private _initializer: ParsedTemplateInitializer;
 
-		/**
-		 * @param initializer
-		 * @param options
-		 * @hidden
-		 */
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
 			const {title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip} = initializer;
 			const t = Template.validateTitle(title);
@@ -823,39 +1211,9 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			this.skip = skip;
 		}
 
-		/**
-		 * Sets a new title to the instance.
-		 *
-		 * @param title The new title to set.
-		 * @param verbose Whether to log errors. (Default: `false`)
-		 * @returns A boolean indicating whether the new title was set.
-		 */
-		setTitle(title: string | InstanceType<Title>, verbose?: boolean): boolean;
-		/**
-		 * Converts the instance to a {@link ParsedParserFunction}.
-		 *
-		 * This method should only be used for `ParsedTemplate` instances that represent invalid
-		 * parser functions (e.g., `{{if:1|1|2}}`, where `"if:"` is not a valid function hook
-		 * and is therefore recognized as part of a template title).
-		 *
-		 * The conversion is based on the data used to initialize this instance, and any modifications
-		 * made after initialization will be discarded. Therefore, this method should be called before
-		 * making any changes to the instance properties.
-		 *
-		 * @param title The parser function hook to convert this title to, **including** a trailing
-		 * colon character (e.g., `"#if:"`; see also {@link ParserFunction.verify}). If a `Title`
-		 * instance is passed, the output of `title.getPrefixedDb({ colon: true, fragment: true })`
-		 * is validated.
-		 *
-		 * When passing a string, it can include the function’s first parameter (e.g., `"#if:1"`).
-		 * The second and subsequent parameters are initialized based on {@link params}.
-		 *
-		 * @param verbose Whether to log errors (default: `false`).
-		 * @param toHook Whether to convert the instance to a parser function.
-		 * @returns A new {@link ParsedParserFunction} instance on success; otherwise, `null`.
-		 */
-		setTitle(title: string | InstanceType<Title>, verbose: boolean, toHook: true): ParsedParserFunction | null;
-		setTitle(title: string | InstanceType<Title>, verbose = false, toHook = false): boolean | ParsedParserFunction | null {
+		override setTitle(title: string | Title, verbose?: boolean): boolean;
+		override setTitle(title: string | Title, verbose: boolean, toHook: true): ParsedParserFunction | null;
+		override setTitle(title: string | Title, verbose = false, toHook = false): boolean | ParsedParserFunction | null {
 			if (toHook) {
 				title = typeof title === 'string' ? title : title.getPrefixedDb({colon: true, fragment: true});
 				try {
@@ -883,8 +1241,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			}
 		}
 
-		/** @inheritdoc */
-		stringify(options: ParsedTemplateOutputConfig = {}): string {
+		override stringify(options: ParsedTemplateOutputConfig = {}): string {
 			const {rawTitle: optRawTitle, ...rawOptions} = options;
 			let title = this.title.getPrefixedText({colon: true});
 			if (optRawTitle && this._rawTitle.includes('\x01')) {
@@ -893,81 +1250,38 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return this._stringify(title, rawOptions);
 		}
 
-		/** @inheritdoc */
-		toString() {
+		override toString() {
 			return this.stringify();
 		}
 
-		/** @hidden */
 		_clone() {
 			return new ParsedTemplate(this._initializer);
 		}
 
 	}
 
-	/**
-	 * Class for {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}. This class
-	 * represents a malformed `{{template}}` expression with an invalid title (i.e., the title
-	 * is empty or contains illegal characters). For the class that represents a well-formed
-	 * `{{template}}` expression, see {@link ParsedTemplate} (and {@link ParsedParserFunction}).
-	 *
-	 * This class differs from {@link ParsedTemplate} in that:
-	 * - It does not extend any class.
-	 * - The {@link title} property is a string instead of an instace of {@link Title}.
-	 * - {@link setTitle} returns a new {@link ParsedTemplate} instance (or a new
-	 * {@link ParsedParserFunction} instance) when a valid title is provided.
-	 *
-	 * The constructor of this class is inaccessible, and instances can only be referenced
-	 * in the result of `parseTemplates`.
-	 *
-	 * To check if an object is an instace of this class, use {@link Template.is}.
-	 *
-	 * **Important**:
-	 *
-	 * The instance properties of this class are pseudo-read-only, in the sense that altering them
-	 * does not affect the behaviour of {@link Mwbot.Wikitext.modifyTemplates | Wikitext.modifyTemplates}.
-	 */
-	class RawTemplate extends TemplateBase<string> {
+	// Check missing members
+	type _CheckParsedTemplateStatic = ParsedTemplateStatic & { new (...args: any[]): ParsedTemplate };
+	const _parsedTemplateCheckStatic: _CheckParsedTemplateStatic = ParsedTemplate;
+	// const _parsedTemplateCheckInstance: ParsedTemplate = new ParsedTemplate(Object.create(null));
 
-		/**
-		 * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
-		 */
+	class RawTemplate extends TemplateBase<string> implements RawTemplate {
+
 		rawTitle: string;
+		text: string;
+		startIndex: number;
+		endIndex: number;
+		nestLevel: number;
+		skip: boolean;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
 		private _rawTitle: string;
 		/**
-		 * The original text of the template parsed from the wikitext.
-		 * The value of this property is static.
-		 */
-		text: string;
-		/**
-		 * The starting index of this template in the wikitext.
-		 */
-		startIndex: number;
-		/**
-		 * The ending index of this template in the wikitext (exclusive).
-		 */
-		endIndex: number;
-		/**
-		 * The nesting level of this template. `0` if not nested within another double-braced expression.
-		 */
-		nestLevel: number;
-		/**
-		 * Whether the template appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
-		 */
-		skip: boolean;
-		/**
 		 * @hidden
 		 */
 		private _initializer: ParsedTemplateInitializer;
 
-		/**
-		 * @param initializer
-		 * @param options
-		 * @hidden
-		 */
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
 			const {title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip} = initializer;
 			super(title, params, options.hierarchies);
@@ -981,39 +1295,9 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			this.skip = skip;
 		}
 
-		/**
-		 * Sets a new template title and converts the instance to a new {@link ParsedTemplate} instance.
-		 *
-		 * The conversion is based on the data used to initialize this instance, and any modifications
-		 * made after initialization will be discarded. Therefore, this method should be called before
-		 * making any changes to the instance properties.
-		 *
-		 * @param title The new title to set.
-		 * @param verbose Whether to log errors. (Default: `false`)
-		 * @returns A new {@link ParsedTemplate} instance on success; otherwise, `null`.
-		 */
-		setTitle(title: string | InstanceType<Title>, verbose?: boolean): ParsedTemplate | null;
-		/**
-		 * Sets a new function hook and converts the instance to a new {@link ParsedParserFunction} instance.
-		 *
-		 * The conversion is based on the data used to initialize this instance, and any modifications
-		 * made after initialization will be discarded. Therefore, this method should be called before
-		 * making any changes to the instance properties.
-		 *
-		 * @param title The parser function hook to convert this title to, **including** a trailing
-		 * colon character (e.g., `"#if:"`; see also {@link ParserFunction.verify}). If a `Title`
-		 * instance is passed, the output of `title.getPrefixedDb({ colon: true, fragment: true })`
-		 * is validated.
-		 *
-		 * When passing a string, it can include the function’s first parameter (e.g., `"#if:1"`).
-		 * The second and subsequent parameters are initialized based on {@link params}.
-		 *
-		 * @param verbose Whether to log errors (default: `false`).
-		 * @param toHook Whether to convert the instance to a parser function.
-		 * @returns A new {@link ParsedParserFunction} instance on success; otherwise, `null`.
-		 */
-		setTitle(title: string | InstanceType<Title>, verbose: boolean, toHook: true): ParsedParserFunction | null;
-		setTitle(title: string | InstanceType<Title>, verbose = false, toHook = false): ParsedTemplate | ParsedParserFunction | null {
+		setTitle(title: string | Title, verbose?: boolean): ParsedTemplate | null;
+		setTitle(title: string | Title, verbose: boolean, toHook: true): ParsedParserFunction | null;
+		setTitle(title: string | Title, verbose = false, toHook = false): ParsedTemplate | ParsedParserFunction | null {
 			title = typeof title === 'string' ? title : title.getPrefixedDb({colon: true, fragment: toHook});
 			try {
 				// @ts-expect-error
@@ -1033,12 +1317,6 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			}
 		}
 
-		/**
-		 * Stringifies the instance.
-		 *
-		 * @param options Options to format the output.
-		 * @returns
-		 */
 		stringify(options: RawTemplateOutputConfig = {}): string {
 			const {rawTitle: optRawTitle, ...rawOptions} = options;
 			let title = this.title;
@@ -1048,46 +1326,26 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return this._stringify(title, rawOptions);
 		}
 
-		/**
-		 * Alias of {@link stringify} called without arguments.
-		 * @returns
-		 */
-		toString() {
+		override toString() {
 			return this.stringify();
 		}
 
-		/** @hidden */
 		_clone() {
 			return new RawTemplate(this._initializer);
 		}
 
 	}
 
-	/**
-	 * Parses parser functions into an object structure. This class is attached to {@link Mwbot.ParserFunction}
-	 * as an instance member.
-	 */
-	class ParserFunction extends ParamBase {
+	// Check missing members
+	type _CheckRawTemplateStatic = RawTemplateStatic & { new (...args: any[]): RawTemplate };
+	const _rawTemplateCheckStatic: _CheckRawTemplateStatic = RawTemplate;
+	// const _rawTemplateCheckInstance: RawTemplate = new RawTemplate(Object.create(null));
 
-		/**
-		 * The parser function hook. This may be an alias of the canonical hook.
-		 *
-		 * This property is read-only. To update it, use {@link setHook}.
-		 */
+	class ParserFunction extends ParamBase implements ParserFunction {
+
 		readonly hook: string;
-		/**
-		 * The canonical parser function hook.
-		 *
-		 * This property is automatically set and updated on a successful call of {@link setHook}.
-		 */
 		readonly canonicalHook: string;
 
-		/**
-		 * Creates a new instance.
-		 *
-		 * @param hook The function hook. This ***must*** end with a colon character.
-		 * @param params Parameters of the parser function.
-		 */
 		constructor(hook: string, params: string[] = []) {
 			const verified = ParserFunction.verify(hook);
 			if (!verified) {
@@ -1098,12 +1356,6 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			this.canonicalHook = verified.canonical;
 		}
 
-		/**
-		 * Verifies the given string as a parser function hook.
-		 *
-		 * @param hook A potential parser function hook as a string. This **must** end with a colon character.
-		 * @returns An object representing the canonical function hook and the matched function hook, or `null`.
-		 */
 		static verify(hook: string): VerifiedFunctionHook | null {
 			// Whitespace characters are illegal in a function hook, i.e. "#if:" is fine but not "# if:" or "#if :"
 			const m = /^#?[^:：\s]+[:：]/.exec(hook.trim());
@@ -1121,12 +1373,6 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return null;
 		}
 
-		/**
-		 * Sets a new function hook, overwriting the current one.
-		 *
-		 * @param hook The new hook.
-		 * @returns A boolean indicating whether the new hook has been set, after validation.
-		 */
 		setHook(hook: string): boolean {
 			const verified = ParserFunction.verify(hook);
 			if (!verified) {
@@ -1173,81 +1419,39 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return ret.join('');
 		}
 
-		/**
-		 * Stringifies the instance.
-		 *
-		 * @param options Options to format the output.
-		 * @returns
-		 */
 		stringify(options: ParserFunctionOutputConfig = {}): string {
 			const hook = options.useCanonical ? this.canonicalHook : this.hook;
 			return this._stringify(hook, options);
 		}
 
-		/**
-		 * Alias of {@link stringify} called without arguments.
-		 * @returns
-		 */
-		toString() {
+		override toString() {
 			return this.stringify();
 		}
 
 	}
 
-	/**
-	 * Class for {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}. This class
-	 * represents a `{{#parserfunction:...}}` expression.
-	 *
-	 * The constructor of this class is inaccessible, and instances can only be referenced
-	 * in the result of `parseTemplates`.
-	 *
-	 * To check if an object is an instace of this class, use {@link Template.is}.
-	 *
-	 * **Important**:
-	 *
-	 * The instance properties of this class are pseudo-read-only, in the sense that altering them
-	 * does not affect the behaviour of {@link Mwbot.Wikitext.modifyTemplates | Wikitext.modifyTemplates}.
-	 */
-	class ParsedParserFunction extends ParserFunction {
+	// Check missing members
+	type _CheckParserFunctionStatic = ParserFunctionStatic & { new (...args: any[]): ParserFunction };
+	const _parserFunctionCheckStatic: _CheckParserFunctionStatic = ParserFunction;
+	// const _parserFunctionCheckInstance: ParserFunction = new ParserFunction('');
 
-		/**
-		 * The raw parser function hook, as directly parsed from the wikitext.
-		 */
+	class ParsedParserFunction extends ParserFunction implements ParsedParserFunction {
+
 		rawHook: string;
+		text: string;
+		startIndex: number;
+		endIndex: number;
+		nestLevel: number;
+		skip: boolean;
 		/**
 		 * {@link rawHook} with the insertion point of {@link hook} replaced with a control character.
 		 */
 		private _rawHook: string;
 		/**
-		 * The original text of the parser function parsed from the wikitext.
-		 * The value of this property is static.
-		 */
-		text: string;
-		/**
-		 * The starting index of this parser function in the wikitext.
-		 */
-		startIndex: number;
-		/**
-		 * The ending index of this parser function in the wikitext (exclusive).
-		 */
-		endIndex: number;
-		/**
-		 * The nesting level of this parser function. `0` if not nested within another double-braced expression.
-		 */
-		nestLevel: number;
-		/**
-		 * Whether the parser function appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
-		 */
-		skip: boolean;
-		/**
 		 * @hidden
 		 */
 		private _initializer: ParsedTemplateInitializer;
 
-		/**
-		 * @param initializer
-		 * @hidden
-		 */
 		constructor(initializer: ParsedTemplateInitializer) {
 
 			const {title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip} = initializer;
@@ -1319,8 +1523,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		}
 
-		/** @inheritdoc */
-		stringify(options: ParsedParserFunctionOutputConfig = {}): string {
+		override stringify(options: ParsedParserFunctionOutputConfig = {}): string {
 			const {rawHook: optRawHook, useCanonical, ...rawOptions} = options;
 			let hook = useCanonical ? this.canonicalHook : this.hook;
 			if (optRawHook && this._rawHook.includes('\x01')) {
@@ -1329,44 +1532,30 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return this._stringify(hook, rawOptions);
 		}
 
-		/** @inheritdoc */
-		toString() {
+		override toString() {
 			return this.stringify();
 		}
 
-		/**
-		 * @hidden
-		 */
 		_clone() {
 			return new ParsedParserFunction(this._initializer);
 		}
 
 	}
 
-	return {Template, ParsedTemplate, RawTemplate, ParserFunction, ParsedParserFunction};
+	// Check missing members
+	type _CheckParsedParserFunctionStatic = ParsedParserFunctionStatic & { new (...args: any[]): ParsedParserFunction };
+	const _parsedParserFunctionCheckStatic: _CheckParsedParserFunctionStatic = ParsedParserFunction;
+	// const _parsedParserFunctionCheckInstance: ParsedParserFunction = new ParsedParserFunction(Object.create(null));
+
+	return {
+		Template: Template as TemplateStatic,
+		ParsedTemplate: ParsedTemplate as ParsedTemplateStatic,
+		RawTemplate: RawTemplate as RawTemplateStatic,
+		ParserFunction: ParserFunction as ParserFunctionStatic,
+		ParsedParserFunction: ParsedParserFunction as ParsedParserFunctionStatic
+	};
 
 }
-
-/**
- * @internal
- */
-export type Template = ReturnType<typeof TemplateFactory>['Template'];
-/**
- * @internal
- */
-export type ParsedTemplate = ReturnType<typeof TemplateFactory>['ParsedTemplate'];
-/**
- * @internal
- */
-export type RawTemplate = ReturnType<typeof TemplateFactory>['RawTemplate'];
-/**
- * @internal
- */
-export type ParserFunction = ReturnType<typeof TemplateFactory>['ParserFunction'];
-/**
- * @internal
- */
-export type ParsedParserFunction = ReturnType<typeof TemplateFactory>['ParsedParserFunction'];
 
 /**
  * Object that is used to initialize template parameters in {@link Template.constructor}.
@@ -1444,12 +1633,12 @@ export type TemplateParameterHierarchies = string[][];
  * Helper interface for {@link Template.is}.
  * @private
  */
-interface TemplateTypeMap {
-	Template: InstanceType<Template>;
-	ParsedTemplate: InstanceType<ParsedTemplate>;
-	RawTemplate: InstanceType<RawTemplate>;
-	ParserFunction: InstanceType<ParserFunction>;
-	ParsedParserFunction: InstanceType<ParsedParserFunction>;
+export interface TemplateTypeMap {
+	Template: Template;
+	ParsedTemplate: ParsedTemplate;
+	RawTemplate: RawTemplate;
+	ParserFunction: ParserFunction;
+	ParsedParserFunction: ParsedParserFunction;
 }
 
 /**
@@ -1503,7 +1692,7 @@ export interface TemplateOutputConfig<T> {
  * This interface differs from {@link RawTemplateOutputConfig} in that the argument of
  * {@link brPredicateTitle} is an instance of {@link Title} instead of a string.
  */
-export interface ParsedTemplateOutputConfig extends TemplateOutputConfig<InstanceType<Title>> {
+export interface ParsedTemplateOutputConfig extends TemplateOutputConfig<Title> {
 	/**
 	 * Whether to preserve redundant characters surrounding the title, as found in
 	 * {@link ParsedTemplate.rawTitle | rawTitle}.
