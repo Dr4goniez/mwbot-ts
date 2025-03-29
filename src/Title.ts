@@ -24,7 +24,7 @@ import * as mwString from './String';
  *
  * For instance members, see {@link Title} (defined separately due to TypeScript limitations).
  *
- * @example
+ * **Example**:
  * ```
  * const title = mwbot.Title.newFromText('wikipedia talk:sandbox');
  * if (title) {
