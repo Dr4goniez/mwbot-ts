@@ -53,7 +53,7 @@ import {
 import * as Util from './Util';
 const { mergeDeep, isPlainObject, sleep, isEmptyObject, arraysEqual, deepCloneInstance } = Util;
 import * as mwString from './String';
-import { TitleFactory, Title } from './Title';
+import { TitleFactory, TitleStatic, Title } from './Title';
 import { TemplateFactory, Template, ParserFunction } from './Template';
 import { WikilinkFactory, Wikilink, FileWikilink, RawWikilink } from './Wikilink';
 import { WikitextFactory, Wikitext } from './Wikitext';
@@ -150,18 +150,18 @@ export class Mwbot {
 	/**
 	 * Returns (a deep copy of) the site and user information fetched when {@link init} is called.
 	 */
-	get info() {
+	get info(): SiteAndUserInfo {
 		this.checkInit();
 		return mergeDeep(this._info) as SiteAndUserInfo;
 	}
 	/**
 	 * Title class for this instance.
 	 */
-	protected _Title: Title;
+	protected _Title: TitleStatic;
 	/**
 	 * Title class for this instance.
 	 */
-	get Title() {
+	get Title(): TitleStatic {
 		this.checkInit();
 		return this._Title;
 	}
@@ -172,7 +172,7 @@ export class Mwbot {
 	/**
 	 * Template class for this instance.
 	 */
-	get Template() {
+	get Template(): Template {
 		this.checkInit();
 		return this._Template;
 	}
@@ -183,7 +183,7 @@ export class Mwbot {
 	/**
 	 * ParserFunction class for this instance.
 	 */
-	get ParserFunction() {
+	get ParserFunction(): ParserFunction {
 		this.checkInit();
 		return this._ParserFunction;
 	}
@@ -194,7 +194,7 @@ export class Mwbot {
 	/**
 	 * Wikilink class for this instance.
 	 */
-	get Wikilink() {
+	get Wikilink(): Wikilink {
 		this.checkInit();
 		return this._Wikilink;
 	}
@@ -205,7 +205,7 @@ export class Mwbot {
 	/**
 	 * FileWikilink class for this instance.
 	 */
-	get FileWikilink() {
+	get FileWikilink(): FileWikilink {
 		this.checkInit();
 		return this._FileWikilink;
 	}
@@ -216,7 +216,7 @@ export class Mwbot {
 	/**
 	 * RawWikilink class for this instance.
 	 */
-	get RawWikilink() {
+	get RawWikilink(): RawWikilink {
 		this.checkInit();
 		return this._RawWikilink;
 	}
@@ -227,7 +227,7 @@ export class Mwbot {
 	/**
 	 * Wikitext class for this instance.
 	 */
-	get Wikitext() {
+	get Wikitext(): Wikitext {
 		this.checkInit();
 		return this._Wikitext;
 	}
@@ -1753,7 +1753,7 @@ export class Mwbot {
 	 * @param allowAnonymous Whether to allow anonymous users to proceed. Defaults to `false`.
 	 * @returns A valid {@link Title} instance if successful, or an {@link MwbotError} if validation fails.
 	 */
-	protected prepEdit(title: string | InstanceType<Title>, allowAnonymous = false): InstanceType<Title> | MwbotError {
+	protected prepEdit(title: string | Title, allowAnonymous = false): Title | MwbotError {
 		if (this.isAnonymous() && !allowAnonymous) {
 			return this.errorAnonymous();
 		} else if (typeof title !== 'string' && !(title instanceof this.Title)) {
@@ -1786,7 +1786,7 @@ export class Mwbot {
 	}
 
 	protected _save(
-		title: InstanceType<Title>,
+		title: Title,
 		content: string,
 		summary?: string,
 		internalOptions: ApiEditPageParams = {},
@@ -1838,7 +1838,7 @@ export class Mwbot {
 	 * @returns A Promise resolving to the API response or rejecting with {@link MwbotError}.
 	 */
 	async create(
-		title: string | InstanceType<Title>,
+		title: string | Title,
 		content: string,
 		summary?: string,
 		additionalParams: ApiEditPageParams = {},
@@ -1880,7 +1880,7 @@ export class Mwbot {
 	 * @returns A Promise resolving to the API response or rejecting with {@link MwbotError}.
 	 */
 	async save(
-		title: string | InstanceType<Title>,
+		title: string | Title,
 		content: string,
 		summary?: string,
 		additionalParams: ApiEditPageParams = {},
@@ -1905,7 +1905,7 @@ export class Mwbot {
 	 * - `title` is an interwiki title.
 	 * - The requested title does not exist.
 	 */
-	async read(title: string | InstanceType<Title>, requestOptions?: MwbotRequestConfig): Promise<Revision>;
+	async read(title: string | Title, requestOptions?: MwbotRequestConfig): Promise<Revision>;
 	/**
 	 * Retrieves the latest revision contents of multiple titles from the API.
 	 *
@@ -1918,9 +1918,9 @@ export class Mwbot {
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to an array of API responses, with errors for invalid titles at their respective indexes.
 	 */
-	async read(titles: (string | InstanceType<Title>)[], requestOptions?: MwbotRequestConfig): Promise<(Revision | MwbotError)[]>;
+	async read(titles: (string | Title)[], requestOptions?: MwbotRequestConfig): Promise<(Revision | MwbotError)[]>;
 	async read(
-		titles: string | InstanceType<Title> | (string | InstanceType<Title>)[],
+		titles: string | Title | (string | Title)[],
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<Revision | (Revision | MwbotError)[]> {
 
@@ -2128,7 +2128,7 @@ export class Mwbot {
 	 * @returns A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
 	 */
 	async edit(
-		title: string | InstanceType<Title>,
+		title: string | Title,
 		transform: (wikitext: InstanceType<Wikitext>, revision: Revision) => Promise<ApiEditPageParams>,
 		requestOptions: MwbotRequestConfig = {},
 		/** @private */
@@ -2219,7 +2219,7 @@ export class Mwbot {
 	 * @return A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
 	 */
 	newSection(
-		title: string | InstanceType<Title>,
+		title: string | Title,
 		sectiontitle: string,
 		content: string,
 		summary?: string,
@@ -2307,7 +2307,7 @@ export class Mwbot {
 	 * @return A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
 	 * @throws If `titles` contains non-strings or non-Titles.
 	 */
-	async purge(titles: (string | InstanceType<Title>)[], additionalParams: ApiParams = {}, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
+	async purge(titles: (string | Title)[], additionalParams: ApiParams = {}, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 		const titleSet = new Set<string>();
 		const invalid: unknown[] = [];
 		titles.forEach((t) => {
