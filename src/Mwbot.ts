@@ -55,7 +55,7 @@ const { mergeDeep, isPlainObject, sleep, isEmptyObject, arraysEqual, deepCloneIn
 import * as mwString from './String';
 import { TitleFactory, TitleStatic, Title } from './Title';
 import { TemplateFactory, TemplateStatic, ParserFunctionStatic } from './Template';
-import { WikilinkFactory, Wikilink, FileWikilink, RawWikilink } from './Wikilink';
+import { WikilinkFactory, WikilinkStatic, FileWikilinkStatic, RawWikilinkStatic } from './Wikilink';
 import { WikitextFactory, Wikitext } from './Wikitext';
 
 /**
@@ -190,33 +190,33 @@ export class Mwbot {
 	/**
 	 * Wikilink class for this instance.
 	 */
-	protected _Wikilink: Wikilink;
+	protected _Wikilink: WikilinkStatic;
 	/**
 	 * Wikilink class for this instance.
 	 */
-	get Wikilink(): Wikilink {
+	get Wikilink(): WikilinkStatic {
 		this.checkInit();
 		return this._Wikilink;
 	}
 	/**
 	 * FileWikilink class for this instance.
 	 */
-	protected _FileWikilink: FileWikilink;
+	protected _FileWikilink: FileWikilinkStatic;
 	/**
 	 * FileWikilink class for this instance.
 	 */
-	get FileWikilink(): FileWikilink {
+	get FileWikilink(): FileWikilinkStatic {
 		this.checkInit();
 		return this._FileWikilink;
 	}
 	/**
 	 * RawWikilink class for this instance.
 	 */
-	protected _RawWikilink: RawWikilink;
+	protected _RawWikilink: RawWikilinkStatic;
 	/**
 	 * RawWikilink class for this instance.
 	 */
-	get RawWikilink(): RawWikilink {
+	get RawWikilink(): RawWikilinkStatic {
 		this.checkInit();
 		return this._RawWikilink;
 	}

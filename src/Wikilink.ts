@@ -1,15 +1,17 @@
 /**
- * This module serves to parse `[[wikilink]]` expressions into object structures.
+ * This module serves to parse `[[wikilink]]` markups into object structures.
  *
- * - Class {@link Wikilink}: Attached to {@link Mwbot.Wikilink} as an instance member.
- * - Class {@link ParsedWikilink}: Represents a well-formed non-file wikilink in the result of
+ * - Class {@link WikilinkStatic | Wikilink}: Represents a well-formed non-file wikilink,
+ * which is accessible via {@link Mwbot.Wikilink}.
+ * - Class {@link ParsedWikilinkStatic | ParsedWikilink}: A version of `Wikilink` parsed by
  * {@link Mwbot.Wikitext.parseWikilinks | Wikitext.parseWikilinks}.
- * - Class {@link FileWikilink}: Attached to {@link Mwbot.FileWikilink} as an instance member.
- * - Class {@link ParsedFileWikilink}: Represents a well-formed file wikilink in the result of
+ * - Class {@link FileWikilinkStatic | FileWikilink}: Represents a well-formed file wikilink,
+ * which is accessible via {@link Mwbot.FileWikilink}.
+ * - Class {@link ParsedFileWikilinkStatic | ParsedFileWikilink}: A version of `FileWikilink` parsed by
  * {@link Mwbot.Wikitext.parseWikilinks | Wikitext.parseWikilinks}.
- * - Class {@link RawWikilink}: Represents a malformed wikilink and attached to
- * {@link Mwbot.RawWikilink} as an instance member.
- * - Class {@link ParsedRawWikilink}: Represents a malformed wikilink in the result of
+ * - Class {@link RawWikilinkStatic | RawWikilink}: Represents a malformed wikilink,
+ * which is accessible via {@link Mwbot.RawWikilink}.
+ * - Class {@link ParsedRawWikilinkStatic | ParsedRawWikilink}: A version of `RawWikilink` parsed by
  * {@link Mwbot.Wikitext.parseWikilinks | Wikitext.parseWikilinks}.
  *
  * @module
@@ -17,33 +19,579 @@
 
 import { ParamBase } from './baseClasses';
 import type { Mwbot } from './Mwbot';
-import type { Title } from './Title';
+import type { TitleStatic, Title } from './Title';
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { WikitextOptions } from './Wikitext';
 
 /**
+ * The base class for {@link WikilinkStatic} and {@link RawWikilinkStatic}.
+ *
+ * This interface defines the static members of the `WikilinkBase` class. For instance members,
+ * see {@link WikilinkBase} (defined separately due to TypeScript limitations).
+ */
+export interface WikilinkBaseStatic<T extends string | Title> {
+	/**
+	 * Creates a new instance.
+	 *
+	 * @param title The title of the page that the wikilink links to.
+	 * @param display An optional display text for the wikilink.
+	 */
+	new(title: T, display?: string): WikilinkBase<T>;
+}
+
+/**
+ * The instance members of the `WikilinkBase` class. For static members,
+ * see {@link WikilinkBaseStatic} (defined separately due to TypeScript limitations).
+ */
+export interface WikilinkBase<T extends string | Title> {
+	/**
+	 * The title of the page that the wikilink links to.
+	 *
+	 * This property is read-only. To update it, use {@link setTitle}.
+	 */
+	readonly title: T;
+
+	/**
+	 * Gets the display text of the wikilink. If no display text is set,
+	 * the title text is returned.
+	 *
+	 * Note that interlanguage links (which appear in the sidebar)
+	 * are not resolved in terms of how they are displayed there.
+	 *
+	 * @returns The display text as a string.
+	 */
+	getDisplay(): string;
+	/**
+	 * Sets the display text of the wikilink.
+	 *
+	 * @param display The display text. To unset it, pass an empty string or `null`.
+	 * @returns The current instance for chaining.
+	 */
+	setDisplay(display: string | null): this;
+	/**
+	 * Checks whether this wikilink has a display text (the part after `|`).
+	 *
+	 * @returns A boolean indicating whether the wikilink has a display text.
+	 */
+	hasDisplay(): boolean;
+}
+
+/**
+ * This interface defines the static members of the `Wikilink` class. For instance members,
+ * see {@link Wikilink} (defined separately due to TypeScript limitations).
+ *
+ * `Wikilink` is a class that serves to parse `[[wikilink]]` markups into an object structure,
+ * which is accessible via {@link Mwbot.Wikilink}. Note that wikilinks with a `'File:'` title
+ * are treated differently by the {@link FileWikilinkStatic | FileWikilink} class, and those
+ * with an invalid title by the {@link RawWikilinkStatic | RawWikilink} class.
+ *
+ * @example
+ * const foo = new mwbot.Wikilink('Foo');
+ * foo.setDisplay('Bar');
+ * foo.stringify(); // [[Foo|Bar]]
+ */
+export interface WikilinkStatic extends WikilinkBaseStatic<Title> {
+	/**
+	 * Creates a new instance.
+	 *
+	 * @param title The title of the (non-file) page that the wikilink links to.
+	 * @param display An optional display text for the wikilink.
+	 * @throws
+	 * - If the title is invalid.
+	 * - If the title is a file title. To objectify a `'[[File:...]]'` wikilink,
+	 * use {@link FileWikilink} instead.
+	 */
+	new(title: string | Title, display?: string): Wikilink;
+	/**
+	 * Checks if the given object is an instance of the specified wikilink-related class.
+	 *
+	 * This method is an alternative of the `instanceof` operator, which cannot be used for
+	 * non-exported classes.
+	 *
+	 * **Example**:
+	 * ```ts
+	 * const [foo] = new mwbot.Wikitext('[[Foo]]').parseWikilinks();
+	 * foo instanceof mwbot.Wikilink; // true
+	 * mwbot.Wikilink.is(foo, 'ParsedWikilink'); // true
+	 * foo instanceof mwbot.FileWikilink; // false
+	 * mwbot.Wikilink.is(foo, 'ParsedFileWikilink'); // false
+	 * foo instanceof mwbot.RawWikilink; // false
+	 * mwbot.Wikilink.is(foo, 'ParsedRawWikilink'); // false
+	 * ```
+	 *
+	 * Be noted about the hierarchies of the wikilink-related classes:
+	 * - {@link ParsedWikilinkStatic | ParsedWikilink} extends {@link WikilinkStatic | Wikilink}.
+	 * - {@link ParsedFileWikilinkStatic | ParsedFileWikilink} extends {@link FileWikilinkStatic | FileWikilink}.
+	 * - {@link ParsedRawWikilinkStatic | ParsedRawWikilink} extends {@link RawWikilinkStatic | RawWikilink}.
+	 *
+	 * @template T The type of wikilink to check for. Must be one of `'Wikilink'`, `'ParsedWikilink'`,
+	 * `'FileWikilink'`, `'ParsedFileWikilink'`, `'RawWikilink'`, or `'ParsedRawWikilink'`.
+	 * @param obj The object to check.
+	 * @param type The wikilink type to compare against.
+	 * @returns `true` if `obj` is an instance of the specified wikilink class, otherwise `false`.
+	 * @throws {Error} If an invalid `type` is provided.
+	 * @static
+	 */
+	is<T extends keyof WikilinkTypeMap>(obj: unknown, type: T): obj is WikilinkTypeMap[T];
+}
+
+/**
+ * The instance members of the `Wikilink` class. For static members,
+ * see {@link WikilinkStatic} (defined separately due to TypeScript limitations).
+ */
+export interface Wikilink extends WikilinkBase<Title> {
+	/**
+	 * Sets a new title to the instance.
+	 *
+	 * A `'File:...'` title (without a leading colon) is not allowed as the `title`
+	 * argument. For file titles, use {@link toFileWikilink} instead.
+	 *
+	 * @param title The new title to set.
+	 * @returns The current instance for chaining.
+	 * @throws If the new title is invalid or a file title.
+	 */
+	setTitle(title: string | Title): this;
+	/**
+	 * Creates a new {@link FileWikilink} instance, inheriting the current instance's properties.
+	 *
+	 * @param title The file title to set.
+	 * @returns A new {@link FileWikilink} instance on success.
+	 * @throws If the new title is not a valid file title.
+	 */
+	toFileWikilink(title: string | Title): FileWikilink;
+	/**
+	 * Strigifies the instance.
+	 *
+	 * @param options Options to format the output.
+	 * @returns The wikilink as a string.
+	 */
+	stringify(options?: WikilinkOutputConfig): string;
+	/**
+	 * Alias of {@link stringify}.
+	 *
+	 * @returns The wikilink as a string.
+	 */
+	toString(): string;
+}
+
+/**
+ * This interface defines the static members of the `ParsedWikilink` class. For instance members,
+ * see {@link ParsedWikilink} (defined separately due to TypeScript limitations).
+ *
+ * This class is exclusive to {@link Mwbot.Wikitext.parseWikilinks | Wikitext.parseWikilinks}.
+ * It represents a well-formed `[[wikilink]]` markup with a valid non-file title.
+ * For the class that represents a well-formed `[[wikilink]]` markup with a valid *file*
+ * title, see {@link ParsedFileWikilinkStatic}, and for the class that represents a malformed
+ * `[[wikilink]]` markup with an *invalid* title, see {@link ParsedRawWikilinkStatic}.
+ *
+ * This class differs from {@link ParsedFileWikilinkStatic | ParsedFileWikilink} and
+ * {@link ParsedRawWikilinkStatic | ParsedRawWikilink} in that:
+ * - It extends the {@link WikilinkStatic | Wikilink} class.
+ * - (Compared to ParsedFileWikilink) its instances have methods related to the display text.
+ * - (Compared to ParsedRawWikilink) the {@link ParsedWikilink.title | title} property is
+ * an instace of {@link Title} instead of a string.
+ *
+ * The constructor of this class is inaccessible, and instances can only be referenced
+ * in the result of `parseTemplates`.
+ *
+ * To check if an object is an instance of this class, use {@link WikilinkStatic.is}.
+ *
+ * **Important**:
+ *
+ * The instance properties of this class are pseudo-read-only, in the sense that altering them
+ * does not affect the behaviour of {@link Mwbot.Wikitext.modifyWikilinks | Wikitext.modifyWikilinks}.
+ */
+export interface ParsedWikilinkStatic extends Omit<WikilinkStatic, 'new'> {
+	/**
+	 * @param initializer
+	 * @param options
+	 * @hidden
+	 */
+	new(initializer: ParsedWikilinkInitializer): ParsedWikilink;
+}
+
+/**
+ * The instance members of the `ParsedWikilink` class. For static members,
+ * see {@link ParsedWikilinkStatic} (defined separately due to TypeScript limitations).
+ */
+export interface ParsedWikilink extends Wikilink {
+	/**
+	 * The raw wikilink title, as directly parsed from the left part of a `[[wikilink|...]]` expression.
+	 */
+	rawTitle: string;
+	/**
+	 * The original text of the wikilink parsed from the wikitext.
+	 * The value of this property is static.
+	 */
+	text: string;
+	/**
+	 * The starting index of this wikilink in the wikitext.
+	 */
+	startIndex: number;
+	/**
+	 * The ending index of this wikilink in the wikitext (exclusive).
+	 */
+	endIndex: number;
+	/**
+	 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+	 */
+	skip: boolean;
+
+	/**
+	 * Creates a new {@link ParsedFileWikilink} instance, inheriting the current instance's properties.
+	 *
+	 * @param title The file title to set.
+	 * @returns A new {@link ParsedFileWikilink} instance on success.
+	 * @throws If the new title is not a valid file title.
+	 */
+	toFileWikilink(title: string | Title): ParsedFileWikilink;
+	/**
+	 * Strigifies the instance.
+	 *
+	 * @param options Options to format the output.
+	 * @returns The wikilink as a string.
+	 */
+	stringify(options?: ParsedWikilinkOutputConfig): string;
+	/**
+	 * Alias of {@link stringify}.
+	 *
+	 * @returns The wikilink as a string.
+	 */
+	toString(): string;
+	/**
+	 * @hidden
+	 */
+	_clone(): ParsedWikilink;
+}
+
+/**
+ * This interface defines the static members of the `FileWikilink` class. For instance members,
+ * see {@link FileWikilink} (defined separately due to TypeScript limitations).
+ *
+ * `FileWikilink` is a class that serves to parse `[[File:...]]` markups into an object structure,
+ * which is accessible via {@link Mwbot.FileWikilink}. Note that wikilinks with a non-file title
+ * are treated differently by the {@link WikilinkStatic | Wikilink} class, and those
+ * with an invalid title by the {@link RawWikilinkStatic | RawWikilink} class.
+ *
+ * @example
+ * const foo = new mwbot.FileWikilink('File:Foo');
+ * foo.addParam('thumb').addParam('300px');
+ * foo.stringify(); // [[File:Foo|thumb|300px]]
+ */
+export interface FileWikilinkStatic extends Omit<typeof ParamBase, 'prototype'> {
+	/**
+	 * Creates a new instance.
+	 *
+	 * @param title The title of the file that the wikilink transcludes.
+	 * @param params Optional parameters for the file link (e.g., `['thumb', '300px', ...]`).
+	 * @throws
+	 * - If the title is invalid.
+	 * - If the title is a non-file title. To objectify a non-file `[[wikilink]]`,
+	 * use {@link Wikilink} instead.
+	 */
+	new(title: string | Title, params?: string[]): FileWikilink;
+}
+
+/**
+ * The instance members of the `FileWikilink` class. For static members,
+ * see {@link FileWikilinkStatic} (defined separately due to TypeScript limitations).
+ */
+export interface FileWikilink extends InstanceType<typeof ParamBase> {
+	/**
+	 * The title of the file that the wikilink transcludes.
+	 *
+	 * This property is read-only. To update it, use {@link setTitle}.
+	 */
+	readonly title: Title;
+
+	/**
+	 * Sets a new file title to the instance.
+	 *
+	 * A non-file title is not allowed as the `title` argument. For `'File:...'` titles
+	 * (without a leading colon), use {@link toWikilink} instead.
+	 *
+	 * @param title The new file title to set.
+	 * @returns The current instance for chaining.
+	 * @throws If the new title is invalid or if it is a non-file title.
+	 */
+	setTitle(title: string | Title): this;
+	/**
+	 * Creates a new {@link Wikilink} instance, inheriting the current instance's properties.
+	 *
+	 * @param title The non-file title to set.
+	 * @returns A new {@link Wikilink} instance on success.
+	 * @throws If the new title is not a valid non-file title.
+	 */
+	toWikilink(title: string | Title): Wikilink;
+	/**
+	 * Stringifies the instance.
+	 *
+	 * @param options Options to format the output.
+	 * @returns The file wikilink as a string.
+	 */
+	stringify(options?: FileWikilinkOutputConfig): string;
+	/**
+	 * Alias of {@link stringify} called without arguments.
+	 *
+	 * @returns The file wikilink as a string.
+	 */
+	toString(): string;
+}
+
+/**
+ * This interface defines the static members of the `ParsedFileWikilink` class. For instance members,
+ * see {@link ParsedFileWikilink} (defined separately due to TypeScript limitations).
+ *
+ * This class is exclusive to {@link Mwbot.Wikitext.parseWikilinks | Wikitext.parseWikilinks}.
+ * It represents a well-formed `[[wikilink]]` markup with a valid file title.
+ * For the class that represents a well-formed `[[wikilink]]` markup with a valid *non-file*
+ * title, see {@link ParsedWikilinkStatic}, and for the class that represents a malformed
+ * `[[wikilink]]` markup with an *invalid* title, see {@link ParsedRawWikilinkStatic}.
+ *
+ * This class differs from {@link ParsedWikilinkStatic | ParsedWikilink} and
+ * {@link ParsedRawWikilinkStatic | ParsedRawWikilink} in that:
+ * - It extends the {@link FileWikilinkStatic | FileWikilink} class.
+ * - (Compared to ParsedWikilink) its instances have methods related to the parameter texts.
+ * - (Compared to ParsedRawWikilink) the {@link ParsedFileWikilink.title | title} property is
+ * an instace of {@link Title} instead of a string.
+ *
+ * The constructor of this class is inaccessible, and instances can only be referenced
+ * in the result of `parseTemplates`.
+ *
+ * To check if an object is an instance of this class, use {@link WikilinkStatic.is}.
+ *
+ * **Important**:
+ *
+ * The instance properties of this class are pseudo-read-only, in the sense that altering them
+ * does not affect the behaviour of {@link Mwbot.Wikitext.modifyWikilinks | Wikitext.modifyWikilinks}.
+ */
+export interface ParsedFileWikilinkStatic extends Omit<FileWikilinkStatic, 'new'> {
+	/**
+	 * @param initializer
+	 * @param options
+	 * @hidden
+	 */
+	new(initializer: ParsedFileWikilinkInitializer): ParsedFileWikilink;
+}
+
+/**
+ * The instance members of the `ParsedFileWikilink` class. For static members,
+ * see {@link ParsedFileWikilinkStatic} (defined separately due to TypeScript limitations).
+ */
+export interface ParsedFileWikilink extends FileWikilink {
+	/**
+	 * The raw wikilink title, as directly parsed from the left part of a `[[wikilink|...]]` expression.
+	 */
+	rawTitle: string;
+	/**
+	 * The original text of the wikilink parsed from the wikitext.
+	 * The value of this property is static.
+	 */
+	text: string;
+	/**
+	 * The starting index of this wikilink in the wikitext.
+	 */
+	startIndex: number;
+	/**
+	 * The ending index of this wikilink in the wikitext (exclusive).
+	 */
+	endIndex: number;
+	/**
+	 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+	 */
+	skip: boolean;
+
+	/**
+	 * Creates a new {@link ParsedWikilink} instance, inheriting the current instance's properties.
+	 *
+	 * @param title The non-file title to set.
+	 * @returns A new {@link ParsedWikilink} instance on success.
+	 * @throws If the new title is not a valid non-file title.
+	 */
+	toWikilink(title: string | Title): ParsedWikilink;
+	/**
+	 * @inheritdoc
+	 */
+	stringify(options?: ParsedFileWikilinkOutputConfig): string;
+	/**
+	 * @inheritdoc
+	 */
+	toString(): string;
+	/**
+	 * @hidden
+	 */
+	_clone(): ParsedFileWikilink;
+}
+
+/**
+ * This interface defines the static members of the `RawWikilink` class. For instance members,
+ * see {@link RawWikilink} (defined separately due to TypeScript limitations).
+ *
+ * `RawWikilink` is a class that serves to parse `[[wikilink]]` markups with an **invalid** title into an object structure,
+ * which is accessible via {@link Mwbot.RawWikilink}. Note that wikilinks with a valid non-file title
+ * are treated differently by the {@link WikilinkStatic | Wikilink} class, and those
+ * with a valid file title by the {@link FileWikilinkStatic | FileWikilink} class.
+ */
+export interface RawWikilinkStatic extends WikilinkBaseStatic<string> {
+	/**
+	 * Creates a new instance.
+	 *
+	 * The `title` property of this class is not validated as a {@link Title} instance.
+	 * The class is to construct a wikilink object whose title has to include invalid
+	 * characters, e.g., `'[[{{{1}}}]]'`. When objectifying a wikilink with a valid title,
+	 * use {@link WikilinkStatic | Wikilink} or {@link FileWikilinkStatic | FileWikilink} instead.
+	 *
+	 * @param title The title of the page that the wikilink links to.
+	 * @param display An optional display text for the wikilink.
+	 */
+	new(title: string, display?: string): RawWikilink;
+}
+
+/**
+ * The instance members of the `RawWikilink` class. For static members,
+ * see {@link RawWikilinkStatic} (defined separately due to TypeScript limitations).
+ */
+export interface RawWikilink extends WikilinkBase<string> {
+	/**
+	 * Sets a new title to the instance.
+	 *
+	 * If the new title is a valid MediaWiki title, use {@link toWikilink} or {@link toFileWikilink} instead.
+	 *
+	 * @param title The new title. This must be a string.
+	 * @returns The current instance for chaining.
+	 */
+	setTitle(title: string): this;
+	/**
+	 * Creates a new {@link Wikilink} instance, inheriting the current instance's properties.
+	 *
+	 * @param title The non-file title to set.
+	 * @returns A new {@link Wikilink} instance on success.
+	 * @throws If the new title is not a valid non-file title.
+	 */
+	toWikilink(title: string | Title): Wikilink;
+	/**
+	 * Creates a new {@link FileWikilink} instance, inheriting the current instance's properties.
+	 *
+	 * @param title The file title to set.
+	 * @returns A new {@link FileWikilink} instance on success.
+	 * @throws If the new title is not a valid file title.
+	 */
+	toFileWikilink(title: string | Title): FileWikilink;
+	/**
+	 * @inheritdoc
+	 */
+	stringify(options?: RawWikilinkOutputConfig): string;
+	/**
+	 * @inheritdoc
+	 */
+	toString(): string;
+}
+
+/**
+ * This interface defines the static members of the `ParsedRawWikilink` class. For instance members,
+ * see {@link ParsedRawWikilink} (defined separately due to TypeScript limitations).
+ *
+ * This class is exclusive to {@link Mwbot.Wikitext.parseWikilinks | Wikitext.parseWikilinks}.
+ * It represents a malformed `[[wikilink]]` markup with an **invalid** title.
+ * For the class that represents a well-formed `[[wikilink]]` markup with a valid *non-file*
+ * title, see {@link ParsedWikilinkStatic}, and for the class that represents a well-formed
+ * `[[wikilink]]` markup with a valid *file* title, see {@link ParsedFileWikilinkStatic}.
+ *
+ * This class differs from {@link ParsedWikilinkStatic | ParsedWikilink} and
+ * {@link ParsedFileWikilinkStatic | ParsedFileWikilink} in that:
+ * - It extends the {@link RawWikilinkStatic | RawWikilink} class.
+ * - (Compared to ParsedFileWikilink) its instances have methods related to the display text.
+ * - The {@link ParsedRawWikilink.title | title} property is a string instead of
+ * an instace of {@link Title}.
+ *
+ * The constructor of this class is inaccessible, and instances can only be referenced
+ * in the result of `parseTemplates`.
+ *
+ * To check if an object is an instance of this class, use {@link WikilinkStatic.is}.
+ *
+ * **Important**:
+ *
+ * The instance properties of this class are pseudo-read-only, in the sense that altering them
+ * does not affect the behaviour of {@link Mwbot.Wikitext.modifyWikilinks | Wikitext.modifyWikilinks}.
+ */
+export interface ParsedRawWikilinkStatic extends Omit<RawWikilinkStatic, 'new'> {
+	/**
+	 * @param initializer
+	 * @param options
+	 * @hidden
+	 */
+	new(initializer: ParsedRawWikilinkInitializer): ParsedRawWikilink;
+}
+
+/**
+ * The instance members of the `ParsedRawWikilink` class. For static members,
+ * see {@link ParsedRawWikilinkStatic} (defined separately due to TypeScript limitations).
+ */
+export interface ParsedRawWikilink extends RawWikilink {
+	/**
+	 * The raw wikilink title, as directly parsed from the left part of a `[[wikilink|...]]` expression.
+	 */
+	rawTitle: string;
+	/**
+	 * The original text of the wikilink parsed from the wikitext.
+	 * The value of this property is static.
+	 */
+	text: string;
+	/**
+	 * The starting index of this wikilink in the wikitext.
+	 */
+	startIndex: number;
+	/**
+	 * The ending index of this wikilink in the wikitext (exclusive).
+	 */
+	endIndex: number;
+	/**
+	 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+	 */
+	skip: boolean;
+
+	/**
+	 * Creates a new {@link ParsedWikilink} instance, inheriting the current instance's properties.
+	 *
+	 * @param title The non-file title to set.
+	 * @returns A new {@link ParsedWikilink} instance on success.
+	 * @throws If the new title is not a valid non-file title.
+	 */
+	toWikilink(title: string | Title): ParsedWikilink;
+	/**
+	 * Creates a new {@link ParsedFileWikilink} instance, inheriting the current instance's properties.
+	 *
+	 * @param title The file title to set.
+	 * @returns A new {@link ParsedFileWikilink} instance on success.
+	 * @throws If the new title is not a valid file title.
+	 */
+	toFileWikilink(title: string | Title): ParsedFileWikilink;
+	/**
+	 * @inheritdoc
+	 */
+	stringify(options?: ParsedRawWikilinkOutputConfig): string;
+	/**
+	 * @inheritdoc
+	 */
+	toString(): string;
+	/**
+	 * @hidden
+	 */
+	_clone(): ParsedRawWikilink;
+}
+
+/**
  * @internal
  */
-export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
+export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 	const namespaceIds = config.get('wgNamespaceIds');
 	const NS_FILE = namespaceIds.file;
 
-	/**
-	 * Base class for {@link Wikilink} and {@link RawWikilink}. This class handles
-	 * the `title` and `display` properties. This also means that {@link FileWikilink}
-	 * cannot extend this class because the latter property is irrelevant to it.
-	 * @internal
-	 */
-	abstract class WikilinkBase<T extends string | InstanceType<Title>> {
+	class WikilinkBase<T extends string | Title> implements WikilinkBase<T> {
 
-		/**
-		 * The title of the page that the wikilink links to.
-		 *
-		 * This property is read-only. To update it, use {@link setTitle}.
-		 */
 		readonly title: T;
 		/**
 		 * The display text of the wikilink (the part after `|`).
@@ -53,47 +601,11 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 		 */
 		protected display: string | null;
 
-		/**
-		 * Creates a new instance.
-		 *
-		 * @param title The title of the page that the wikilink links to.
-		 * @param display An optional display text for the wikilink.
-		 */
 		constructor(title: T, display?: string) {
 			this.title = title;
 			this.display = typeof display === 'string' ? Title.clean(display) : null;
 		}
 
-		/**
-		 * Validates the given title as a wikilink title and returns a Title instance.
-		 * On failure, this method throws an error.
-		 *
-		 * @param title The prefixed title as a string or a Title instance to validate as a wikilink title.
-		 * @returns A Title instance. If the input title is an Title instance in itself, a clone is returned.
-		 */
-		protected static validateTitle(title: string | InstanceType<Title>): InstanceType<Title> {
-			// Whenever updating this method, also update FileWikilink.validateTitle
-			if (typeof title !== 'string' && !(title instanceof Title)) {
-				throw new TypeError(`Expected a string or Title instance for "title", but got ${typeof title}.`);
-			}
-			if (typeof title === 'string') {
-				// TODO: Handle "/" (subpage) and "#" (in-page section)?
-				title = new Title(title);
-			} else {
-				title = new Title(title.getPrefixedDb({colon: true, fragment: true}));
-			}
-			return title;
-		}
-
-		/**
-		 * Gets the display text of the wikilink. If no display text is set,
-		 * the title text is returned.
-		 *
-		 * Note that interlanguage links (which appear in the sidebar)
-		 * are not resolved in terms of how they are displayed there.
-		 *
-		 * @returns The display text as a string.
-		 */
 		getDisplay(): string {
 			if (this.hasDisplay()) {
 				return this.display as string;
@@ -104,12 +616,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 			}
 		}
 
-		/**
-		 * Sets the display text of the wikilink.
-		 *
-		 * @param display The display text. To unset it, pass an empty string or `null`.
-		 * @returns The current instance for chaining.
-		 */
 		setDisplay(display: string | null): this {
 			if (typeof display === 'string' && (display = Title.clean(display))) {
 				this.display = display;
@@ -122,13 +628,29 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 			}
 		}
 
-		/**
-		 * Checks whether this wikilink has a display text (the part after `|`).
-		 *
-		 * @returns A boolean indicating whether the wikilink has a display text.
-		 */
 		hasDisplay(): boolean {
 			return !!this.display;
+		}
+
+		/**
+		 * Validates the given title as a wikilink title and returns a Title instance.
+		 * On failure, this method throws an error.
+		 *
+		 * @param title The prefixed title as a string or a Title instance to validate as a wikilink title.
+		 * @returns A Title instance. If the input title is an Title instance in itself, a clone is returned.
+		 */
+		protected static validateTitle(title: string | Title): Title {
+			// Whenever updating this method, also update FileWikilink.validateTitle
+			if (typeof title !== 'string' && !(title instanceof Title)) {
+				throw new TypeError(`Expected a string or Title instance for "title", but got ${typeof title}.`);
+			}
+			if (typeof title === 'string') {
+				// TODO: Handle "/" (subpage) and "#" (in-page section)?
+				title = new Title(title);
+			} else {
+				title = new Title(title.getPrefixedDb({colon: true, fragment: true}));
+			}
+			return title;
 		}
 
 		/**
@@ -150,28 +672,12 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 
 	}
 
-	/**
-	 * Parses wikilinks into an object structure. This class is attached to {@link Mwbot.Wikilink}
-	 * as an instance member.
-	 *
-	 * This class represents a well-formed `[[wikilink]]` expression with a valid non-file title.
-	 * For the class that represents a well-formed `[[wikilink]]` expression with a valid file
-	 * title, see {@link FileWikilink}, and for the class that represents a malformed
-	 * `[[wikilink]]` expression, see {@link RawWikilink}.
-	 */
-	class Wikilink extends WikilinkBase<InstanceType<Title>> {
+	// Check missing members
+	const _wikilinkBaseCheck: WikilinkBaseStatic<string> = WikilinkBase;
 
-		/**
-		 * Creates a new instance.
-		 *
-		 * @param title The title of the (non-file) page that the wikilink links to.
-		 * @param display An optional display text for the wikilink.
-		 * @throws
-		 * - If the title is invalid.
-		 * - If the title is a file title. To objectify a `'[[File:...]]'` wikilink,
-		 * use {@link FileWikilink} instead.
-		 */
-		constructor(title: string | InstanceType<Title>, display?: string) {
+	class Wikilink extends WikilinkBase<Title> implements Wikilink {
+
+		constructor(title: string | Title, display?: string) {
 			title = Wikilink.validateTitle(title);
 			if (title.getNamespaceId() === NS_FILE && !title.hadLeadingColon()) {
 				throw new Error('The provided title is a file title.');
@@ -179,35 +685,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 			super(title, display);
 		}
 
-		/**
-		 * Checks if the given object is an instance of the specified wikilink-related class.
-		 *
-		 * This method is an alternative of the `instanceof` operator, which cannot be used for
-		 * non-exported classes.
-		 *
-		 * **Example**:
-		 * ```ts
-		 * const [foo] = new mwbot.Wikitext('[[Foo]]').parseWikilinks();
-		 * foo instanceof mwbot.Wikilink; // true
-		 * mwbot.Wikilink.is(foo, 'ParsedWikilink'); // true
-		 * foo instanceof mwbot.FileWikilink; // false
-		 * mwbot.Wikilink.is(foo, 'ParsedFileWikilink'); // false
-		 * foo instanceof mwbot.RawWikilink; // false
-		 * mwbot.Wikilink.is(foo, 'ParsedRawWikilink'); // false
-		 * ```
-		 *
-		 * Be noted about the hierarchies of the wikilink-related classes:
-		 * - {@link ParsedWikilink} extends {@link Wikilink}.
-		 * - {@link ParsedFileWikilink} extends {@link FileWikilink}.
-		 * - {@link ParsedRawWikilink} extends {@link RawWikilink}.
-		 *
-		 * @template T The type of wikilink to check for. Must be one of `'Wikilink'`, `'ParsedWikilink'`,
-		 * `'FileWikilink'`, `'ParsedFileWikilink'`, `'RawWikilink'`, or `'ParsedRawWikilink'`.
-		 * @param obj The object to check.
-		 * @param type The wikilink type to compare against.
-		 * @returns `true` if `obj` is an instance of the specified wikilink class, otherwise `false`.
-		 * @throws {Error} If an invalid `type` is provided.
-		 */
 		static is<T extends keyof WikilinkTypeMap>(obj: unknown, type: T): obj is WikilinkTypeMap[T] {
 			switch (type) {
 				case 'Wikilink':
@@ -227,123 +704,54 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 			}
 		}
 
-		/**
-		 * Sets a new title to the instance.
-		 *
-		 * `'File:...'` titles (without a leading colon) are not accepted
-		 * unless `true` is passed as the second argument.
-		 *
-		 * @param title The new title to set.
-		 * @returns The current instance for chaining.
-		 * @throws If the new title is invalid or if it is a file title.
-		 */
-		setTitle(title: string | InstanceType<Title>): this;
-		/**
-		 * Sets a new file title and converts this instance to a {@link FileWikilink}.
-		 *
-		 * @param title The new file title to set.
-		 * @param file Whether to validate the title as a file's.
-		 * @returns A new {@link FileWikilink} instance on success.
-		 * @throws If the new title is not a valid file title.
-		 */
-		setTitle(title: string | InstanceType<Title>, file: true): InstanceType<typeof FileWikilink>;
-		setTitle(title: string | InstanceType<Title>, file = false): this | InstanceType<typeof FileWikilink> {
+		setTitle(title: string | Title): this {
 			title = Wikilink.validateTitle(title);
-			if (file) {
-				return new FileWikilink(title, this.display ? [this.display] : []);
-			}
-			// If `file` is false but the title is a file title, throw an error.
+			// If `title` is a file title, throw an error.
 			if (title.getNamespaceId() === NS_FILE && !title.hadLeadingColon()) {
-				throw new Error('A file title is not accepted unless true is passed as the second argument.');
+				throw new Error('A file title cannot be set with setTitle. Use toFileWikilink instead.');
 			}
 			// @ts-expect-error
 			this.title = title;
 			return this;
 		}
 
-		/**
-		 * Strigifies the instance.
-		 *
-		 * @param options Options to format the output.
-		 * @returns The wikilink as a string.
-		 */
+		toFileWikilink(title: string | Title): FileWikilink {
+			title = Wikilink.validateTitle(title);
+			return new FileWikilink(title, this.display ? [this.display] : []);
+		}
+
 		stringify(options: WikilinkOutputConfig = {}): string {
 			const right = !options.suppressDisplay && this.display || undefined;
 			return this._stringify(this.title.getPrefixedText({colon: true, fragment: true}), right);
 		}
 
-		/**
-		 * Alias of {@link stringify}.
-		 *
-		 * @returns The wikilink as a string.
-		 */
-		toString() {
+		override toString(): string {
 			return this.stringify();
 		}
 
 	}
 
-	/**
-	 * Class for {@link Mwbot.Wikitext.parseWikilinks | Wikitext.parseWikilinks}.
-	 *
-	 * This class represents a well-formed `[[wikilink]]` expression with a valid non-file title.
-	 * For the class that represents a well-formed `[[wikilink]]` expression with a valid file
-	 * title, see {@link ParsedFileWikilink}, and for the class that represents a malformed
-	 * `[[wikilink]]` expression, see {@link ParsedRawWikilink}.
-	 *
-	 * This class differs from {@link ParsedFileWikilink} and {@link ParsedRawWikilink} in that:
-	 * - It extends the {@link Wikilink} class.
-	 * - (Compared to ParsedFileWikilink) its instances have methods related to the display text.
-	 * - (Compared to ParsedRawWikilink) the {@link title} property is an instace of {@link Title}
-	 * instead of a string.
-	 *
-	 * The constructor of this class is inaccessible, and instances can only be obtained from
-	 * the result of `parseWikilinks`.
-	 *
-	 * To check if an object is an instace of this class, use {@link Wikilink.is}.
-	 *
-	 * **Important**:
-	 *
-	 * The instance properties of this class are pseudo-read-only, in the sense that altering them
-	 * does not affect the behaviour of {@link Mwbot.Wikitext.modifyWikilinks | Wikitext.modifyWikilinks}.
-	 */
-	class ParsedWikilink extends Wikilink {
+	// Check missing members
+	type _CheckWikilinkStatic = WikilinkStatic & { new (...args: any[]): Wikilink };
+	const _wikilinkCheckStatic: _CheckWikilinkStatic = Wikilink;
+	// const _wikilinkCheckInstance: Wikilink = new Wikilink('');
 
-		/**
-		 * The raw wikilink title, as directly parsed from the left part of a `[[wikilink|...]]` expression.
-		 */
+	class ParsedWikilink extends Wikilink implements ParsedWikilink {
+
 		rawTitle: string;
+		text: string;
+		startIndex: number;
+		endIndex: number;
+		skip: boolean;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
 		private _rawTitle: string;
 		/**
-		 * The original text of the wikilink parsed from the wikitext.
-		 * The value of this property is static.
-		 */
-		text: string;
-		/**
-		 * The starting index of this wikilink in the wikitext.
-		 */
-		startIndex: number;
-		/**
-		 * The ending index of this wikilink in the wikitext (exclusive).
-		 */
-		endIndex: number;
-		/**
-		 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
-		 */
-		skip: boolean;
-		/**
 		 * @hidden
 		 */
 		private _initializer: ParsedWikilinkInitializer;
 
-		/**
-		 * @param initializer
-		 * @param options
-		 * @hidden
-		 */
 		constructor(initializer: ParsedWikilinkInitializer) {
 			const {display, title, rawTitle, _rawTitle, text, startIndex, endIndex, skip} = initializer;
 			super(title, display);
@@ -356,52 +764,22 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 			this.skip = skip;
 		}
 
-		/**
-		 * Sets a new title to the instance.
-		 *
-		 * `'File:...'` titles (without a leading colon) are not accepted
-		 * unless `true` is passed as the second argument.
-		 *
-		 * @param title The new title to set.
-		 * @returns The current instance for chaining.
-		 * @throws If the new title is invalid or if it is a file title.
-		 */
-		setTitle(title: string | InstanceType<Title>): this;
-		/**
-		 * Sets a new file title and converts this instance to a {@link ParsedFileWikilink}.
-		 *
-		 * @param title The new file title to set.
-		 * @param file Whether to validate the title as a file's.
-		 * @returns A new {@link ParsedFileWikilink} instance on success.
-		 * @throws If the new title is not a valid file title.
-		 */
-		setTitle(title: string | InstanceType<Title>, file: true): InstanceType<typeof ParsedFileWikilink>;
-		setTitle(title: string | InstanceType<Title>, file = false): this | InstanceType<typeof ParsedFileWikilink> {
+		override toFileWikilink(title: string | Title): ParsedFileWikilink {
+			// ParsedWikilinkInitializer has a `display` property but ParsedFileWikilinkInitializer doesn't
+			// and instead has an optional `params` property
 			title = Wikilink.validateTitle(title);
-			if (file) {
-				const {display, ...initializer} = this._initializer;
-				initializer.title = title;
-				if (typeof display === 'string') {
-					(initializer as ParsedFileWikilinkInitializer).params = [display];
-				}
-				return new ParsedFileWikilink(initializer);
+			const {display: _display, ...initializer} = this._initializer;
+			initializer.title = title;
+			if (this.display) {
+				// TODO: Should we use `this.display.split('|')`? But we must handle special wiki-markups in `display`
+				// e.g., if `display` is "{{{1|}}}", `params` will be `['{{{1', '}}}']`, which is obviously inaccurate
+				// For the time being, let the user decide whether they want to parse `params[0]` further to handle this
+				(initializer as ParsedFileWikilinkInitializer).params = [this.display];
 			}
-			// If `file` is false but the title is a file title, throw an error.
-			if (title.getNamespaceId() === NS_FILE && !title.hadLeadingColon()) {
-				throw new Error('A file title is not accepted unless true is passed as the second argument.');
-			}
-			// @ts-expect-error
-			this.title = title;
-			return this;
+			return new ParsedFileWikilink(initializer);
 		}
 
-		/**
-		 * Strigifies the instance.
-		 *
-		 * @param options Options to format the output.
-		 * @returns The wikilink as a string.
-		 */
-		stringify(options: ParsedWikilinkOutputConfig = {}): string {
+		override stringify(options: ParsedWikilinkOutputConfig = {}): string {
 			const {suppressDisplay, rawTitle} = options;
 			const right = !suppressDisplay && this.display || undefined;
 			let title = this.title.getPrefixedText({colon: true, fragment: true});
@@ -411,55 +789,29 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 			return this._stringify(title, right);
 		}
 
-		/**
-		 * Alias of {@link stringify}.
-		 *
-		 * @returns The wikilink as a string.
-		 */
-		toString() {
+		override toString(): string {
 			return this.stringify();
 		}
 
-		/**
-		 * @hidden
-		 */
-		_clone() {
+		_clone(): ParsedWikilink {
 			return new ParsedWikilink(this._initializer);
 		}
 
 	}
 
-	/**
-	 * Parses file wikilinks into an object structure. This class is attached to {@link Mwbot.FileWikilink}
-	 * as an instance member.
-	 *
-	 * This class represents a well-formed `[[File:...]]` expression with a valid file title. For the class
-	 * that represents a well-formed non-file `[[wikilink]]` expression, see {@link Wikilink}, and for the
-	 * class that represents a malformed `[[wikilink]]` expression, see {@link RawWikilink}.
-	 */
-	class FileWikilink extends ParamBase {
+	// Check missing members
+	type _CheckParsedWikilinkStatic = ParsedWikilinkStatic & { new (...args: any[]): ParsedWikilink };
+	const _parsedWikilinkCheckStatic: _CheckParsedWikilinkStatic = ParsedWikilink;
+	// const _parsedWikilinkCheckInstance: ParsedWikilink = new ParsedWikilink(Object.create(null));
+
+	class FileWikilink extends ParamBase implements FileWikilink {
 		// Unlike Wikilink and RawWikilink, the right part of file links doesn't work as their display text
 		// but as parameters. This class hence extends ParamBase instead of WikilinkBase. validateTitle()
 		// and _stringify are neverthess the same as in WikilinkBase.
 
-		/**
-		 * The title of the file that the wikilink links to.
-		 *
-		 * This property is read-only. To update it, use {@link setTitle}.
-		 */
-		readonly title: InstanceType<Title>;
+		readonly title: Title;
 
-		/**
-		 * Creates a new instance.
-		 *
-		 * @param title The title of the file that the wikilink transcludes.
-		 * @param params Optional parameters for the file link (e.g., `['thumb', '300px', ...]`).
-		 * @throws
-		 * - If the title is invalid.
-		 * - If the title is a non-file title. To objectify a non-file `[[wikilink]]`,
-		 * use {@link Wikilink} instead.
-		 */
-		constructor(title: string | InstanceType<Title>, params: string[] = []) {
+		constructor(title: string | Title, params: string[] = []) {
 			title = FileWikilink.validateTitle(title);
 			if (title.isExternal()) {
 				throw new Error('The title is interwiki.');
@@ -472,6 +824,38 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 			this.title = title;
 		}
 
+		setTitle(title: string | Title): this {
+			title = FileWikilink.validateTitle(title);
+			// If `title` is a non-file title, throw an error.
+			if (!(title.getNamespaceId() === NS_FILE && !title.hadLeadingColon())) {
+				throw new Error('A non-file title is not accepted unless true is passed as the second argument.');
+			}
+			// @ts-expect-error
+			this.title = title;
+			return this;
+		}
+
+		toWikilink(title: string | Title): Wikilink {
+			const display = this.params.length ? this.params.join('|') : undefined;
+			return new Wikilink(title, display);
+		}
+
+		stringify(options: FileWikilinkOutputConfig = {}): string {
+			const {sortPredicate} = options;
+			const params = this.params.slice();
+			if (typeof sortPredicate === 'function') {
+				params.sort(sortPredicate);
+			}
+			const right = params.length ? params.join('|') : undefined;
+			// At this point, `title` shouldn't be interwiki and led by a colon
+			// TODO: Include the fragment?
+			return this._stringify(this.title.getPrefixedText({interwiki: false}), right);
+		}
+
+		override toString(): string {
+			return this.stringify();
+		}
+
 		/**
 		 * Validates the given title as a wikilink title and returns a Title instance.
 		 * On failure, this method throws an error.
@@ -479,7 +863,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 		 * @param title The prefixed title as a string or a Title instance to validate as a wikilink title.
 		 * @returns A Title instance. If the input title is an Title instance in itself, a clone is returned.
 		 */
-		protected static validateTitle(title: string | InstanceType<Title>): InstanceType<Title> {
+		protected static validateTitle(title: string | Title): Title {
 			// Whenever updating this method, also update WikilinkBase.validateTitle
 			if (typeof title !== 'string' && !(title instanceof Title)) {
 				throw new TypeError(`Expected a string or Title instance for "title", but got ${typeof title}.`);
@@ -494,46 +878,12 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 		}
 
 		/**
-		 * Sets a new file title to the instance.
-		 *
-		 * Non-file titles are not accepted unless `true` is passed as the second argument.
-		 *
-		 * @param title The new file title to set.
-		 * @returns The current instance for chaining.
-		 * @throws If the new title is invalid or if it is a non-file title.
-		 */
-		setTitle(title: string | InstanceType<Title>): this;
-		/**
-		 * Sets a new non-file title and converts this instance to a {@link Wikilink}.
-		 *
-		 * @param title The new non-file title to set.
-		 * @param nonfile Whether to validate the title as a non-file's.
-		 * @returns A new {@link Wikilink} instance on success.
-		 * @throws If the new title is not a valid file title.
-		 */
-		setTitle(title: string | InstanceType<Title>, nonfile: true): InstanceType<typeof Wikilink>;
-		setTitle(title: string | InstanceType<Title>, nonfile = false): this | InstanceType<typeof Wikilink> {
-			title = FileWikilink.validateTitle(title);
-			if (nonfile) {
-				const display = this.params.length ? this.params.join('') : undefined;
-				return new Wikilink(title, display);
-			}
-			// If `nonfile` is false but the title is a non-file title, throw an error.
-			if (!(title.getNamespaceId() === NS_FILE && !title.hadLeadingColon())) {
-				throw new Error('A non-file title is not accepted unless true is passed as the second argument.');
-			}
-			// @ts-expect-error
-			this.title = title;
-			return this;
-		}
-
-		/**
 		 * Internal stringification handler.
 		 *
 		 * @param left The left part of the wikilink.
 		 * @param right The right part of the wikilink.
 		 */
-		_stringify(left: string, right?: string): string {
+		protected _stringify(left: string, right?: string): string {
 			// Whenever updating this method, also update WikilinkBase._stringify
 			const ret = ['[[', left];
 			if (typeof right === 'string') {
@@ -543,94 +893,29 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 			return ret.join('');
 		}
 
-		/**
-		 * Stringifies the instance.
-		 *
-		 * @param options Options to format the output.
-		 * @returns The file wikilink as a string.
-		 */
-		stringify(options: FileWikilinkOutputConfig = {}): string {
-			const {sortPredicate} = options;
-			const params = this.params.slice();
-			if (typeof sortPredicate === 'function') {
-				params.sort(sortPredicate);
-			}
-			const right = params.length ? params.join('|') : undefined;
-			// At this point, `title` shouldn't be interwiki and led by a colon
-			// TODO: Include the fragment?
-			return this._stringify(this.title.getPrefixedText({interwiki: false}), right);
-		}
-
-		/**
-		 * Alias of {@link stringify} called without arguments.
-		 * @returns The file wikilink as a string.
-		 */
-		toString() {
-			return this.stringify();
-		}
-
 	}
 
-	/**
-	 * Class for {@link Mwbot.Wikitext.parseWikilinks | Wikitext.parseWikilinks}.
-	 *
-	 * This class represents a well-formed `[[File:...]]` expression with a valid file title. For the class
-	 * that represents a well-formed non-file `[[wikilink]]` expression, see {@link ParsedWikilink}, and for the
-	 * class that represents a malformed `[[wikilink]]` expression, see {@link ParsedRawWikilink}.
-	 *
-	 * This class differs from {@link ParsedWikilink} and {@link ParsedRawWikilink} in that:
-	 * - It extends the {@link FileWikilink} class.
-	 * - (Compared to ParsedWikilink) its instances have methods related to the parameter texts.
-	 * - (Compared to ParsedRawWikilink) the {@link title} property is an instace of {@link Title}
-	 * instead of a string.
-	 *
-	 * The constructor of this class is inaccessible, and instances can only be obtained from
-	 * the result of `parseWikilinks`.
-	 *
-	 * To check if an object is an instace of this class, use {@link Wikilink.is}.
-	 *
-	 * **Important**:
-	 *
-	 * The instance properties of this class are pseudo-read-only, in the sense that altering them
-	 * does not affect the behaviour of {@link Mwbot.Wikitext.modifyWikilinks | Wikitext.modifyWikilinks}.
-	 */
-	class ParsedFileWikilink extends FileWikilink {
+	// Check missing members
+	type _CheckFileWikilinkStatic = FileWikilinkStatic & { new (...args: any[]): FileWikilink };
+	const _fileWikilinkCheckStatic: _CheckFileWikilinkStatic = FileWikilink;
+	// const _fileWikilinkCheckInstance: FileWikilink = new FileWikilink('');
 
-		/**
-		 * The raw wikilink title, as directly parsed from the left part of a `[[wikilink|...]]` expression.
-		 */
+	class ParsedFileWikilink extends FileWikilink implements ParsedFileWikilink {
+
 		rawTitle: string;
+		text: string;
+		startIndex: number;
+		endIndex: number;
+		skip: boolean;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
 		private _rawTitle: string;
 		/**
-		 * The original text of the wikilink parsed from the wikitext.
-		 * The value of this property is static.
-		 */
-		text: string;
-		/**
-		 * The starting index of this wikilink in the wikitext.
-		 */
-		startIndex: number;
-		/**
-		 * The ending index of this wikilink in the wikitext (exclusive).
-		 */
-		endIndex: number;
-		/**
-		 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
-		 */
-		skip: boolean;
-		/**
 		 * @hidden
 		 */
 		private _initializer: ParsedFileWikilinkInitializer;
 
-		/**
-		 * @param initializer
-		 * @param options
-		 * @hidden
-		 */
 		constructor(initializer: ParsedFileWikilinkInitializer) {
 			const {params, title, rawTitle, _rawTitle, text, startIndex, endIndex, skip} = initializer;
 			super(title, params);
@@ -643,46 +928,20 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 			this.skip = skip;
 		}
 
-		/**
-		 * Sets a new file title to the instance.
-		 *
-		 * Non-file titles are not accepted unless `true` is passed as the second argument.
-		 *
-		 * @param title The new file title to set.
-		 * @returns The current instance for chaining.
-		 * @throws If the new title is invalid or if it is a non-file title.
-		 */
-		setTitle(title: string | InstanceType<Title>): this;
-		/**
-		 * Sets a new non-file title and converts this instance to a {@link ParsedWikilink}.
-		 *
-		 * @param title The new non-file title to set.
-		 * @param nonfile Whether to validate the title as a non-file's.
-		 * @returns A new {@link ParsedWikilink} instance on success.
-		 * @throws If the new title is not a valid non-file title.
-		 */
-		setTitle(title: string | InstanceType<Title>, nonfile: true): InstanceType<typeof ParsedWikilink>;
-		setTitle(title: string | InstanceType<Title>, nonfile = false): this | InstanceType<typeof ParsedWikilink> {
+		override toWikilink(title: string | Title): ParsedWikilink {
+			// ParsedFileWikilinkInitializer has a `params` property but ParsedWikilinkInitializer doesn't,
+			// and has an additional `display` property (which is optional)
 			title = FileWikilink.validateTitle(title);
-			if (nonfile) {
-				const {params, ...initializer} = this._initializer;
-				initializer.title = title;
-				if (Array.isArray(params)) {
-					(initializer as ParsedWikilinkInitializer).display = params.join('');
-				}
-				return new ParsedWikilink(initializer);
+			const {params: _params, ...initializer} = this._initializer;
+			initializer.title = title;
+			if (this.params.length) {
+				// Set the missing (but optional) property of `display`
+				(initializer as ParsedWikilinkInitializer).display = this.params.join('|');
 			}
-			// If `nonfile` is false but the title is a non-file title, throw an error.
-			if (!(title.getNamespaceId() === NS_FILE && !title.hadLeadingColon())) {
-				throw new Error('A non-file title is not accepted unless true is passed as the second argument.');
-			}
-			// @ts-expect-error
-			this.title = title;
-			return this;
+			return new ParsedWikilink(initializer);
 		}
 
-		/** @inheritdoc */
-		stringify(options: ParsedFileWikilinkOutputConfig = {}): string {
+		override stringify(options: ParsedFileWikilinkOutputConfig = {}): string {
 			const {sortPredicate, rawTitle} = options;
 			const params = this.params.slice();
 			if (typeof sortPredicate === 'function') {
@@ -698,166 +957,78 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 			return this._stringify(title, right);
 		}
 
-		/** @inheritdoc */
-		toString() {
+		override toString() {
 			return this.stringify();
 		}
 
-		/**
-		 * @hidden
-		 */
 		_clone() {
 			return new ParsedFileWikilink(this._initializer);
 		}
 
 	}
 
-	/**
-	 * Parses wikilinks with an unparsable title into an object structure. This class is attached to
-	 * {@link Mwbot.RawWikilink} as an instance member.
-	 *
-	 * This class represents a `[[wikilink]]` expression with an **invalid** title. For the class that
-	 * represents a well-formed non-file `[[wikilink]]` expression, see {@link Wikilink}, and for the
-	 * class that represents a well-formed file `[[wikilink]]` expression, see {@link FileWikilink}.
-	 */
-	class RawWikilink extends WikilinkBase<string> {
+	// Check missing members
+	type _CheckParsedFileWikilinkStatic = ParsedFileWikilinkStatic & { new (...args: any[]): ParsedFileWikilink };
+	const _parsedFileWikilinkCheckStatic: _CheckParsedFileWikilinkStatic = ParsedFileWikilink;
+	// const _parsedFileWikilinkCheckInstance: ParsedFileWikilink = new ParsedFileWikilink(Object.create(null));
 
-		/**
-		 * Creates a new instance.
-		 *
-		 * The `title` property of this class is not validated as a {@link Title} instance.
-		 * The class is to construct a wikilink object whose title has to include invalid
-		 * characters, e.g., `'[[{{{1}}}]]'`. When objectifying a wikilink with a valid title,
-		 * use {@link Wikilink} or {@link FileWikilink} instead.
-		 *
-		 * @param title The title of the page that the wikilink links to.
-		 * @param display An optional display text for the wikilink.
-		 */
+	class RawWikilink extends WikilinkBase<string> implements RawWikilink {
+
 		constructor(title: string, display?: string) {
 			super(title, display);
 		}
 
-		/**
-		 * Sets a new title to the instance.
-		 *
-		 * If the new title is a valid MediaWiki title, specify `validateAs` as the second argument
-		 * to convert this instance to either {@link Wikilink} or {@link FileWikilink}.
-		 *
-		 * @param title The new title. This must be a string.
-		 * @returns The current instance for chaining.
-		 */
-		setTitle(title: string): this;
-		/**
-		 * Sets a new non-file title and converts this instance to a {@link Wikilink}.
-		 *
-		 * @param title The new non-file title to set.
-		 * @param validateAs `'nonfile'`
-		 * @returns A new {@link Wikilink} instance on success.
-		 * @throws If the new title is not a valid non-file title.
-		 */
-		setTitle(title: string | InstanceType<Title>, validateAs: 'nonfile'): InstanceType<typeof Wikilink>;
-		/**
-		 * Sets a new file title and converts this instance to a {@link FileWikilink}.
-		 *
-		 * @param title The new file title to set.
-		 * @param validateAs `'file'`
-		 * @returns A new {@link FileWikilink} instance on success.
-		 * @throws If the new title is not a valid file title.
-		 */
-		setTitle(title: string | InstanceType<Title>, validateAs: 'file'): InstanceType<typeof FileWikilink>;
-		setTitle(title: string | InstanceType<Title>, validateAs?: 'nonfile' | 'file')
-			: this | InstanceType<typeof Wikilink | typeof FileWikilink>
-		{
-			if (validateAs === undefined) {
-				if (typeof title === 'string') {
-					// @ts-expect-error
-					this.title = title;
-					return this;
-				} else {
-					throw new TypeError(`Expected a string for "title", but got "${typeof title}".`);
-				}
-			} else if (validateAs === 'nonfile') {
-				return new Wikilink(title, this.display || undefined);
-			} else if (validateAs === 'file') {
-				const params = typeof this.display === 'string' ? [this.display] : [];
-				return new FileWikilink(title, params);
+		setTitle(title: string): this {
+			if (typeof title === 'string') {
+				// @ts-expect-error
+				this.title = title;
+				return this;
 			} else {
-				throw new Error(`Encountered an invalid value for "validateAs": ${validateAs}`);
+				throw new TypeError(`Expected a string for "title", but got "${typeof title}".`);
 			}
 		}
 
-		/** @inheritdoc */
+		toWikilink(title: string | Title): Wikilink {
+			return new Wikilink(title, this.display || undefined);
+		}
+
+		toFileWikilink(title: string | Title): FileWikilink {
+			const params = typeof this.display === 'string' ? [this.display] : [];
+			return new FileWikilink(title, params);
+		}
+
 		stringify(options: RawWikilinkOutputConfig = {}): string {
 			const right = !options.suppressDisplay && this.display || undefined;
 			return this._stringify(this.title, right);
 		}
 
-		/** @inheritdoc */
-		toString() {
+		override toString() {
 			return this.stringify();
 		}
 
 	}
 
-	/**
-	 * Class for {@link Mwbot.Wikitext.parseWikilinks | Wikitext.parseWikilinks}.
-	 *
-	 * This class represents a `[[wikilink]]` expression with an **invalid** title. For the class that
-	 * represents a well-formed non-file `[[wikilink]]` expression, see {@link ParsedWikilink}, and for the
-	 * class that represents a well-formed file `[[wikilink]]` expression, see {@link ParsedFileWikilink}.
-	 *
-	 * This class differs from {@link ParsedWikilink} and {@link ParsedFileWikilink} in that:
-	 * - It extends the {@link RawWikilink} class.
-	 * - (Compared to ParsedFileWikilink) its instances have methods related to the display text.
-	 * - The {@link title} property is a string instead of an instace of {@link Title}.
-	 *
-	 * The constructor of this class is inaccessible, and instances can only be obtained from
-	 * the result of `parseWikilinks`.
-	 *
-	 * To check if an object is an instace of this class, use {@link Wikilink.is}.
-	 *
-	 * **Important**:
-	 *
-	 * The instance properties of this class are pseudo-read-only, in the sense that altering them
-	 * does not affect the behaviour of {@link Mwbot.Wikitext.modifyWikilinks | Wikitext.modifyWikilinks}.
-	 */
-	class ParsedRawWikilink extends RawWikilink {
+	// Check missing members
+	type _CheckRawWikilinkStatic = RawWikilinkStatic & { new (...args: any[]): RawWikilink };
+	const _rawWikilinkCheckStatic: _CheckRawWikilinkStatic = RawWikilink;
+	// const _rawWikilinkCheckInstance: RawWikilink = new RawWikilink('');
 
-		/**
-		 * The raw wikilink title, as directly parsed from the left part of a `[[wikilink|...]]` expression.
-		 */
+	class ParsedRawWikilink extends RawWikilink implements ParsedRawWikilink {
+
 		rawTitle: string;
+		text: string;
+		startIndex: number;
+		endIndex: number;
+		skip: boolean;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
 		private _rawTitle: string;
 		/**
-		 * The original text of the wikilink parsed from the wikitext.
-		 * The value of this property is static.
-		 */
-		text: string;
-		/**
-		 * The starting index of this wikilink in the wikitext.
-		 */
-		startIndex: number;
-		/**
-		 * The ending index of this wikilink in the wikitext (exclusive).
-		 */
-		endIndex: number;
-		/**
-		 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
-		 */
-		skip: boolean;
-		/**
 		 * @hidden
 		 */
 		private _initializer: ParsedRawWikilinkInitializer;
 
-		/**
-		 * @param initializer
-		 * @param options
-		 * @hidden
-		 */
 		constructor(initializer: ParsedRawWikilinkInitializer) {
 			const {display, title, rawTitle, _rawTitle, text, startIndex, endIndex, skip} = initializer;
 			super(title, display);
@@ -870,63 +1041,26 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 			this.skip = skip;
 		}
 
-		/**
-		 * Sets a new title to the instance.
-		 *
-		 * If the new title is a valid MediaWiki title, specify `validateAs` as the second argument
-		 * to convert this instance to either {@link ParsedWikilink} or {@link ParsedFileWikilink}.
-		 *
-		 * @param title The new title. This must be a string.
-		 * @returns The current instance for chaining.
-		 */
-		setTitle(title: string): this;
-		/**
-		 * Sets a new non-file title and converts this instance to a {@link ParsedWikilink}.
-		 *
-		 * @param title The new non-file title to set.
-		 * @param validateAs `'nonfile'`
-		 * @returns A new {@link ParsedWikilink} instance on success.
-		 * @throws If the new title is not a valid non-file title.
-		 */
-		setTitle(title: string | InstanceType<Title>, validateAs: 'nonfile'): InstanceType<typeof ParsedWikilink>;
-		/**
-		 * Sets a new file title and converts this instance to a {@link ParsedFileWikilink}.
-		 *
-		 * @param title The new file title to set.
-		 * @param validateAs `'file'`
-		 * @returns A new {@link ParsedFileWikilink} instance on success.
-		 * @throws If the new title is not a valid file title.
-		 */
-		setTitle(title: string | InstanceType<Title>, validateAs: 'file'): InstanceType<typeof ParsedFileWikilink>;
-		setTitle(title: string | InstanceType<Title>, validateAs?: 'nonfile' | 'file')
-			: this | InstanceType<typeof ParsedWikilink | typeof ParsedFileWikilink>
-		{
-			if (!validateAs) {
-				super.setTitle(title as string);
-				return this;
-			}
-
+		override toWikilink(title: string | Title): ParsedWikilink {
+			// `initializer.title` is a string in ParsedRawWikilinkInitializer, a Title instance in ParsedWikilinkInitializer
 			const {title: _title, ...initializerBase} = this._initializer;
-			switch (validateAs) {
-				case 'nonfile': {
-					const initializer = initializerBase as ParsedWikilinkInitializer;
-					initializer.title = ParsedWikilink.validateTitle(title);
-					initializer.display = this.display || undefined;
-					return new ParsedWikilink(initializer);
-				}
-				case 'file': {
-					const initializer = initializerBase as ParsedFileWikilinkInitializer;
-					initializer.title = ParsedWikilink.validateTitle(title);
-					initializer.params = typeof this.display === 'string' ? [this.display] : [];
-					return new ParsedFileWikilink(initializer);
-				}
-				default:
-					throw new Error(`Invalid value for "validateAs": ${validateAs}`);
-			}
+			const initializer = initializerBase as ParsedWikilinkInitializer;
+			initializer.title = ParsedWikilink.validateTitle(title); // Set the missing property
+			initializer.display = this.display || undefined; // Update the property
+			return new ParsedWikilink(initializer);
 		}
 
-		/** @inheritdoc */
-		stringify(options: ParsedRawWikilinkOutputConfig = {}): string {
+		override toFileWikilink(title: string | Title): ParsedFileWikilink {
+			// `initializer.title` is a string in ParsedRawWikilinkInitializer, a Title instance in ParsedWikilinkInitializer
+			// ParsedFileWikilinkInitializer doesn't have a `display` property, and instead has a `params` property
+			const {title: _title, display: _display, ...initializerBase} = this._initializer;
+			const initializer = initializerBase as ParsedFileWikilinkInitializer;
+			initializer.title = ParsedWikilink.validateTitle(title); // Set the missing property
+			initializer.params = typeof this.display === 'string' ? [this.display] : []; // Set the missing property
+			return new ParsedFileWikilink(initializer);
+		}
+
+		override stringify(options: ParsedRawWikilinkOutputConfig = {}): string {
 			const {suppressDisplay, rawTitle} = options;
 			const right = !suppressDisplay && this.display || undefined;
 			let title = this.title;
@@ -936,60 +1070,43 @@ export function WikilinkFactory(config: Mwbot['config'], Title: Title) {
 			return this._stringify(title, right);
 		}
 
-		/** @inheritdoc */
-		toString() {
+		override toString() {
 			return this.stringify();
 		}
 
-		/**
-		 * @hidden
-		 */
 		_clone() {
 			return new ParsedRawWikilink(this._initializer);
 		}
 
 	}
 
-	return {Wikilink, ParsedWikilink, FileWikilink, ParsedFileWikilink, RawWikilink, ParsedRawWikilink};
+	// Check missing members
+	type _CheckParsedRawWikilinkStatic = ParsedRawWikilinkStatic & { new (...args: any[]): ParsedRawWikilink };
+	const _parsedRawWikilinkCheckStatic: _CheckParsedRawWikilinkStatic = ParsedRawWikilink;
+	// const _parsedRawWikilinkCheckInstance: ParsedRawWikilink = new ParsedRawWikilink(Object.create(null));
+
+	return {
+		Wikilink: Wikilink as WikilinkStatic,
+		ParsedWikilink: ParsedWikilink as ParsedWikilinkStatic,
+		FileWikilink: FileWikilink as FileWikilinkStatic,
+		ParsedFileWikilink: ParsedFileWikilink as ParsedFileWikilinkStatic,
+		RawWikilink: RawWikilink as RawWikilinkStatic,
+		ParsedRawWikilink: ParsedRawWikilink as ParsedRawWikilinkStatic
+	};
 
 }
-
-/**
- * @internal
- */
-export type Wikilink = ReturnType<typeof WikilinkFactory>['Wikilink'];
-/**
- * @internal
- */
-export type ParsedWikilink = ReturnType<typeof WikilinkFactory>['ParsedWikilink'];
-/**
- * @internal
- */
-export type FileWikilink = ReturnType<typeof WikilinkFactory>['FileWikilink'];
-/**
- * @internal
- */
-export type ParsedFileWikilink = ReturnType<typeof WikilinkFactory>['ParsedFileWikilink'];
-/**
- * @internal
- */
-export type RawWikilink = ReturnType<typeof WikilinkFactory>['RawWikilink'];
-/**
- * @internal
- */
-export type ParsedRawWikilink = ReturnType<typeof WikilinkFactory>['ParsedRawWikilink'];
 
 /**
  * Helper interface for {@link Wikilink.is}.
  * @private
  */
-interface WikilinkTypeMap {
-	Wikilink: InstanceType<Wikilink>;
-	ParsedWikilink: InstanceType<ParsedWikilink>;
-	FileWikilink: InstanceType<FileWikilink>;
-	ParsedFileWikilink: InstanceType<ParsedFileWikilink>;
-	RawWikilink: InstanceType<RawWikilink>;
-	ParsedRawWikilink: InstanceType<ParsedRawWikilink>;
+export interface WikilinkTypeMap {
+	Wikilink: Wikilink;
+	ParsedWikilink: ParsedWikilink;
+	FileWikilink: FileWikilink;
+	ParsedFileWikilink: ParsedFileWikilink;
+	RawWikilink: RawWikilink;
+	ParsedRawWikilink: ParsedRawWikilink;
 }
 
 /**
@@ -1069,7 +1186,7 @@ export interface ParsedRawWikilinkOutputConfig extends RawWikilinkOutputConfig {
  * The base initializer object for ParsedWikilink-related constructors.
  * @internal
  */
-interface ParsedWikilinkInitializerBase<T extends string | InstanceType<Title>> {
+interface ParsedWikilinkInitializerBase<T extends string | Title> {
 	title: T;
 	rawTitle: string;
 	/** Potentially includes a control character. */
@@ -1084,7 +1201,7 @@ interface ParsedWikilinkInitializerBase<T extends string | InstanceType<Title>> 
  * The initializer object for {@link ParsedWikilink}.
  * @internal
  */
-interface ParsedWikilinkInitializer extends ParsedWikilinkInitializerBase<InstanceType<Title>> {
+interface ParsedWikilinkInitializer extends ParsedWikilinkInitializerBase<Title> {
 	display?: string;
 }
 
@@ -1092,7 +1209,7 @@ interface ParsedWikilinkInitializer extends ParsedWikilinkInitializerBase<Instan
  * The initializer object for {@link ParsedFileWikilink}.
  * @internal
  */
-interface ParsedFileWikilinkInitializer extends ParsedWikilinkInitializerBase<InstanceType<Title>> {
+interface ParsedFileWikilinkInitializer extends ParsedWikilinkInitializerBase<Title> {
 	params?: string[];
 }
 
