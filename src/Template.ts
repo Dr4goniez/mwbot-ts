@@ -294,7 +294,7 @@ export interface Template extends TemplateBase<Title> {
 	 *
 	 * @param title The new title to set.
 	 * @param verbose Whether to log errors. (Default: `false`)
-	 * @returns A boolean indicating whether the new title is set.
+	 * @returns A boolean indicating whether the new title was set.
 	 */
 	setTitle(title: string | Title, verbose?: boolean): boolean;
 	/**
@@ -588,7 +588,7 @@ export interface ParserFunction extends InstanceType<typeof ParamBase> {
 	 * Sets a new function hook, overwriting the current one.
 	 *
 	 * @param hook The new hook.
-	 * @returns A boolean indicating whether the new hook has been set, after validation.
+	 * @returns A boolean indicating whether the new hook was set.
 	 */
 	setHook(hook: string): boolean;
 	/**
