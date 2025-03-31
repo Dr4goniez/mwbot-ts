@@ -149,18 +149,18 @@ export interface Wikilink extends WikilinkBase<Title> {
 	 * argument. For file titles, use {@link toFileWikilink} instead.
 	 *
 	 * @param title The new title to set.
-	 * @returns The current instance for chaining.
-	 * @throws If the new title is invalid or a file title.
+	 * @param verbose Whether to log errors. (Default: `false`)
+	 * @returns A boolean indicating whether the new title was set.
 	 */
-	setTitle(title: string | Title): this;
+	setTitle(title: string | Title, verbose?: boolean): boolean;
 	/**
 	 * Creates a new {@link FileWikilink} instance, inheriting the current instance's properties.
 	 *
 	 * @param title The file title to set.
-	 * @returns A new {@link FileWikilink} instance on success.
-	 * @throws If the new title is not a valid file title.
+	 * @param verbose Whether to log errors. (Default: `false`)
+	 * @returns A new {@link FileWikilink} instance on success; otherwise, `null`.
 	 */
-	toFileWikilink(title: string | Title): FileWikilink;
+	toFileWikilink(title: string | Title, verbose?: boolean): FileWikilink | null;
 	/**
 	 * Strigifies the instance.
 	 *
@@ -243,10 +243,10 @@ export interface ParsedWikilink extends Wikilink {
 	 * Creates a new {@link ParsedFileWikilink} instance, inheriting the current instance's properties.
 	 *
 	 * @param title The file title to set.
-	 * @returns A new {@link ParsedFileWikilink} instance on success.
-	 * @throws If the new title is not a valid file title.
+	 * @param verbose Whether to log errors. (Default: `false`)
+	 * @returns A new {@link ParsedFileWikilink} instance on success; otherwise, `null`.
 	 */
-	toFileWikilink(title: string | Title): ParsedFileWikilink;
+	toFileWikilink(title: string | Title, verbose?: boolean): ParsedFileWikilink | null;
 	/**
 	 * Strigifies the instance.
 	 *
@@ -313,18 +313,18 @@ export interface FileWikilink extends InstanceType<typeof ParamBase> {
 	 * (without a leading colon), use {@link toWikilink} instead.
 	 *
 	 * @param title The new file title to set.
-	 * @returns The current instance for chaining.
-	 * @throws If the new title is invalid or if it is a non-file title.
+	 * @param verbose Whether to log errors. (Default: `false`)
+	 * @returns A boolean indicating whether the new title was set.
 	 */
-	setTitle(title: string | Title): this;
+	setTitle(title: string | Title, verbose?: boolean): boolean;
 	/**
 	 * Creates a new {@link Wikilink} instance, inheriting the current instance's properties.
 	 *
 	 * @param title The non-file title to set.
-	 * @returns A new {@link Wikilink} instance on success.
-	 * @throws If the new title is not a valid non-file title.
+	 * @param verbose Whether to log errors. (Default: `false`)
+	 * @returns A new {@link Wikilink} instance on success; otherwise, `null`.
 	 */
-	toWikilink(title: string | Title): Wikilink;
+	toWikilink(title: string | Title, verbose?: boolean): Wikilink | null;
 	/**
 	 * Stringifies the instance.
 	 *
@@ -407,10 +407,10 @@ export interface ParsedFileWikilink extends FileWikilink {
 	 * Creates a new {@link ParsedWikilink} instance, inheriting the current instance's properties.
 	 *
 	 * @param title The non-file title to set.
-	 * @returns A new {@link ParsedWikilink} instance on success.
-	 * @throws If the new title is not a valid non-file title.
+	 * @param verbose Whether to log errors. (Default: `false`)
+	 * @returns A new {@link ParsedWikilink} instance on success; otherwise, `null`.
 	 */
-	toWikilink(title: string | Title): ParsedWikilink;
+	toWikilink(title: string | Title, verbose?: boolean): ParsedWikilink | null;
 	/**
 	 * @inheritdoc
 	 */
@@ -467,18 +467,18 @@ export interface RawWikilink extends WikilinkBase<string> {
 	 * Creates a new {@link Wikilink} instance, inheriting the current instance's properties.
 	 *
 	 * @param title The non-file title to set.
-	 * @returns A new {@link Wikilink} instance on success.
-	 * @throws If the new title is not a valid non-file title.
+	 * @param verbose Whether to log errors. (Default: `false`)
+	 * @returns A new {@link Wikilink} instance on success; otherwise, `null`.
 	 */
-	toWikilink(title: string | Title): Wikilink;
+	toWikilink(title: string | Title, verbose?: boolean): Wikilink | null;
 	/**
 	 * Creates a new {@link FileWikilink} instance, inheriting the current instance's properties.
 	 *
 	 * @param title The file title to set.
-	 * @returns A new {@link FileWikilink} instance on success.
-	 * @throws If the new title is not a valid file title.
+	 * @param verbose Whether to log errors. (Default: `false`)
+	 * @returns A new {@link FileWikilink} instance on success; otherwise, `null`.
 	 */
-	toFileWikilink(title: string | Title): FileWikilink;
+	toFileWikilink(title: string | Title, verbose?: boolean): FileWikilink | null;
 	/**
 	 * @inheritdoc
 	 */
@@ -556,18 +556,18 @@ export interface ParsedRawWikilink extends RawWikilink {
 	 * Creates a new {@link ParsedWikilink} instance, inheriting the current instance's properties.
 	 *
 	 * @param title The non-file title to set.
-	 * @returns A new {@link ParsedWikilink} instance on success.
-	 * @throws If the new title is not a valid non-file title.
+	 * @param verbose Whether to log errors. (Default: `false`)
+	 * @returns A new {@link ParsedWikilink} instance on success; otherwise, `null`.
 	 */
-	toWikilink(title: string | Title): ParsedWikilink;
+	toWikilink(title: string | Title, verbose?: boolean): ParsedWikilink | null;
 	/**
 	 * Creates a new {@link ParsedFileWikilink} instance, inheriting the current instance's properties.
 	 *
 	 * @param title The file title to set.
-	 * @returns A new {@link ParsedFileWikilink} instance on success.
-	 * @throws If the new title is not a valid file title.
+	 * @param verbose Whether to log errors. (Default: `false`)
+	 * @returns A new {@link ParsedFileWikilink} instance on success; otherwise, `null`.
 	 */
-	toFileWikilink(title: string | Title): ParsedFileWikilink;
+	toFileWikilink(title: string | Title, verbose?: boolean): ParsedFileWikilink | null;
 	/**
 	 * @inheritdoc
 	 */
@@ -704,20 +704,34 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			}
 		}
 
-		setTitle(title: string | Title): this {
-			title = Wikilink.validateTitle(title);
-			// If `title` is a file title, throw an error.
-			if (title.getNamespaceId() === NS_FILE && !title.hadLeadingColon()) {
-				throw new Error('A file title cannot be set with setTitle. Use toFileWikilink instead.');
+		setTitle(title: string | Title, verbose = false): boolean {
+			try {
+				title = Wikilink.validateTitle(title);
+				// If `title` is a file title, throw an error.
+				if (title.getNamespaceId() === NS_FILE && !title.hadLeadingColon()) {
+					throw new Error('A file title cannot be set with setTitle. Use toFileWikilink instead.');
+				}
+			} catch (err) {
+				if (verbose) {
+					console.error(err);
+				}
+				return false;
 			}
 			// @ts-expect-error
 			this.title = title;
-			return this;
+			return true;
 		}
 
-		toFileWikilink(title: string | Title): FileWikilink {
-			title = Wikilink.validateTitle(title);
-			return new FileWikilink(title, this.display ? [this.display] : []);
+		toFileWikilink(title: string | Title, verbose = false): FileWikilink | null {
+			try {
+				title = Wikilink.validateTitle(title);
+				return new FileWikilink(title, this.display ? [this.display] : []);
+			} catch (err) {
+				if (verbose) {
+					console.error(err);
+				}
+				return null;
+			}
 		}
 
 		stringify(options: WikilinkOutputConfig = {}): string {
@@ -764,19 +778,26 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			this.skip = skip;
 		}
 
-		override toFileWikilink(title: string | Title): ParsedFileWikilink {
+		override toFileWikilink(title: string | Title, verbose = false): ParsedFileWikilink | null {
 			// ParsedWikilinkInitializer has a `display` property but ParsedFileWikilinkInitializer doesn't
 			// and instead has an optional `params` property
-			title = Wikilink.validateTitle(title);
-			const {display: _display, ...initializer} = this._initializer;
-			initializer.title = title;
-			if (this.display) {
-				// TODO: Should we use `this.display.split('|')`? But we must handle special wiki-markups in `display`
-				// e.g., if `display` is "{{{1|}}}", `params` will be `['{{{1', '}}}']`, which is obviously inaccurate
-				// For the time being, let the user decide whether they want to parse `params[0]` further to handle this
-				(initializer as ParsedFileWikilinkInitializer).params = [this.display];
+			try {
+				title = Wikilink.validateTitle(title);
+				const {display: _display, ...initializer} = this._initializer;
+				initializer.title = title;
+				if (this.display) {
+					// TODO: Should we use `this.display.split('|')`? But we must handle special wiki-markups in `display`
+					// e.g., if `display` is "{{{1|}}}", `params` will be `['{{{1', '}}}']`, which is obviously inaccurate
+					// For the time being, let the user decide whether they want to parse `params[0]` further to handle this
+					(initializer as ParsedFileWikilinkInitializer).params = [this.display];
+				}
+				return new ParsedFileWikilink(initializer);
+			} catch (err) {
+				if (verbose) {
+					console.error(err);
+				}
+				return null;
 			}
-			return new ParsedFileWikilink(initializer);
 		}
 
 		override stringify(options: ParsedWikilinkOutputConfig = {}): string {
@@ -824,20 +845,34 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			this.title = title;
 		}
 
-		setTitle(title: string | Title): this {
-			title = FileWikilink.validateTitle(title);
-			// If `title` is a non-file title, throw an error.
-			if (!(title.getNamespaceId() === NS_FILE && !title.hadLeadingColon())) {
-				throw new Error('A non-file title is not accepted unless true is passed as the second argument.');
+		setTitle(title: string | Title, verbose = false): boolean {
+			try {
+				title = FileWikilink.validateTitle(title);
+				// If `title` is a non-file title, throw an error.
+				if (!(title.getNamespaceId() === NS_FILE && !title.hadLeadingColon())) {
+					throw new Error('A non-file title is not accepted unless true is passed as the second argument.');
+				}
+			} catch (err) {
+				if (verbose) {
+					console.error(err);
+				}
+				return false;
 			}
 			// @ts-expect-error
 			this.title = title;
-			return this;
+			return true;
 		}
 
-		toWikilink(title: string | Title): Wikilink {
-			const display = this.params.length ? this.params.join('|') : undefined;
-			return new Wikilink(title, display);
+		toWikilink(title: string | Title, verbose = false): Wikilink | null {
+			try {
+				const display = this.params.length ? this.params.join('|') : undefined;
+				return new Wikilink(title, display);
+			} catch (err) {
+				if (verbose) {
+					console.error(err);
+				}
+				return null;
+			}
 		}
 
 		stringify(options: FileWikilinkOutputConfig = {}): string {
@@ -928,17 +963,24 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			this.skip = skip;
 		}
 
-		override toWikilink(title: string | Title): ParsedWikilink {
+		override toWikilink(title: string | Title, verbose = false): ParsedWikilink | null{
 			// ParsedFileWikilinkInitializer has a `params` property but ParsedWikilinkInitializer doesn't,
 			// and has an additional `display` property (which is optional)
-			title = FileWikilink.validateTitle(title);
-			const {params: _params, ...initializer} = this._initializer;
-			initializer.title = title;
-			if (this.params.length) {
-				// Set the missing (but optional) property of `display`
-				(initializer as ParsedWikilinkInitializer).display = this.params.join('|');
+			try {
+				title = FileWikilink.validateTitle(title);
+				const {params: _params, ...initializer} = this._initializer;
+				initializer.title = title;
+				if (this.params.length) {
+					// Set the missing (but optional) property of `display`
+					(initializer as ParsedWikilinkInitializer).display = this.params.join('|');
+				}
+				return new ParsedWikilink(initializer);
+			} catch (err) {
+				if (verbose) {
+					console.error(err);
+				}
+				return null;
 			}
-			return new ParsedWikilink(initializer);
 		}
 
 		override stringify(options: ParsedFileWikilinkOutputConfig = {}): string {
@@ -988,13 +1030,27 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			}
 		}
 
-		toWikilink(title: string | Title): Wikilink {
-			return new Wikilink(title, this.display || undefined);
+		toWikilink(title: string | Title, verbose = false): Wikilink | null {
+			try {
+				return new Wikilink(title, this.display || undefined);
+			} catch (err) {
+				if (verbose) {
+					console.error(err);
+				}
+				return null;
+			}
 		}
 
-		toFileWikilink(title: string | Title): FileWikilink {
-			const params = typeof this.display === 'string' ? [this.display] : [];
-			return new FileWikilink(title, params);
+		toFileWikilink(title: string | Title, verbose = false): FileWikilink | null {
+			try {
+				const params = typeof this.display === 'string' ? [this.display] : [];
+				return new FileWikilink(title, params);
+			} catch (err) {
+				if (verbose) {
+					console.error(err);
+				}
+				return null;
+			}
 		}
 
 		stringify(options: RawWikilinkOutputConfig = {}): string {
@@ -1041,23 +1097,37 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			this.skip = skip;
 		}
 
-		override toWikilink(title: string | Title): ParsedWikilink {
+		override toWikilink(title: string | Title, verbose = false): ParsedWikilink | null {
 			// `initializer.title` is a string in ParsedRawWikilinkInitializer, a Title instance in ParsedWikilinkInitializer
-			const {title: _title, ...initializerBase} = this._initializer;
-			const initializer = initializerBase as ParsedWikilinkInitializer;
-			initializer.title = ParsedWikilink.validateTitle(title); // Set the missing property
-			initializer.display = this.display || undefined; // Update the property
-			return new ParsedWikilink(initializer);
+			try {
+				const {title: _title, ...initializerBase} = this._initializer;
+				const initializer = initializerBase as ParsedWikilinkInitializer;
+				initializer.title = ParsedWikilink.validateTitle(title); // Set the missing property
+				initializer.display = this.display || undefined; // Update the property
+				return new ParsedWikilink(initializer);
+			} catch (err) {
+				if (verbose) {
+					console.error(err);
+				}
+				return null;
+			}
 		}
 
-		override toFileWikilink(title: string | Title): ParsedFileWikilink {
+		override toFileWikilink(title: string | Title, verbose = false): ParsedFileWikilink | null {
 			// `initializer.title` is a string in ParsedRawWikilinkInitializer, a Title instance in ParsedWikilinkInitializer
 			// ParsedFileWikilinkInitializer doesn't have a `display` property, and instead has a `params` property
-			const {title: _title, display: _display, ...initializerBase} = this._initializer;
-			const initializer = initializerBase as ParsedFileWikilinkInitializer;
-			initializer.title = ParsedWikilink.validateTitle(title); // Set the missing property
-			initializer.params = typeof this.display === 'string' ? [this.display] : []; // Set the missing property
-			return new ParsedFileWikilink(initializer);
+			try {
+				const {title: _title, display: _display, ...initializerBase} = this._initializer;
+				const initializer = initializerBase as ParsedFileWikilinkInitializer;
+				initializer.title = ParsedWikilink.validateTitle(title); // Set the missing property
+				initializer.params = typeof this.display === 'string' ? [this.display] : []; // Set the missing property
+				return new ParsedFileWikilink(initializer);
+			} catch (err) {
+				if (verbose) {
+					console.error(err);
+				}
+				return null;
+			}
 		}
 
 		override stringify(options: ParsedRawWikilinkOutputConfig = {}): string {
