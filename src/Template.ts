@@ -38,7 +38,7 @@ const noHashFunctions = [
 	'padleft', 'padright', 'anchorencode', 'defaultsort', 'filepath',
 	'pagesincategory', 'pagesize', 'protectionlevel', 'protectionexpiry',
 	// The following are the "parser function" forms of magic
-	// variables defined in CoreMagicVariables.  The no-args form will
+	// variables defined in CoreMagicVariables. The no-args form will
 	// go through the magic variable code path (and be cached); the
 	// presence of arguments will cause the parser function form to
 	// be invoked. (Note that the actual implementation will pass
@@ -125,7 +125,7 @@ export interface TemplateBase<T extends string | Title> {
 	 *
 	 * If a parameter with the same `key` already exists:
 	 * - If `overwrite` is `true`, it replaces the existing value and **moves it to the end** of the list.
-	 *   - This may alter the position of the parameter, e.g., `|1=|2=|3=` could become `|1=|3=|2=`.
+	 * 	- This may alter the position of the parameter, e.g., `|1=|2=|3=` could become `|1=|3=|2=`.
 	 * - If `overwrite` is `false`, the parameter is not added, and the existing entry remains unchanged.
 	 *
 	 * This differs from {@link setParam}, which updates an existing key without changing its order.
@@ -144,7 +144,7 @@ export interface TemplateBase<T extends string | Title> {
 	 *
 	 * If a parameter with the same `key` already exists:
 	 * - If `overwrite` is `true`, it replaces the existing value while **keeping its original position**.
-	 *   - This ensures that the order remains unchanged, e.g., `|1=|2=|3=` stays the same.
+	 * 	- This ensures that the order remains unchanged, e.g., `|1=|2=|3=` stays the same.
 	 * - If `overwrite` is `false`, the parameter remains unchanged.
 	 *
 	 * This differs from {@link addParam}, which moves the parameter to the end of the list.
@@ -171,7 +171,7 @@ export interface TemplateBase<T extends string | Title> {
 	 *
 	 * Example:
 	 * - Given `key = '1'`, `hierarchies = [['1', 'user', 'User']]`, and `params` containing a parameter keyed `'user'`,
-	 *   this method returns the `'user'` parameter.
+	 * this method returns the `'user'` parameter.
 	 *
 	 * Note that if `key` does not belong to any hierarchy array, this method behaves the same as when
 	 * `resolveHierarchy` is `false`.
@@ -290,7 +290,7 @@ export interface TemplateStatic extends TemplateBaseStatic<Title> {
  */
 export interface Template extends TemplateBase<Title> {
 	/**
-	 * Set a new title to the instance.
+	 * Sets a new title to the instance.
 	 *
 	 * @param title The new title to set.
 	 * @param verbose Whether to log errors. (Default: `false`)
@@ -301,12 +301,13 @@ export interface Template extends TemplateBase<Title> {
 	 * Stringifies the instance.
 	 *
 	 * @param options Options to format the output.
-	 * @returns
+	 * @returns The template as a string.
 	 */
 	stringify(options?: TemplateOutputConfig<Title>): string;
 	/**
 	 * Alias of {@link stringify} called without arguments.
-	 * @returns
+	 *
+	 * @returns The template as a string.
 	 */
 	toString(): string;
 }
@@ -317,13 +318,11 @@ export interface Template extends TemplateBase<Title> {
  *
  * This class is exclusive to {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}.
  * It represents a well-formed `{{template}}` markup with a valid title. For the class
- * that represents a malformed `{{template}}` markup, see {@link RawTemplateStatic}.
+ * that represents a malformed `{{template}}` markup with an invalid title, see {@link RawTemplateStatic}.
  *
  * This class differs from {@link RawTemplateStatic | RawTemplate} in that:
  * - It extends the {@link TemplateStatic | Template} class.
  * - The {@link ParsedTemplate.title | title} property is an instance of {@link Title} instead of a string.
- * - {@link ParsedTemplate.setTitle} is an in-place operation that only returns a boolean value
- * (unless a `toHook` parameter is provided).
  *
  * The constructor of this class is inaccessible, and instances can only be referenced
  * in the result of `parseTemplates`.
@@ -376,14 +375,6 @@ export interface ParsedTemplate extends Template {
 	skip: boolean;
 
 	/**
-	 * Sets a new title to the instance.
-	 *
-	 * @param title The new title to set.
-	 * @param verbose Whether to log errors. (Default: `false`)
-	 * @returns A boolean indicating whether the new title was set.
-	 */
-	setTitle(title: string | Title, verbose?: boolean): boolean;
-	/**
 	 * Converts the instance to a {@link ParsedParserFunction}.
 	 *
 	 * This method should only be used for `ParsedTemplate` instances that represent invalid
@@ -399,14 +390,13 @@ export interface ParsedTemplate extends Template {
 	 * instance is passed, the output of `title.getPrefixedDb({ colon: true, fragment: true })`
 	 * is validated.
 	 *
-	 * When passing a string, it can include the function’s first parameter (e.g., `"#if:1"`).
+	 * When passing a string, it can (and should) include the function’s first parameter (e.g., `"#if:1"`).
 	 * The second and subsequent parameters are initialized based on {@link params}.
 	 *
 	 * @param verbose Whether to log errors (default: `false`).
-	 * @param toHook Whether to convert the instance to a parser function.
 	 * @returns A new {@link ParsedParserFunction} instance on success; otherwise, `null`.
 	 */
-	setTitle(title: string | Title, verbose: boolean, toHook: true): ParsedParserFunction | null;
+	toParserFunction(title: string | Title, verbose?: boolean): ParsedParserFunction | null;
 	/**
 	 * @inheritdoc
 	 */
@@ -433,8 +423,6 @@ export interface ParsedTemplate extends Template {
  * This class differs from {@link ParsedTemplateStatic | ParsedTemplate} in that:
  * - It does not extend any class (that the user can access).
  * - The {@link RawTemplate.title | title} property is a string instead of an instance of {@link Title}.
- * - {@link RawTemplate.setTitle} returns a new {@link ParsedTemplate} instance (or a new
- * {@link ParsedParserFunction} instance) when a valid title is provided.
  *
  * The constructor of this class is inaccessible, and instances can only be referenced
  * in the result of `parseTemplates`.
@@ -487,19 +475,30 @@ export interface RawTemplate extends TemplateBase<string> {
 	skip: boolean;
 
 	/**
-	 * Sets a new template title and converts the instance to a new {@link ParsedTemplate} instance.
+	 * Sets a new title to the instance.
+	 *
+	 * This method simply updates the {@link title} property of the instance. If the new title is
+	 * an unambiguously valid title for MediaWiki, use {@link toTemplate} or {@link toParserFunction}
+	 * instead.
+	 *
+	 * @param title The new title to set.
+	 * @returns The current instance for chaining.
+	 */
+	setTitle(title: string): this;
+	/**
+	 * Sets a valid template title and converts the instance to a new {@link ParsedTemplate} instance.
 	 *
 	 * The conversion is based on the data used to initialize this instance, and any modifications
 	 * made after initialization will be discarded. Therefore, this method should be called before
 	 * making any changes to the instance properties.
 	 *
-	 * @param title The new title to set.
+	 * @param title The new template title to set.
 	 * @param verbose Whether to log errors. (Default: `false`)
 	 * @returns A new {@link ParsedTemplate} instance on success; otherwise, `null`.
 	 */
-	setTitle(title: string | Title, verbose?: boolean): ParsedTemplate | null;
+	toTemplate(title: string | Title, verbose?: boolean): ParsedTemplate | null;
 	/**
-	 * Sets a new function hook and converts the instance to a new {@link ParsedParserFunction} instance.
+	 * Sets a valid function hook and converts the instance to a new {@link ParsedParserFunction} instance.
 	 *
 	 * The conversion is based on the data used to initialize this instance, and any modifications
 	 * made after initialization will be discarded. Therefore, this method should be called before
@@ -514,20 +513,20 @@ export interface RawTemplate extends TemplateBase<string> {
 	 * The second and subsequent parameters are initialized based on {@link params}.
 	 *
 	 * @param verbose Whether to log errors (default: `false`).
-	 * @param toHook Whether to convert the instance to a parser function.
 	 * @returns A new {@link ParsedParserFunction} instance on success; otherwise, `null`.
 	 */
-	setTitle(title: string | Title, verbose: boolean, toHook: true): ParsedParserFunction | null;
+	toParserFunction(title: string | Title, verbose: boolean): ParsedParserFunction | null;
 	/**
 	 * Stringifies the instance.
 	 *
 	 * @param options Options to format the output.
-	 * @returns
+	 * @returns The template as a string.
 	 */
 	stringify(options?: RawTemplateOutputConfig): string;
 	/**
 	 * Alias of {@link stringify} called without arguments.
-	 * @returns
+	 *
+	 * @returns The template as a string.
 	 */
 	toString(): string;
 	/**
@@ -596,12 +595,13 @@ export interface ParserFunction extends InstanceType<typeof ParamBase> {
 	 * Stringifies the instance.
 	 *
 	 * @param options Options to format the output.
-	 * @returns
+	 * @returns The parser function as a string.
 	 */
 	stringify(options?: ParserFunctionOutputConfig): string;
 	/**
 	 * Alias of {@link stringify} called without arguments.
-	 * @returns
+	 *
+	 * @returns The parser function as a string.
 	 */
 	toString(): string;
 }
@@ -667,6 +667,18 @@ export interface ParsedParserFunction extends ParserFunction {
 	 */
 	skip: boolean;
 
+	/**
+	 * Converts the instance to a {@link ParsedTemplate}.
+	 *
+	 * The conversion is based on the data used to initialize this instance, and any modifications
+	 * made after initialization will be discarded. Therefore, this method should be called before
+	 * making any changes to the instance properties.
+	 *
+	 * @param title The new template title to set.
+	 * @param verbose Whether to log errors (default: `false`).
+	 * @returns A new {@link ParsedPTemplate} instance on success; otherwise, `null`.
+	 */
+	toTemplate(title: string | Title, verbose?: boolean): ParsedTemplate | null;
 	/**
 	 * @inheritdoc
 	 */
@@ -1110,7 +1122,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 	}
 
 	// Check missing members
-    const _templateBaseCheck: TemplateBaseStatic<string> = TemplateBase;
+	const _templateBaseCheck: TemplateBaseStatic<string> = TemplateBase;
 
 	class Template extends TemplateBase<Title> implements Template {
 
@@ -1165,7 +1177,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			}
 		}
 
-		stringify(options: TemplateOutputConfig<Title> = {}): string  {
+		stringify(options: TemplateOutputConfig<Title> = {}): string {
 			return this._stringify(this.title.getPrefixedText({colon: true}), options);
 		}
 
@@ -1211,34 +1223,19 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			this.skip = skip;
 		}
 
-		override setTitle(title: string | Title, verbose?: boolean): boolean;
-		override setTitle(title: string | Title, verbose: boolean, toHook: true): ParsedParserFunction | null;
-		override setTitle(title: string | Title, verbose = false, toHook = false): boolean | ParsedParserFunction | null {
-			if (toHook) {
-				title = typeof title === 'string' ? title : title.getPrefixedDb({colon: true, fragment: true});
-				try {
-					Template.validateTitle(title, true);
-				} catch (err) {
-					if (verbose) {
-						console.error(err);
-					}
-					return null;
+		toParserFunction(title: string | Title, verbose = false): ParsedParserFunction | null {
+			title = typeof title === 'string' ? title : title.getPrefixedDb({colon: true, fragment: true});
+			try {
+				Template.validateTitle(title, true);
+			} catch (err) {
+				if (verbose) {
+					console.error(err);
 				}
-				const initializer = mergeDeep(this._initializer);
-				initializer.title = title;
-				return new ParsedParserFunction(initializer);
-			} else {
-				try {
-					// @ts-expect-error
-					this.title = Template.validateTitle(title);
-					return true;
-				} catch (err) {
-					if (verbose) {
-						console.error(err);
-					}
-					return false;
-				}
+				return null;
 			}
+			const initializer = mergeDeep(this._initializer);
+			initializer.title = title;
+			return new ParsedParserFunction(initializer);
 		}
 
 		override stringify(options: ParsedTemplateOutputConfig = {}): string {
@@ -1295,13 +1292,16 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			this.skip = skip;
 		}
 
-		setTitle(title: string | Title, verbose?: boolean): ParsedTemplate | null;
-		setTitle(title: string | Title, verbose: boolean, toHook: true): ParsedParserFunction | null;
-		setTitle(title: string | Title, verbose = false, toHook = false): ParsedTemplate | ParsedParserFunction | null {
-			title = typeof title === 'string' ? title : title.getPrefixedDb({colon: true, fragment: toHook});
+		setTitle(title: string): this {
+			// @ts-expect-error
+			this.title = title;
+			return this;
+		}
+
+		toTemplate(title: string | Title, verbose = false): ParsedTemplate | null {
+			title = typeof title === 'string' ? title : title.getPrefixedDb({colon: true, fragment: true});
 			try {
-				// @ts-expect-error
-				Template.validateTitle(title, toHook);
+				Template.validateTitle(title);
 			} catch (err) {
 				if (verbose) {
 					console.error(err);
@@ -1310,11 +1310,22 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			}
 			const initializer = mergeDeep(this._initializer);
 			initializer.title = title;
-			if (toHook) {
-				return new ParsedParserFunction(initializer);
-			} else {
-				return new ParsedTemplate(initializer);
+			return new ParsedTemplate(initializer);
+		}
+
+		toParserFunction(title: string | Title, verbose = false): ParsedParserFunction | null {
+			title = typeof title === 'string' ? title : title.getPrefixedDb({colon: true, fragment: true});
+			try {
+				Template.validateTitle(title, true);
+			} catch (err) {
+				if (verbose) {
+					console.error(err);
+				}
+				return null;
 			}
+			const initializer = mergeDeep(this._initializer);
+			initializer.title = title;
+			return new ParsedParserFunction(initializer);
 		}
 
 		stringify(options: RawTemplateOutputConfig = {}): string {
@@ -1506,7 +1517,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				_rawHook = _rawHook || hook;
 			}
 
-			const initParams =  [paramPart];
+			const initParams = [paramPart];
 			params.forEach(({key, value}) => {
 				initParams.push((key ? key + '=' : '') + value);
 			});
@@ -1521,6 +1532,22 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			this.nestLevel = nestLevel;
 			this.skip = skip;
 
+		}
+
+		toTemplate(title: string | Title, verbose = false): ParsedTemplate | null {
+			title = typeof title === 'string' ? title : title.getPrefixedDb({colon: true, fragment: true});
+			try {
+				// @ts-expect-error Calling a protected method
+				Template.validateTitle(title);
+			} catch (err) {
+				if (verbose) {
+					console.error(err);
+				}
+				return null;
+			}
+			const initializer = mergeDeep(this._initializer);
+			initializer.title = title;
+			return new ParsedTemplate(initializer);
 		}
 
 		override stringify(options: ParsedParserFunctionOutputConfig = {}): string {
