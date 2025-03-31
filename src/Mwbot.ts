@@ -2122,14 +2122,14 @@ export class Mwbot {
 	 * @param title The page title, either as a string or a {@link Title} instance.
 	 * @param transform A function that receives a {@link Wikitext} instance initialized from the
 	 * fetched content and an object representing the metadata of the fetched revision. This function
-	 * should return a Promise resolving to {@link ApiEditPageParams} as a plain object, which will
-	 * be used for the edit request.
+	 * should return {@link ApiEditPageParams} as a plain object (a Promise resolving to this object),
+	 * which will be used for the edit request.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
 	 */
 	async edit(
 		title: string | Title,
-		transform: (wikitext: Wikitext, revision: Revision) => Promise<ApiEditPageParams>,
+		transform: (wikitext: Wikitext, revision: Revision) => ApiEditPageParams | Promise<ApiEditPageParams>,
 		requestOptions: MwbotRequestConfig = {},
 		/** @private */
 		retry = 0
@@ -2147,7 +2147,10 @@ export class Mwbot {
 			throw revision;
 		}
 
-		let params = await transform(new this.Wikitext(revision.content), {...revision}).catch((err: Error) => err);
+		const unresolvedParams = transform(new this.Wikitext(revision.content), {...revision});
+		let params = unresolvedParams instanceof Promise
+			? await unresolvedParams.catch((err: Error) => err)
+			: unresolvedParams;
 		if (params instanceof Error) {
 			throw params;
 		} else if (!isPlainObject(params)) {
