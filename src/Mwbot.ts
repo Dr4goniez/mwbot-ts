@@ -4,17 +4,17 @@
  * Portions of this module are adapted from the following:
  *
  * * `mediawiki.api` module in MediaWiki core (GNU General Public License v2)
- *   * {@link https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/37c52ab4105e9b6573e3931ea87ae684f4e1c417/resources/src/mediawiki.api/index.js | mediawiki.api}
+ * 	* {@link https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/37c52ab4105e9b6573e3931ea87ae684f4e1c417/resources/src/mediawiki.api/index.js | mediawiki.api}
  *
  * * npm package `mwbot` (MIT License)
- *   * {@link https://github.com/gesinn-it-pub/mwbot/blob/2113a704da0cd6555943ced228cb9df0fd19bba6/src/index.js | mwbot}
+ * 	* {@link https://github.com/gesinn-it-pub/mwbot/blob/2113a704da0cd6555943ced228cb9df0fd19bba6/src/index.js | mwbot}
  *
  * * npm package `mwn` (GNU Lesser General Public License v3)
- *   * {@link https://github.com/siddharthvp/mwn/blob/870ddd153b189144e7c7ea28b58721cdc458c327/src/bot.ts | mwn (bot.ts)}
- *   * {@link https://github.com/siddharthvp/mwn/blob/870ddd153b189144e7c7ea28b58721cdc458c327/src/core.ts | mwn (core.ts)}
+ * 	* {@link https://github.com/siddharthvp/mwn/blob/870ddd153b189144e7c7ea28b58721cdc458c327/src/bot.ts | mwn (bot.ts)}
+ * 	* {@link https://github.com/siddharthvp/mwn/blob/870ddd153b189144e7c7ea28b58721cdc458c327/src/core.ts | mwn (core.ts)}
  *
  * * npm package `types-mediawiki` (GNU General Public License v3)
- *   * {@link https://github.com/wikimedia-gadgets/types-mediawiki/blob/e833739c0f685e9deb3d666b0f9419e4122a170b/mw/Map.d.ts | types-mediawiki}
+ * 	* {@link https://github.com/wikimedia-gadgets/types-mediawiki/blob/e833739c0f685e9deb3d666b0f9419e4122a170b/mw/Map.d.ts | types-mediawiki}
  *
  * @module
  */
@@ -56,7 +56,7 @@ import * as mwString from './String';
 import { TitleFactory, TitleStatic, Title } from './Title';
 import { TemplateFactory, TemplateStatic, ParserFunctionStatic } from './Template';
 import { WikilinkFactory, WikilinkStatic, FileWikilinkStatic, RawWikilinkStatic } from './Wikilink';
-import { WikitextFactory, Wikitext } from './Wikitext';
+import { WikitextFactory, WikitextStatic, Wikitext } from './Wikitext';
 
 /**
  * TODO: Add a doc comment here
@@ -223,11 +223,11 @@ export class Mwbot {
 	/**
 	 * Wikitext class for this instance.
 	 */
-	protected _Wikitext: Wikitext;
+	protected _Wikitext: WikitextStatic;
 	/**
 	 * Wikitext class for this instance.
 	 */
-	get Wikitext(): Wikitext {
+	get Wikitext(): WikitextStatic {
 		this.checkInit();
 		return this._Wikitext;
 	}
@@ -255,7 +255,7 @@ export class Mwbot {
 		}
 
 		// Determine authentication type
-		this.credentials =  Mwbot.validateCredentials(credentials);
+		this.credentials = Mwbot.validateCredentials(credentials);
 		this.jar = new CookieJar();
 
 		// Set up the User-Agent header if provided
@@ -2129,7 +2129,7 @@ export class Mwbot {
 	 */
 	async edit(
 		title: string | Title,
-		transform: (wikitext: InstanceType<Wikitext>, revision: Revision) => Promise<ApiEditPageParams>,
+		transform: (wikitext: Wikitext, revision: Revision) => Promise<ApiEditPageParams>,
 		requestOptions: MwbotRequestConfig = {},
 		/** @private */
 		retry = 0
@@ -2468,7 +2468,7 @@ export type Credentials = XOR<
  * Processed {@link Credentials} stored in a {@link Mwbot} instance.
  * @private
  */
-type MwbotCredentials = XOR<
+export type MwbotCredentials = XOR<
 	{
 		oauth2: string;
 	},
@@ -2595,28 +2595,28 @@ export interface ConfigData {
 export type TypeOrArray<T> = T | T[];
 
 // Get/PickOrDefault<V, S, TD, TX> extracts values from V using key selection S
-//  - TD is the value type of missing properties
-//  - TX is the value type of unknown properties
+// - TD is the value type of missing properties
+// - TX is the value type of unknown properties
 
 /**
  * Type used to define {@link MwConfig}.
  * @private
  */
 export type GetOrDefault<V, K extends PropertyKey, TD, TX = unknown> = K extends keyof V
-    ? V extends Required<Pick<V, K>>
-        ? V[K]
-        : Required<V>[K] | TD
-    : TX | TD;
+	? V extends Required<Pick<V, K>>
+		? V[K]
+		: Required<V>[K] | TD
+	: TX | TD;
 
 /**
  * Type used to define {@link MwConfig}.
  * @private
  */
 export type PickOrDefault<V, S extends TypeOrArray<PropertyKey>, TD, TX = unknown> = S extends Array<
-    infer K
+	infer K
 >
-    ? { [P in K & PropertyKey]-?: GetOrDefault<V, P, TD, TX> }
-    : GetOrDefault<V, S & PropertyKey, TD, TX>;
+	? { [P in K & PropertyKey]-?: GetOrDefault<V, P, TD, TX> }
+	: GetOrDefault<V, S & PropertyKey, TD, TX>;
 
 /**
  * The structure of {@link Mwbot.config}, designed to provide user-friendly Intellisense suggestions.

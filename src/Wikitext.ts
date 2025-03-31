@@ -1,6 +1,8 @@
 /**
  * This module is attached to {@link Mwbot.Wikitext} as an instance member.
  *
+ * TODO: Expand the module documentation
+ *
  * @module
  */
 
@@ -10,16 +12,22 @@ import { deepCloneInstance, isClassInstance, mergeDeep } from './Util';
 import { byteLength } from './String';
 import type { Title } from './Title';
 import type {
+	ParsedTemplateStatic,
 	ParsedTemplate,
+	RawTemplateStatic,
 	RawTemplate,
+	ParsedParserFunctionStatic,
 	ParsedParserFunction,
 	NewTemplateParameter,
 	TemplateParameterHierarchies,
 	ParsedTemplateOptions
 } from './Template';
 import type {
+	ParsedWikilinkStatic,
 	ParsedWikilink,
+	ParsedFileWikilinkStatic,
 	ParsedFileWikilink,
+	ParsedRawWikilinkStatic,
 	ParsedRawWikilink
 } from './Wikilink';
 
@@ -33,16 +41,285 @@ type DoubleBracedClasses = ParsedTemplate | RawTemplate | ParsedParserFunction;
 type DoubleBracketedClasses = ParsedWikilink | ParsedFileWikilink | ParsedRawWikilink;
 
 /**
+ * This interface defines the static members of the `Wikitext` class. For instance members,
+ * see {@link Wikitext} (defined separately due to TypeScript limitations).
+ *
+ * TODO: Expand documentation
+ */
+export interface WikitextStatic {
+	/**
+	 * Creates a new `Wikitext` instance.
+	 *
+	 * @param content A wikitext content.
+	 * @param options Options for the initialization of the instance.
+	 * @throws If `content` is not a string.
+	 */
+	new(content: string, options?: WikitextOptions): Wikitext;
+	/**
+	 * Alias of the {@link Wikitext.constructor | constructor}.
+	 *
+	 * @param content A wikitext content.
+	 * @param options Options for the initialization of the instance.
+	 * @throws If `content` is not a string.
+	 * @static
+	 */
+	'new'(content: string, options?: WikitextOptions): Wikitext;
+	/**
+	 * Creates a new instance by fetching the content of the given title.
+	 *
+	 * @param title The page title, either as a string or a {@link Title} instance.
+	 * @param options Options for the initialization of the instance.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to a new `Wikitext` instance.
+	 * @static
+	 */
+	newFromTitle(title: string | Title, options?: WikitextOptions, requestOptions?: MwbotRequestConfig): Promise<Wikitext>;
+	/**
+	 * Returns a list of valid HTML tag names that can be used in wikitext.
+	 *
+	 * @returns Array of tag names (all elements are in lowercase).
+	 * @static
+	 */
+	getValidTags(): string[];
+	/**
+	 * Checks whether a given tag name is valid in wikitext.
+	 *
+	 * @param tagName The tag name to check.
+	 * @returns A boolean indicating whether the tag name is valid.
+	 * @static
+	 */
+	isValidTag(tagName: string): boolean;
+}
+
+/**
+ * The instance members of the `Wikitext` class. For static members,
+ * see {@link WikitextStatic} (defined separately due to TypeScript limitations).
+ */
+export interface Wikitext {
+	/**
+	 * Returns the length of the wikitext.
+	 */
+	get length(): number;
+	/**
+	 * Returns the byte length of the wikitext.
+	 */
+	get byteLength(): number;
+	/**
+	 * Returns the wikitext content of the instance.
+	 */
+	get content(): string;
+	/**
+	 * Modifies a specific type of expressions in the wikitext content.
+	 *
+	 * This method extracts expressions of the given `type`, applies the `modificationPredicate`
+	 * to transform them, and updates the wikitext accordingly.
+	 *
+	 * #### Example: Closing Unclosed Tags
+	 * ```typescript
+	 * const wkt = new mwbot.Wikitext('<span>a<div><del>b</span><span>c');
+	 * const oldContent = wkt.content;
+	 * const newContent = await wkt.modify('tags', async (tags) => {
+	 * 	return tags.map(obj => obj.unclosed ? obj.text + obj.end : null);
+	 * });
+	 *
+	 * if (oldContent !== newContent) {
+	 * 	console.log(newContent);
+	 * 	// Output: <span>a<div><del>b</del></div></span><span>c</span>
+	 * }
+	 * ```
+	 *
+	 * **Important:** This method updates {@link content} and its associated expressions.
+	 * Any copies initialized before calling this method should **not** be reused.
+	 *
+	 * @param type The type of expressions to modify.
+	 * <table>
+	 * 	<thead>
+	 * 		<th>type</th>
+	 * 		<th>First argument of modificationPredicate</th>
+	 * 	</thead>
+	 * 	<tbody>
+	 * 		<tr>
+	 * 			<td>tags</td>
+	 * 			<td>An array of {@link Tag}</td>
+	 * 		</tr>
+	 * 		<tr>
+	 * 			<td>parameters</td>
+	 * 			<td>An array of {@link Parameter}</td>
+	 * 		</tr>
+	 * 		<tr>
+	 * 			<td>sections</td>
+	 * 			<td>An array of {@link Section}</td>
+	 * 		</tr>
+	 * 		<tr>
+	 * 			<td>templates</td>
+	 * 			<td>An array of {@link ParsedTemplate}, {@link ParsedParserFunction}, or {@link RawTemplate}</td>
+	 * 		</tr>
+	 * 		<tr>
+	 * 			<td>wikilinks</td>
+	 * 			<td>An array of {@link ParsedWikilink}, {@link ParsedFileWikilink}, or {@link ParsedRawWikilink}</td>
+	 * 		</tr>
+	 * 	</tbody>
+	 * </table>
+	 * See also {@link ModificationMap} for the interface that defines this mapping.
+	 *
+	 * @param modificationPredicate
+	 * A function that takes an array of expression objects and returns a Promise resolving
+	 * to an array of strings or `null` values.
+	 *
+	 * - The input array consists of objects corresponding to the specified `type`.
+	 * - The returned array must have the same length as the input array.
+	 * 	- Each string element represents the new content for the corresponding expression.
+	 * 	- `null` means no modification for that expression.
+	 *
+	 * @returns A Promise resolving to the modified wikitext content as a string.
+	 *
+	 * @throws {MwbotError}
+	 * - If `type` is invalid.
+	 * - If `modificationPredicate` is not a function.
+	 * - If the returned array length does not match the input expressions array.
+	 *
+	 * @throws {Error} If `modificationPredicate` returns a rejected Promise.
+	 */
+	modify<K extends keyof ModificationMap>(
+		type: K,
+		modificationPredicate: ModificationPredicate<ModificationMap[K]>
+	): Promise<string>;
+	/**
+	 * Parses the wikitext content for HTML tags.
+	 *
+	 * @param config Config to filter the output.
+	 * @returns An array of {@link Tag} objects.
+	 */
+	parseTags(config?: ParseTagsConfig): Tag[];
+	/**
+	 * Modifies tags in the wikitext content.
+	 *
+	 * This is a shorthand method of {@link modify} with its first argument set as `tags`.
+	 *
+	 * @param modificationPredicate
+	 * @returns
+	 */
+	modifyTags(modificationPredicate: ModificationPredicate<Tag>): Promise<string>;
+	/**
+	 * Adds tags in which elements shouldn't be parsed, if the tags are not already registered.
+	 *
+	 * CAUTION: This might result in unexpected parsing behaviour.
+	 *
+	 * @param skipTags Array of tag names to add.
+	 * @returns The current Wikitext instance.
+	 */
+	addSkipTags(skipTags: string[]): this;
+	/**
+	 * Sets tags in which elements shouldn't be parsed, overwriting any existing settings.
+	 *
+	 * CAUTION: This might result in unexpected parsing behaviour.
+	 *
+	 * @param skipTags Array of tag names to set.
+	 * @returns The current Wikitext instance.
+	 */
+	setSkipTags(skipTags: string[]): this;
+	/**
+	 * Removes tags from the list of tags in which elements shouldn't be parsed.
+	 *
+	 * CAUTION: This might result in unexpected parsing behaviour.
+	 *
+	 * @param skipTags Array of tag names to remove.
+	 * @returns The current Wikitext instance.
+	 */
+	removeSkipTags(skipTags: string[]): this;
+	/**
+	 * Gets a copy of the names of currently registered tags in which elements shouldn't be parsed.
+	 *
+	 * @returns An array of the current tag names.
+	 */
+	getSkipTags(): string[];
+	/**
+	 * Parses sections in the wikitext.
+	 *
+	 * @param config Config to filter the output.
+	 * @returns An array of parsed sections.
+	 */
+	parseSections(config?: ParseSectionsConfig): Section[];
+	/**
+	 * Modifies sections in the wikitext content.
+	 *
+	 * This is a shorthand method of {@link modify} with its first argument set as `sections`.
+	 *
+	 * @param modificationPredicate
+	 * @returns
+	 */
+	modifySections(modificationPredicate: ModificationPredicate<Section>): Promise<string>;
+	/**
+	 * Given the start and end indices of an expression, identifies the section containing the expression.
+	 *
+	 * @param startIndex The start index of the expression.
+	 * @param endIndex The end index of the expression (exclusive).
+	 * @returns The deepest {@link Section} containing the expression, or `null` if none is found.
+	 */
+	identifySection(startIndex: number, endIndex: number): Section | null;
+	/**
+	 * Parses `{{{parameter}}}` expressions in the wikitext.
+	 *
+	 * @param config Config to filter the output.
+	 * @returns An array of parsed parameters.
+	 */
+	parseParameters(config?: ParseParametersConfig): Parameter[];
+	/**
+	 * Modifies `{{{parameter}}}` expressions in the wikitext content.
+	 *
+	 * This is a shorthand method of {@link modify} with its first argument set as `parameters`.
+	 *
+	 * @param modificationPredicate
+	 * @returns
+	 */
+	modifyParameters(modificationPredicate: ModificationPredicate<Parameter>): Promise<string>;
+	/**
+	 * Parses `{{template}}` expressions in the wikitext.
+	 *
+	 * This method parses any double-braced markups, including magic words and parser functions.
+	 *
+	 * @param config Config to filter the output.
+	 * @returns An array of parsed templates.
+	 */
+	parseTemplates(config?: ParseTemplatesConfig): DoubleBracedClasses[];
+	/**
+	 * Modifies `{{template}}` expressions in the wikitext content.
+	 *
+	 * This is a shorthand method of {@link modify} with its first argument set as `templates`.
+	 *
+	 * @param modificationPredicate
+	 * @returns
+	 */
+	modifyTemplates(modificationPredicate: ModificationPredicate<DoubleBracedClasses>): Promise<string>;
+	/**
+	 * Parses `[[wikilink]]` expressions in the wikitext.
+	 *
+	 * @param config Config to filter the output.
+	 * @returns An array of parsed wikilinks.
+	 */
+	parseWikilinks(config?: ParseWikilinksConfig): DoubleBracketedClasses[];
+	/**
+	 * Modifies `[[wikilink]]` expressions in the wikitext content.
+	 *
+	 * This is a shorthand method of {@link modify} with its first argument set as `wikilinks`.
+	 *
+	 * @param modificationPredicate
+	 * @returns
+	 */
+	modifyWikilinks(modificationPredicate: ModificationPredicate<DoubleBracketedClasses>): Promise<string>;
+}
+
+/**
  * @internal
  */
 export function WikitextFactory(
 	mw: Mwbot,
-	ParsedTemplate: ParsedTemplate,
-	RawTemplate: RawTemplate,
-	ParsedParserFunction: ParsedParserFunction,
-	ParsedWikilink: ParsedWikilink,
-	ParsedFileWikilink: ParsedFileWikilink,
-	ParsedRawWikilink: ParsedRawWikilink
+	ParsedTemplate: ParsedTemplateStatic,
+	RawTemplate: RawTemplateStatic,
+	ParsedParserFunction: ParsedParserFunctionStatic,
+	ParsedWikilink: ParsedWikilinkStatic,
+	ParsedFileWikilink: ParsedFileWikilinkStatic,
+	ParsedRawWikilink: ParsedRawWikilinkStatic
 ) {
 
 	const namespaceIds = mw.config.get('wgNamespaceIds');
@@ -108,10 +385,7 @@ export function WikitextFactory(
 		]
 	};
 
-	/**
-	 * TODO: Add documentation
-	 */
-	class Wikitext {
+	class Wikitext implements Wikitext {
 
 		/**
 		 * Storage of the content and parsed entries. Used for the efficiency of parsing methods.
@@ -122,8 +396,8 @@ export function WikitextFactory(
 			parameters: Parameter[] | null;
 			sections: Section[] | null;
 			wikilinks_fuzzy: FuzzyWikilink[] | null;
-			templates: InstanceType<DoubleBracedClasses>[] | null;
-			wikilinks: InstanceType<DoubleBracketedClasses>[] | null;
+			templates: DoubleBracedClasses[] | null;
+			wikilinks: DoubleBracketedClasses[] | null;
 		};
 		/**
 		 * The names of tags in which elements shouldn't be parsed.
@@ -134,13 +408,6 @@ export function WikitextFactory(
 		 */
 		private skipTags: string[];
 
-		/**
-		 * Creates a new `Wikitext` instance.
-		 *
-		 * @param content A wikitext content.
-		 * @param options Options for the initialization of the instance.
-		 * @throws If `content` is not a string.
-		 */
 		constructor(content: string, options: WikitextOptions = {}) {
 
 			if (typeof content !== 'string') {
@@ -180,42 +447,34 @@ export function WikitextFactory(
 
 		}
 
-		/**
-		 * Returns the length of the wikitext.
-		 */
-		get length(): number {
-			return this.storage.content.length;
-		}
-
-		/**
-		 * Returns the byte length of the wikitext.
-		 */
-		get byteLength(): number {
-			return byteLength(this.storage.content);
-		}
-
-		/**
-		 * Alias of the {@link Wikitext.constructor | constructor}.
-		 *
-		 * @param content A wikitext content.
-		 * @param options Options for the initialization of the instance.
-		 * @throws If `content` is not a string.
-		 */
 		static new(content: string, options: WikitextOptions = {}): Wikitext {
 			return new Wikitext(content, options);
 		}
 
-		/**
-		 * Creates a new instance by fetching the content of the given title.
-		 *
-		 * @param title The page title, either as a string or a {@link Title} instance.
-		 * @param options Options for the initialization of the instance.
-		 * @param requestOptions Optional HTTP request options.
-		 * @returns A Promise resolving to a new `Wikitext` instance.
-		 */
-		static async newFromTitle(title: string | InstanceType<Title>, options: WikitextOptions = {}, requestOptions: MwbotRequestConfig = {}) {
+		static async newFromTitle(title: string | Title, options: WikitextOptions = {}, requestOptions: MwbotRequestConfig = {}): Promise<Wikitext> {
 			const rev = await mw.read(title, requestOptions);
 			return new Wikitext(rev.content, options);
+		}
+
+		static getValidTags(): string[] {
+			return Object.values(validTags).flat();
+		}
+
+		static isValidTag(tagName: string): boolean {
+			tagName = String(tagName).toLowerCase();
+			return Object.values(validTags).some((arr) => arr.includes(tagName));
+		}
+
+		get length(): number {
+			return this.storage.content.length;
+		}
+
+		get byteLength(): number {
+			return byteLength(this.storage.content);
+		}
+
+		get content(): string {
+			return this.storageManager('content');
 		}
 
 		/**
@@ -302,105 +561,6 @@ export function WikitextFactory(
 
 		}
 
-		/**
-		 * Returns the wikitext content of the instance.
-		 */
-		get content(): string {
-			return this.storageManager('content');
-		}
-
-		/**
-		 * Returns a list of valid HTML tag names that can be used in wikitext.
-		 *
-		 * @returns Array of tag names (all elements are in lowercase).
-		 */
-		static getValidTags(): string[] {
-			return Object.values(validTags).flat();
-		}
-
-		/**
-		 * Checks whether a given tag name is valid in wikitext.
-		 *
-		 * @param tagName The tag name to check.
-		 * @returns A boolean indicating whether the tag name is valid.
-		 */
-		static isValidTag(tagName: string): boolean {
-			tagName = String(tagName).toLowerCase();
-			return Object.values(validTags).some((arr) => arr.includes(tagName));
-		}
-
-		/**
-		 * Modifies a specific type of expressions in the wikitext content.
-		 *
-		 * This method extracts expressions of the given `type`, applies the `modificationPredicate`
-		 * to transform them, and updates the wikitext accordingly.
-		 *
-		 * #### Example: Closing Unclosed Tags
-		 * ```typescript
-		 * const wkt = new mwbot.Wikitext('<span>a<div><del>b</span><span>c');
-		 * const oldContent = wkt.content;
-		 * const newContent = await wkt.modify('tags', async (tags) => {
-		 *     return tags.map(obj => obj.unclosed ? obj.text + obj.end : null);
-		 * });
-		 *
-		 * if (oldContent !== newContent) {
-		 *     console.log(newContent);
-		 *     // Output: <span>a<div><del>b</del></div></span><span>c</span>
-		 * }
-		 * ```
-		 *
-		 * **Important:** This method updates {@link content} and its associated expressions.
-		 * Any copies initialized before calling this method should **not** be reused.
-		 *
-		 * @param type The type of expressions to modify.
-		 * <table>
-		 * 	<thead>
-		 * 		<th>type</th>
-		 * 		<th>First argument of modificationPredicate</th>
-		 * 	</thead>
-		 * 	<tbody>
-		 * 		<tr>
-		 * 			<td>tags</td>
-		 * 			<td>An array of {@link Tag}</td>
-		 * 		</tr>
-		 * 		<tr>
-		 * 			<td>parameters</td>
-		 * 			<td>An array of {@link Parameter}</td>
-		 * 		</tr>
-		 * 		<tr>
-		 * 			<td>sections</td>
-		 * 			<td>An array of {@link Section}</td>
-		 * 		</tr>
-		 * 		<tr>
-		 * 			<td>templates</td>
-		 * 			<td>An array of {@link ParsedTemplate}, {@link ParsedParserFunction}, or {@link RawTemplate}</td>
-		 * 		</tr>
-		 * 		<tr>
-		 * 			<td>wikilinks</td>
-		 * 			<td>An array of {@link ParsedWikilink}, {@link ParsedFileWikilink}, or {@link ParsedRawWikilink}</td>
-		 * 		</tr>
-		 * 	</tbody>
-		 * </table>
-		 * See also {@link ModificationMap} for the interface that defines this mapping.
-		 *
-		 * @param modificationPredicate
-		 * A function that takes an array of expression objects and returns a Promise resolving
-		 * to an array of strings or `null` values.
-		 *
-		 * - The input array consists of objects corresponding to the specified `type`.
-		 * - The returned array must have the same length as the input array.
-		 *   - Each string element represents the new content for the corresponding expression.
-		 *   - `null` means no modification for that expression.
-		 *
-		 * @returns A Promise resolving to the modified wikitext content as a string.
-		 *
-		 * @throws {MwbotError}
-		 * - If `type` is invalid.
-		 * - If `modificationPredicate` is not a function.
-		 * - If the returned array length does not match the input expressions array.
-		 *
-		 * @throws {Error} If `modificationPredicate` returns a rejected Promise.
-		 */
 		async modify<K extends keyof ModificationMap>(
 			type: K,
 			modificationPredicate: ModificationPredicate<ModificationMap[K]>
@@ -670,12 +830,6 @@ export function WikitextFactory(
 
 		}
 
-		/**
-		 * Parses the wikitext content for HTML tags.
-		 *
-		 * @param config Config to filter the output.
-		 * @returns An array of {@link Tag} objects.
-		 */
 		parseTags(config: ParseTagsConfig = {}): Tag[] {
 			const {namePredicate, tagPredicate} = config;
 			let tags = this.storageManager('tags');
@@ -688,26 +842,10 @@ export function WikitextFactory(
 			return tags;
 		}
 
-		/**
-		 * Modifies tags in the wikitext content.
-		 *
-		 * This is a shorthand method of {@link modify} with its first argument set as `tags`.
-		 *
-		 * @param modificationPredicate
-		 * @returns
-		 */
 		modifyTags(modificationPredicate: ModificationPredicate<Tag>): Promise<string> {
 			return this.modify('tags', modificationPredicate);
 		}
 
-		/**
-		 * Adds tags in which elements shouldn't be parsed, if the tags are not already registered.
-		 *
-		 * CAUTION: This might result in unexpected parsing behaviour.
-		 *
-		 * @param skipTags Array of tag names to add.
-		 * @returns The current Wikitext instance.
-		 */
 		addSkipTags(skipTags: string[]): Wikitext {
 			skipTags.forEach((el: unknown) => {
 				if (typeof el === 'string' && !skipTags.includes((el = el.toLowerCase()))) {
@@ -717,14 +855,6 @@ export function WikitextFactory(
 			return this;
 		}
 
-		/**
-		 * Sets tags in which elements shouldn't be parsed, overwriting any existing settings.
-		 *
-		 * CAUTION: This might result in unexpected parsing behaviour.
-		 *
-		 * @param skipTags Array of tag names to set.
-		 * @returns The current Wikitext instance.
-		 */
 		setSkipTags(skipTags: string[]): Wikitext {
 			this.skipTags = skipTags.reduce((acc: string[], el: unknown) => {
 				if (typeof el === 'string') {
@@ -735,14 +865,6 @@ export function WikitextFactory(
 			return this;
 		}
 
-		/**
-		 * Removes tags from the list of tags in which elements shouldn't be parsed.
-		 *
-		 * CAUTION: This might result in unexpected parsing behaviour.
-		 *
-		 * @param skipTags Array of tag names to remove.
-		 * @returns The current Wikitext instance.
-		 */
 		removeSkipTags(skipTags: string[]): Wikitext {
 			if (skipTags.join('')) {
 				const rSkipTags = new RegExp(`^(?:${skipTags.join('|')})$`);
@@ -751,11 +873,6 @@ export function WikitextFactory(
 			return this;
 		}
 
-		/**
-		 * Gets a copy of the names of currently registered tags in which elements shouldn't be parsed.
-		 *
-		 * @returns An array of the current tag names.
-		 */
 		getSkipTags(): string[] {
 			return [...this.skipTags];
 		}
@@ -907,12 +1024,6 @@ export function WikitextFactory(
 
 		}
 
-		/**
-		 * Parses sections in the wikitext.
-		 *
-		 * @param config Config to filter the output.
-		 * @returns An array of parsed sections.
-		 */
 		parseSections(config: ParseSectionsConfig = {}): Section[] {
 			const {sectionPredicate} = config;
 			let sections = this.storageManager('sections');
@@ -922,25 +1033,10 @@ export function WikitextFactory(
 			return sections;
 		}
 
-		/**
-		 * Modifies sections in the wikitext content.
-		 *
-		 * This is a shorthand method of {@link modify} with its first argument set as `sections`.
-		 *
-		 * @param modificationPredicate
-		 * @returns
-		 */
 		modifySections(modificationPredicate: ModificationPredicate<Section>): Promise<string> {
 			return this.modify('sections', modificationPredicate);
 		}
 
-		/**
-		 * Given the start and end indices of an expression, identifies the section containing the expression.
-		 *
-		 * @param startIndex The start index of the expression.
-		 * @param endIndex The end index of the expression (exclusive).
-		 * @returns The deepest {@link Section} containing the expression, or `null` if none is found.
-		 */
 		identifySection(startIndex: number, endIndex: number): Section | null {
 			const sections = this.storageManager('sections');
 			let ret: Section | null = null;
@@ -961,7 +1057,7 @@ export function WikitextFactory(
 		 *
 		 * @returns An array of parsed parameters.
 		 */
-		private _parseParameters(): Parameter[]  {
+		private _parseParameters(): Parameter[] {
 
 			const isInSkipRange = this.getSkipPredicate();
 			const params: Parameter[] = [];
@@ -1051,12 +1147,6 @@ export function WikitextFactory(
 
 		}
 
-		/**
-		 * Parses `{{{parameter}}}` expressions in the wikitext.
-		 *
-		 * @param config Config to filter the output.
-		 * @returns An array of parsed parameters.
-		 */
 		parseParameters(config: ParseParametersConfig = {}): Parameter[] {
 			const {namePredicate, parameterPredicate} = config;
 			let parameters = this.storageManager('parameters');
@@ -1069,14 +1159,6 @@ export function WikitextFactory(
 			return parameters;
 		}
 
-		/**
-		 * Modifies `{{{parameter}}}` expressions in the wikitext content.
-		 *
-		 * This is a shorthand method of {@link modify} with its first argument set as `parameters`.
-		 *
-		 * @param modificationPredicate
-		 * @returns
-		 */
 		modifyParameters(modificationPredicate: ModificationPredicate<Parameter>): Promise<string> {
 			return this.modify('parameters', modificationPredicate);
 		}
@@ -1308,7 +1390,7 @@ export function WikitextFactory(
 			nestLevel = 0,
 			wikitext = this.content,
 			checkGallery = true
-		): InstanceType<DoubleBracedClasses>[] {
+		): DoubleBracedClasses[] {
 
 			let numUnclosed = 0;
 			let startIndex = 0;
@@ -1319,7 +1401,7 @@ export function WikitextFactory(
 			};
 
 			// Character-by-character loop
-			const templates: InstanceType<DoubleBracedClasses>[] = [];
+			const templates: DoubleBracedClasses[] = [];
 			for (let i = 0; i < wikitext.length; i++) {
 
 				const wkt = wikitext.slice(i);
@@ -1404,7 +1486,7 @@ export function WikitextFactory(
 							// hook and the first argument. For example:
 							// `title` & `rawTitle` = "\n #switch: {{FULLPAGENAME}} \n"
 							// In this case, `rawHook` and `_rawHook`, which are properties of ParsedParserFunction, should be:
-							// `rawHook` = "\n #switch:", `_rawHook` =  "\n \x01" (not "\x01")
+							// `rawHook` = "\n #switch:", `_rawHook` = "\n \x01" (not "\x01")
 							// We therefore defer the replacement to when we've tried to make a PPF instance.
 							// Here, substitute `rawTitle` with "\x01" only if it doesn't have leading whitespace.
 							titlesMatch = true;
@@ -1422,7 +1504,7 @@ export function WikitextFactory(
 							nestLevel,
 							skip: isInSkipRange(startIndex, endIndex)
 						};
-						let temp: InstanceType<DoubleBracedClasses>;
+						let temp: DoubleBracedClasses;
 						try {
 							temp = new ParsedParserFunction(initializer);
 						} catch {
@@ -1554,7 +1636,7 @@ export function WikitextFactory(
 					if (temp instanceof mw.ParserFunction) {
 						// @ts-expect-error Modifying a private property
 						temp._initializer.params = [temp._initializer.params[0]].concat(params);
-						const initParams =  [temp.params[0]];
+						const initParams = [temp.params[0]];
 						params.forEach(({key, value}) => {
 							initParams.push((key ? key + '=' : '') + value);
 						});
@@ -1577,15 +1659,7 @@ export function WikitextFactory(
 
 		}
 
-		/**
-		 * Parses `{{template}}` expressions in the wikitext.
-		 *
-		 * This method parses any double-braced markups, including magic words and parser functions.
-		 *
-		 * @param config Config to filter the output.
-		 * @returns An array of parsed templates.
-		 */
-		parseTemplates(config: ParseTemplatesConfig = {}): InstanceType<DoubleBracedClasses>[] {
+		parseTemplates(config: ParseTemplatesConfig = {}): DoubleBracedClasses[] {
 			const {hierarchies, titlePredicate, templatePredicate} = config;
 			const options = {hierarchies};
 			let templates = this.storageManager('templates', true, options);
@@ -1598,15 +1672,7 @@ export function WikitextFactory(
 			return templates;
 		}
 
-		/**
-		 * Modifies `{{template}}` expressions in the wikitext content.
-		 *
-		 * This is a shorthand method of {@link modify} with its first argument set as `templates`.
-		 *
-		 * @param modificationPredicate
-		 * @returns
-		 */
-		modifyTemplates(modificationPredicate: ModificationPredicate<InstanceType<DoubleBracedClasses>>): Promise<string> {
+		modifyTemplates(modificationPredicate: ModificationPredicate<DoubleBracedClasses>): Promise<string> {
 			return this.modify('templates', modificationPredicate);
 		}
 
@@ -1615,10 +1681,10 @@ export function WikitextFactory(
 		 *
 		 * @returns An array of parsed wikilinks.
 		 */
-		private _parseWikilinks(): InstanceType<DoubleBracketedClasses>[] {
+		private _parseWikilinks(): DoubleBracketedClasses[] {
 			// Call _parseWikilinksFuzzy() with an index map including templates (this avoids circular calls)
 			const indexMap = this.getIndexMap({parameters: true, templates: true});
-			return this._parseWikilinksFuzzy(indexMap).reduce((acc: InstanceType<DoubleBracketedClasses>[], obj) => {
+			return this._parseWikilinksFuzzy(indexMap).reduce((acc: DoubleBracketedClasses[], obj) => {
 
 				const {right, title, ...rest} = obj;
 
@@ -1708,13 +1774,7 @@ export function WikitextFactory(
 			}, []);
 		}
 
-		/**
-		 * Parses `[[wikilink]]` expressions in the wikitext.
-		 *
-		 * @param config Config to filter the output.
-		 * @returns An array of parsed wikilinks.
-		 */
-		parseWikilinks(config: ParseWikilinksConfig = {}): InstanceType<DoubleBracketedClasses>[] {
+		parseWikilinks(config: ParseWikilinksConfig = {}): DoubleBracketedClasses[] {
 			const {titlePredicate, wikilinkPredicate} = config;
 			let wikilinks = this.storageManager('wikilinks');
 			if (typeof titlePredicate === 'function') {
@@ -1726,28 +1786,15 @@ export function WikitextFactory(
 			return wikilinks;
 		}
 
-		/**
-		 * Modifies `[[wikilink]]` expressions in the wikitext content.
-		 *
-		 * This is a shorthand method of {@link modify} with its first argument set as `wikilinks`.
-		 *
-		 * @param modificationPredicate
-		 * @returns
-		 */
-		modifyWikilinks(modificationPredicate: ModificationPredicate<InstanceType<DoubleBracketedClasses>>): Promise<string> {
+		modifyWikilinks(modificationPredicate: ModificationPredicate<DoubleBracketedClasses>): Promise<string> {
 			return this.modify('wikilinks', modificationPredicate);
 		}
 
 	}
 
-	return Wikitext;
+	return Wikitext as WikitextStatic;
 
 }
-
-/**
- * @internal
- */
-export type Wikitext = ReturnType<typeof WikitextFactory>;
 
 // Interfaces for constructor and the entire module
 
@@ -1783,7 +1830,6 @@ export interface WikitextOptions {
 /**
  * A mapping of a storage key to parser methods' arguments, used to make it possible to pass
  * function arguments to storageManager.
- * @internal
  */
 interface StorageArgumentMap {
 	content: never;
@@ -1807,8 +1853,8 @@ export interface ModificationMap {
 	tags: Tag;
 	parameters: Parameter;
 	sections: Section;
-	templates: InstanceType<DoubleBracedClasses>;
-	wikilinks: InstanceType<DoubleBracketedClasses>;
+	templates: DoubleBracedClasses;
+	wikilinks: DoubleBracketedClasses;
 }
 
 // Interfaces and private members for "parseTags"
@@ -2091,9 +2137,8 @@ export interface ParseParametersConfig {
 /**
  * Object that holds information about a fuzzily parsed `[[wikilink]]`.
  * The right operand of the link needs to be parsed for the object to be a complete construct.
- * @private
  */
-export interface FuzzyWikilink {
+interface FuzzyWikilink {
 	/**
 	 * The right operand.
 	 */
@@ -2135,7 +2180,6 @@ export interface FuzzyWikilink {
  * - `text`: The raw text of the expression.
  * - `type`: The type of the expression.
  * - `inner`: The start and end indexes of the inner content, or `null` if not applicable.
- * @private
  */
 type IndexMap = {
 	[startIndex: number]: {
@@ -2151,7 +2195,7 @@ type IndexMap = {
  * @param indexMap The index map to modify in place.
  * @param obj The template instance.
  */
-function createTemplateIndexMap(indexMap: IndexMap, obj: InstanceType<DoubleBracedClasses>): void {
+function createTemplateIndexMap(indexMap: IndexMap, obj: DoubleBracedClasses): void {
 	const {text, startIndex, endIndex} = obj;
 	let rawTitle;
 	let isTemplate = true;
@@ -2185,7 +2229,7 @@ export interface ParseTemplatesConfig {
 	 * @param title A Title object for ParsedTemplate, or a string for RawTemplate and ParsedParserFunction.
 	 * @returns `true` if the template should be parsed, otherwise `false`.
 	 */
-	titlePredicate?: (title: InstanceType<Title> | string) => boolean;
+	titlePredicate?: (title: Title | string) => boolean;
 	/**
 	 * A predicate function to filter parsed templates.
 	 * Only templates that satisfy this function will be included in the results.
@@ -2193,7 +2237,7 @@ export interface ParseTemplatesConfig {
 	 * @param template The template object.
 	 * @returns `true` if the template should be included, otherwise `false`.
 	 */
-	templatePredicate?: (template: InstanceType<DoubleBracedClasses>) => boolean;
+	templatePredicate?: (template: DoubleBracedClasses) => boolean;
 	/**
 	 * See {@link TemplateParameterHierarchies}.
 	 */
@@ -2290,7 +2334,7 @@ export interface ParseWikilinksConfig {
 	 * instances, or a string for {@link ParsedRawWikilink} instances.
 	 * @returns `true` if the wikilink should be parsed, otherwise `false`.
 	 */
-	titlePredicate?: (title: string | InstanceType<Title>) => boolean;
+	titlePredicate?: (title: string | Title) => boolean;
 	/**
 	 * A predicate function to filter parsed wikilinks.
 	 * Only wikilinks that satisfy this function will be included in the results.
@@ -2298,5 +2342,5 @@ export interface ParseWikilinksConfig {
 	 * @param wikilink The (file) wikilink object.
 	 * @returns `true` if the wikilink should be included, otherwise `false`.
 	 */
-	wikilinkPredicate?: (wikilink: InstanceType<DoubleBracketedClasses>) => boolean;
+	wikilinkPredicate?: (wikilink: DoubleBracketedClasses) => boolean;
 }
