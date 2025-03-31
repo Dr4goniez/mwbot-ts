@@ -24,12 +24,12 @@ export type PartialRecord<K extends keyof any, T> = {
  * ```
  * // Error
  * const ex1: OnlyOneRecord<'a' | 'b', {1: 1}> = {
- * 	a: {1: 1},
- * 	b: {1: 1}
+ *   a: {1: 1},
+ *   b: {1: 1}
  * };
  * // Ok
  * const ex2: OnlyOneRecord<'a' | 'b', {1: 1}> = {
- * 	b: {1: 1}
+ *   b: {1: 1}
  * };
  * ```
  */

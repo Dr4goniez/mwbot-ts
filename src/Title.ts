@@ -28,8 +28,8 @@ import * as mwString from './String';
  * ```
  * const title = mwbot.Title.newFromText('wikipedia talk:sandbox');
  * if (title) {
- * 	console.log(title.getPrefixedDb());
- * 	// Output: "Wikipedia_talk:Sandbox" (on enwiki)
+ *   console.log(title.getPrefixedDb());
+ *   // Output: "Wikipedia_talk:Sandbox" (on enwiki)
  * }
  * ```
  *

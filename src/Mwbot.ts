@@ -1437,9 +1437,9 @@ export class Mwbot {
 	 * For example:
 	 * ```ts
 	 * {
-	 * 	action: 'query',
-	 * 	titles: 'A|B|C|D|...', // This parameter is subject to the apilimit of 500 or 50
-	 * 	formatversion: '2'
+	 *   action: 'query',
+	 *   titles: 'A|B|C|D|...', // This parameter is subject to the apilimit of 500 or 50
+	 *   formatversion: '2'
 	 * }
 	 * ```
 	 * Pass the multi-value field as an array, and this method will automatically split it based on the
@@ -1549,9 +1549,9 @@ export class Mwbot {
 	 * Example usage:
 	 * ```typescript
 	 * mwbot.postWithToken('csrf', {
-	 * 	action: 'options',
-	 * 	optionname: 'gender',
-	 * 	optionvalue: 'female'
+	 *   action: 'options',
+	 *   optionname: 'gender',
+	 *   optionvalue: 'female'
 	 * });
 	 * ```
 	 *
@@ -1818,14 +1818,14 @@ export class Mwbot {
 	 * Default parameters:
 	 * ```js
 	 * {
-	 * 	action: 'edit',
-	 * 	title: title,
-	 * 	text: content,
-	 * 	summary: summary,
-	 * 	bot: true,
-	 * 	createonly: true,
-	 * 	format: 'json',
-	 * 	formatversion: '2'
+	 *   action: 'edit',
+	 *   title: title,
+	 *   text: content,
+	 *   summary: summary,
+	 *   bot: true,
+	 *   createonly: true,
+	 *   format: 'json',
+	 *   formatversion: '2'
 	 * }
 	 * ```
 	 *
@@ -1860,14 +1860,14 @@ export class Mwbot {
 	 * Default parameters:
 	 * ```js
 	 * {
-	 * 	action: 'edit',
-	 * 	title: title,
-	 * 	text: content,
-	 * 	summary: summary,
-	 * 	bot: true,
-	 * 	nocreate: true,
-	 * 	format: 'json',
-	 * 	formatversion: '2'
+	 *   action: 'edit',
+	 *   title: title,
+	 *   text: content,
+	 *   summary: summary,
+	 *   bot: true,
+	 *   nocreate: true,
+	 *   format: 'json',
+	 *   formatversion: '2'
 	 * }
 	 * ```
 	 *
@@ -2107,15 +2107,15 @@ export class Mwbot {
 	 * Default parameters (into which the return value of `transform` is merged):
 	 * ```js
 	 * {
-	 * 	action: 'edit',
-	 * 	title: revision.title, // Erased if "pageid" is provided
-	 * 	bot: true,
-	 * 	baserevid: revision.baserevid,
-	 * 	basetimestamp: revision.basetimestamp,
-	 * 	starttimestamp: revision.starttimestamp,
-	 * 	nocreate: true,
-	 * 	format: 'json',
-	 * 	formatversion: '2'
+	 *   action: 'edit',
+	 *   title: revision.title, // Erased if "pageid" is provided
+	 *   bot: true,
+	 *   baserevid: revision.baserevid,
+	 *   basetimestamp: revision.basetimestamp,
+	 *   starttimestamp: revision.starttimestamp,
+	 *   nocreate: true,
+	 *   format: 'json',
+	 *   formatversion: '2'
 	 * }
 	 * ```
 	 *
@@ -2201,15 +2201,15 @@ export class Mwbot {
 	 * Default parameters:
 	 * ```js
 	 * {
-	 * 	action: 'edit',
-	 * 	title: title,
-	 * 	section: 'new',
-	 * 	sectiontitle: sectiontitle,
-	 * 	text: content,
-	 * 	summary: summary,
-	 * 	bot: true,
-	 * 	format: 'json',
-	 * 	formatversion: '2'
+	 *   action: 'edit',
+	 *   title: title,
+	 *   section: 'new',
+	 *   sectiontitle: sectiontitle,
+	 *   text: content,
+	 *   summary: summary,
+	 *   bot: true,
+	 *   format: 'json',
+	 *   formatversion: '2'
 	 * }
 	 * ```
 	 *
@@ -2294,11 +2294,11 @@ export class Mwbot {
 	 * Default parameters:
 	 * ```js
 	 * {
-	 * 	action: 'purge',
-	 * 	forcelinkupdate: true,
-	 * 	titles: titles,
-	 * 	format: 'json',
-	 * 	formatversion: '2'
+	 *   action: 'purge',
+	 *   forcelinkupdate: true,
+	 *   titles: titles,
+	 *   format: 'json',
+	 *   formatversion: '2'
 	 * }
 	 * ```
 	 *
@@ -2397,29 +2397,29 @@ export interface MwbotOptions {
  * #### OAuth 2.0 ({@link https://www.mediawiki.org/wiki/OAuth/Owner-only_consumers#OAuth_2})
  * ```ts
  * {
- * 	oAuth2AccessToken: 'Your OAuth 2.0 access token'
+ *   oAuth2AccessToken: 'Your OAuth 2.0 access token'
  * }
  * ```
  * #### OAuth 1.0a ({@link https://www.mediawiki.org/wiki/OAuth/Owner-only_consumers#OAuth_1})
  * ```ts
  * {
- * 	consumerToken: 'Your OAuth 1.0a consumer token',
- * 	consumerSecret: 'Your OAuth 1.0a consumer secret',
- * 	accessToken: 'Your OAuth 1.0a access token',
- * 	accessSecret: 'Your OAuth 1.0a access secret'
+ *   consumerToken: 'Your OAuth 1.0a consumer token',
+ *   consumerSecret: 'Your OAuth 1.0a consumer secret',
+ *   accessToken: 'Your OAuth 1.0a access token',
+ *   accessSecret: 'Your OAuth 1.0a access secret'
  * }
  * ```
  * #### BotPassword ({@link https://www.mediawiki.org/wiki/Manual:Bot_passwords})
  * ```ts
  * {
- * 	username: 'Your bot username',
- * 	password: 'Your bot password'
+ *   username: 'Your bot username',
+ *   password: 'Your bot password'
  * }
  * ```
  * #### Anonymous Access
  * ```ts
  * {
- * 	anonymous: true
+ *   anonymous: true
  * }
  * ```
  * **NOTE:** Anonymous users will be limited to non-write requests only.

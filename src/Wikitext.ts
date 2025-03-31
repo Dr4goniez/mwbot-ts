@@ -9,10 +9,10 @@
  * ```ts
  * import { Mwbot } from 'mwbot-ts';
  * (async () => {
- * 	const mwbot = await new Mwbot(options).init();
- * 	if (!mwbot) return;
- * 	const wikitext = new mwbot.Wikitext('your wikitext');
- * 	// Wikitext manipulations...
+ *   const mwbot = await new Mwbot(options).init();
+ *   if (!mwbot) return;
+ *   const wikitext = new mwbot.Wikitext('your wikitext');
+ *   // Wikitext manipulations...
  * })();
  * ```
  *
@@ -139,8 +139,8 @@ export interface WikitextStatic {
 	 * ```ts
 	 * const wikitext = await mwbot.Wikitext.newFromTitle('Foo').catch((err) => err);
 	 * if (wikitext instanceof Error) {
-	 * 	console.log(wikitext);
-	 * 	return;
+	 *   console.log(wikitext);
+	 *   return;
 	 * }
 	 * // Example for parsing the sections of the page 'Foo'
 	 * const sections = wikitext.parseSections();
@@ -207,21 +207,21 @@ export interface Wikitext {
 	 * const wkt = new mwbot.Wikitext('<span>a<div><del>b</span><span>c');
 	 * const oldContent = wkt.content;
 	 * const newContent = await wkt.modify('tags', async (tags) => {
-	 * 	return tags.map((obj) => {
-	 * 		if (obj.unclosed) {
-	 * 			// If this tag is unclosed, append its expected end tag to the tag text.
-	 * 			// `Tag` objects with the `unclosed` property set to `true` have their expected end tag
-	 * 			// stored in the `end` property.
-	 * 			return obj.text + obj.end; // Returning a string applies the modification.
-	 * 		} else {
-	 * 			return null; // Returning `null` means no modification is made.
-	 * 		}
-	 * 	});
+	 *   return tags.map((obj) => {
+	 *     if (obj.unclosed) {
+	 *       // If this tag is unclosed, append its expected end tag to the tag text.
+	 *       // `Tag` objects with the `unclosed` property set to `true` have their
+	 *       // expected end tag stored in the `end` property.
+	 *       return obj.text + obj.end; // Returning a string applies the modification.
+	 *     } else {
+	 *       return null; // Returning `null` means no modification is made.
+	 *     }
+	 *   });
 	 * });
 	 *
 	 * if (oldContent !== newContent) {
-	 * 	console.log(newContent);
-	 * 	// Output: <span>a<div><del>b</del></div></span><span>c</span>
+	 *   console.log(newContent);
+	 *   // Output: <span>a<div><del>b</del></div></span><span>c</span>
 	 * }
 	 * ```
 	 *
@@ -359,13 +359,13 @@ export interface Wikitext {
 	 * console.log(wikitext.identifySection(main.startIndex, main.endIndex));
 	 * // Output:
 	 * // {
-	 * // 	heading: '=== Bar ===',
-	 * // 	title: 'Bar',
-	 * // 	level: 3,
-	 * // 	index: 2,
-	 * // 	startIndex: 10,
-	 * // 	endIndex: 36,
-	 * // 	text: '=== Bar ===\n[[Main page]]\n'
+	 * //   heading: '=== Bar ===',
+	 * //   title: 'Bar',
+	 * //   level: 3,
+	 * //   index: 2,
+	 * //   startIndex: 10,
+	 * //   endIndex: 36,
+	 * //   text: '=== Bar ===\n[[Main page]]\n'
 	 * // }
 	 * ```
 	 *
