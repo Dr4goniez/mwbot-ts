@@ -1,7 +1,58 @@
 /**
- * This module is attached to {@link Mwbot.Wikitext} as an instance member.
+ * This module defines the {@link WikitextStatic | Wikitext} class, accessible
+ * via {@link Mwbot.Wikitext}, which provides methods for parsing and modifying wikitext.
  *
- * TODO: Expand the module documentation
+ * ## Core Class
+ * - {@link WikitextStatic} (instance members: {@link Wikitext})
+ *
+ * **Usage**:
+ * ```ts
+ * import { Mwbot } from 'mwbot-ts';
+ * (async () => {
+ * 	const mwbot = await new Mwbot(options).init();
+ * 	if (!mwbot) return;
+ * 	const wikitext = new mwbot.Wikitext('your wikitext');
+ * 	// Wikitext manipulations...
+ * })();
+ * ```
+ *
+ * ## Object Types
+ * The `Wikitext` class consists of both:
+ * - **Plain objects**, which store parsed structures without additional behavior.
+ * - **Classes**, which encapsulate certain wiki markups as structured instances.
+ *
+ * ### Plain Objects:
+ * - {@link Tag}: Represents parsed HTML tags. This object is returned by {@link Wikitext.parseTags}.
+ * - {@link Parameter}: Represents parsed `{{{parameter}}}` markups. This object is returned by {@link Wikitext.parseParameters}.
+ * - {@link Section}: Represents parsed sections. This object is returned by {@link Wikitext.parseSections}.
+ *
+ * ### Classes:
+ * **`{{double-braced}}` markups:**
+ * - {@link TemplateStatic | Template}: Encapsulates `{{template}}` markups as objects.
+ * Accessible via {@link Mwbot.Template}.
+ * 	- {@link ParsedTemplateStatic | ParsedTemplate}: A subclass of `Template`, whose
+ * 	instances are returned by {@link Wikitext.parseTemplates}. Its constructor is inaccessible.
+ * - {@link ParserFunctionStatic | ParserFunction}: Encapsulates `{{#parserfunction:}}` markups.
+ * Accessible via {@link Mwbot.ParserFunction}.
+ * 	- {@link ParsedParserFunctionStatic | ParsedParserFunction}: A subclass of `ParserFunction`,
+ * 	whose instances are returned by {@link Wikitext.parseTemplates}. Its constructor is inaccessible.
+ * - {@link RawTemplateStatic | RawTemplate}: Encapsulates `{{template}}` markups with
+ * an *unparsable* title. Instances are returned by {@link Wikitext.parseTemplates}.
+ * Its constructor is inaccessible.
+ *
+ * **`[[double-bracketed]]` markups:**
+ * - {@link WikilinkStatic | Wikilink}: Encapsulates `[[wikilink]]` markups with a *non-file* title.
+ * Accessible via {@link Mwbot.Wikilink}.
+ * 	- {@link ParsedWikilinkStatic | ParsedWikilink}: A subclass of `Wikilink`, whose
+ * 	instances are returned by {@link Wikitext.parseWikilinks}. Its constructor is inaccessible.
+ * - {@link FileWikilinkStatic | FileWikilink}: Encapsulates `[[File:...]]` markups.
+ * Accessible via {@link Mwbot.FileWikilink}.
+ * 	- {@link ParsedFileWikilinkStatic | ParsedFileWikilink}: A subclass of `FileWikilink`, whose
+ * 	instances are returned by {@link Wikitext.parseWikilinks}. Its constructor is inaccessible.
+ * - {@link RawWikilinkStatic | RawWikilink}: Encapsulates `[[wikilink]]` markups with an unparsable title.
+ * Accessible via {@link Mwbot.RawWikilink}.
+ * 	- {@link ParsedRawWikilinkStatic | ParsedRawWikilink}: A subclass of `RawWikilink`, whose
+ * 	instances are returned by {@link Wikitext.parseWikilinks}. Its constructor is inaccessible.
  *
  * @module
  */
@@ -31,24 +82,37 @@ import type {
 	ParsedRawWikilink
 } from './Wikilink';
 
+// Imported only for docs
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { TemplateStatic, ParserFunctionStatic } from './Template';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { WikilinkStatic, FileWikilinkStatic, RawWikilinkStatic } from './Wikilink';
+
 /**
  * @expand
+ * @private
  */
-type DoubleBracedClasses = ParsedTemplate | RawTemplate | ParsedParserFunction;
+export type DoubleBracedClasses = ParsedTemplate | ParsedParserFunction | RawTemplate;
 /**
  * @expand
+ * @private
  */
-type DoubleBracketedClasses = ParsedWikilink | ParsedFileWikilink | ParsedRawWikilink;
+export type DoubleBracketedClasses = ParsedWikilink | ParsedFileWikilink | ParsedRawWikilink;
 
 /**
  * This interface defines the static members of the `Wikitext` class. For instance members,
  * see {@link Wikitext} (defined separately due to TypeScript limitations).
  *
- * TODO: Expand documentation
+ * This class is accesible via {@link Mwbot.Wikitext}.
  */
 export interface WikitextStatic {
 	/**
 	 * Creates a new `Wikitext` instance.
+	 *
+	 * **Usage**:
+	 * ```ts
+	 * const wikitext = new mwbot.Wikitext('Some wikitext');
+	 * ```
 	 *
 	 * @param content A wikitext content.
 	 * @param options Options for the initialization of the instance.
@@ -56,29 +120,42 @@ export interface WikitextStatic {
 	 */
 	new(content: string, options?: WikitextOptions): Wikitext;
 	/**
-	 * Alias of the {@link Wikitext.constructor | constructor}.
+	 * Alias of the {@link WikitextStatic.constructor | constructor}.
+	 *
+	 * **Usage**:
+	 * ```ts
+	 * const wikitext = mwbot.Wikitext.new('Some wikitext');
+	 * ```
 	 *
 	 * @param content A wikitext content.
 	 * @param options Options for the initialization of the instance.
 	 * @throws If `content` is not a string.
-	 * @static
 	 */
 	'new'(content: string, options?: WikitextOptions): Wikitext;
 	/**
 	 * Creates a new instance by fetching the content of the given title.
 	 *
+	 * **Example**:
+	 * ```ts
+	 * const wikitext = await mwbot.Wikitext.newFromTitle('Foo').catch((err) => err);
+	 * if (wikitext instanceof Error) {
+	 * 	console.log(wikitext);
+	 * 	return;
+	 * }
+	 * // Example for parsing the sections of the page 'Foo'
+	 * const sections = wikitext.parseSections();
+	 * ```
+	 *
 	 * @param title The page title, either as a string or a {@link Title} instance.
 	 * @param options Options for the initialization of the instance.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to a new `Wikitext` instance.
-	 * @static
 	 */
 	newFromTitle(title: string | Title, options?: WikitextOptions, requestOptions?: MwbotRequestConfig): Promise<Wikitext>;
 	/**
 	 * Returns a list of valid HTML tag names that can be used in wikitext.
 	 *
 	 * @returns Array of tag names (all elements are in lowercase).
-	 * @static
 	 */
 	getValidTags(): string[];
 	/**
@@ -86,7 +163,6 @@ export interface WikitextStatic {
 	 *
 	 * @param tagName The tag name to check.
 	 * @returns A boolean indicating whether the tag name is valid.
-	 * @static
 	 */
 	isValidTag(tagName: string): boolean;
 }
@@ -98,10 +174,22 @@ export interface WikitextStatic {
 export interface Wikitext {
 	/**
 	 * Returns the length of the wikitext.
+	 *
+	 * The same result can be obtained by using:
+	 * ```ts
+	 * const len = wikitext.content.length;
+	 * // (`wikitext` is an instance of the Wikitext class)
+	 * ```
 	 */
 	get length(): number;
 	/**
 	 * Returns the byte length of the wikitext.
+	 *
+	 * The same result can be obtained by using:
+	 * ```ts
+	 * const byteLen = Mwbot.String.byteLength(wikitext.content);
+	 * // (`wikitext` is an instance of the Wikitext class)
+	 * ```
 	 */
 	get byteLength(): number;
 	/**
@@ -203,7 +291,7 @@ export interface Wikitext {
 	/**
 	 * Adds tags in which elements shouldn't be parsed, if the tags are not already registered.
 	 *
-	 * CAUTION: This might result in unexpected parsing behaviour.
+	 * CAUTION: This may lead to inconsistent parsing results.
 	 *
 	 * @param skipTags Array of tag names to add.
 	 * @returns The current Wikitext instance.
@@ -212,7 +300,7 @@ export interface Wikitext {
 	/**
 	 * Sets tags in which elements shouldn't be parsed, overwriting any existing settings.
 	 *
-	 * CAUTION: This might result in unexpected parsing behaviour.
+	 * CAUTION: This may lead to inconsistent parsing results.
 	 *
 	 * @param skipTags Array of tag names to set.
 	 * @returns The current Wikitext instance.
@@ -221,7 +309,7 @@ export interface Wikitext {
 	/**
 	 * Removes tags from the list of tags in which elements shouldn't be parsed.
 	 *
-	 * CAUTION: This might result in unexpected parsing behaviour.
+	 * CAUTION: This may lead to inconsistent parsing results.
 	 *
 	 * @param skipTags Array of tag names to remove.
 	 * @returns The current Wikitext instance.
@@ -230,7 +318,7 @@ export interface Wikitext {
 	/**
 	 * Gets a copy of the names of currently registered tags in which elements shouldn't be parsed.
 	 *
-	 * @returns An array of the current tag names.
+	 * @returns An array of the current skip tag names.
 	 */
 	getSkipTags(): string[];
 	/**
@@ -707,11 +795,12 @@ export function WikitextFactory(
 					const selfClosing = regex.self.test(m[0]);
 
 					// Check if the tag is a void tag
-					if (regex.void.test(nodeName) || selfClosing && validTags.mediawiki.includes(nodeName)) {
+					let pseudoVoid = false;
+					if (regex.void.test(nodeName) || (pseudoVoid = (selfClosing && validTags.mediawiki.includes(nodeName)))) {
 						// Add void and "pseudo-void" self-closing tags to the stack immediately
 						// For "pseudo-void" tags, see the comments in the definition of `validTags`
 						parsed.push(
-							createVoidTagObject(nodeName, m[0], i, startTags.length, selfClosing)
+							createVoidTagObject(nodeName, m[0], i, startTags.length, selfClosing, pseudoVoid)
 						);
 					} else {
 						// Store non-void start tags for later matching with end tags.
@@ -738,7 +827,7 @@ export function WikitextFactory(
 							// MediaWiki converts </br> to <br>
 							// Void start tags aren't stored in "startTags" (i.e. there's no need to look them up in the stack)
 							parsed.push(
-								createVoidTagObject(nodeName, m[0], i, startTags.length, false)
+								createVoidTagObject(nodeName, m[0], i, startTags.length, false, false)
 							);
 						} else {
 							// Do nothing
@@ -1122,7 +1211,7 @@ export function WikitextFactory(
 
 				if (isValid) {
 					const param: Parameter = {
-						name: paramName,
+						key: paramName,
 						value: paramValue.trim(),
 						text: paramText,
 						startIndex: match.index,
@@ -1148,10 +1237,10 @@ export function WikitextFactory(
 		}
 
 		parseParameters(config: ParseParametersConfig = {}): Parameter[] {
-			const {namePredicate, parameterPredicate} = config;
+			const {keyPredicate, parameterPredicate} = config;
 			let parameters = this.storageManager('parameters');
-			if (typeof namePredicate === 'function') {
-				parameters = parameters.filter(({name}) => namePredicate(name));
+			if (typeof keyPredicate === 'function') {
+				parameters = parameters.filter(({key}) => keyPredicate(key));
 			}
 			if (typeof parameterPredicate === 'function') {
 				parameters = parameters.filter((param) => parameterPredicate(param));
@@ -1799,30 +1888,33 @@ export function WikitextFactory(
 // Interfaces for constructor and the entire module
 
 /**
- * Options to initialize a {@link Wikitext} instance.
+ * Options for initializing a {@link Wikitext} instance.
  */
 export interface WikitextOptions {
 	/**
-	 * The names of HTML tags in which elements shouldn't be parsed.
+	 * HTML tags in which elements shouldn't be parsed.
 	 *
-	 * For example:
+	 * NOTE: This option is usually unnecessary.
 	 *
-	 * `blah blah <!-- {{Template}} --> {{Template}} blah blah`
+	 * Example:
+	 * ```
+	 * blah blah <!-- {{Template}} --> {{Template}} blah blah
+	 * ```
+	 * In many cases, `{{Template}}` inside a comment tag shouldn't be parsed.
+	 * Specify such tags to control parsing behavior.
 	 *
-	 * In many cases, one would not want to parse the occurrence of `{{Template}}` in the comment tag.
-	 * Specify such tags to obtain the desired parsing results.
-	 *
-	 * The default tags in which elements aren't parsed are:
+	 * By default, elements inside the following tags (referred to as "skip tags" in this framework)
+	 * are parsed with `{skip: true}`:
 	 * * `!--`, `nowiki`, `pre`, `syntaxhighlight`, `source`, and `math`.
 	 *
-	 * The tag names passed to this property will be merged into the default tags (unless {@link overwriteSkipTags})
-	 * is specified as `true`.
+	 * The specified tags will be merged with the defaults unless {@link overwriteSkipTags} is `true`.
 	 */
 	skipTags?: string[];
 	/**
-	 * Whether to overwrite the default skip tags. If `true`, the array of strings passed to {@link skipTags}
-	 * will solely be used as the tags in which elements shouldn't be parsed (i.e. no merging with the default
-	 * tags).
+	 * Whether to overwrite the default skip tags. If `true`, {@link skipTags} replaces the default list
+	 * instead of merging with it.
+	 *
+	 * NOTE: This may lead to inconsistent parsing results.
 	 */
 	overwriteSkipTags?: boolean;
 }
@@ -1848,6 +1940,7 @@ export type ModificationPredicate<T> = (expressions: T[]) => Promise<(string | n
 
 /**
  * A mapping of a type key to its object type, used in {@link Wikitext.modify}.
+ * @private
  */
 export interface ModificationMap {
 	tags: Tag;
@@ -1861,10 +1954,12 @@ export interface ModificationMap {
 
 /**
  * Object that holds information about an HTML tag, parsed from wikitext.
+ *
+ * This object is returned by {@link Wikitext.parseTags}.
  */
 export interface Tag {
 	/**
-	 * The name of the tag (e.g. "div" for `<div></div>`). Comment tags (i.e. `<!-- -->`) are named "!--".
+	 * The name of the tag (e.g. `'div'` for `<div></div>`). Comment tags (i.e. `<!-- -->`) are named `'!--'`.
 	 */
 	name: string;
 	/**
@@ -1901,6 +1996,9 @@ export interface Tag {
 	nestLevel: number;
 	/**
 	 * Whether this tag is a void tag.
+	 *
+	 * See {@link https://developer.mozilla.org/en-US/docs/Glossary/Void_element |MDN Web Docs}
+	 * for a list of void elements.
 	 */
 	void: boolean;
 	/**
@@ -1940,9 +2038,17 @@ function sanitizeNodeName(name: string): string {
  * @param startIndex The start index of the void tag in the wikitext.
  * @param nestLevel The nesting level of the void tag.
  * @param selfClosing Whether the void tag closes itself.
+ * @param pseudoVoid Whether this is a pseudo-void tag. Such tags are marked `{void: false}`.
  * @returns
  */
-function createVoidTagObject(nodeName: string, startTag: string, startIndex: number, nestLevel: number, selfClosing: boolean): Tag {
+function createVoidTagObject(
+	nodeName: string,
+	startTag: string,
+	startIndex: number,
+	nestLevel: number,
+	selfClosing: boolean,
+	pseudoVoid: boolean
+): Tag {
 	return {
 		name: nodeName, // Not calling sanitizeNodeName because this is never a comment tag
 		get text() { // The entire void tag (e.g. <br>)
@@ -1954,7 +2060,7 @@ function createVoidTagObject(nodeName: string, startTag: string, startIndex: num
 		startIndex,
 		endIndex: startIndex + startTag.length,
 		nestLevel,
-		void: true,
+		void: !pseudoVoid,
 		unclosed: false,
 		selfClosing
 	};
@@ -2021,6 +2127,8 @@ interface Heading {
 
 /**
  * Object that holds information about a section, parsed from wikitext.
+ *
+ * This object is returned by {@link Wikitext.parseSections}.
  */
 export interface Section {
 	/**
@@ -2075,14 +2183,16 @@ export interface ParseSectionsConfig {
 
 /**
  * Object that holds information about a `{{{parameter}}}`, parsed from wikitext.
+ *
+ * This object is returned by {@link Wikitext.parseParameters}.
  */
 export interface Parameter {
 	/**
-	 * The parameter name (i.e. the left operand of `{{{name|value}}}`).
+	 * The parameter key (i.e. the left operand of `{{{key|value}}}`).
 	 */
-	name: string;
+	key: string;
 	/**
-	 * The parameter value (i.e., the right operand of `{{{name|value}}}`).
+	 * The parameter value (i.e., the right operand of `{{{key|value}}}`).
 	 */
 	value: string;
 	/**
@@ -2114,13 +2224,13 @@ export interface Parameter {
  */
 export interface ParseParametersConfig {
 	/**
-	 * A predicate function to filter parameters by name.
-	 * Only parameters whose names satisfy this function will be parsed.
+	 * A predicate function to filter parameters by key.
+	 * Only parameters whose keys satisfy this function will be parsed.
 	 *
-	 * @param name The name of the parameter.
+	 * @param key The key of the parameter.
 	 * @returns `true` if the parameter should be parsed, otherwise `false`.
 	 */
-	namePredicate?: (name: string) => boolean;
+	keyPredicate?: (key: string) => boolean;
 	/**
 	 * A predicate function to filter parsed parameters.
 	 * Only parameters that satisfy this function will be included in the results.
