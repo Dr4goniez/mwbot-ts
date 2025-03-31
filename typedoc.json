@@ -15,9 +15,5 @@
 	"excludeProtected": false,
 	"includeVersion": true,
 	"out": "docs",
-	"plugin": [
-		"typedoc-plugin-missing-exports"
-	],
-	"placeInternalsInOwningModule": true
 	// "readme": "README.md",
 }
