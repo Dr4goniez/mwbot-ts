@@ -197,17 +197,26 @@ export interface Wikitext {
 	 */
 	get content(): string;
 	/**
-	 * Modifies a specific type of expressions in the wikitext content.
+	 * Modifies a specific type of expression in the wikitext content.
 	 *
 	 * This method extracts expressions of the given `type`, applies the `modificationPredicate`
 	 * to transform them, and updates the wikitext accordingly.
 	 *
-	 * #### Example: Closing Unclosed Tags
+	 * #### Example: Closing unclosed tags
 	 * ```typescript
 	 * const wkt = new mwbot.Wikitext('<span>a<div><del>b</span><span>c');
 	 * const oldContent = wkt.content;
 	 * const newContent = await wkt.modify('tags', async (tags) => {
-	 * 	return tags.map(obj => obj.unclosed ? obj.text + obj.end : null);
+	 * 	return tags.map((obj) => {
+	 * 		if (obj.unclosed) {
+	 * 			// If this tag is unclosed, append its expected end tag to the tag text.
+	 * 			// `Tag` objects with the `unclosed` property set to `true` have their expected end tag
+	 * 			// stored in the `end` property.
+	 * 			return obj.text + obj.end; // Returning a string applies the modification.
+	 * 		} else {
+	 * 			return null; // Returning `null` means no modification is made.
+	 * 		}
+	 * 	});
 	 * });
 	 *
 	 * if (oldContent !== newContent) {
@@ -216,36 +225,32 @@ export interface Wikitext {
 	 * }
 	 * ```
 	 *
-	 * **Important:** This method updates {@link content} and its associated expressions.
-	 * Any copies initialized before calling this method should **not** be reused.
+	 * #### Shorthand Methods
+	 * - {@link modifyTags}
+	 * - {@link modifyParameters}
+	 * - {@link modifySections}
+	 * - {@link modifyTemplates}
+	 * - {@link modifyWikilinks}
+	 *
+	 * #### Important
+	 * This method (and its shorthand versions) modifies and updates {@link content}
+	 * and its associated expressions. Since the `content` property of the instance
+	 * will be different before and after running this method, any copies initialized
+	 * beforehands should **not** be reused.
 	 *
 	 * @param type The type of expressions to modify.
+	 *
 	 * <table>
 	 * 	<thead>
-	 * 		<th>type</th>
-	 * 		<th>First argument of modificationPredicate</th>
+	 * 		<th>Type</th>
+	 * 		<th>First Argument of `modificationPredicate`</th>
 	 * 	</thead>
 	 * 	<tbody>
-	 * 		<tr>
-	 * 			<td>tags</td>
-	 * 			<td>An array of {@link Tag}</td>
-	 * 		</tr>
-	 * 		<tr>
-	 * 			<td>parameters</td>
-	 * 			<td>An array of {@link Parameter}</td>
-	 * 		</tr>
-	 * 		<tr>
-	 * 			<td>sections</td>
-	 * 			<td>An array of {@link Section}</td>
-	 * 		</tr>
-	 * 		<tr>
-	 * 			<td>templates</td>
-	 * 			<td>An array of {@link ParsedTemplate}, {@link ParsedParserFunction}, or {@link RawTemplate}</td>
-	 * 		</tr>
-	 * 		<tr>
-	 * 			<td>wikilinks</td>
-	 * 			<td>An array of {@link ParsedWikilink}, {@link ParsedFileWikilink}, or {@link ParsedRawWikilink}</td>
-	 * 		</tr>
+	 * 		<tr><td>tags</td><td>Array of {@link Tag}</td></tr>
+	 * 		<tr><td>parameters</td><td>Array of {@link Parameter}</td></tr>
+	 * 		<tr><td>sections</td><td>Array of {@link Section}</td></tr>
+	 * 		<tr><td>templates</td><td>Array of {@link ParsedTemplate}, {@link ParsedParserFunction}, or {@link RawTemplate}</td></tr>
+	 * 		<tr><td>wikilinks</td><td>Array of {@link ParsedWikilink}, {@link ParsedFileWikilink}, or {@link ParsedRawWikilink}</td></tr>
 	 * 	</tbody>
 	 * </table>
 	 * See also {@link ModificationMap} for the interface that defines this mapping.
@@ -255,16 +260,16 @@ export interface Wikitext {
 	 * to an array of strings or `null` values.
 	 *
 	 * - The input array consists of objects corresponding to the specified `type`.
-	 * - The returned array must have the same length as the input array.
-	 * 	- Each string element represents the new content for the corresponding expression.
+	 * - The returned array **must** have the same length as the input array.
+	 * 	- Each string element replaces the corresponding expression.
 	 * 	- `null` means no modification for that expression.
 	 *
-	 * @returns A Promise resolving to the modified wikitext content as a string.
+	 * @returns A Promise resolving to the modified wikitext content.
 	 *
 	 * @throws {MwbotError}
 	 * - If `type` is invalid.
 	 * - If `modificationPredicate` is not a function.
-	 * - If the returned array length does not match the input expressions array.
+	 * - If the returned array length does not match the input array.
 	 *
 	 * @throws {Error} If `modificationPredicate` returns a rejected Promise.
 	 */
@@ -338,10 +343,36 @@ export interface Wikitext {
 	 */
 	modifySections(modificationPredicate: ModificationPredicate<Section>): Promise<string>;
 	/**
-	 * Given the start and end indices of an expression, identifies the section containing the expression.
+	 * Identifies the section containing an expression based on its start and end indices.
+	 *
+	 * **Example**:
+	 * ```ts
+	 * const text =
+	 * `== Foo ==
+	 * === Bar ===
+	 * [[Main page]]
+	 * == Baz ==
+	 * [[Another page]]`;
+	 *
+	 * const wikitext = new mwbot.Wikitext(text);
+	 * const [main] = wikitext.parseWikilinks();
+	 * console.log(wikitext.identifySection(main.startIndex, main.endIndex));
+	 * // Output:
+	 * // {
+	 * // 	heading: '=== Bar ===',
+	 * // 	title: 'Bar',
+	 * // 	level: 3,
+	 * // 	index: 2,
+	 * // 	startIndex: 10,
+	 * // 	endIndex: 36,
+	 * // 	text: '=== Bar ===\n[[Main page]]\n'
+	 * // }
+	 * ```
+	 *
+	 * This method is intended to be used with expressions obtained from parser methods.
 	 *
 	 * @param startIndex The start index of the expression.
-	 * @param endIndex The end index of the expression (exclusive).
+	 * @param endIndex The exclusive end index of the expression.
 	 * @returns The deepest {@link Section} containing the expression, or `null` if none is found.
 	 */
 	identifySection(startIndex: number, endIndex: number): Section | null;
