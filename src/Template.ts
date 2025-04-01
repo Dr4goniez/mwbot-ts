@@ -1,15 +1,18 @@
 /**
- * This module serves to parse `{{template}}` expressions into object structures.
+ * This module serves to parse `{{template}}` markups into object structures.
  *
- * - Class {@link Template}: Attached to {@link Mwbot.Template} as an instance member.
- * - Class {@link ParsedTemplate}: Represents a well-formed template in the result of
- * {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}.
- * - Class {@link RawTemplate}: Represents a malformed template in the result of
- * {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}.
- * - Class {@link ParserFunction}: Attached to {@link Mwbot.ParserFunction} as an instance
- * member.
- * - Class {@link ParsedParserFunction}: Represents a parser function in the result of
- * {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}.
+ * ### Classes:
+ * - {@link TemplateStatic | Template}: Encapsulates `{{template}}` markups as objects.
+ * Accessible via {@link Mwbot.Template}.
+ * 	- {@link ParsedTemplateStatic | ParsedTemplate}: A subclass of `Template`, whose
+ * 	instances are returned by {@link Wikitext.parseTemplates}. Its constructor is inaccessible.
+ * - {@link ParserFunctionStatic | ParserFunction}: Encapsulates `{{#parserfunction:}}` markups.
+ * Accessible via {@link Mwbot.ParserFunction}.
+ * 	- {@link ParsedParserFunctionStatic | ParsedParserFunction}: A subclass of `ParserFunction`,
+ * 	whose instances are returned by {@link Wikitext.parseTemplates}. Its constructor is inaccessible.
+ * - {@link RawTemplateStatic | RawTemplate}: Encapsulates `{{template}}` markups with
+ * an *unparsable* title. Instances are returned by {@link Wikitext.parseTemplates}.
+ * Its constructor is inaccessible.
  *
  * @module
  */
@@ -22,7 +25,7 @@ import { ParamBase } from './baseClasses';
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { WikitextOptions } from './Wikitext';
+import type { Wikitext, WikitextOptions, ParseTemplatesConfig } from './Wikitext';
 
 /**
  * A list of no-hash functions. The listed members must not have a leading hash to function as a parser function.
@@ -84,6 +87,8 @@ const noHashFunctions = [
  *
  * This interface defines the static members of the `TemplateBase` class. For instance members,
  * see {@link TemplateBase} (defined separately due to TypeScript limitations).
+ *
+ * @protected
  */
 export interface TemplateBaseStatic<T extends string | Title> {
 	/**
@@ -103,6 +108,8 @@ export interface TemplateBaseStatic<T extends string | Title> {
 /**
  * The instance members of the `TemplateBase` class. For static members,
  * see {@link TemplateBaseStatic} (defined separately due to TypeScript limitations).
+ *
+ * @protected
  */
 export interface TemplateBase<T extends string | Title> {
 
@@ -164,10 +171,10 @@ export interface TemplateBase<T extends string | Title> {
 	 * **Caution**: The returned object is mutable.
 	 *
 	 * @param key The parameter key.
-	 * @param resolveHierarchy Whether to consider {@link hierarchies} when searching for a matching parameter.
-	 * If `true`, this method first checks if `key` belongs to a hierarchy array. If {@link params} contains a
-	 * parameter with a higher-priority key in that hierarchy, it returns that parameter instead.
-	 * (Default: `false`).
+	 * @param resolveHierarchy Whether to consider {@link TemplateParameterHierarchies | hierarchies} when
+	 * searching for a matching parameter. If `true`, this method first checks if `key` belongs to a hierarchy
+	 * array. If {@link params} contains a parameter with a higher-priority key in that hierarchy, it returns
+	 * that parameter instead. (Default: `false`).
 	 *
 	 * Example:
 	 * - Given `key = '1'`, `hierarchies = [['1', 'user', 'User']]`, and `params` containing a parameter keyed `'user'`,
@@ -229,7 +236,16 @@ export interface TemplateBase<T extends string | Title> {
  */
 export interface TemplateStatic extends TemplateBaseStatic<Title> {
 	/**
-	 * @inheritdoc
+	 * Creates a new instance.
+	 *
+	 * **Usage**:
+	 * ```ts
+	 * const template = new mwbot.Template('Template title');
+	 * ```
+	 *
+	 * @param title The title that the template transcludes.
+	 * @param params Template parameters.
+	 * @param hierarchies Optional template parameter hierarchies.
 	 */
 	new(
 		title: string | Title,
@@ -239,11 +255,15 @@ export interface TemplateStatic extends TemplateBaseStatic<Title> {
 	/**
 	 * Error-proof constructor.
 	 *
+	 * **Usage**:
+	 * ```ts
+	 * const template = mwbot.Template.new('Template title');
+	 * ```
+	 *
 	 * @param title The title that the template transcludes.
 	 * @param params Template parameters.
 	 * @param hierarchies Optional template parameter hierarchies.
 	 * @returns `null` if initialization fails.
-	 * @static
 	 */
 	'new'(
 		title: string | Title,
@@ -279,7 +299,6 @@ export interface TemplateStatic extends TemplateBaseStatic<Title> {
 	 * @param type The template type to compare against.
 	 * @returns `true` if `obj` is an instance of the specified template class, otherwise `false`.
 	 * @throws {Error} If an invalid `type` is provided.
-	 * @static
 	 */
 	is<T extends keyof TemplateTypeMap>(obj: unknown, type: T): obj is TemplateTypeMap[T];
 }
@@ -316,7 +335,7 @@ export interface Template extends TemplateBase<Title> {
  * This interface defines the static members of the `ParsedTemplate` class. For instance members,
  * see {@link ParsedTemplate} (defined separately due to TypeScript limitations).
  *
- * This class is exclusive to {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}.
+ * This class is exclusive to {@link Wikitext.parseTemplates}.
  * It represents a well-formed `{{template}}` markup with a valid title. For the class
  * that represents a malformed `{{template}}` markup with an invalid title, see {@link RawTemplateStatic}.
  *
@@ -332,13 +351,15 @@ export interface Template extends TemplateBase<Title> {
  * **Important**:
  *
  * The instance properties of this class are pseudo-read-only, in the sense that altering them
- * does not affect the behaviour of {@link Mwbot.Wikitext.modifyTemplates | Wikitext.modifyTemplates}.
+ * does not affect the behaviour of {@link Wikitext.modifyTemplates}.
+ *
+ * @private
  */
 export interface ParsedTemplateStatic extends Omit<TemplateStatic, 'new'> {
 	/**
 	 * @param initializer
 	 * @param options
-	 * @hidden
+	 * @private
 	 */
 	new(initializer: ParsedTemplateInitializer, options?: ParsedTemplateOptions): ParsedTemplate;
 }
@@ -386,7 +407,7 @@ export interface ParsedTemplate extends Template {
 	 * making any changes to the instance properties.
 	 *
 	 * @param title The parser function hook to convert this title to, **including** a trailing
-	 * colon character (e.g., `"#if:"`; see also {@link ParserFunction.verify}). If a `Title`
+	 * colon character (e.g., `"#if:"`; see also {@link ParserFunctionStatic.verify}). If a `Title`
 	 * instance is passed, the output of `title.getPrefixedDb({ colon: true, fragment: true })`
 	 * is validated.
 	 *
@@ -415,7 +436,7 @@ export interface ParsedTemplate extends Template {
  * This interface defines the static members of the `RawTemplate` class. For instance members,
  * see {@link RawTemplate} (defined separately due to TypeScript limitations).
  *
- * This class is exclusive to {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}.
+ * This class is exclusive to {@link Wikitext.parseTemplates}.
  * It represents a malformed `{{template}}` markup with an invalid title. For the class
  * that represents a well-formed `{{template}}` markup, see {@link ParsedTemplateStatic}
  * (and {@link ParsedParserFunctionStatic}).
@@ -432,13 +453,15 @@ export interface ParsedTemplate extends Template {
  * **Important**:
  *
  * The instance properties of this class are pseudo-read-only, in the sense that altering them
- * does not affect the behaviour of {@link Mwbot.Wikitext.modifyTemplates | Wikitext.modifyTemplates}.
+ * does not affect the behaviour of {@link Wikitext.modifyTemplates}.
+ *
+ * @private
  */
 export interface RawTemplateStatic extends Omit<TemplateBaseStatic<string>, 'new'> {
 	/**
 	 * @param initializer
 	 * @param options
-	 * @hidden
+	 * @private
 	 */
 	new(initializer: ParsedTemplateInitializer, options?: ParsedTemplateOptions): RawTemplate;
 }
@@ -552,6 +575,11 @@ export interface ParserFunctionStatic extends Omit<typeof ParamBase, 'prototype'
 	/**
 	 * Creates a new instance.
 	 *
+	 * **Usage**:
+	 * ```ts
+	 * const func = new mwbot.ParserFunction('#hook:');
+	 * ```
+	 *
 	 * @param hook The function hook. This ***must*** end with a colon character.
 	 * @param params Parameters of the parser function.
 	 */
@@ -559,9 +587,13 @@ export interface ParserFunctionStatic extends Omit<typeof ParamBase, 'prototype'
 	/**
 	 * Verifies the given string as a parser function hook.
 	 *
+	 * **Usage**:
+	 * ```ts
+	 * const verifiedHook = mwbot.ParserFunction.verify('#hook:');
+	 * ```
+	 *
 	 * @param hook A potential parser function hook as a string. This **must** end with a colon character.
 	 * @returns An object representing the canonical function hook and the matched function hook, or `null`.
-	 * @static
 	 */
 	verify(hook: string): VerifiedFunctionHook | null;
 }
@@ -610,7 +642,7 @@ export interface ParserFunction extends InstanceType<typeof ParamBase> {
  * This interface defines the static members of the `ParsedParserFunction` class. For instance members,
  * see {@link ParsedParserFunction} (defined separately due to TypeScript limitations).
  *
- * This class is exclusive to {@link Mwbot.Wikitext.parseTemplates | Wikitext.parseTemplates}.
+ * This class is exclusive to {@link Wikitext.parseTemplates}.
  * It represents a well-formed `{{#parserfunction:...}}` markup with a valid title. For the class
  * that represents a well-formed `{{template}}` markup, see {@link ParsedTemplateStatic}.
  * (and also {@link RawTemplateStatic}).
@@ -626,12 +658,14 @@ export interface ParserFunction extends InstanceType<typeof ParamBase> {
  * **Important**:
  *
  * The instance properties of this class are pseudo-read-only, in the sense that altering them
- * does not affect the behaviour of {@link Mwbot.Wikitext.modifyTemplates | Wikitext.modifyTemplates}.
+ * does not affect the behaviour of {@link Wikitext.modifyTemplates}.
+ *
+ * @private
  */
 export interface ParsedParserFunctionStatic extends Omit<ParserFunctionStatic, 'new'> {
 	/**
 	 * @param initializer
-	 * @hidden
+	 * @private
 	 */
 	new(initializer: ParsedTemplateInitializer): ParsedParserFunction;
 }
@@ -676,7 +710,7 @@ export interface ParsedParserFunction extends ParserFunction {
 	 *
 	 * @param title The new template title to set.
 	 * @param verbose Whether to log errors (default: `false`).
-	 * @returns A new {@link ParsedPTemplate} instance on success; otherwise, `null`.
+	 * @returns A new {@link ParsedTemplate} instance on success; otherwise, `null`.
 	 */
 	toTemplate(title: string | Title, verbose?: boolean): ParsedTemplate | null;
 	/**
@@ -740,9 +774,6 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		return acc;
 	}, Object.create(null));
 
-	/**
-	 * @internal
-	 */
 	class TemplateBase<T extends string | Title> implements TemplateBase<T> {
 
 		readonly title: T;
@@ -1585,7 +1616,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 }
 
 /**
- * Object that is used to initialize template parameters in {@link Template.constructor}.
+ * Object that is used to initialize template parameters in {@link TemplateStatic.constructor}.
  */
 export interface NewTemplateParameter {
 	/**
@@ -1600,6 +1631,7 @@ export interface NewTemplateParameter {
 	 *
 	 * If the parameter has a name (i.e., `key` is set), its value will be trimmed of
 	 * leading and trailing whitespace.
+	 *
 	 * See https://en.wikipedia.org/wiki/Help:Template#Whitespace_handling.
 	 */
 	value: string
@@ -1607,6 +1639,12 @@ export interface NewTemplateParameter {
 
 /**
  * Object that holds information about a template parameter.
+ *
+ * This interface is used in:
+ * - {@link TemplateBase.params}
+ * 	- {@link Template.params}
+ * 		- {@link ParsedTemplate.params}
+ * 	- {@link RawTemplate.params}
  */
 export interface TemplateParameter {
 	/**
@@ -1644,7 +1682,8 @@ export interface TemplateParameter {
 }
 
 /**
- * Defines parameter hierarchies for templates.
+ * Defines parameter hierarchies for templates, via {@link TemplateStatic.constructor} or
+ * {@link ParseTemplatesConfig.hierarchies}.
  *
  * Some templates, especially those invoking modules, may have nested parameters. For example:
  * `{{#invoke:module|user={{{1|{{{user|}}}}}}}}}` can be transcluded as `{{template|user=value|1=value}}`.
@@ -1657,7 +1696,7 @@ export interface TemplateParameter {
 export type TemplateParameterHierarchies = string[][];
 
 /**
- * Helper interface for {@link Template.is}.
+ * Helper interface for {@link TemplateStatic.is}.
  * @private
  */
 export interface TemplateTypeMap {
@@ -1751,7 +1790,6 @@ export interface RawTemplateOutputConfig extends TemplateOutputConfig<string> {
 
 /**
  * The initializer object for ParsedTemplate and RawTemplate constructors.
- * @internal
  */
 interface ParsedTemplateInitializer {
 	title: string;
@@ -1772,7 +1810,7 @@ export interface ParsedTemplateOptions {
 }
 
 /**
- * The return type of {@link ParserFunction.verify}.
+ * The return type of {@link ParserFunctionStatic.verify}.
  */
 export interface VerifiedFunctionHook {
 	/**

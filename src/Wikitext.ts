@@ -49,7 +49,7 @@
  * Accessible via {@link Mwbot.FileWikilink}.
  * 	- {@link ParsedFileWikilinkStatic | ParsedFileWikilink}: A subclass of `FileWikilink`, whose
  * 	instances are returned by {@link Wikitext.parseWikilinks}. Its constructor is inaccessible.
- * - {@link RawWikilinkStatic | RawWikilink}: Encapsulates `[[wikilink]]` markups with an unparsable title.
+ * - {@link RawWikilinkStatic | RawWikilink}: Encapsulates `[[wikilink]]` markups with an *unparsable* title.
  * Accessible via {@link Mwbot.RawWikilink}.
  * 	- {@link ParsedRawWikilinkStatic | ParsedRawWikilink}: A subclass of `RawWikilink`, whose
  * 	instances are returned by {@link Wikitext.parseWikilinks}. Its constructor is inaccessible.
