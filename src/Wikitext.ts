@@ -170,6 +170,17 @@ export interface WikitextStatic {
 /**
  * The instance members of the `Wikitext` class. For static members,
  * see {@link WikitextStatic} (defined separately due to TypeScript limitations).
+ *
+ * `Wikitext` instances primarily provide **parsing** and **modification** methods:
+ *
+ * - `<tag></tag>`: {@link parseTags}, {@link modifyTags}
+ * - `== section ==`: {@link parseSections}, {@link modifySections}
+ * - `{{{parameter}}}`: {@link parseParameters}, {@link modifyParameters}
+ * - `{{template}}`: {@link parseTemplates}, {@link modifyTemplates}
+ * - `[[wikilink]]`: {@link parseWikilinks}, {@link modifyWikilinks}
+ *
+ * The modification methods are centralized in {@link modify},
+ * which applies a transformation callback to the output of a parser method.
  */
 export interface Wikitext {
 	/**
