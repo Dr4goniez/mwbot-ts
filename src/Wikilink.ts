@@ -1,18 +1,19 @@
 /**
  * This module serves to parse `[[wikilink]]` markups into object structures.
  *
- * - Class {@link WikilinkStatic | Wikilink}: Represents a well-formed non-file wikilink,
- * which is accessible via {@link Mwbot.Wikilink}.
- * - Class {@link ParsedWikilinkStatic | ParsedWikilink}: A version of `Wikilink` parsed by
- * {@link Mwbot.Wikitext.parseWikilinks | Wikitext.parseWikilinks}.
- * - Class {@link FileWikilinkStatic | FileWikilink}: Represents a well-formed file wikilink,
- * which is accessible via {@link Mwbot.FileWikilink}.
- * - Class {@link ParsedFileWikilinkStatic | ParsedFileWikilink}: A version of `FileWikilink` parsed by
- * {@link Mwbot.Wikitext.parseWikilinks | Wikitext.parseWikilinks}.
- * - Class {@link RawWikilinkStatic | RawWikilink}: Represents a malformed wikilink,
- * which is accessible via {@link Mwbot.RawWikilink}.
- * - Class {@link ParsedRawWikilinkStatic | ParsedRawWikilink}: A version of `RawWikilink` parsed by
- * {@link Mwbot.Wikitext.parseWikilinks | Wikitext.parseWikilinks}.
+ * ### Classes:
+ * - {@link WikilinkStatic | Wikilink}: Encapsulates `[[wikilink]]` markups with a *non-file* title
+ * as objects. Accessible via {@link Mwbot.Wikilink}.
+ * 	- {@link ParsedWikilinkStatic | ParsedWikilink}: A subclass of `Wikilink`, whose instances are
+ * returned by {@link Wikitext.parseWikilinks}.
+ * - {@link FileWikilinkStatic | FileWikilink}: Encapsulates `[[wikilink]]` markups with a *file* title
+ * as objects. Accessible via {@link Mwbot.FileWikilink}.
+ * 	- {@link ParsedFileWikilinkStatic | ParsedFileWikilink}: A subclass of `FileWikilink`, whose instances are
+ * returned by {@link Wikitext.parseWikilinks}.
+ * - {@link RawWikilinkStatic | RawWikilink}: Encapsulates `[[wikilink]]` markups with an *unparsable* title
+ * as objects. Accessible via {@link Mwbot.RawWikilink}.
+ * 	- {@link ParsedRawWikilinkStatic | ParsedRawWikilink}: A subclass of `RawWikilink`, whose instances are
+ * returned by {@link Wikitext.parseWikilinks}.
  *
  * @module
  */
@@ -23,13 +24,15 @@ import type { TitleStatic, Title } from './Title';
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { WikitextOptions } from './Wikitext';
+import type { Wikitext, WikitextOptions } from './Wikitext';
 
 /**
  * The base class for {@link WikilinkStatic} and {@link RawWikilinkStatic}.
  *
  * This interface defines the static members of the `WikilinkBase` class. For instance members,
  * see {@link WikilinkBase} (defined separately due to TypeScript limitations).
+ *
+ * @protected
  */
 export interface WikilinkBaseStatic<T extends string | Title> {
 	/**
@@ -44,6 +47,8 @@ export interface WikilinkBaseStatic<T extends string | Title> {
 /**
  * The instance members of the `WikilinkBase` class. For static members,
  * see {@link WikilinkBaseStatic} (defined separately due to TypeScript limitations).
+ *
+ * @protected
  */
 export interface WikilinkBase<T extends string | Title> {
 	/**
@@ -92,9 +97,14 @@ export interface WikilinkBase<T extends string | Title> {
  * foo.setDisplay('Bar');
  * foo.stringify(); // [[Foo|Bar]]
  */
-export interface WikilinkStatic extends WikilinkBaseStatic<Title> {
+export interface WikilinkStatic extends Omit<WikilinkBaseStatic<Title>, 'new'> {
 	/**
 	 * Creates a new instance.
+	 *
+	 * **Usage**:
+	 * ```ts
+	 * const wikilink = new mwbot.Wikilink('Page title');
+	 * ```
 	 *
 	 * @param title The title of the (non-file) page that the wikilink links to.
 	 * @param display An optional display text for the wikilink.
@@ -132,7 +142,6 @@ export interface WikilinkStatic extends WikilinkBaseStatic<Title> {
 	 * @param type The wikilink type to compare against.
 	 * @returns `true` if `obj` is an instance of the specified wikilink class, otherwise `false`.
 	 * @throws {Error} If an invalid `type` is provided.
-	 * @static
 	 */
 	is<T extends keyof WikilinkTypeMap>(obj: unknown, type: T): obj is WikilinkTypeMap[T];
 }
@@ -180,8 +189,8 @@ export interface Wikilink extends WikilinkBase<Title> {
  * This interface defines the static members of the `ParsedWikilink` class. For instance members,
  * see {@link ParsedWikilink} (defined separately due to TypeScript limitations).
  *
- * This class is exclusive to {@link Mwbot.Wikitext.parseWikilinks | Wikitext.parseWikilinks}.
- * It represents a well-formed `[[wikilink]]` markup with a valid non-file title.
+ * This class is exclusive to {@link Wikitext.parseWikilinks}.
+ * It represents a well-formed `[[wikilink]]` markup with a valid *non-file* title.
  * For the class that represents a well-formed `[[wikilink]]` markup with a valid *file*
  * title, see {@link ParsedFileWikilinkStatic}, and for the class that represents a malformed
  * `[[wikilink]]` markup with an *invalid* title, see {@link ParsedRawWikilinkStatic}.
@@ -201,13 +210,14 @@ export interface Wikilink extends WikilinkBase<Title> {
  * **Important**:
  *
  * The instance properties of this class are pseudo-read-only, in the sense that altering them
- * does not affect the behaviour of {@link Mwbot.Wikitext.modifyWikilinks | Wikitext.modifyWikilinks}.
+ * does not affect the behaviour of {@link Wikitext.modifyWikilinks}.
+ *
+ * @private
  */
 export interface ParsedWikilinkStatic extends Omit<WikilinkStatic, 'new'> {
 	/**
 	 * @param initializer
-	 * @param options
-	 * @hidden
+	 * @private
 	 */
 	new(initializer: ParsedWikilinkInitializer): ParsedWikilink;
 }
@@ -284,6 +294,11 @@ export interface FileWikilinkStatic extends Omit<typeof ParamBase, 'prototype'> 
 	/**
 	 * Creates a new instance.
 	 *
+	 * **Usage**:
+	 * ```ts
+	 * const filelink = new mwbot.FileWikilink('File:Foo');
+	 * ```
+	 *
 	 * @param title The title of the file that the wikilink transcludes.
 	 * @param params Optional parameters for the file link (e.g., `['thumb', '300px', ...]`).
 	 * @throws
@@ -344,8 +359,8 @@ export interface FileWikilink extends InstanceType<typeof ParamBase> {
  * This interface defines the static members of the `ParsedFileWikilink` class. For instance members,
  * see {@link ParsedFileWikilink} (defined separately due to TypeScript limitations).
  *
- * This class is exclusive to {@link Mwbot.Wikitext.parseWikilinks | Wikitext.parseWikilinks}.
- * It represents a well-formed `[[wikilink]]` markup with a valid file title.
+ * This class is exclusive to {@link Wikitext.parseWikilinks}.
+ * It represents a well-formed `[[wikilink]]` markup with a valid *file* title.
  * For the class that represents a well-formed `[[wikilink]]` markup with a valid *non-file*
  * title, see {@link ParsedWikilinkStatic}, and for the class that represents a malformed
  * `[[wikilink]]` markup with an *invalid* title, see {@link ParsedRawWikilinkStatic}.
@@ -365,13 +380,14 @@ export interface FileWikilink extends InstanceType<typeof ParamBase> {
  * **Important**:
  *
  * The instance properties of this class are pseudo-read-only, in the sense that altering them
- * does not affect the behaviour of {@link Mwbot.Wikitext.modifyWikilinks | Wikitext.modifyWikilinks}.
+ * does not affect the behaviour of {@link Wikitext.modifyWikilinks}.
+ *
+ * @private
  */
 export interface ParsedFileWikilinkStatic extends Omit<FileWikilinkStatic, 'new'> {
 	/**
 	 * @param initializer
-	 * @param options
-	 * @hidden
+	 * @private
 	 */
 	new(initializer: ParsedFileWikilinkInitializer): ParsedFileWikilink;
 }
@@ -434,7 +450,7 @@ export interface ParsedFileWikilink extends FileWikilink {
  * are treated differently by the {@link WikilinkStatic | Wikilink} class, and those
  * with a valid file title by the {@link FileWikilinkStatic | FileWikilink} class.
  */
-export interface RawWikilinkStatic extends WikilinkBaseStatic<string> {
+export interface RawWikilinkStatic extends Omit<WikilinkBaseStatic<string>, 'new'> {
 	/**
 	 * Creates a new instance.
 	 *
@@ -442,6 +458,11 @@ export interface RawWikilinkStatic extends WikilinkBaseStatic<string> {
 	 * The class is to construct a wikilink object whose title has to include invalid
 	 * characters, e.g., `'[[{{{1}}}]]'`. When objectifying a wikilink with a valid title,
 	 * use {@link WikilinkStatic | Wikilink} or {@link FileWikilinkStatic | FileWikilink} instead.
+	 *
+	 * **Usage**:
+	 * ```ts
+	 * const rawlink = new mwbot.RawWikilink('{{{1}}}');
+	 * ```
 	 *
 	 * @param title The title of the page that the wikilink links to.
 	 * @param display An optional display text for the wikilink.
@@ -493,8 +514,8 @@ export interface RawWikilink extends WikilinkBase<string> {
  * This interface defines the static members of the `ParsedRawWikilink` class. For instance members,
  * see {@link ParsedRawWikilink} (defined separately due to TypeScript limitations).
  *
- * This class is exclusive to {@link Mwbot.Wikitext.parseWikilinks | Wikitext.parseWikilinks}.
- * It represents a malformed `[[wikilink]]` markup with an **invalid** title.
+ * This class is exclusive to {@link Wikitext.parseWikilinks}.
+ * It represents a malformed `[[wikilink]]` markup with an *invalid* title.
  * For the class that represents a well-formed `[[wikilink]]` markup with a valid *non-file*
  * title, see {@link ParsedWikilinkStatic}, and for the class that represents a well-formed
  * `[[wikilink]]` markup with a valid *file* title, see {@link ParsedFileWikilinkStatic}.
@@ -514,13 +535,14 @@ export interface RawWikilink extends WikilinkBase<string> {
  * **Important**:
  *
  * The instance properties of this class are pseudo-read-only, in the sense that altering them
- * does not affect the behaviour of {@link Mwbot.Wikitext.modifyWikilinks | Wikitext.modifyWikilinks}.
+ * does not affect the behaviour of {@link Wikitext.modifyWikilinks}.
+ *
+ * @private
  */
 export interface ParsedRawWikilinkStatic extends Omit<RawWikilinkStatic, 'new'> {
 	/**
 	 * @param initializer
-	 * @param options
-	 * @hidden
+	 * @private
 	 */
 	new(initializer: ParsedRawWikilinkInitializer): ParsedRawWikilink;
 }
@@ -1167,7 +1189,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 }
 
 /**
- * Helper interface for {@link Wikilink.is}.
+ * Helper interface for {@link WikilinkStatic.is}.
  * @private
  */
 export interface WikilinkTypeMap {
@@ -1254,7 +1276,6 @@ export interface ParsedRawWikilinkOutputConfig extends RawWikilinkOutputConfig {
 
 /**
  * The base initializer object for ParsedWikilink-related constructors.
- * @internal
  */
 interface ParsedWikilinkInitializerBase<T extends string | Title> {
 	title: T;
@@ -1269,7 +1290,6 @@ interface ParsedWikilinkInitializerBase<T extends string | Title> {
 
 /**
  * The initializer object for {@link ParsedWikilink}.
- * @internal
  */
 interface ParsedWikilinkInitializer extends ParsedWikilinkInitializerBase<Title> {
 	display?: string;
@@ -1277,7 +1297,6 @@ interface ParsedWikilinkInitializer extends ParsedWikilinkInitializerBase<Title>
 
 /**
  * The initializer object for {@link ParsedFileWikilink}.
- * @internal
  */
 interface ParsedFileWikilinkInitializer extends ParsedWikilinkInitializerBase<Title> {
 	params?: string[];
@@ -1285,7 +1304,6 @@ interface ParsedFileWikilinkInitializer extends ParsedWikilinkInitializerBase<Ti
 
 /**
  * The initializer object for {@link ParsedRawWikilink}.
- * @internal
  */
 interface ParsedRawWikilinkInitializer extends ParsedWikilinkInitializerBase<string> {
 	display?: string;

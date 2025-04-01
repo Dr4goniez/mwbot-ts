@@ -500,9 +500,9 @@ export interface RawTemplate extends TemplateBase<string> {
 	/**
 	 * Sets a new title to the instance.
 	 *
-	 * This method simply updates the {@link title} property of the instance. If the new title is
-	 * an unambiguously valid title for MediaWiki, use {@link toTemplate} or {@link toParserFunction}
-	 * instead.
+	 * This method simply updates the {@link RawTemplate.title | title} property of the instance.
+	 * If the new title is an unambiguously valid title for MediaWiki, use {@link toTemplate} or
+	 * {@link toParserFunction} instead.
 	 *
 	 * @param title The new title to set.
 	 * @returns The current instance for chaining.
