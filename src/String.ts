@@ -1,19 +1,25 @@
 /**
- * This module is attached to Mwbot.String as a static member.
+ * This module provides functions to manipulate strings, accessible via {@link Mwbot.String}.
  *
- * @example
+ * **Example**:
  * ```
  * import { Mwbot } from 'mwbot';
  *
  * console.log(Mwbot.String.ucFirst('mwbot')); // Output: "Mwbot"
  * ```
  *
- * This module is a substantial copy of the `mediawiki.String` module in MediaWiki core (GNU General Public License v2).
- * * {@link https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/50cdd378682dd1f3963507cddf7f08f1897b7ce5/resources/src/mediawiki.String.js | mediawiki.String} (original source code)
- * * {@link https://doc.wikimedia.org/mediawiki-core/master/js/module-mediawiki.String.html | Documentation in MediaWiki core}
+ * This module is adapted from the `mediawiki.String` module in MediaWiki core (GNU General Public License v2).
  *
- * @module String
+ * References:
+ * * Original source code: {@link https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/50cdd378682dd1f3963507cddf7f08f1897b7ce5/resources/src/mediawiki.String.js}
+ * * MediaWiki core documentation: {@link https://doc.wikimedia.org/mediawiki-core/master/js/module-mediawiki.String.html}
+ *
+ * @module
  */
+
+// Imported only for docs
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { Mwbot } from './Mwbot';
 
 /**
  * Calculate the byte length of a string (accounting for UTF-8).
