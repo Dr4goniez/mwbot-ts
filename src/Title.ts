@@ -1,15 +1,16 @@
 /**
- * The Title module. This module serves to parse titles into an object structure.
+ * This module serves to parse titles into an object structure.
  *
  * - For static members including the constructor, see {@link TitleStatic}. This
  * is the classes's wrapper accessible via {@link Mwbot.Title}.
  * - For instance members, see {@link Title}.
  *
+ * ### Credits
  * This module is a substantial copy of the `mediawiki.Title` module in MediaWiki core (GNU General Public License v2).
  * * {@link https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/2af1c3c901a6117fe062e1fd88c0146cffa1481d/resources/src/mediawiki.Title/Title.js | mediawiki.Title} (original source code)
  * * {@link https://doc.wikimedia.org/mediawiki-core/master/js/mw.Title.html | Documentation in MediaWiki core}
  *
- * Some methods are adapted from {@link https://gerrit.wikimedia.org/g/mediawiki/core/+/92f2f6c4dcedb9ed4186d77923b8b89ae1b22efe/includes/title/Title.php | Title.php}.
+ * Some methods are adapted from {@link https://gerrit.wikimedia.org/g/mediawiki/core/+/92f2f6c4dcedb9ed4186d77923b8b89ae1b22efe/includes/title/Title.php | Title.php}
  * to incorporate interwiki functionality.
  *
  * @module
@@ -20,9 +21,8 @@ import { toUpperMap, toLowerMap } from './phpCharMap';
 import * as mwString from './String';
 
 /**
- * The static members of the `Title` class. This class is accessible via {@link Mwbot.Title}.
- *
- * For instance members, see {@link Title} (defined separately due to TypeScript limitations).
+ * This interface defines the static members of the `Title` class. For instance members,
+ * see {@link Title} (defined separately due to TypeScript limitations).
  *
  * **Example**:
  * ```
@@ -83,7 +83,7 @@ import * as mwString from './String';
  *
  * **Interwiki Handling and Namespace Limitations**
  *
- * Titles with interwiki prefixes are always recognized as being in the default namespace,
+ * Titles with interwiki prefixes are always recognized as being in the main namespace,
  * since there is no guarantee that the interwiki target site has an equivalent namespace.
  * This also affects the casing of `title`, as the interwiki prefix is treated as part of
  * the title rather than a namespace. Example:
@@ -121,6 +121,11 @@ export interface TitleStatic {
 	/**
 	 * Creates a new Title instance.
 	 *
+	 * **Usage**:
+	 * ```ts
+	 * const title = new mwbot.Title('Page title');
+	 * ```
+	 *
 	 * @param title The title of the page. If no `namespace` is provided, this will be analyzed
 	 * to determine if it includes a namespace prefix.
 	 * @param namespace The default namespace to use for the given title. (Default: `NS_MAIN`)
@@ -133,12 +138,12 @@ export interface TitleStatic {
 	 * "Unicode bidirectional characters" are characters that can slip into cut-and-pasted texts,
 	 * represented as red dots in WikiEditor.
 	 *
+	 *
 	 * *This method is exclusive to `mwbot-ts`.*
 	 *
 	 * @param str Input string.
 	 * @param trim Whether to trim the string. Defaults to `true`.
 	 * @returns
-	 * @static
 	 */
 	clean(str: string, trim?: boolean): string;
 	/**
@@ -151,7 +156,6 @@ export interface TitleStatic {
 	 * @param title
 	 * @param namespace Default namespace. (Default: `NS_MAIN`)
 	 * @return A valid Title object or `null` if the title is invalid.
-	 * @static
 	 */
 	newFromText(title: string, namespace?: number): Title | null;
 	/**
@@ -174,7 +178,6 @@ export interface TitleStatic {
 	 * *This parameter is exclusive to `mwbot-ts`.*
 	 *
 	 * @return A valid Title object or `null` if the title is invalid.
-	 * @static
 	 */
 	makeTitle(namespace: number, title: string, fragment?: string, interwiki?: string): Title | null;
 	/**
@@ -191,7 +194,6 @@ export interface TitleStatic {
 	 * Automatically assumed if the title is created in the Media namespace.
 	 *
 	 * @return A valid Title object or `null` if the input cannot be turned into a valid title.
-	 * @static
 	 */
 	newFromUserInput(title: string, defaultNamespace?: number, options?: {forUploading?: true}): Title | null;
 	/**
@@ -200,7 +202,6 @@ export interface TitleStatic {
 	 *
 	 * @param uncleanName The unclean file name including file extension but without namespace.
 	 * @return A valid Title object or `null` if the title is invalid.
-	 * @static
 	 */
 	newFromFileName(uncleanName: string): Title | null;
 	/**
@@ -208,7 +209,6 @@ export interface TitleStatic {
 	 *
 	 * @param img The image to use as a base.
 	 * @return The file title or null if unsuccessful.
-	 * @static
 	 */
 	// newFromImg(img: HTMLElement | JQuery<HTMLImageElement>): Title | null;
 	/**
@@ -216,7 +216,6 @@ export interface TitleStatic {
 	 *
 	 * @param namespaceId The namespace ID.
 	 * @return A boolean indicating whether the namespace is a talk namespace.
-	 * @static
 	 */
 	isTalkNamespace(namespaceId: number): boolean;
 	/**
@@ -224,7 +223,6 @@ export interface TitleStatic {
 	 *
 	 * @param namespaceId The namespace ID.
 	 * @return A boolean indicating whether the namespace is a signature namespace.
-	 * @static
 	 */
 	// wantSignaturesNamespace(namespaceId: number): boolean;
 	/**
@@ -233,13 +231,10 @@ export interface TitleStatic {
 	 * @param title Prefixed DB title (string) or instance of Title.
 	 * @return Boolean if the information is available, otherwise `null`.
 	 * @throws {Error} If title is not a string or Title.
-	 * @static
 	 */
 	exists(title: string | Title): boolean | null;
 	/**
 	 * Object used by {@link exists}.
-	 *
-	 * @static
 	 */
 	readonly exist: {
 		/**
@@ -270,7 +265,6 @@ export interface TitleStatic {
 	 *
 	 * @param extension File extension (without the leading dot).
 	 * @return File extension in canonical form.
-	 * @static
 	 */
 	normalizeExtension(extension: string): string;
 	/**
@@ -281,7 +275,6 @@ export interface TitleStatic {
 	 *
 	 * @param chr Unicode character.
 	 * @return Unicode character, in upper case, according to the same rules as in PHP.
-	 * @static
 	 */
 	phpCharToUpper(chr: string): string;
 	/**
@@ -294,7 +287,6 @@ export interface TitleStatic {
 	 *
 	 * @param chr Unicode character.
 	 * @return Unicode character, in lower case, according to the same rules as in PHP.
-	 * @static
 	 */
 	phpCharToLower(chr: string): string;
 	/**
@@ -304,7 +296,6 @@ export interface TitleStatic {
 	 *
 	 * @param str
 	 * @returns
-	 * @static
 	 */
 	uc(str: string): string;
 	/**
@@ -314,16 +305,14 @@ export interface TitleStatic {
 	 *
 	 * @param str
 	 * @returns
-	 * @static
 	 */
 	lc(str: string): string;
 }
 
 /**
- * The instance members of the `Title` class.
- *
- * For static members including the constructor (defined separately due to TypeScript limitations)
- * and the differences in feature from the native `mediawiki.Title`, see {@link TitleStatic}.
+ * The instance members of the `Title` class. For static members including the constructor
+ * (defined separately due to TypeScript limitations) and the differences in feature from
+ * the native `mediawiki.Title`, see {@link TitleStatic}.
  */
 export interface Title {
 	/**
