@@ -1,16 +1,20 @@
 /**
- * This module is attached to Mwbot.Util as a static member.
+ * This module provides a collection of utility functions, accessible via {@link Mwbot.Util}.
  *
- * Note that `Mwbot.Util` is different from `mw.util`. It is a collection of utility functions
+ * Note that `Mwbot.Util` is distinct from `mw.util`. It is a set of utility functions
  * used in the `mwbot-ts` framework, exposed to the user to facilitate common operations.
  *
- * @module Util
+ * @module
  */
+
+// Imported only for docs
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { Mwbot } from './Mwbot';
 
 // ********************************* SYNCHRONOUS FUNCTIONS *********************************
 
 /**
- * Perform a deep merge of objects and return a new object.
+ * Performs a deep merge of objects and returns a new object.
  * - Arrays are concatenated.
  * - Plain objects are recursively merged.
  * - Class instances are cloned but overwritten by later instances.
@@ -66,11 +70,14 @@ export function mergeDeep<T extends object[]>(...objects: T): UnionToIntersectio
 
 /**
  * Converts a union of objects into an intersection of their properties.
+ *
+ * @private
  */
 export type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
 
 /**
- * Check whether a value is an object. Arrays and `null` are not considered objects.
+ * Checks whether a value is an object. Arrays and `null` are not considered objects.
+ *
  * @param value
  * @returns
  */
@@ -79,13 +86,17 @@ export function isObject(value: any): boolean {
 }
 
 /**
- * Check whether an object is a plain object.
+ * Checks whether a value is a plain object.
+ *
  * @param value
  * @returns
  */
 export function isPlainObject(value: any): boolean {
-	// Adapted from https://github.com/sindresorhus/is-plain-obj/blob/master/index.js
-	if (Object.prototype.toString.call(value) !== '[object Object]') {
+	if (
+		typeof value !== 'object' ||
+		value === null ||
+		Object.prototype.toString.call(value) !== '[object Object]'
+	) {
 		return false;
 	}
 	const prototype = Object.getPrototypeOf(value);
@@ -93,7 +104,7 @@ export function isPlainObject(value: any): boolean {
 }
 
 /**
- * Check whether the given object is empty.
+ * Checks whether the given object is empty.
 
  * @param object
  * @returns `true` if the object has no properties; otherwise `false`.
@@ -111,10 +122,18 @@ export function isEmptyObject(object: any): boolean {
 }
 
 /**
- * Check if a value is a class instance (i.e., not a plain object but an instance of a class).
+ * Checks if a value is a class instance.
+ *
+ * @param value
+ * @returns
  */
 export function isClassInstance(value: any): boolean {
-	return isObject(value) && !isPlainObject(value);
+	if (!isObject(value)) {
+		return false;
+	}
+	const proto = Object.getPrototypeOf(value);
+	// Ensure it has a prototype that is neither null nor Object.prototype
+	return proto !== null && proto !== Object.prototype && typeof value.constructor === 'function';
 }
 
 /**
@@ -200,21 +219,21 @@ export function deepCloneInstance<T extends object>(obj: T, /** @private */ seen
 }
 
 /**
- * A disjunctive union type for primitive types.
+ * A union of primitive types.
  */
 export type primitive = string | number | boolean | bigint | symbol | undefined | null;
 
 /**
- * Check whether a value is a primitive type.
+ * Checks whether a value is a primitive type.
  * @param value
  * @returns
  */
 export function isPrimitive(value: unknown): value is primitive {
-    return value !== Object(value);
+	return value !== Object(value);
 }
 
 /**
- * Escape `\ { } ( ) | . ? * + - ^ $ [ ]` in a string for safe inclusion in regular expressions.
+ * Escapes `\ { } ( ) | . ? * + - ^ $ [ ]` in a string for safe inclusion in regular expressions.
  * @param str
  * @returns
  */
@@ -224,7 +243,7 @@ export function escapeRegExp(str: string): string {
 }
 
 /**
- * Check whether two arrays are equal. Neither array should contain non-primitive values as its elements.
+ * Checks whether two arrays are equal. Neither array should contain non-primitive values as its elements.
  * @param array1
  * @param array2
  * @param orderInsensitive Default: `false`
@@ -241,7 +260,7 @@ export function arraysEqual(array1: primitive[], array2: primitive[], orderInsen
 // ********************************* ASYNCHRONOUS FUNCTIONS *********************************
 
 /**
- * Pause execution for the specified duration.
+ * Pauses execution for the specified duration.
  *
  * @param milliseconds The duration to sleep, in milliseconds. Clamped to a minimum of `0`.
  * @returns A Promise that resolves after the specified duration.
