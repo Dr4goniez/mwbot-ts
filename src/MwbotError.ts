@@ -20,7 +20,7 @@ import type { Mwbot } from './Mwbot';
  *
  * This error class is used throughout {@link Mwbot} to standardize error handling,
  * ensuring that all errors and rejected Promises include a stack trace for easier
- * debugging. This simplifies troubleshooting.
+ * debugging.
  *
  * For a list of error codes, see {@link MwbotErrorCodes}.
  */
@@ -149,7 +149,9 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
  */
 export interface MwbotErrorCodes {
 	/**
-	 * Marks errors of HTTP requests, returned by the MediaWiki API.
+	 * Marks errors from HTTP requests returned by the MediaWiki API.
+	 *
+	 * This property is always an empty object because the API itself defines the error codes.
 	 */
 	api: { /* empty */ };
 	/**
