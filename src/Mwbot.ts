@@ -1,6 +1,8 @@
 /**
  * The core module of `mwbot-ts`.
  *
+ * ### Credits
+ *
  * Portions of this module are adapted from the following:
  *
  * * `mediawiki.api` module in MediaWiki core (GNU General Public License v2)
@@ -61,7 +63,27 @@ export class Mwbot {
 	// ****************************** CLASS PROPERTIES ******************************
 
 	/**
-	 * The default config for HTTP requests.
+	 * The default configurations for HTTP requests.
+	 *
+	 * ```js
+	 * {
+	 *	  method: 'GET',
+	 *	  headers: {
+	 *	    'User-Agent': `mwbot-ts/${packageJson.version} (https://github.com/Dr4goniez/mwbot-ts)`,
+	 *	    'Content-Type': 'application/x-www-form-urlencoded',
+	 *	    'Accept-Encoding': 'gzip'
+	 *	  },
+	 *	  params: {
+	 *	    action: 'query',
+	 *	    format: 'json',
+	 *	    formatversion: '2',
+	 *	    maxlag: 5
+	 *	  },
+	 *	  timeout: 60 * 1000, // 60 seconds
+	 *	  responseType: 'json',
+	 *	  responseEncoding: 'utf8'
+	 * }
+	 * ```
 	 */
 	static get defaultRequestOptions() {
 		return {
@@ -111,7 +133,7 @@ export class Mwbot {
 	 */
 	protected tokens: ApiResponseQueryMetaTokens;
 	/**
-	 * Object that holds UUIDs generated for each HTTP request issued by {@link request}.
+	 * Object that holds UUIDs generated for each HTTP request issued by {@link _request}.
 	 * The keys represent request UUIDs, and the values the number of requests made using the ID.
 	 */
 	protected uuid: {[id :string]: number};
@@ -133,17 +155,17 @@ export class Mwbot {
 		return Util;
 	}
 	/**
-	 * `String` library.
+	 * `String` library with functions to manipulate strings.
 	 */
 	static get String(): typeof mwString {
 		return mwString;
 	}
 	/**
-	 * The site and user information fetched when {@link init} is called. Can be obtained with {@link info}.
+	 * The site and user information fetched by {@link _init}. Exposed to the user via {@link info}.
 	 */
 	protected _info: SiteAndUserInfo;
 	/**
-	 * Returns (a deep copy of) the site and user information fetched when {@link init} is called.
+	 * Returns (a deep copy of) the site and user information fetched by {@link init}.
 	 */
 	get info(): SiteAndUserInfo {
 		this.checkInit();
@@ -230,7 +252,25 @@ export class Mwbot {
 	// ****************************** CONSTRUCTOR-RELATED METHODS ******************************
 
 	/**
-	 * Create a `Mwbot` instance. **{@link init} must subsequently be called for initialization.**
+	 * Creates a `Mwbot` instance. **{@link init} must subsequently be called for initialization.**
+	 *
+	 * **Example:**
+	 * ```ts
+	 * import { Mwbot, MwbotInitOptions } from 'mwbot-ts';
+	 *
+	 * const initOptions: MwbotInitOptions = {
+	 *   apiUrl: 'https://en.wikipedia.org/w/api.php',
+	 *   userAgent: 'MyCoolBot/1.0.0 (https://github.com/Foo/MyCoolBot)',
+	 *   credentials: {
+	 *     oAuth2AccessToken: '...'
+	 *   }
+	 * };
+	 *
+	 * (async () => {
+	 *   const mwbot = await new Mwbot(initOptions).init();
+	 *   // Do something here and below...
+	 * })();
+	 * ```
 	 *
 	 * @param mwbotInitOptions Configuration object containing initialization settings and user credentials.
 	 * @param requestOptions Custom request options applied to all HTTP requests issued by the new instance.
@@ -282,7 +322,7 @@ export class Mwbot {
 	 * Validates user credentials and determines the authentication type.
 	 *
 	 * @param credentials The credentials object provided by the user.
-	 * @returns The authentication type or an OAuth instance for OAuth 1.0a.
+	 * @returns Validated credentials.
 	 * @throws {MwbotError} If the credentials format is incorrect, or if unexpected keys are present.
 	 */
 	protected static validateCredentials(credentials: Credentials): MwbotCredentials {
@@ -364,7 +404,7 @@ export class Mwbot {
 	}
 
 	/**
-	 * Update the bot options stored in the instance.
+	 * Updates the bot options stored in the instance.
 	 *
 	 * @param options The new options to apply.
 	 * @param merge Whether to merge `options` with the existing ones (default: `true`).
@@ -374,10 +414,10 @@ export class Mwbot {
 	 * doing so is discouraged since a `Mwbot` instance is initialized with site-specific data based on the URL.
 	 * Instead, consider creating a new instance with a different URL.
 	 *
-	 * @returns The current {@link Mwbot} instance.
+	 * @returns The current instance for chaining.
 	 * @throws If the resulting options lack an `apiUrl` property.
 	 */
-	setMwbotOptions(options: Partial<MwbotOptions>, merge = true): Mwbot {
+	setMwbotOptions(options: Partial<MwbotOptions>, merge = true): this {
 		if (merge) {
 			this.userMwbotOptions = mergeDeep(this.userMwbotOptions, options);
 		} else {
@@ -394,14 +434,14 @@ export class Mwbot {
 	}
 
 	/**
-	 * Update the default request options stored in the instance.
+	 * Updates the default request options stored in the instance.
 	 *
 	 * @param options The options to apply.
 	 * @param merge Whether to merge `options` with the existing ones (default: `true`).
 	 *
 	 * If `false`, the current settings are cleared before applying `options`.
 	 *
-	 * @returns The current {@link Mwbot} instance.
+	 * @returns The current instance for chaining.
 	 */
 	setRequestOptions(options: MwbotRequestConfig, merge = true): Mwbot {
 		if (merge) {
@@ -672,8 +712,9 @@ export class Mwbot {
 	}
 
 	/**
-	 * Initialize the configuration values with site and user data.
-	 	 * @param userinfo
+	 * Initializes the configuration values with site and user data.
+	 *
+	 * @param userinfo
 	 * @param general
 	 * @param namespaces
 	 * @param namespacealiases
@@ -762,7 +803,7 @@ export class Mwbot {
 	// ****************************** CORE REQUEST METHODS ******************************
 
 	/**
-	 * Perform a raw HTTP request.
+	 * Performs a raw HTTP request.
 	 *
 	 * **NOTE**: This method does ***not*** reference any instance-specific settings.
 	 *
@@ -784,11 +825,11 @@ export class Mwbot {
 	}
 
 	/**
-	 * Perform an HTTP request to the MediaWiki API.
+	 * Performs an HTTP request to the MediaWiki API.
 	 *
 	 * @param parameters Parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns
+	 * @returns A Promise resolving to the API response or rejecting with an error.
 	 */
 	async request(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 
@@ -820,13 +861,13 @@ export class Mwbot {
 	}
 
 	/**
-	 * Perform a raw HTTP request to the MediaWiki API.
+	 * Performs a raw HTTP request to the MediaWiki API.
 	 *
 	 * This method assumes that the request body has been fully processed, meaning all necessary parameters have been formatted,
 	 * validated, and encoded as required by the API.
 	 *
 	 * @param requestOptions The finalized HTTP request options, ready for transmission.
-	 * @returns
+	 * @returns A Promise resolving to the API response or rejecting with an error.
 	 */
 	protected async _request(requestOptions: MwbotRequestConfig): Promise<ApiResponse> {
 
@@ -1014,10 +1055,10 @@ export class Mwbot {
 	}
 
 	/**
-	 * Massage parameters from the nice format we accept into a format suitable for the API.
+	 * Massages parameters from the nice format we accept into a format suitable for the API.
 	 *
 	 * @param parameters (modified in-place)
-	 * @returns Boolean indicating whether the parameters have a long field.
+	 * @returns A boolean indicating whether the parameters have a long field.
 	 */
 	protected preprocessParameters(parameters: ApiParams): boolean {
 		let hasLongFields = false;
@@ -1048,7 +1089,7 @@ export class Mwbot {
 	 * Handles data encoding for POST requests (calls {@link handlePostMultipartFormData} for `multipart/form-data`).
 	 *
 	 * @param requestOptions The HTTP request options to modify.
-	 * @param hasLongFields Boolean indicating whether the parameters have a long field.
+	 * @param hasLongFields A boolean indicating whether the parameters have a long field.
 	 */
 	protected async handlePost(requestOptions: MwbotRequestConfig, hasLongFields: boolean): Promise<void> {
 
@@ -1168,8 +1209,9 @@ export class Mwbot {
 	}
 
 	/**
-	 * Check whether the instance has been initialized for an anonymous user.
-	 * @returns
+	 * Checks whether the instance has been initialized for an anonymous user.
+	 *
+	 * @returns A boolean indicating whether the instance was initialized for an anonymous user.
 	 */
 	protected isAnonymous(): boolean {
 		return !!this.credentials.anonymous;
@@ -1177,6 +1219,7 @@ export class Mwbot {
 
 	/**
 	 * Logs warnings returned from the API to the console unless suppressed.
+	 *
 	 * @param warnings Warnings returned by the API, if any.
 	 */
 	protected showWarnings(warnings: ApiResponse['warnings']): void {
@@ -1211,13 +1254,13 @@ export class Mwbot {
 	 * If `base` is an API response containing an error, it is converted into
 	 * an {@link MwbotError} instance.
 	 *
-	 * If `base` is already an instance of `MwbotError`, it is returned as is.
+	 * If `base` is already an instance of {@link MwbotError}, it is returned as is.
 	 *
 	 * If a request UUID is provided, its entry in {@link uuid} is cleared.
 	 *
 	 * @param base An error object, which can be:
 	 * - An API response containing an `error` or `errors` property.
-	 * - An existing `MwbotError` instance, in which case it is returned as is.
+	 * - An existing {@link MwbotError} instance, in which case it is returned as is.
 	 *
 	 * @param requestId The UUID of the request to be removed from {@link uuid}.
 	 * If provided, the corresponding entry is deleted before processing `base`.
@@ -1240,6 +1283,7 @@ export class Mwbot {
 
 	/**
 	 * Returns a `mwbot_api_anonymous` error.
+	 *
 	 * @param requestId If provided, the relevant entry in {@link uuid} is cleared.
 	 * @returns
 	 */
@@ -1307,7 +1351,7 @@ export class Mwbot {
 	}
 
 	/**
-	 * Abort all unfinished HTTP requests issued by this instance.
+	 * Aborts all unfinished HTTP requests issued by this instance.
 	 */
 	abort(): Mwbot {
 		this.abortions.forEach((controller) => {
@@ -1320,11 +1364,11 @@ export class Mwbot {
 	}
 
 	/**
-	 * Perform an HTTP GET request to the MediaWiki API.
+	 * Performs an HTTP GET request to the MediaWiki API.
 	 *
 	 * @param parameters Parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns
+	 * @returns A Promise resolving to the API response or rejecting with an error.
 	 */
 	get(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 		requestOptions.method = 'GET';
@@ -1332,11 +1376,11 @@ export class Mwbot {
 	}
 
 	/**
-	 * Perform an HTTP POST request to the MediaWiki API.
+	 * Performs an HTTP POST request to the MediaWiki API.
 	 *
 	 * @param parameters Parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns
+	 * @returns A Promise resolving to the API response or rejecting with an error.
 	 */
 	post(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 		requestOptions.method = 'POST';
@@ -1344,7 +1388,7 @@ export class Mwbot {
 	}
 
 	/**
-	 * Perform an HTTP POST request to the MediaWiki API to **fetch data**. This method should only be used
+	 * Performs an HTTP POST request to the MediaWiki API to **fetch data**. This method should only be used
 	 * to circumvent a `414 URI too long` error; otherwise, use {@link get}.
 	 *
 	 * Per {@link https://www.mediawiki.org/wiki/API:Etiquette#Other_notes | mw:API:Etiquette#Other_notes},
@@ -1352,7 +1396,7 @@ export class Mwbot {
 	 *
 	 * @param parameters Parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns
+	 * @returns A Promise resolving to the API response or rejecting with an error.
 	 */
 	nonwritePost(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 		requestOptions.method = 'POST';
@@ -1362,12 +1406,12 @@ export class Mwbot {
 	}
 
 	/**
-	 * Perform an API request that automatically continues until the limit is reached.
+	 * Performs an API request that automatically continues until the limit is reached.
 	 *
 	 * This method is designed for API calls that include a `continue` property in the response.
 	 *
-	 * **Usage Note:** Ensure the API parameters include a `**limit` value set to `"max"` to retrieve the maximum
-	 * number of results per request.
+	 * **Usage Note:** If applicable, ensure the API parameters include a `**limit` value set to `'max'`
+	 * to retrieve the maximum number of results per request.
 	 *
 	 * @param parameters Parameters to the API.
 	 * @param limit The maximum number of continuation. (Default: `10`)
@@ -1418,7 +1462,7 @@ export class Mwbot {
 	}
 
 	/**
-	 * Perform API requests with a multi-value field that is subject to the apilimit, processing multiple requests
+	 * Performs API requests with a multi-value field that is subject to the apilimit, processing multiple requests
 	 * in parallel if necessary.
 	 *
 	 * For example:
@@ -1527,7 +1571,7 @@ export class Mwbot {
 	// ****************************** TOKEN-RELATED METHODS ******************************
 
 	/**
-	 * Perform a POST request to the MediaWiki API using a token of the specified type.
+	 * Performs a POST request to the MediaWiki API using a token of the specified type.
 	 *
 	 * This method retrieves a token automatically, before performing the request.
 	 * If a cached token exists, it is used first; if the request fails due to an invalid token
@@ -1545,7 +1589,7 @@ export class Mwbot {
 	 * @param tokenType The type of token to use (e.g., `csrf`).
 	 * @param parameters Parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns
+	 * @returns A Promise resolving to the API response or rejecting with an error.
 	 */
 	async postWithToken(tokenType: string, parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 		if (this.isAnonymous()) {
@@ -1640,7 +1684,7 @@ export class Mwbot {
 	}
 
 	/**
-	 * Convert legacy token types to `csrf`.
+	 * Converts legacy token types to `csrf`.
 	 *
 	 * @param action
 	 * @returns
@@ -1664,10 +1708,10 @@ export class Mwbot {
 	}
 
 	/**
-	 * Mark a cached token of the specified type as invalid.
+	 * Marks a cached token of the specified type as invalid.
 	 *
 	 * @param tokenType The type of token to invalidate (e.g., `csrf`).
-	 * @returns
+	 * @returns The current instance for chaining.
 	 */
 	badToken(tokenType: string): Mwbot {
 		tokenType = Mwbot.mapLegacyToken(tokenType);
@@ -1679,9 +1723,12 @@ export class Mwbot {
 	}
 
 	/**
-	 * Get type of token to be used with an API action
-	 * @param action The API's action parameter value.
-	 * @returns
+	 * Gets type of token to be used with an API action.
+	 *
+	 * @param action The API's `action` parameter value.
+	 * @returns A Promise resolving to the token type as a string, or `null` on failure.
+	 *
+	 * *This method never rejects*.
 	 */
 	protected getTokenType(action: string): Promise<string | null> {
 		return this.get({
@@ -1698,13 +1745,13 @@ export class Mwbot {
 	}
 
 	/**
-	 * Perform a POST request to the MediaWiki API using a csrf token.
+	 * Performs a POST request to the MediaWiki API using a CSRF token.
 	 *
 	 * This is a shorthand method of {@link postWithToken}.
 	 *
 	 * @param parameters Parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns
+	 * @returns A Promise resolving to the API response or rejecting with an error.
 	 */
 	postWithCsrfToken(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 		return this.postWithToken('csrf', parameters, requestOptions);
@@ -1716,7 +1763,7 @@ export class Mwbot {
 	 * This is a shorthand method of {@link getToken}.
 	 *
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns
+	 * @returns A Promise resolving to a CSRF token or rejecting with an error.
 	 */
 	getCsrfToken(requestOptions: MwbotRequestConfig = {}): Promise<string> {
 		return this.getToken('csrf', void 0, requestOptions);
@@ -1772,6 +1819,17 @@ export class Mwbot {
 		return title;
 	}
 
+	/**
+	 * Sends an `action=edit` request.
+	 *
+	 * @param title
+	 * @param content
+	 * @param summary
+	 * @param internalOptions
+	 * @param additionalParams
+	 * @param requestOptions
+	 * @returns
+	 */
 	protected _save(
 		title: Title,
 		content: string,
@@ -2111,7 +2169,7 @@ export class Mwbot {
 	 * @param title The page title, either as a string or a {@link Title} instance.
 	 * @param transform A function that receives a {@link Wikitext} instance initialized from the
 	 * fetched content and an object representing the metadata of the fetched revision. This function
-	 * should return {@link ApiEditPageParams} as a plain object (a Promise resolving to this object),
+	 * should return {@link ApiEditPageParams} as a plain object or (a Promise resolving to this object),
 	 * which will be used for the edit request.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
@@ -2226,11 +2284,11 @@ export class Mwbot {
 	// ****************************** SPECIFIC REQUEST METHODS ******************************
 
 	/**
-	 * Log in to the wiki for which this instance has been initialized.
+	 * Logs in to the wiki for which this instance has been initialized.
 	 *
 	 * @param username
 	 * @param password
-	 * @returns
+	 * @returns A Promise resolving to the API response or rejecting with an error.
 	 */
 	protected async login(username: string, password: string): Promise<ApiResponse> { // TODO: Make this method public?
 
@@ -2520,11 +2578,8 @@ export interface MwbotRequestConfig extends AxiosRequestConfig {
 /**
  * Site and user information retrieved by {@link Mwbot.init}. Accessible via {@link Mwbot.info}.
  *
- * Note that there is nothing special about this interface. It mirrors the API response from
- * https://en.wikipedia.org/w/api.php?action=query&formatversion=2&meta=userinfo|siteinfo&uiprop=rights&siprop=general|namespaces|namespacealiases
- * (the endpoint may vary), **except** that `userinfo` is renamed to `user`.
- *
- * This interface ensures that certain optional properties in the API response are treated as non-optional after verification.
+ * Utility types used in this interface simply ensure certain optional properties in the API response
+ * are treated as non-optional after verification.
  */
 export interface SiteAndUserInfo {
 	// The utility types used here just make the verified properties non-optional
@@ -2541,7 +2596,7 @@ export interface SiteAndUserInfo {
 }
 
 /**
- * Schema for the object accessible via {@link Mwbot.config}.
+ * Schema of the data handled by {@link Mwbot.config}.
  */
 export interface ConfigData {
 	wgArticlePath: string;
