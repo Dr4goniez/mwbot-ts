@@ -4,8 +4,6 @@
  * @module
  */
 
-import { ApiParams as ApiParamsTMW } from 'types-mediawiki/api_params';
-export { ApiEditPageParams } from 'types-mediawiki/api_params';
 import { XOR } from 'ts-xor';
 
 // ************************************** General types **************************************
@@ -47,10 +45,35 @@ export type OnlyOneRecord<K extends string, V = any> = {
  * The API query parameters.
  * @see https://www.mediawiki.org/wiki/API:Main_page
  */
-export interface ApiParams extends ApiParamsTMW {
-
-	// Overwrite "action?: string;"
+export interface ApiParams {
 	action?: ApiParamsAction;
+
+	// Copied from https://github.com/wikimedia-gadgets/types-mediawiki/blob/main/api_params/index.d.ts
+
+	format?: "json" | "jsonfm" | "xml" | "xmlfm" | "php" | "none";
+	maxlag?: number;
+	smaxage?: number;
+	maxage?: number;
+	assert?: "user" | "bot" | "anon";
+	assertuser?: string;
+	requestid?: string;
+	servedby?: boolean;
+	curtimestamp?: boolean;
+	responselanginfo?: boolean;
+	origin?: string;
+	uselang?: string;
+	errorformat?: "bc" | "html" | "none" | "plaintext" | "raw" | "wikitext";
+	errorlang?: string;
+	errorsuselocal?: boolean;
+	centralauthtoken?: string;
+
+	// format=json
+	callback?: string;
+	utf8?: boolean;
+	ascii?: boolean;
+	formatversion?: "1" | "2" | "latest";
+
+	// ------ Copy end ------
 
 	// For action-specific parameters
 	[param: string]:
@@ -177,6 +200,65 @@ export type ApiParamsAction =
 	| 'webauthn'
 	| 'wikilove';
 
+export interface ApiEditPageParams extends ApiParams {
+	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki/blob/main/api_params/index.d.ts
+	title?: string;
+	pageid?: number;
+	section?: string;
+	sectiontitle?: string;
+	text?: string;
+	summary?: string;
+	tags?: string | string[];
+	minor?: boolean;
+	notminor?: boolean;
+	bot?: boolean;
+	baserevid?: number;
+	basetimestamp?: string | Date;
+	starttimestamp?: string | Date;
+	recreate?: boolean;
+	createonly?: boolean;
+	nocreate?: boolean;
+	watch?: boolean;
+	unwatch?: boolean;
+	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlistexpiry?: string;
+	md5?: string;
+	prependtext?: string;
+	appendtext?: string;
+	undo?: number;
+	undoafter?: number;
+	redirect?: boolean;
+	contentformat?:
+		| "application/json"
+		| "application/octet-stream"
+		| "application/unknown"
+		| "application/x-binary"
+		| "text/css"
+		| "text/javascript"
+		| "text/plain"
+		| "text/unknown"
+		| "text/x-wiki"
+		| "unknown/unknown";
+	contentmodel?:
+		| "GadgetDefinition"
+		| "JsonSchema"
+		| "MassMessageListContent"
+		| "Scribunto"
+		| "SecurePoll"
+		| "css"
+		| "javascript"
+		| "json"
+		| "sanitized-css"
+		| "text"
+		| "unknown"
+		| "wikitext";
+	token?: string;
+	returnto?: string;
+	returntoquery?: string;
+	returntoanchor?: string;
+	captchaword?: string;
+	captchaid?: string;
+}
 
 // ************************************** Response types **************************************
 
