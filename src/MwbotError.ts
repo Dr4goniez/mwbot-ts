@@ -43,7 +43,7 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 	 * with the parent Error class.
 	 */
 	override get message(): string {
-		return this.code + ': ' + this.info;
+		return this.info;
 	}
 	/**
 	 * Additional data of the error.
@@ -77,11 +77,8 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 		this.type = type;
 		this.code = code;
 		this.info = info;
-		if (data) {
-			this.data = data;
-		}
-		if (this.data || rest) {
-			this.data = Object.assign({}, this.data, rest);
+		if (data || rest) {
+			this.data = Object.assign({}, data, rest);
 		}
 
 		// Ensure proper stack trace capture
@@ -162,6 +159,9 @@ export interface MwbotErrorCodes {
 		invalidformat: 'Not using "format=json" in request parameters.';
 		anonymous: 'Anonymous users are limited to non-write requests.';
 		loginfailed: 'Failed to log in.';
+		// Used in the catch block of Mwbot._init
+		badauth: 'Failed to authenticate the client as a registered user in Mwbot.init.';
+		badvars: 'Failed to initialize wg-variables in Mwbot.init.';
 		// Used in the catch block of Mwbot._request
 		http: 'Encountered an HTTP request error that is not mapped to a specific error code.';
 		aborted: 'Request aborted by the user.';

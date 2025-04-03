@@ -415,41 +415,36 @@ export class Mwbot {
 	/**
 	 * Initializes the `Mwbot` instance to make all functionalities ready.
 	 *
-	 * @returns A `Promise` that resolves to a {@link Mwbot} instance if successful, or `null` if initialization fails.
-	 *
-	 * *This method never rejects.*
+	 * @returns A Promise resolving to the current instance, or rejecting with an error.
 	 */
-	init(): Promise<this | null> {
+	init(): Promise<this> {
 		return this._init(1);
 	}
 
-	protected async _init(attemptIndex: number): Promise<this | null> {
+	/**
+	 * Internal handler for instance initialization.
+	 *
+	 * @param attemptIndex The number of times we have attempted initialization, including the current attempt.
+	 * On a certain type of failure, a retry is attempted once (i.e., when this index is less than or equal to `2`).
+	 * @returns A Promise resolving to the current instance, or rejecting with an error.
+	 */
+	protected async _init(attemptIndex: number): Promise<this> {
 
-		// This method does not use MwbotError because it never rejects, unlike other asynchronous methods
-
-		const initError = (msg?: string): null => {
-			console.error(`Error: ${msg || 'Failed to establish connection.'}`);
-			return null;
-		};
-
-		const retryIfPossible = async (index: number): Promise<this | null> => {
+		const retryIfPossible = async (error: MwbotError, index: number): Promise<this> => {
 			if (index < 2) {
-				console.log('Retrying once again in 5 seconds...');
+				console.log(error);
+				console.log('Mwbot.init failed. Retrying once again in 5 seconds...');
 				await sleep(5000);
-				return await this._init(index + 1);
+				return this._init(index + 1);
 			} else {
-				return initError('Aborted initialization.');
+				throw error;
 			}
 		};
 
 		// Log in if necessary
 		if (this.credentials.user) {
 			const {username, password} = this.credentials.user;
-			const login = await this.login(username, password).then((res) => res).catch((err) => err);
-			if (login instanceof MwbotError) {
-				console.error(login);
-				return initError();
-			}
+			await this.login(username, password);
 		}
 
 		// Get user and site info
@@ -461,30 +456,36 @@ export class Mwbot {
 			uiprop: 'rights',
 			siprop: 'functionhooks|general|magicwords|interwikimap|namespaces|namespacealiases',
 			maxlag: void 0
-		}).then((res) => res)
-		.catch((err) => err);
-		if (!res || !res.query) {
-			return initError();
-		} else if (res instanceof MwbotError) {
-			console.error(res);
-			return initError();
-		}
+		});
 
 		// NOTE: interwikimap is built-in since MW v1.44 but was initially an extension
-		const {userinfo, functionhooks, general, magicwords, interwikimap = [], namespaces, namespacealiases} = res.query;
-		if (!userinfo || !functionhooks || !general || !magicwords || !namespaces || !namespacealiases) {
-			console.error('Error: Failed to establish connection.');
-			return await retryIfPossible(attemptIndex);
+		const {userinfo, functionhooks, general, magicwords, interwikimap = [], namespaces, namespacealiases} = res.query || {};
+		if (
+			!res || !res.query ||
+			!userinfo || !functionhooks || !general || !magicwords || !namespaces || !namespacealiases
+		) {
+			const error = new MwbotError('api_mwbot', {
+				code: 'empty',
+				info: 'OK response but empty result (check HTTP headers?)'
+			});
+			return retryIfPossible(error, attemptIndex);
 		} else if (userinfo.anon && !this.isAnonymous()) {
-			return initError('Authentication failed.');
+			const error = new MwbotError('api_mwbot', {
+				code: 'badauth',
+				info: 'Failed to authenticate the client as a registered user.'
+			});
+			return retryIfPossible(error, attemptIndex);
 		}
 
 		// Initialize mwbot.config
 		const failedKeys = this.initConfigData(userinfo, general, namespaces, namespacealiases);
 		if (failedKeys.length) {
-			// Ensure that all the dependet config values are fetched successfully
-			console.warn('Failed to fetch configuration variables: ' + failedKeys.join(', '));
-			return await retryIfPossible(attemptIndex);
+			// Ensure that all the dependent config values are fetched successfully
+			const error = new MwbotError('api_mwbot', {
+				code: 'badvars',
+				info: 'Failed to initialize wg-variables.'
+			}, {keys: failedKeys});
+			return retryIfPossible(error, attemptIndex);
 		}
 
 		// Set up instance properties
@@ -1546,21 +1547,18 @@ export class Mwbot {
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns
 	 */
-	postWithToken(tokenType: string, parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
+	async postWithToken(tokenType: string, parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 		if (this.isAnonymous()) {
-			return Promise.reject(this.errorAnonymous());
+			throw this.errorAnonymous();
 		}
 		const assertParams = {
 			assert: parameters.assert,
 			assertuser: parameters.assertuser
 		};
-		return new Promise((resolve, reject) => {
-			this.getToken(tokenType, assertParams)
+		return this.getToken(tokenType, assertParams)
 			.then((token) => {
 				parameters.token = token;
-				return this.post(parameters, mergeDeep(requestOptions, {disableRetryByCode: ['badtoken']}))
-				.then(resolve)
-				.catch((err: MwbotError) => {
+				return this.post(parameters, mergeDeep(requestOptions, {disableRetryByCode: ['badtoken']})).catch((err: MwbotError) => {
 
 					// Error handler
 					if (err.code === 'badtoken') {
@@ -1570,15 +1568,14 @@ export class Mwbot {
 						return this.getToken(tokenType, assertParams)
 						.then((t) => {
 							parameters.token = t;
-							return this.post(parameters, requestOptions).then(resolve).catch(reject);
-						}).catch(reject);
+							return this.post(parameters, requestOptions);
+						}).catch(Promise.reject);
 					}
 
-					reject(err);
+					throw err;
 
 				});
-			}).catch(reject);
-		});
+			}).catch(Promise.reject);
 	}
 
 	/**
@@ -1591,14 +1588,18 @@ export class Mwbot {
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns The retrieved token. If the request fails, a rejected Promise with a {@link MwbotError} object is returned.
 	 */
-	getToken(tokenType: string, additionalParams?: ApiParams | 'user' | 'bot' | 'anon', requestOptions: MwbotRequestConfig = {}): Promise<string> {
+	async getToken(
+		tokenType: string,
+		additionalParams?: ApiParams | 'user' | 'bot' | 'anon',
+		requestOptions: MwbotRequestConfig = {}
+	): Promise<string> {
 
 		// Check for a cached token
 		tokenType = Mwbot.mapLegacyToken(tokenType);
 		const tokenName = `${tokenType}token` as keyof ApiResponseQueryMetaTokens;
 		const cashedToken = this.tokens[tokenName];
 		if (cashedToken) {
-			return Promise.resolve(cashedToken);
+			return cashedToken;
 		}
 
 		// Send an API request
@@ -2207,7 +2208,7 @@ export class Mwbot {
 	 * @param requestOptions Optional HTTP request options.
 	 * @return A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
 	 */
-	newSection(
+	async newSection(
 		title: string | Title,
 		sectiontitle: string,
 		content: string,
@@ -2217,7 +2218,7 @@ export class Mwbot {
 	): Promise<ApiResponse> {
 		const validatedTitle = this.prepEdit(title);
 		if (validatedTitle instanceof MwbotError) {
-			return Promise.reject(validatedTitle);
+			throw validatedTitle;
 		}
 		return this._save(validatedTitle, content, summary, {section: 'new', sectiontitle}, additionalParams, requestOptions);
 	}
@@ -2235,9 +2236,9 @@ export class Mwbot {
 
 		// Fetch a login token
 		const disableRetryAPI = {disableRetryAPI: true};
-		const token = await this.getToken('login', {maxlag: void 0}, disableRetryAPI).then((res) => res).catch((err) => err);
+		const token = await this.getToken('login', {maxlag: void 0}, disableRetryAPI).catch((err) => err);
 		if (typeof token !== 'string') {
-			return Promise.reject(token); // Error object
+			throw token; // Error object
 		}
 
 		// Login
@@ -2249,11 +2250,9 @@ export class Mwbot {
 			format: 'json',
 			formatversion: '2',
 			maxlag: void 0 // Overwrite maxlag to have this request prioritized
-		}, disableRetryAPI).then((res) => res).catch((err) => err);
+		}, disableRetryAPI);
 
-		if (resLogin instanceof MwbotError) {
-			throw resLogin;
-		} else if (!resLogin.login) {
+		if (!resLogin.login) {
 			throw new MwbotError('api_mwbot', {
 				code: 'empty',
 				info: 'OK response but empty result.'
