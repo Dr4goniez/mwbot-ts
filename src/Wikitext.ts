@@ -591,8 +591,8 @@ export function WikitextFactory(
 		constructor(content: string, options: WikitextOptions = {}) {
 
 			if (typeof content !== 'string') {
-				throw new MwbotError({
-					code: 'mwbot_fatal_typemismatch',
+				throw new MwbotError('fatal', {
+					code: 'typemismatch',
 					info: `"${typeof content}" is not a valid type for Wikitext.constructor.`
 				});
 			}
@@ -748,27 +748,27 @@ export function WikitextFactory(
 
 			// Validate the arguments
 			if (typeof type !== 'string' || !['tags', 'parameters', 'sections', 'templates', 'wikilinks'].includes(type)) {
-				throw new MwbotError({
-					code: 'mwbot_fatal_invalidtype',
+				throw new MwbotError('fatal', {
+					code: 'invalidtype',
 					info: `"${type}" is not a valid expression type for Wikitext.modify.`
 				});
 			} else if (typeof modificationPredicate !== 'function') {
-				throw new MwbotError({
-					code: 'mwbot_fatal_typemismatch',
+				throw new MwbotError('fatal', {
+					code: 'typemismatch',
 					info: 'modificationPredicate must be a function.'
 				});
 			}
 
 			const applyModification = (mods: (string | null)[], expressions: ModificationMap[K][]) => {
 				if (!Array.isArray(mods)) {
-					throw new MwbotError({
-						code: 'mwbot_fatal_typemismatch',
+					throw new MwbotError('fatal', {
+						code: 'typemismatch',
 						info: 'modificationPredicate must return an array.'
 					});
 				}
 				if (mods.length !== expressions.length) {
-					throw new MwbotError({
-						code: 'mwbot_fatal_lengthmismatch',
+					throw new MwbotError('fatal', {
+						code: 'lengthmismatch',
 						info: `The returned array length from modificationPredicate does not match the length of "${type}".`
 					});
 				}

@@ -44,12 +44,7 @@ import {
 	ApiResponseQueryMetaSiteinfoMagicwords,
 	ApiResponseQueryMetaSiteinfoFunctionhooks
 } from './api_types';
-import {
-	ErrorBase,
-	MwbotError,
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	MwbotErrorConfig // Used in the doc of Mwbot.error
-} from './MwbotError';
+import { MwbotError } from './MwbotError';
 import * as Util from './Util';
 const { mergeDeep, isPlainObject, sleep, isEmptyObject, arraysEqual, deepCloneInstance } = Util;
 import * as mwString from './String';
@@ -248,8 +243,8 @@ export class Mwbot {
 		// Ensure that a valid URL is provided
 		requestOptions.url = requestOptions.url || options.apiUrl;
 		if (!requestOptions.url) {
-			throw new MwbotError({
-				code: 'mwbot_fatal_nourl',
+			throw new MwbotError('fatal', {
+				code: 'nourl',
 				info: 'No valid API endpoint is provided.'
 			});
 		}
@@ -292,8 +287,8 @@ export class Mwbot {
 	 */
 	protected static validateCredentials(credentials: Credentials): MwbotCredentials {
 		if (!isPlainObject(credentials)) {
-			throw new MwbotError({
-				code: 'mwbot_fatal_invalidtype',
+			throw new MwbotError('fatal', {
+				code: 'typemismatch',
 				info: 'Credentials must be provided as an object.'
 			});
 		}
@@ -312,8 +307,8 @@ export class Mwbot {
 						oauth2: oAuth2AccessToken
 					};
 				}
-				throw new MwbotError({
-					code: 'mwbot_fatal_invalidcreds',
+				throw new MwbotError('fatal', {
+					code: 'invalidcreds',
 					info: `Unexpected value for "${keys[0]}".`
 				});
 			}
@@ -327,8 +322,8 @@ export class Mwbot {
 						}
 					};
 				}
-				throw new MwbotError({
-					code: 'mwbot_fatal_invalidcreds',
+				throw new MwbotError('fatal', {
+					code: 'invalidcreds',
 					info: 'Invalid types for username or password.'
 				});
 			}
@@ -355,14 +350,14 @@ export class Mwbot {
 						}
 					};
 				}
-				throw new MwbotError({
-					code: 'mwbot_fatal_invalidcreds',
+				throw new MwbotError('fatal', {
+					code: 'invalidcreds',
 					info: 'Invalid OAuth credentials.'
 				});
 			}
 			default:
-				throw new MwbotError({
-					code: 'mwbot_fatal_invalidcreds',
+				throw new MwbotError('fatal', {
+					code: 'invalidcreds',
 					info: `Invalid credential properties: ${keys.join(', ')}`
 				});
 		}
@@ -390,8 +385,8 @@ export class Mwbot {
 			this.userMwbotOptions = mergeDeep({apiUrl}, options);
 		}
 		if (!this.userMwbotOptions.apiUrl) {
-			throw new MwbotError({
-				code: 'mwbot_fatal_nourl',
+			throw new MwbotError('fatal', {
+				code: 'nourl',
 				info: '"apiUrl" must be retained.'
 			});
 		}
@@ -418,7 +413,7 @@ export class Mwbot {
 	}
 
 	/**
-	 * Initialize the `Mwbot` instance to make all functionalities ready.
+	 * Initializes the `Mwbot` instance to make all functionalities ready.
 	 *
 	 * @returns A `Promise` that resolves to a {@link Mwbot} instance if successful, or `null` if initialization fails.
 	 *
@@ -529,8 +524,8 @@ export class Mwbot {
 	 */
 	protected checkInit(): void {
 		if (!this.initialized) {
-			throw new MwbotError({
-				code: 'mwbot_fatal_callinit',
+			throw new MwbotError('fatal', {
+				code: 'callinit',
 				info: 'The instance must be initialized before performing this action.'
 			});
 		}
@@ -677,7 +672,7 @@ export class Mwbot {
 
 	/**
 	 * Initialize the configuration values with site and user data.
-	 * @param userinfo
+	 	 * @param userinfo
 	 * @param general
 	 * @param namespaces
 	 * @param namespacealiases
@@ -801,12 +796,10 @@ export class Mwbot {
 		requestOptions = mergeDeep(Mwbot.defaultRequestOptions, this.userRequestOptions, requestOptions);
 		const hasLongFields = this.preprocessParameters(requestOptions.params);
 		if (requestOptions.params.format !== 'json') {
-			return Promise.reject(
-				this.error({
-					code: 'invalidformat',
-					info: 'Expected "format=json" in request parameters.'
-				})
-			);
+			throw new MwbotError('api_mwbot', {
+				code: 'invalidformat',
+				info: 'Expected "format=json" in request parameters.'
+			});
 		}
 		requestOptions.url = this.userMwbotOptions.apiUrl || requestOptions.url;
 		requestOptions.headers = requestOptions.headers || {};
@@ -863,165 +856,159 @@ export class Mwbot {
 		}
 
 		// Make the request and process the response
-		return new Promise((resolve, reject) => this.rawRequest(requestOptions)
-			.then((response) => {
+		const response = await this.rawRequest(requestOptions).catch((error) => {
 
-				const data: ApiResponse | undefined = response.data;
+			const err = new MwbotError('api_mwbot', {
+				code: 'http',
+				info: 'HTTP request failed.'
+			});
 
-				// Show warnings only for the first request because retries use the same request body
-				if (this.uuid[requestId] === 1) {
-					this.showWarnings(data?.warnings);
+			if (error && error.code === 'ERR_CANCELED') {
+				return this.error(
+					err.setCode('aborted').setInfo('Request aborted by the user.'),
+					requestId
+				);
+			} else if (typeof error.status === 'number' && error.status >= 400) {
+				// Articulate the error object for common errors
+				switch (error.status) {
+					case 404:
+						return this.error(
+							err.setCode('notfound').setInfo(`Page not found (404): ${requestOptions.url!}.`),
+							requestId
+						);
+					case 408:
+						return this.retry(
+							err.setCode('timeout').setInfo('Request timeout (408).'),
+							requestId, requestOptions
+						);
+					case 414:
+						return this.error(
+							err.setCode('baduri').setInfo('URI too long (414): Consider using a POST request.'),
+							requestId
+						);
+					case 429:
+						return this.retry(
+							err.setCode('ratelimited').setInfo('Too many requests (429).'),
+							requestId, requestOptions
+						);
+					case 500:
+						return this.retry(
+							err.setCode('servererror').setInfo('Internal server error (500).'),
+							requestId, requestOptions
+						);
+					case 502:
+						return this.retry(
+							err.setCode('badgateway').setInfo('Bad gateway (502): Perhaps the server is down?'),
+							requestId, requestOptions
+						);
+					case 503:
+						return this.retry(
+							err.setCode('serviceunavailable').setInfo('Service Unavailable (503): Perhaps the server is down?'),
+							requestId, requestOptions
+						);
+					case 504:
+						return this.retry(
+							err.setCode('timeout').setInfo('Gateway timeout (504)'),
+							requestId, requestOptions
+						);
 				}
+			}
 
-				if (!data) {
-					reject(this.error({
-						code: 'empty',
-						info: 'OK response but empty result (check HTTP headers?)',
-						response: response
-					}, requestId));
-				} else if (typeof data !== 'object') {
-					// In most cases the raw HTML of [[Main page]]
-					reject(this.error({
-						code: 'invalidjson',
-						info: 'Invalid JSON response (check the request URL?)'
-					}, requestId));
-				} else if (data.error || data.errors && data.errors[0]) {
+			err.data = {response: error}; // Include the full response for unknown errors
+			return this.error(err, requestId);
 
-					const err = new MwbotError(data as Required<Pick<ApiResponse, 'error' | 'errors'>>);
+		});
 
-					// Handle error codes
-					if (err.code === 'missingparam' && this.isAnonymous() && err.info.includes('The "token" parameter must be set')) {
-						return reject(this.errorAnonymous(requestId));
-					}
+		if (response instanceof Error) {
+			throw response;
+		}
 
-					if (!requestOptions.disableRetryAPI) {
-						// Handle retries
-						switch (err.code) {
-							case 'badtoken':
-							case 'notoken':
-								if (this.isAnonymous()) {
-									return reject(this.errorAnonymous(requestId));
-								}
-								if (!requestOptions.disableRetryByCode?.includes(clonedParams.action!)) {
-									return this.getTokenType(clonedParams.action!).then((tokenType) => { // Identify the required token type
+		const data: ApiResponse | undefined = response.data;
 
-										if (!tokenType) {
-											return reject(this.error(data.error!, requestId));
-										}
-										console.warn(`Warning: Encountered a "${err.code}" error.`);
-										this.badToken(tokenType);
-										delete clonedParams.token;
+		// Show warnings only for the first request because retries use the same request body
+		if (this.uuid[requestId] === 1) {
+			this.showWarnings(data?.warnings);
+		}
 
-										return resolve(this.retry(err, requestId, requestOptions, 2, 0, () => {
-											// Clear the request ID because postWithToken issues a new one
-											delete this.uuid[requestId];
-											return this.postWithToken(tokenType, clonedParams);
-										}));
+		if (!data) {
+			const err = new MwbotError('api_mwbot', {
+				code: 'empty',
+				info: 'OK response but empty result (check HTTP headers?)'
+			});
+			throw this.error(err, requestId);
+		} else if (typeof data !== 'object') {
+			// In most cases the raw HTML of [[Main page]]
+			const err = new MwbotError('api_mwbot', {
+				code: 'invalidjson',
+				info: 'No valid JSON response (check the request URL?)'
+			});
+			throw this.error(err, requestId);
+		} else if ('error' in data || 'errors' in data) {
 
-									});
-								}
-								break;
+			const err = MwbotError.newFromResponse(data as Required<Pick<ApiResponse, "error">> | Required<Pick<ApiResponse, "errors">>);
 
-							case 'readonly':
-								console.warn(`Warning: Encountered a "${err.code}" error.`);
-								return resolve(this.retry(err, requestId, requestOptions, 3, 10));
+			// Handle error codes
+			if (err.code === 'missingparam' && this.isAnonymous() && err.info.includes('The "token" parameter must be set')) {
+				throw this.errorAnonymous(requestId);
+			}
 
-							case 'maxlag': {
-								console.warn(`Warning: Encountered a "${err.code}" error.`);
-								const retryAfter = parseInt(response.headers['retry-after']) || 5;
-								return resolve(this.retry(err, requestId, requestOptions, 4, retryAfter));
-							}
-
-							case 'mwoauth-invalid-authorization':
-								// Per https://phabricator.wikimedia.org/T106066, "Nonce already used" indicates
-								// an upstream memcached/redis failure which is transient
-								if (err.info.includes('Nonce already used')) {
-									return resolve(this.retry(err, requestId, requestOptions, 2, 10));
-								}
+			if (!requestOptions.disableRetryAPI) {
+				// Handle retries
+				switch (err.code) {
+					case 'badtoken':
+					case 'notoken':
+						if (this.isAnonymous()) {
+							throw this.errorAnonymous(requestId);
 						}
+						if (!requestOptions.disableRetryByCode?.includes(clonedParams.action!)) {
+							return this.getTokenType(clonedParams.action!).then((tokenType) => { // Identify the required token type
+
+								if (!tokenType) {
+									throw this.error(err, requestId);
+								}
+								console.warn(`Warning: Encountered a "${err.code}" error.`);
+								this.badToken(tokenType);
+								delete clonedParams.token;
+
+								return this.retry(err, requestId, requestOptions, 2, 0, () => {
+									// Clear the request ID because postWithToken issues a new one
+									delete this.uuid[requestId];
+									return this.postWithToken(tokenType, clonedParams);
+								});
+
+							});
+						}
+						break;
+
+					case 'readonly':
+						console.warn(`Warning: Encountered a "${err.code}" error.`);
+						return this.retry(err, requestId, requestOptions, 3, 10);
+
+					case 'maxlag': {
+						console.warn(`Warning: Encountered a "${err.code}" error.`);
+						const retryAfter = parseInt(response.headers['retry-after']) || 5;
+						return this.retry(err, requestId, requestOptions, 4, retryAfter);
 					}
 
-					reject(this.error(err, requestId));
-
-				} else {
-					if (requiresInterval) {
-						// Save the current time for intervals as needed
-						this.lastRequestTime = Date.now();
-					}
-					delete this.uuid[requestId];
-					resolve(data);
+					case 'mwoauth-invalid-authorization':
+						// Per https://phabricator.wikimedia.org/T106066, "Nonce already used" indicates
+						// an upstream memcached/redis failure which is transient
+						if (err.info.includes('Nonce already used')) {
+							return this.retry(err, requestId, requestOptions, 2, 10);
+						}
 				}
+			}
 
-			})
-			.catch((error) => {
+			throw this.error(err, requestId);
 
-				if (error instanceof Error) {
-					// Reaches this block if anything throw'd in the then block
-					return reject(error);
-				}
-
-				const err = new MwbotError({
-					code: 'http',
-					info: 'HTTP request failed.'
-					// Add response here if the code isn't modified
-				});
-
-				if (error && error.code === 'ERR_CANCELED') {
-					return reject(this.error(
-						err.setCode('aborted').setInfo('Request aborted by the user.'),
-						requestId
-					));
-				} else if (typeof error.status === 'number' && error.status >= 400) {
-					// Articulate the error object for common errors
-					switch (error.status) {
-						case 404:
-							return reject(this.error(
-								err.setCode('notfound').setInfo(`Page not found (404): ${requestOptions.url!}.`),
-								requestId
-							));
-						case 408:
-							return resolve(this.retry(
-								err.setCode('timeout').setInfo('Request timeout (408).'),
-								requestId, requestOptions
-							));
-						case 414:
-							return reject(this.error(
-								err.setCode('baduri').setInfo('URI too long (414): Consider using a POST request.'),
-								requestId
-							));
-						case 429:
-							return resolve(this.retry(
-								err.setCode('ratelimited').setInfo('Too many requests (429).'),
-								requestId, requestOptions
-							));
-						case 500:
-							return resolve(this.retry(
-								err.setCode('servererror').setInfo('Internal server error (500).'),
-								requestId, requestOptions
-							));
-						case 502:
-							return resolve(this.retry(
-								err.setCode('badgateway').setInfo('Bad gateway (502): Perhaps the server is down?'),
-								requestId, requestOptions
-							));
-						case 503:
-							return resolve(this.retry(
-								err.setCode('serviceunavailable').setInfo('Service Unavailable (503): Perhaps the server is down?'),
-								requestId, requestOptions
-							));
-						case 504:
-							return resolve(this.retry(
-								err.setCode('timeout').setInfo('Gateway timeout (504)'),
-								requestId, requestOptions
-							));
-					}
-				}
-
-				err.response = error;
-				reject(this.error(err, requestId));
-
-			})
-		);
+		} else {
+			if (requiresInterval) {
+				// Save the current time for intervals as needed
+				this.lastRequestTime = Date.now();
+			}
+			delete this.uuid[requestId];
+			return data;
+		}
 
 	}
 
@@ -1157,10 +1144,7 @@ export class Mwbot {
 		} else if (oauth1) {
 			// OAuth 1.0a
 			if (!requestOptions.url || !requestOptions.method) {
-				throw new MwbotError({
-					code: 'mwbot_fatal_typemismatch',
-					info: '[Internal] "url" and "method" must be set before applying authentication.'
-				});
+				throw new TypeError('[Internal] "url" and "method" must be set before applying authentication.');
 			}
 			Object.assign(
 				requestOptions.headers,
@@ -1223,31 +1207,33 @@ export class Mwbot {
 	/**
 	 * Returns a {@link MwbotError} instance by normalizing various error objects.
 	 *
-	 * If `base` is an {@link MwbotErrorConfig} or an API response containing an error,
-	 * it is converted into an {@link MwbotError} instance.
+	 * If `base` is an API response containing an error, it is converted into
+	 * an {@link MwbotError} instance.
 	 *
-	 * If `base` is already an instance of `Error` (including `MwbotError`), it is returned as is.
+	 * If `base` is already an instance of `MwbotError`, it is returned as is.
 	 *
 	 * If a request UUID is provided, its entry in {@link uuid} is cleared.
 	 *
 	 * @param base An error object, which can be:
-	 * - A manually created error in the form of {@link MwbotErrorConfig}.
 	 * - An API response containing an `error` or `errors` property.
-	 * - An existing `Error` instance, in which case it is returned as is.
+	 * - An existing `MwbotError` instance, in which case it is returned as is.
 	 *
 	 * @param requestId The UUID of the request to be removed from {@link uuid}.
 	 * If provided, the corresponding entry is deleted before processing `base`.
 	 *
-	 * @returns A normalized {@link MwbotError} instance. If `base` is already an `Error`, it is returned unchanged.
+	 * @returns A normalized {@link MwbotError} instance.
 	 */
-	protected error(base: ErrorBase | MwbotError, requestId?: string): MwbotError {
+	protected error(
+		base: Required<Pick<ApiResponse, 'error'>> | Required<Pick<ApiResponse, 'errors'>> | MwbotError,
+		requestId?: string
+	): MwbotError {
 		if (requestId) {
 			delete this.uuid[requestId];
 		}
-		if (base instanceof Error) {
+		if (base instanceof MwbotError) {
 			return base;
 		} else {
-			return new MwbotError(base);
+			return MwbotError.newFromResponse(base);
 		}
 	}
 
@@ -1256,11 +1242,11 @@ export class Mwbot {
 	 * @param requestId If provided, the relevant entry in {@link uuid} is cleared.
 	 * @returns
 	 */
-	protected errorAnonymous(requestId?: string): MwbotError {
+	protected errorAnonymous(requestId?: string): MwbotError<'api_mwbot'> {
 		if (requestId) {
 			delete this.uuid[requestId];
 		}
-		return new MwbotError({
+		return new MwbotError('api_mwbot', {
 			code: 'anonymous',
 			info: 'Anonymous users are limited to non-write requests.'
 		});
@@ -1315,7 +1301,7 @@ export class Mwbot {
 		}
 
 		// If retry conditions aren't met, reject with the error
-		return Promise.reject(this.error(initialError, requestId));
+		throw this.error(initialError, requestId);
 
 	}
 
@@ -1466,8 +1452,8 @@ export class Mwbot {
 
 		if (batchSize !== undefined) {
 			if (!Number.isInteger(batchSize) || batchSize > apilimit || batchSize <= 0) {
-				throw new MwbotError({
-					code: 'mwbot_fatal_invalidsize',
+				throw new MwbotError('fatal', {
+					code: 'invalidsize',
 					info: `"batchSize" must be a positive integer less than or equal to ${apilimit}.`
 				});
 			}
@@ -1478,8 +1464,8 @@ export class Mwbot {
 		// Ensure "keys" is an array
 		keys = Array.isArray(keys) ? keys : [keys];
 		if (!keys.length) {
-			throw new MwbotError({
-				code: 'mwbot_fatal_emptykeys',
+			throw new MwbotError('fatal', {
+				code: 'emptykeys',
 				info: `"keys" cannot be an empty array.`
 			});
 		}
@@ -1490,24 +1476,24 @@ export class Mwbot {
 			const value = parameters[key];
 			if (value !== undefined) {
 				if (!Array.isArray(value)) {
-					throw new MwbotError({
-						code: 'mwbot_fatal_typemismatch',
+					throw new MwbotError('fatal', {
+						code: 'typemismatch',
 						info: `The multi-value fields (${keys.join(', ')}) must be arrays.`
 					});
 				}
 				if (batchValues === null) {
 					batchValues = [...value] as string[]; // Copy the array
 				} else if (!arraysEqual(batchValues, value, true)) {
-					throw new MwbotError({
-						code: 'mwbot_fatal_fieldmismatch',
+					throw new MwbotError('fatal', {
+						code: 'fieldmismatch',
 						info: 'All multi-value fields must be identical.'
 					});
 				}
 			}
 		}
 		if (!batchValues) {
-			throw new MwbotError({
-				code: 'mwbot_fatal_nofields',
+			throw new MwbotError('fatal', {
+				code: 'nofields',
 				info: 'No multi-value fields have been found.'
 			});
 		} else if (!batchValues.length) {
@@ -1638,13 +1624,13 @@ export class Mwbot {
 				if (token) {
 					return token;
 				} else {
-					throw new MwbotError({
+					throw new MwbotError('api_mwbot', {
 						code: 'badnamedtoken',
 						info: 'Could not find a token named "' + tokenType + '" (check for typos?)'
 					});
 				}
 			} else {
-				throw new MwbotError({
+				throw new MwbotError('api_mwbot', {
 					code: 'empty',
 					info: 'OK response but empty result.'
 				});
@@ -1757,14 +1743,14 @@ export class Mwbot {
 		if (this.isAnonymous() && !allowAnonymous) {
 			return this.errorAnonymous();
 		} else if (typeof title !== 'string' && !(title instanceof this.Title)) {
-			return new MwbotError({
-				code: 'mwbot_fatal_typemismatch',
+			return new MwbotError('fatal', {
+				code: 'typemismatch',
 				info: `"${typeof title}" is not a valid type.`
 			});
 		} else if (!(title instanceof this.Title)) {
 			const t = this.Title.newFromText(title);
 			if (!t) {
-				return new MwbotError({
+				return new MwbotError('api_mwbot', {
 					code: 'invalidtitle',
 					info: `"${title}" is not a valid title.`
 				});
@@ -1772,12 +1758,12 @@ export class Mwbot {
 			title = t;
 		}
 		if (!title.getMain()) {
-			return new MwbotError({
+			return new MwbotError('api_mwbot', {
 				code: 'emptytitle',
 				info: 'The title is empty.'
 			});
 		} else if (title.isExternal()) {
-			return new MwbotError({
+			return new MwbotError('api_mwbot', {
 				code: 'interwikititle',
 				info: `"${title.getPrefixedText()}" is an interwiki title.`
 			});
@@ -2008,7 +1994,7 @@ export class Mwbot {
 
 			const resPages = res.query?.pages;
 			if (!resPages) {
-				const err = new MwbotError({
+				const err = new MwbotError('api_mwbot', {
 					code: 'empty',
 					info: 'OK response but empty result.'
 				});
@@ -2020,11 +2006,12 @@ export class Mwbot {
 				const resRevision = pageObj.revisions?.[0];
 				let value: Revision | MwbotError;
 				if (typeof pageObj.pageid !== 'number' || pageObj.missing) {
-					value = new MwbotError({
+					value = new MwbotError('api_mwbot', {
 						code: 'pagemissing',
 						info: 'The requested page does not exist.'
+					}, {
+						title: pageObj.title
 					});
-					value.title = pageObj.title;
 				} else if (
 					!resRevision ||
 					typeof resRevision.revid !== 'number' ||
@@ -2032,11 +2019,12 @@ export class Mwbot {
 					!resRevision.timestamp ||
 					typeof resRevision.slots?.main.content !== 'string'
 				) {
-					value = new MwbotError({
+					value = new MwbotError('api_mwbot', {
 						code: 'empty',
 						info: 'OK response but empty result.'
+					}, {
+						title: pageObj.title
 					});
-					value.title = pageObj.title;
 				} else {
 					value = {
 						pageid: pageObj.pageid,
@@ -2136,8 +2124,8 @@ export class Mwbot {
 	): Promise<ApiResponse> {
 
 		if (typeof transform !== 'function') {
-			throw new MwbotError({
-				code: 'mwbot_fatal_typemismatch',
+			throw new MwbotError('fatal', {
+				code: 'typemismatch',
 				info: `Expected a function for "transform", but got ${typeof transform}.`
 			});
 		}
@@ -2154,12 +2142,10 @@ export class Mwbot {
 		if (params instanceof Error) {
 			throw params;
 		} else if (!isPlainObject(params)) {
-			const err = new MwbotError({
-				code: 'mwbot_fatal_typemismatch',
+			throw new MwbotError('fatal', {
+				code: 'typemismatch',
 				info: `The transformation predicate must resolve to a plain object.`
-			});
-			err.params = params;
-			throw err;
+			}, {params});
 		}
 		const defaultParams: ApiEditPageParams = {
 			action: 'edit',
@@ -2181,10 +2167,10 @@ export class Mwbot {
 			.catch((err: MwbotError) => err);
 		const {disableRetry, disableRetryAPI, disableRetryByCode = []} = requestOptions;
 		if (
-			result instanceof MwbotError && result.code === 'mwbot_api_editconflict' &&
+			result instanceof MwbotError && result.code === 'editconflict' &&
 			typeof retry === 'number' && retry < 3 &&
 			!disableRetry && !disableRetryAPI &&
-			!disableRetryByCode.some((code) => /editconflict$/.test(code))
+			!disableRetryByCode.some((code) => code === 'editconflict')
 		) {
 			console.warn('Warning: Encountered an edit conflict.');
 			console.log('Retrying in 5 seconds...');
@@ -2266,24 +2252,20 @@ export class Mwbot {
 		}, disableRetryAPI).then((res) => res).catch((err) => err);
 
 		if (resLogin instanceof MwbotError) {
-			return Promise.reject(resLogin);
+			throw resLogin;
 		} else if (!resLogin.login) {
-			const err = new MwbotError({
+			throw new MwbotError('api_mwbot', {
 				code: 'empty',
 				info: 'OK response but empty result.'
-			});
-			err.response = resLogin;
-			return Promise.reject(err);
+			}, {response: resLogin});
 		} else if (resLogin.login.result !== 'Success') {
-			const err = new MwbotError({
+			throw new MwbotError('api_mwbot', {
 				code: 'loginfailed',
 				info: 'Failed to log in.'
-			});
-			err.response = resLogin;
-			return Promise.reject(err);
+			}, {response: resLogin});
 		} else {
 			this.tokens = {}; // Clear cashed tokens because these can't be used for the newly logged-in user
-			return Promise.resolve(resLogin);
+			return resLogin;
 		}
 
 	}
@@ -2323,11 +2305,10 @@ export class Mwbot {
 			}
 		});
 		if (invalid.length) {
-			const err = new MwbotError({
-				code: 'mwbot_fatal_typemismatch',
+			const err = new MwbotError('fatal', {
+				code: 'typemismatch',
 				info: 'The array passed as the first argument of purge() must only contain strings or Title instances.'
-			});
-			err.invalid = invalid;
+			}, {invalid});
 			throw err;
 		}
 		return this.post(Object.assign({

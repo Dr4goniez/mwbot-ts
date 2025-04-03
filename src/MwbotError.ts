@@ -1,82 +1,90 @@
 /**
- * See {@link MwbotError}.
+ * This module defines the {@link MwbotError} class, which is used to standardize
+ * error handling. See {@link MwbotError} for details.
+ *
+ * Note that internal exceptions are caught by the built-in Error class.
  *
  * @module
  */
 
-import type { ApiResponse } from './api_types';
+import type { ApiResponse, ApiResponseError } from './api_types';
 import { isPlainObject } from './Util';
-import type { AxiosResponse } from 'axios';
+
+// Imported only for docs
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { Mwbot } from './Mwbot';
 
 /**
  * Custom error class for {@link Mwbot}, extending the built-in `Error` class.
+ * This class is exported for use with the `instanceof` operator.
  *
- * This error class is used throughout {@link Mwbot} to standardize error handling, ensuring that
- * all errors and rejected Promises include a stack trace for easier debugging. This simplifies
- * troubleshooting, especially when extending the `Mwbot` class.
+ * This error class is used throughout {@link Mwbot} to standardize error handling,
+ * ensuring that all errors and rejected Promises include a stack trace for easier
+ * debugging. This simplifies troubleshooting.
  *
- * ### Error codes
- * * `mwbot_api_***`: Indicates an issue returned by the MediaWiki API response.
- * * `mwbot_fatal_***`:  Error originating from Mwbot's internal logic, often caused by incorrect
- * usage or unexpected conditions.
+ * For a list of error codes, see {@link MwbotErrorCodes}.
  */
-export class MwbotError extends Error {
-
-	code: string;
-	info: string;
-	[key: string]: any; // Allows handling of arbitrary properties from API responses
+export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes> extends Error {
 
 	/**
-	 * Creates a new `MwbotError` instance.
-	 *
-	 * @param config The error details object. If an API response is passed, it should
-	 * contain either an `error` or `errors` property.
-	 *
-	 * If `code` is not prefixed by `mwbot_`, `mwbot_api_` is prepended.
-	 *
-	 * @throws {TypeError} If `config` is not a plain object nor an array.
-	 * @throws {Error} If `config` does not contain valid error information.
+	 * The type of the error.
 	 */
-	constructor(config: ErrorBase) {
+	type: K;
+	/**
+	 * The code of the error.
+	 */
+	code: string;
+	/**
+	 * The information of the error.
+	 */
+	info: string;
+	/**
+	 * Returns the {@link info} property. This property is only for compatibility
+	 * with the parent Error class.
+	 */
+	override get message(): string {
+		return this.code + ': ' + this.info;
+	}
+	/**
+	 * Additional data of the error.
+	 */
+	data?: Record<string, any>;
+
+	/**
+	 * Creates a new instance.
+	 *
+	 * @param type The type of the error.
+	 * @param config The error details object. This object must contain `code` and `info`
+	 * properties. Other properties are merged into the `data` property of the new instance.
+	 * @param data Optional object to initialize the `data` property with.
+	 * @throws {TypeError} If `config` is not a plain object.
+	 */
+	constructor(
+		type: K,
+		config: K extends 'api'
+			? ApiResponseError
+			: Omit<ApiResponseError, 'code'> & { code: keyof MwbotErrorCodes[K] },
+		data?: Record<string, any>
+	) {
 
 		if (!isPlainObject(config)) {
-			throw new MwbotError({
-				code: 'mwbot_fatal_typemismatch',
-				info: 'MwbotError.constructor only accepts a plain object.'
-			});
+			throw TypeError('MwbotError.constructor only accepts a plain object.');
 		}
 
-		// Convert ApiReponse to MwbotErrorConfig
-		if ('errors' in config && Array.isArray(config.errors)) {
-			const info =
-				config.errors[0]['*'] || // formatversion=1
-				config.errors[0].html || // errorformat=html
-				config.errors[0].text || // errorformat=wikitext, errorformat=plaintext
-				config.errors[0].key || // errorformat=raw
-				'Unknown error';
-			const {errors, ...rest} = config;
-			config = Object.assign({info: info as string}, errors[0], rest);
-		} else if ('error' in config) {
-			const {code, info, ...rest} = config.error;
-			config = {code, info, ...rest};
-		}
-
-		// Set up instance properties
-		let code = config.code;
-		const info = config.info;
-		if (!code || !info) {
-			throw new MwbotError({
-				code: 'mwbot_fatal_invalidinput',
-				info: 'An invalid object has been passed to MwbotError.constructor.'
-			});
-		}
-		code = (/^mwbot_/.test(code) ? '' : 'mwbot_api_') + code;
-		super(`${code}: ${info}`);
-		Object.assign(this, config);
+		super();
+		const {code, info, ...rest} = config;
 		this.name = 'MwbotError';
+		this.type = type;
 		this.code = code;
 		this.info = info;
+		if (data) {
+			this.data = data;
+		}
+		if (this.data || rest) {
+			this.data = Object.assign({}, this.data, rest);
+		}
 
+		// Ensure proper stack trace capture
 		if (Error.captureStackTrace) {
 			Error.captureStackTrace(this, MwbotError);
 		}
@@ -84,46 +92,111 @@ export class MwbotError extends Error {
 	}
 
 	/**
+	 * Creates a new instance from an API error response.
+	 *
+	 * @param response An API response with the `error` or `errors` property.
+	 * @returns A new MwbotError instance.
+	 */
+	static newFromResponse(
+		response: Required<Pick<ApiResponse, 'error'>> | Required<Pick<ApiResponse, 'errors'>>
+	): MwbotError<'api'> {
+		let error: ApiResponseError;
+		if ('errors' in response) {
+			const info =
+				response.errors[0]['*'] || // formatversion=1
+				response.errors[0].html || // errorformat=html
+				response.errors[0].text || // errorformat=wikitext, errorformat=plaintext
+				response.errors[0].key || // errorformat=raw
+				'Unknown error.';
+			const {errors, ...rest} = response;
+			error = Object.assign({info}, errors[0], rest);
+		} else {
+			error = response.error;
+		}
+		return new MwbotError('api', error);
+	}
+
+	/**
 	 * Updates the error code.
 	 *
-	 * @param code New error code. If not prefixed by `mwbot_`, `mwbot_api_` is prepended.
-	 * @returns The updated `MwbotError` instance.
+	 * @param code The new error code.
+	 * @returns The current instance for chaining.
 	 */
-	setCode(code: string): this {
-		this.code = (/^mwbot_/.test(code) ? '' : 'mwbot_api_') + code;
-		this.message = `${code}: ${this.info}`;
+	setCode(
+		code: K extends 'api' ? string : keyof MwbotErrorCodes[K]
+	): this {
+		this.code = code;
 		return this;
 	}
 
 	/**
 	 * Updates the error information.
 	 *
-	 * @param info New error information.
-	 * @returns The updated `MwbotError` instance.
+	 * @param info The new error information.
+	 * @returns The current instance for chaining.
 	 */
 	setInfo(info: string): this {
 		this.info = info;
-		this.message = `${this.code}: ${info}`;
 		return this;
 	}
 
 }
 
 /**
- * Configuration object for {@link MwbotError.constructor}. See also {@link ErrorBase}.
- */
-export interface MwbotErrorConfig {
-	code: string;
-	info: string;
-	response?: AxiosResponse;
-	// [key: string]: any; // TODO: This breaks Intellisense for ErrorBase. Fix?
-}
-
-/**
- * The valid types for the first argument of {@link MwbotError.constructor}.
+ * This interface defines error types and error codes generated by `mwbot-ts`.
  *
- * Acceptable types:
- * - {@link MwbotErrorConfig}: A manually created object.
- * - {@link ApiResponse}: An API response where the `error` or `errors` property is guaranteed to exist.
+ * The string values are descriptions of the error codes and not referenced or used in the source code.
  */
-export type ErrorBase = MwbotErrorConfig | Required<Pick<ApiResponse, 'error' | 'errors'>>;
+export interface MwbotErrorCodes {
+	/**
+	 * Marks errors of HTTP requests, returned by the MediaWiki API.
+	 */
+	api: { /* empty */ };
+	/**
+	 * Marks errors of HTTP requests, generated by `mwbot-ts`.
+	 */
+	api_mwbot: {
+		// General errors
+		invalidformat: 'Not using "format=json" in request parameters.';
+		anonymous: 'Anonymous users are limited to non-write requests.';
+		loginfailed: 'Failed to log in.';
+		// Used in the catch block of Mwbot._request
+		http: 'Encountered an HTTP request error that is not mapped to a specific error code.';
+		aborted: 'Request aborted by the user.';
+		notfound: 'Page not found (404).';
+		timeout: 'Request timeout (408) or Gateway timeout (504).';
+		baduri: 'URI too long (414).';
+		ratelimited: 'Too many requests (429).';
+		servererror: 'Internal server error (500).';
+		badgateway: 'Bad gateway (502)';
+		serviceunavailable: 'Service Unavailable (503)';
+		// Used in the then block of Mwbot._request
+		empty: 'OK response but empty result.';
+		invalidjson: 'No valid JSON response.';
+		// Used in the then block of Mwbot.getToken
+		badnamedtoken: 'An unknown token name was specified for Mwbot.getToken.';
+		// Used in Mwbot.prepEdit or in read() or edit()-related methods
+		invalidtitle: `The given title cannot be processed because it is invalid.`;
+		emptytitle: 'The given title cannot be processed because it is empty.';
+		interwikititle: 'The given title cannot be processed because it is interwiki.';
+		pagemissing: 'The requested page does not exist.';
+	};
+	/**
+	 * Marks fatal exceptions attributed to the user's source code.
+	 */
+	fatal: {
+		// General errors
+		typemismatch: 'There is an issue with the type of a variable.';
+		nourl: 'No valid API endpoint is provided.';
+		invalidcreds: 'There is an issue with the credential information passed to Mwbot.';
+		callinit: 'Mwbot.init() must be called before performing this action.';
+		// Used in Mwbot.massRequest
+		invalidsize: 'The "batchSize" argument for Mwbot.massRequest is invalid.';
+		emptykeys: 'The "keys" argument for Mwbot.massRequest is an empty array.';
+		fieldmismatch: 'API parameters passed to Mwbot.massRequest involve unmatching multi-value fields.';
+		nofields: 'No multi-value fields are provided for Mwbot.massRequest.';
+		// Used in Wikitext.modify
+		invalidtype: 'Wikitext.modify does not support this expression type.';
+		lengthmismatch: `The returned value of modificationPredicate for Wikitext.modify is invalid.`
+	};
+}
