@@ -3,7 +3,7 @@
  *
  * **Example**:
  * ```
- * import { Mwbot } from 'mwbot';
+ * import { Mwbot } from 'mwbot-ts';
  *
  * console.log(Mwbot.String.ucFirst('mwbot')); // Output: "Mwbot"
  * ```
