@@ -8,3 +8,4 @@ export * from './build/Wikilink';
 export * from './build/Wikitext';
 export * from './build/Template';
 export * from './build/Mwbot';
+export * from './build/version';

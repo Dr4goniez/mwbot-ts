@@ -67,7 +67,7 @@ const form_data_1 = __importDefault(require("form-data"));
 const oauth_1_0a_1 = __importDefault(require("oauth-1.0a"));
 const crypto_1 = __importDefault(require("crypto"));
 const uuid_1 = require("uuid");
-const package_json_1 = __importDefault(require("../package.json"));
+const version_1 = require("./version");
 const MwbotError_1 = require("./MwbotError");
 const Util = __importStar(require("./Util"));
 const { mergeDeep, isPlainObject, sleep, isEmptyObject, arraysEqual, deepCloneInstance } = Util;
@@ -88,7 +88,7 @@ class Mwbot {
      * {
      *	  method: 'GET',
      *	  headers: {
-     *	    'User-Agent': `mwbot-ts/${packageJson.version} (https://github.com/Dr4goniez/mwbot-ts)`,
+     *	    'User-Agent': `mwbot-ts/${LIB_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
      *	    'Content-Type': 'application/x-www-form-urlencoded',
      *	    'Accept-Encoding': 'gzip'
      *	  },
@@ -108,7 +108,7 @@ class Mwbot {
         return {
             method: 'GET',
             headers: {
-                'User-Agent': `mwbot-ts/${package_json_1.default.version} (https://github.com/Dr4goniez/mwbot-ts)`,
+                'User-Agent': `mwbot-ts/${version_1.LIB_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'Accept-Encoding': 'gzip'
             },
