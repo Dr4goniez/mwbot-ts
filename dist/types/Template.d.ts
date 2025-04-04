@@ -893,3 +893,4 @@ export interface ParsedParserFunctionOutputConfig extends ParserFunctionOutputCo
     rawHook?: boolean;
 }
 export {};
+//# sourceMappingURL=Template.d.ts.map

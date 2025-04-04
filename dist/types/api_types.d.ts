@@ -1023,3 +1023,4 @@ export interface ApiResponseQueryListUsers {
         local: boolean;
     };
 }
+//# sourceMappingURL=api_types.d.ts.map

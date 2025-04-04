@@ -102,3 +102,4 @@ export declare function trimByteLength(safeVal: string, newVal: string, byteLimi
  * @return
  */
 export declare function trimCodePointLength(safeVal: string, newVal: string, codePointLimit: number, filterFunction?: FilterFunction): StringTrimmed;
+//# sourceMappingURL=String.d.ts.map

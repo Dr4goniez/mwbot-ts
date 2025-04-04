@@ -1107,3 +1107,4 @@ export interface Revision {
     starttimestamp: string;
     content: string;
 }
+//# sourceMappingURL=Mwbot.d.ts.map

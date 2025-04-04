@@ -602,3 +602,4 @@ export interface TitleOutputOptions {
      */
     colon?: boolean;
 }
+//# sourceMappingURL=Title.d.ts.map

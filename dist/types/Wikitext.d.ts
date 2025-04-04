@@ -730,3 +730,4 @@ export interface ParseWikilinksConfig {
      */
     wikilinkPredicate?: (wikilink: DoubleBracketedClasses) => boolean;
 }
+//# sourceMappingURL=Wikitext.d.ts.map

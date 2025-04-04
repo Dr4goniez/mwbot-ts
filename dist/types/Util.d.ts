@@ -106,3 +106,4 @@ export declare function arraysEqual(array1: primitive[], array2: primitive[], or
  * @returns A Promise that resolves after the specified duration.
  */
 export declare function sleep(milliseconds: number): Promise<void>;
+//# sourceMappingURL=Util.d.ts.map

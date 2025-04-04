@@ -273,3 +273,4 @@ export declare const toLowerMap: {
     ῌ: string;
     ῼ: string;
 };
+//# sourceMappingURL=phpCharMap.d.ts.map

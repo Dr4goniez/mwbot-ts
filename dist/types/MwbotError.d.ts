@@ -162,3 +162,4 @@ export interface MwbotErrorData {
      */
     invalid?: unknown[];
 }
+//# sourceMappingURL=MwbotError.d.ts.map

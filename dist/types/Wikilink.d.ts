@@ -701,3 +701,4 @@ interface ParsedRawWikilinkInitializer extends ParsedWikilinkInitializerBase<str
     display?: string;
 }
 export {};
+//# sourceMappingURL=Wikilink.d.ts.map

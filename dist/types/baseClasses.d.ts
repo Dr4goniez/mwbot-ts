@@ -73,3 +73,4 @@ export declare abstract class ParamBase {
      */
     deleteParam(index: number, leftShift?: boolean): boolean;
 }
+//# sourceMappingURL=baseClasses.d.ts.map
