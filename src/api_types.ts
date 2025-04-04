@@ -1448,25 +1448,28 @@ export interface ApiResponseQueryListBetafeatures { // TODO: recheck
 		count: number;
 	};
 }
-export interface ApiResponseQueryListBlocks { // TODO: recheck
-	id: number;
-	user: string;
+export interface ApiResponseQueryListBlocks { // Fully checked (source code level)
+	id?: number;
+	user?: string;
 	userid?: number;
-	by: string;
+	by?: string;
 	byid?: number;
-	timestamp: string;
-	expiry: string;
-	reason: string;
+	timestamp?: string;
+	expiry?: string;
+	'duration-l10n'?: string;
+	reason?: string;
+	parsedreason?: string;
 	rangestart?: string;
 	rangeend?: string;
-	automatic: boolean;
-	anononly: boolean;
-	nocreate: boolean;
-	autoblock: boolean;
-	noemail: boolean;
-	hidden: boolean;
-	allowusertalk: boolean;
-	partial: boolean;
+	automatic?: boolean;
+	anononly?: boolean;
+	nocreate?: boolean;
+	autoblock?: boolean;
+	noemail?: boolean;
+	hidden?: boolean;
+	allowusertalk?: boolean;
+	partial?: boolean;
+	/** An empty array if the user is not partial-blocked; otherwise an object. */
 	restrictions?: [] | {
 		pages?: {
 			id: number;
@@ -1474,7 +1477,7 @@ export interface ApiResponseQueryListBlocks { // TODO: recheck
 			title: string;
 		}[];
 		namespaces?: number[];
-		actions?: string[];
+		actions?: ('upload' | 'move' | 'create' | 'thanks')[];
 	};
 }
 export interface ApiResponseQueryListCategorymembers { // TODO: recheck
