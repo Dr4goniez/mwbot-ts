@@ -2,6 +2,7 @@ export * from './build/api_types';
 export * from './build/Util';
 export * from './build/MwbotError';
 export * from './build/String';
+export * from './build/phpCharMap';
 export * from './build/Title';
 export * from './build/baseClasses';
 export * from './build/Wikilink';
