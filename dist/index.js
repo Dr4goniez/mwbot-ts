@@ -1,2 +1,4 @@
-export { Mwbot } from './build/Mwbot';
-export { MwbotError } from './build/MwbotError'; 
+module.exports = {
+	...require('./build/Mwbot'),
+	...require('./build/MwbotError')
+};
