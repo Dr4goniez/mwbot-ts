@@ -31,7 +31,7 @@ import OAuth from 'oauth-1.0a';
 import crypto from 'crypto';
 import { v4 as generateId } from 'uuid';
 
-import { LIB_VERSION } from './version';
+import { MWBOT_VERSION } from './version';
 import {
 	ApiParams,
 	ApiParamsAction,
@@ -69,7 +69,7 @@ export class Mwbot {
 	 * {
 	 *	  method: 'GET',
 	 *	  headers: {
-	 *	    'User-Agent': `mwbot-ts/${LIB_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
+	 *	    'User-Agent': `mwbot-ts/${MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
 	 *	    'Content-Type': 'application/x-www-form-urlencoded',
 	 *	    'Accept-Encoding': 'gzip'
 	 *	  },
@@ -89,7 +89,7 @@ export class Mwbot {
 		return {
 			method: 'GET',
 			headers: {
-				'User-Agent': `mwbot-ts/${LIB_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
+				'User-Agent': `mwbot-ts/${MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
 				'Content-Type': 'application/x-www-form-urlencoded',
 				'Accept-Encoding': 'gzip'
 			},

@@ -11,7 +11,7 @@
     "general": "ts-node src/test/test_general.ts",
     "Wikitext": "ts-node src/test/test_Wikitext.ts",
     "Wikitext-log": "node -e \"const date = new Date().toISOString().replace(/\\.\\d+Z$/, '').replace(/[-T:]/g, ''); require('child_process').execSync(`ts-node src/test/test_Wikitext.ts > logs/${date}_Wikitext.txt 2>&1`);\"",
-    "prebuild": "node -p \"'export const LIB_VERSION = ' + JSON.stringify(require('./package.json').version) + ';'\" > src/version.ts",
+    "prebuild": "node -p \"'export const MWBOT_VERSION = ' + JSON.stringify(require('./package.json').version) + ';'\" > src/version.ts",
     "build": "npm run prebuild & tsc -p . & node dist/generate-types.js",
     "docs": "node -e \"require('fs-extra').emptyDir('docs');\" & npx typedoc --options typedoc.json"
   },
