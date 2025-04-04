@@ -7,13 +7,20 @@ const ignoredFiles = [
 	'phpCharMap.d.ts'
 ];
 
+const files = [
+	'// Value exports',
+	"export { Mwbot } from './build/Mwbot';",
+	"export { MwbotError } from './build/MwbotError';",
+	'',
+	'// Type exports'
+];
+
 // Read files in the build directory
-const files = fs.readdirSync(buildDir).reduce((acc, file) => {
+fs.readdirSync(buildDir).forEach((file) => {
 	if (file.endsWith('.d.ts') && !ignoredFiles.includes(file)) {
-		acc.push(`export * from './build/${file.replace('.d.ts', '')}';`);
+		files.push(`export type * from './build/${file.replace('.d.ts', '')}';`);
 	}
-	return acc;
-}, []);
+});
 
 // Write to dist/index.d.ts
 fs.writeFileSync(indexDtsPath, files.join('\n'));
