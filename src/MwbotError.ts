@@ -8,7 +8,8 @@
  */
 
 import type { ApiResponse, ApiResponseError } from './api_types';
-import { isPlainObject } from './Util';
+import { isEmptyObject, isPlainObject } from './Util';
+import type { ConfigData } from './Mwbot';
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -48,7 +49,7 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 	/**
 	 * Additional data of the error.
 	 */
-	data?: Record<string, any>;
+	data?: MwbotErrorData;
 
 	/**
 	 * Creates a new instance.
@@ -64,7 +65,7 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 		config: K extends 'api'
 			? ApiResponseError
 			: Omit<ApiResponseError, 'code'> & { code: keyof MwbotErrorCodes[K] },
-		data?: Record<string, any>
+		data?: MwbotErrorData
 	) {
 
 		if (!isPlainObject(config)) {
@@ -77,8 +78,11 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 		this.type = type;
 		this.code = code;
 		this.info = info;
-		if (data || rest) {
-			this.data = Object.assign({}, data, rest);
+		if (!isEmptyObject(data)) {
+			this.data = Object.assign({}, data);
+		}
+		if (!isEmptyObject(rest)) {
+			this.data = Object.assign(this.data || {}, {error: rest});
 		}
 
 		// Ensure proper stack trace capture
@@ -201,4 +205,39 @@ export interface MwbotErrorCodes {
 		invalidtype: 'Wikitext.modify does not support this expression type.';
 		lengthmismatch: `The returned value of modificationPredicate for Wikitext.modify is invalid.`
 	};
+}
+
+/**
+ * Interface for the {@link MwbotError.data} property.
+ */
+export interface MwbotErrorData {
+	/**
+	 * Additional properties in the response of a failed API request, excluding `code` and `info`.
+	 */
+	error?: Record<string, any>;
+	/**
+	 * Present when {@link Mwbot.init} fails to initialize certain `wg`-variables.
+	 */
+	keys?: (keyof ConfigData)[];
+	/**
+	 * The complete Axios response object. Available for an `api_mwbot: http` error.
+	 */
+	axios?: Record<string, any>;
+	/**
+	 * Present for title-related errors encountered by {@link Mwbot.read}.
+	 */
+	title?: string;
+	/**
+	 * Present when the callback return value from {@link Mwbot.edit} is invalid.
+	 */
+	transformed?: unknown;
+	/**
+	 * Present when the API response includes an error that the framework cannot process.
+	 */
+	response?: Record<string, any>;
+	/**
+	 * Present when a method receives an array parameter (e.g., {@link Mwbot.purge}) containing
+	 * values of incorrect types.
+	 */
+	invalid?: unknown[];
 }

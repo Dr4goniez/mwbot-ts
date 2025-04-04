@@ -956,7 +956,7 @@ export class Mwbot {
 				}
 			}
 
-			err.data = {response: error}; // Include the full response for unknown errors
+			err.data = {axios: error}; // Include the full response for unknown errors
 			return this.error(err, requestId);
 
 		});
@@ -2204,7 +2204,7 @@ export class Mwbot {
 			throw new MwbotError('fatal', {
 				code: 'typemismatch',
 				info: `The transformation predicate must resolve to a plain object.`
-			}, {params});
+			}, {transformed: params});
 		}
 		const defaultParams: ApiEditPageParams = {
 			action: 'edit',
