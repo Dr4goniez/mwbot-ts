@@ -88,7 +88,7 @@ class Mwbot {
      * {
      *	  method: 'GET',
      *	  headers: {
-     *	    'User-Agent': `mwbot-ts/${LIB_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
+     *	    'User-Agent': `mwbot-ts/${MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
      *	    'Content-Type': 'application/x-www-form-urlencoded',
      *	    'Accept-Encoding': 'gzip'
      *	  },
@@ -108,7 +108,7 @@ class Mwbot {
         return {
             method: 'GET',
             headers: {
-                'User-Agent': `mwbot-ts/${version_1.LIB_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
+                'User-Agent': `mwbot-ts/${version_1.MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'Accept-Encoding': 'gzip'
             },

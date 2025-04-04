@@ -43,7 +43,7 @@ export declare class Mwbot {
      * {
      *	  method: 'GET',
      *	  headers: {
-     *	    'User-Agent': `mwbot-ts/${LIB_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
+     *	    'User-Agent': `mwbot-ts/${MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
      *	    'Content-Type': 'application/x-www-form-urlencoded',
      *	    'Accept-Encoding': 'gzip'
      *	  },
