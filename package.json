@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "A simple yet flexible TypeScript framework for building MediaWiki bots in Node.js.",
   "main": "index.js",
+  "types": "index.d.ts",
   "scripts": {
     "mwbot": "ts-node src/test/test_mwbot.ts",
     "mwbot-log": "node -e \"const date = new Date().toISOString().replace(/\\.\\d+Z$/, '').replace(/[-T:]/g, ''); require('child_process').execSync(`ts-node src/test/test_mwbot.ts > logs/${date}_mwbot.txt 2>&1`);\"",
