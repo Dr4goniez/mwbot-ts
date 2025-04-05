@@ -101,7 +101,12 @@ export interface TemplateBase<T extends string | Title> {
      * **Caution**: The returned object is mutable.
      *
      * @param key The parameter key.
-     * @param resolveHierarchy Whether to consider {@link TemplateParameterHierarchies | hierarchies} when
+     * @param resolveHierarchy
+     * *(Leave this parameter undefined if template parameter hierarchies have already been provided
+     * via the constructor or {@link ParseTemplatesConfig.hierarchies}. In that case, parameters are
+     * already registered according to the hierarchy, with lower-priority values overridden.)*
+     *
+     * Whether to consider {@link TemplateParameterHierarchies | hierarchies} when
      * searching for a matching parameter. If `true`, this method first checks if `key` belongs to a hierarchy
      * array. If {@link params} contains a parameter with a higher-priority key in that hierarchy, it returns
      * that parameter instead. (Default: `false`).
@@ -827,7 +832,7 @@ interface ParsedTemplateInitializer {
  * @internal
  */
 export interface ParsedTemplateOptions {
-    hierarchies?: TemplateParameterHierarchies;
+    hierarchies?: Record<string, TemplateParameterHierarchies>;
 }
 /**
  * The return type of {@link ParserFunctionStatic.verify}.

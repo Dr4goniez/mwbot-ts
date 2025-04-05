@@ -425,7 +425,10 @@ function TemplateFactory(config, info, Title) {
             }
         }
         stringify(options = {}) {
-            return this._stringify(this.title.getPrefixedText({ colon: true }), options);
+            const title = this.title.getNamespaceId() === NS_TEMPLATE
+                ? this.title.getMain()
+                : this.title.getPrefixedText({ colon: true });
+            return this._stringify(title, options);
         }
         toString() {
             return this.stringify();
@@ -437,7 +440,11 @@ function TemplateFactory(config, info, Title) {
         constructor(initializer, options = {}) {
             const { title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip } = initializer;
             const t = Template.validateTitle(title);
-            super(t, params, options.hierarchies);
+            const titleStr = t.getPrefixedDb();
+            const hierarchies = options.hierarchies && titleStr in options.hierarchies
+                ? options.hierarchies[titleStr].map((arr) => arr.slice())
+                : [];
+            super(t, params, hierarchies);
             this._initializer = initializer;
             this.rawTitle = rawTitle.replace('\x01', title);
             this._rawTitle = rawTitle;
@@ -464,7 +471,9 @@ function TemplateFactory(config, info, Title) {
         }
         stringify(options = {}) {
             const { rawTitle: optRawTitle, ...rawOptions } = options;
-            let title = this.title.getPrefixedText({ colon: true });
+            let title = this.title.getNamespaceId() === NS_TEMPLATE
+                ? this.title.getMain()
+                : this.title.getPrefixedText({ colon: true });
             if (optRawTitle && this._rawTitle.includes('\x01')) {
                 title = this._rawTitle.replace('\x01', title);
             }
@@ -482,7 +491,10 @@ function TemplateFactory(config, info, Title) {
     class RawTemplate extends TemplateBase {
         constructor(initializer, options = {}) {
             const { title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip } = initializer;
-            super(title, params, options.hierarchies);
+            const hierarchies = options.hierarchies && title in options.hierarchies
+                ? options.hierarchies[title].map((arr) => arr.slice())
+                : [];
+            super(title, params, hierarchies);
             this._initializer = initializer;
             this.rawTitle = rawTitle.replace('\x01', title);
             this._rawTitle = rawTitle;
