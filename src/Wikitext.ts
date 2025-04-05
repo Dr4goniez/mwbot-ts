@@ -2457,9 +2457,24 @@ export interface ParseTemplatesConfig {
 	 */
 	templatePredicate?: (template: DoubleBracedClasses) => boolean;
 	/**
-	 * See {@link TemplateParameterHierarchies}.
+	 * Object mapping canonical template titles to arrays of {@link TemplateParameterHierarchies}.
+	 *
+	 * - For {@link ParsedTemplate} instances, keys are matched against the output of {@link Title.getPrefixedDb}.
+	 * - For {@link RawTemplate} instances, keys are matched against {@link RawTemplate.title} as a string.
+	 * - This option is ignored for {@link ParsedParserFunction} instances.
+	 *
+	 * **Example**:
+	 * ```ts
+	 * const hierarchies = {
+	 *   // Overwrite `1=` with `user=` for ParsedTemplate instances of `Template:Foo_bar`
+	 *   'Template:Foo_bar': [['1', 'user']],
+	 *   // Overwrite `2=` with `type=` for RawTemplate instances of `{{{1}}}`
+	 *   '{{{1}}}': [['2', 'type']]
+	 * };
+	 * mwbot.Wikitext.parseTemplates({ hierarchies });
+	 * ```
 	 */
-	hierarchies?: TemplateParameterHierarchies;
+	hierarchies?: Record<string, TemplateParameterHierarchies>;
 }
 
 /**

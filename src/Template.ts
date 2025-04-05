@@ -171,7 +171,12 @@ export interface TemplateBase<T extends string | Title> {
 	 * **Caution**: The returned object is mutable.
 	 *
 	 * @param key The parameter key.
-	 * @param resolveHierarchy Whether to consider {@link TemplateParameterHierarchies | hierarchies} when
+	 * @param resolveHierarchy
+	 * *(Leave this parameter undefined if template parameter hierarchies have already been provided
+	 * via the constructor or {@link ParseTemplatesConfig.hierarchies}. In that case, parameters are
+	 * already registered according to the hierarchy, with lower-priority values overridden.)*
+	 *
+	 * Whether to consider {@link TemplateParameterHierarchies | hierarchies} when
 	 * searching for a matching parameter. If `true`, this method first checks if `key` belongs to a hierarchy
 	 * array. If {@link params} contains a parameter with a higher-priority key in that hierarchy, it returns
 	 * that parameter instead. (Default: `false`).
@@ -1246,7 +1251,11 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
 			const {title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip} = initializer;
 			const t = Template.validateTitle(title);
-			super(t, params, options.hierarchies);
+			const titleStr = t.getPrefixedDb();
+			const hierarchies = options.hierarchies && titleStr in options.hierarchies
+				? options.hierarchies[titleStr].map((arr) => arr.slice())
+				: [];
+			super(t, params, hierarchies);
 			this._initializer = initializer;
 			this.rawTitle = rawTitle.replace('\x01', title);
 			this._rawTitle = rawTitle;
@@ -1317,7 +1326,10 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
 			const {title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip} = initializer;
-			super(title, params, options.hierarchies);
+			const hierarchies = options.hierarchies && title in options.hierarchies
+				? options.hierarchies[title].map((arr) => arr.slice())
+				: [];
+			super(title, params, hierarchies);
 			this._initializer = initializer;
 			this.rawTitle = rawTitle.replace('\x01', title);
 			this._rawTitle = rawTitle;
@@ -1811,7 +1823,7 @@ interface ParsedTemplateInitializer {
  * @internal
  */
 export interface ParsedTemplateOptions {
-	hierarchies?: TemplateParameterHierarchies;
+	hierarchies?: Record<string, TemplateParameterHierarchies>;
 }
 
 /**
