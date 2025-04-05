@@ -712,7 +712,8 @@ export function WikitextFactory(
 				}
 				this.storage[key] = val; // Save
 				return clone
-					? val.map((obj) => '_clone' in obj ? obj._clone() : isClassInstance(obj) ? deepCloneInstance(obj) : mergeDeep(obj))
+					// @ts-expect-error TODO: Not all instances accept _clone(args)
+					? val.map((obj) => '_clone' in obj ? obj._clone(args) : isClassInstance(obj) ? deepCloneInstance(obj) : mergeDeep(obj))
 					: val;
 			}
 

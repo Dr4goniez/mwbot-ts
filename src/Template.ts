@@ -171,24 +171,20 @@ export interface TemplateBase<T extends string | Title> {
 	 * **Caution**: The returned object is mutable.
 	 *
 	 * @param key The parameter key.
-	 * @param resolveHierarchy
-	 * *(Leave this parameter undefined if template parameter hierarchies have already been provided
-	 * via the constructor or {@link ParseTemplatesConfig.hierarchies}. In that case, parameters are
-	 * already registered according to the hierarchy, with lower-priority values overridden.)*
-	 *
-	 * Whether to consider {@link TemplateParameterHierarchies | hierarchies} when
-	 * searching for a matching parameter. If `true`, this method first checks if `key` belongs to a hierarchy
-	 * array. If {@link params} contains a parameter with a higher-priority key in that hierarchy, it returns
-	 * that parameter instead. (Default: `false`).
+	 * @param resolveHierarchy Whether to consider {@link TemplateParameterHierarchies | hierarchies} when
+	 * searching for a matching parameter. If `true`, this method first checks whether `key` belongs to a hierarchy
+	 * array. If {@link params} contains a parameter with a higher-priority key in that hierarchy, that parameter
+	 * is returned instead. (Default: `false`).
 	 *
 	 * Example:
 	 * - Given `key = '1'`, `hierarchies = [['1', 'user', 'User']]`, and `params` containing a parameter keyed `'user'`,
-	 * this method returns the `'user'` parameter.
+	 *   this method returns the `'user'` parameter.
 	 *
-	 * Note that if `key` does not belong to any hierarchy array, this method behaves the same as when
-	 * `resolveHierarchy` is `false`.
+	 * If `key` does not belong to any hierarchy array, the method behaves the same as when
+	 * `resolveHierarchy` is `false`. This also applies if no template parameter hierarchies have been provided
+	 * via the constructor or {@link ParseTemplatesConfig.hierarchies}.
 	 *
-	 * @returns The parameter object if found, otherwise `null`.
+	 * @returns The parameter object if found; otherwise, `null`.
 	 */
 	getParam(key: string, resolveHierarchy?: boolean): TemplateParameter | null;
 	/**
@@ -1296,8 +1292,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return this.stringify();
 		}
 
-		_clone() {
-			return new ParsedTemplate(this._initializer);
+		_clone(options: ParsedTemplateOptions = {}) {
+			return new ParsedTemplate(this._initializer, options);
 		}
 
 	}
@@ -1389,8 +1385,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return this.stringify();
 		}
 
-		_clone() {
-			return new RawTemplate(this._initializer);
+		_clone(options: ParsedTemplateOptions = {}) {
+			return new RawTemplate(this._initializer, options);
 		}
 
 	}
