@@ -182,7 +182,7 @@ export interface MwbotErrorCodes {
 		// Used in the then block of Mwbot.getToken
 		badnamedtoken: 'An unknown token name was specified for Mwbot.getToken.';
 		// Used in Mwbot.prepEdit or in read() or edit()-related methods
-		invalidtitle: `The given title cannot be processed because it is invalid.`;
+		invalidtitle: 'The given title cannot be processed because it is invalid.';
 		emptytitle: 'The given title cannot be processed because it is empty.';
 		interwikititle: 'The given title cannot be processed because it is interwiki.';
 		pagemissing: 'The requested page does not exist.';
@@ -203,7 +203,7 @@ export interface MwbotErrorCodes {
 		nofields: 'No multi-value fields are provided for Mwbot.massRequest.';
 		// Used in Wikitext.modify
 		invalidtype: 'Wikitext.modify does not support this expression type.';
-		lengthmismatch: `The returned value of modificationPredicate for Wikitext.modify is invalid.`
+		lengthmismatch: 'The returned value of modificationPredicate for Wikitext.modify is invalid.'
 	};
 }
 
