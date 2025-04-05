@@ -107,7 +107,7 @@ export interface MwbotErrorCodes {
         empty: 'OK response but empty result.';
         invalidjson: 'No valid JSON response.';
         badnamedtoken: 'An unknown token name was specified for Mwbot.getToken.';
-        invalidtitle: `The given title cannot be processed because it is invalid.`;
+        invalidtitle: 'The given title cannot be processed because it is invalid.';
         emptytitle: 'The given title cannot be processed because it is empty.';
         interwikititle: 'The given title cannot be processed because it is interwiki.';
         pagemissing: 'The requested page does not exist.';
@@ -125,7 +125,7 @@ export interface MwbotErrorCodes {
         fieldmismatch: 'API parameters passed to Mwbot.massRequest involve unmatching multi-value fields.';
         nofields: 'No multi-value fields are provided for Mwbot.massRequest.';
         invalidtype: 'Wikitext.modify does not support this expression type.';
-        lengthmismatch: `The returned value of modificationPredicate for Wikitext.modify is invalid.`;
+        lengthmismatch: 'The returned value of modificationPredicate for Wikitext.modify is invalid.';
     };
 }
 /**

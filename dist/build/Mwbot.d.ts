@@ -736,14 +736,11 @@ export declare class Mwbot {
      * ```
      *
      * @param title The page title, either as a string or a {@link Title} instance.
-     * @param transform A function that receives a {@link Wikitext} instance initialized from the
-     * fetched content and an object representing the metadata of the fetched revision. This function
-     * should return {@link ApiEditPageParams} as a plain object or (a Promise resolving to this object),
-     * which will be used for the edit request.
+     * @param transform See {@link TransformationPredicate} for details.
      * @param requestOptions Optional HTTP request options.
      * @returns A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
      */
-    edit(title: string | Title, transform: (wikitext: Wikitext, revision: Revision) => ApiEditPageParams | Promise<ApiEditPageParams>, requestOptions?: MwbotRequestConfig, 
+    edit(title: string | Title, transform: TransformationPredicate, requestOptions?: MwbotRequestConfig, 
     /** @private */
     retry?: number): Promise<ApiResponse>;
     /**
@@ -1107,4 +1104,18 @@ export interface Revision {
     starttimestamp: string;
     content: string;
 }
+/**
+ * Callback function for {@link Mwbot.edit}.
+ *
+ * @param wikitext A {@link Wikitext} instance created from the target page’s content.
+ * @param revision The latest revision information of the target page.
+ * @returns Parameters for `action=edit` as a plain object, or `null` to cancel the edit.
+ * May also return a Promise resolving to either of the two.
+ *
+ * See {@link Mwbot.edit} for the default parameters used by the method.
+ *
+ * If the return value is (or resolves to) `null`, the method rejects with a {@link MwbotError}
+ * using the `api_mwbot: aborted` error code.
+ */
+export type TransformationPredicate = (wikitext: Wikitext, revision: Revision) => ApiEditPageParams | null | Promise<ApiEditPageParams | null>;
 //# sourceMappingURL=Mwbot.d.ts.map

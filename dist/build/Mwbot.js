@@ -1173,7 +1173,7 @@ class Mwbot {
                 console.log(`Retrying in ${sleepSeconds} seconds...`);
             }
             else {
-                console.log(`Retrying...`);
+                console.log('Retrying...');
             }
             await sleep(sleepSeconds * 1000);
             if (typeof retryCallback === 'function') {
@@ -1327,7 +1327,7 @@ class Mwbot {
         if (!keys.length) {
             throw new MwbotError_1.MwbotError('fatal', {
                 code: 'emptykeys',
-                info: `"keys" cannot be an empty array.`
+                info: '"keys" cannot be an empty array.'
             });
         }
         // Extract multi-value field
@@ -1900,10 +1900,7 @@ class Mwbot {
      * ```
      *
      * @param title The page title, either as a string or a {@link Title} instance.
-     * @param transform A function that receives a {@link Wikitext} instance initialized from the
-     * fetched content and an object representing the metadata of the fetched revision. This function
-     * should return {@link ApiEditPageParams} as a plain object or (a Promise resolving to this object),
-     * which will be used for the edit request.
+     * @param transform See {@link TransformationPredicate} for details.
      * @param requestOptions Optional HTTP request options.
      * @returns A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
      */
@@ -1927,10 +1924,16 @@ class Mwbot {
         if (params instanceof Error) {
             throw params;
         }
+        else if (params === null) {
+            throw new MwbotError_1.MwbotError('api_mwbot', {
+                code: 'aborted',
+                info: 'Edit aborted by the user.'
+            });
+        }
         else if (!isPlainObject(params)) {
             throw new MwbotError_1.MwbotError('fatal', {
                 code: 'typemismatch',
-                info: `The transformation predicate must resolve to a plain object.`
+                info: 'The transformation predicate must resolve to a plain object.'
             }, { transformed: params });
         }
         const defaultParams = {
