@@ -1209,7 +1209,10 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		stringify(options: TemplateOutputConfig<Title> = {}): string {
-			return this._stringify(this.title.getPrefixedText({colon: true}), options);
+			const title = this.title.getNamespaceId() === NS_TEMPLATE
+				? this.title.getMain()
+				: this.title.getPrefixedText({colon: true});
+			return this._stringify(title, options);
 		}
 
 		override toString() {
@@ -1271,7 +1274,9 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		override stringify(options: ParsedTemplateOutputConfig = {}): string {
 			const {rawTitle: optRawTitle, ...rawOptions} = options;
-			let title = this.title.getPrefixedText({colon: true});
+			let title = this.title.getNamespaceId() === NS_TEMPLATE
+				? this.title.getMain()
+				: this.title.getPrefixedText({colon: true});
 			if (optRawTitle && this._rawTitle.includes('\x01')) {
 				title = this._rawTitle.replace('\x01', title);
 			}
