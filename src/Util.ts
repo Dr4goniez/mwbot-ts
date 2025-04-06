@@ -81,7 +81,7 @@ export type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) ex
  * @param value
  * @returns
  */
-export function isObject(value: any): boolean {
+export function isObject(value: unknown): value is Record<string | number | symbol, unknown> {
 	return typeof value === 'object' && !Array.isArray(value) && value !== null;
 }
 
@@ -91,7 +91,7 @@ export function isObject(value: any): boolean {
  * @param value
  * @returns
  */
-export function isPlainObject(value: any): boolean {
+export function isPlainObject(value: unknown): value is Record<string | number | symbol, unknown> {
 	if (
 		typeof value !== 'object' ||
 		value === null ||
