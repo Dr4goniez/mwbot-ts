@@ -1826,7 +1826,7 @@ export function WikitextFactory(
 						// @ts-expect-error Modifying a read-only property
 						temp.params = params.map(({key, value}) => {
 							// @ts-expect-error Calling a private method
-							temp.registerParam(key || '', value, {overwrite: true, append: true, listDuplicates: true});
+							temp.registerParam(key || '', value, {overwrite: true, position: 'end', listDuplicates: true});
 						});
 						// @ts-expect-error Modifying a private property
 						temp._initializer.params = params;

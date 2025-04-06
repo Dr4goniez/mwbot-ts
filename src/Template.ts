@@ -19,7 +19,7 @@
 
 import { XOR } from 'ts-xor';
 import type { Mwbot } from './Mwbot';
-import { escapeRegExp, mergeDeep } from './Util';
+import { escapeRegExp, isPlainObject, mergeDeep } from './Util';
 import type { TitleStatic, Title } from './Title';
 import { ParamBase } from './baseClasses';
 
@@ -122,49 +122,74 @@ export interface TemplateBase<T extends string | Title> {
 	/**
 	 * The template's parameters.
 	 *
-	 * This property is read-only. To update it, use {@link addParam}, {@link setParam},
+	 * This property is read-only. To update it, use {@link insertParam}, {@link updateParam},
 	 * or {@link deleteParam} as per your needs.
 	 */
 	readonly params: Record<string, TemplateParameter>;
 
 	/**
-	 * Adds a template parameter to the end of the list.
+	 * Inserts a template parameter into the list.
+	 *
+	 * By default, if the parameter is new:
+	 * - It is inserted at the end of the list.
+	 * - If `position` is specified, the insertion position is controlled accordingly.
 	 *
 	 * If a parameter with the same `key` already exists:
-	 * - If `overwrite` is `true`, it replaces the existing value and **moves it to the end** of the list.
-	 * 	- This may alter the position of the parameter, e.g., `|1=|2=|3=` could become `|1=|3=|2=`.
-	 * - If `overwrite` is `false`, the parameter is not added, and the existing entry remains unchanged.
+	 * - If `overwrite` is `true` (default):
+	 *   - If `position` is not specified, the parameter’s value is updated **in place** (its position remains unchanged).
+	 *   - If `position` is specified, the parameter’s value is updated **and moved** to the specified position.
+	 * - If `overwrite` is `false`, the existing parameter is left unchanged and no insertion occurs.
 	 *
-	 * This differs from {@link setParam}, which updates an existing key without changing its order.
+	 * If {@link TemplateParameterHierarchies | parameter hierarchies} are set, `key` is automatically
+	 * resolved to the higher-priority key, if applicable.
 	 *
-	 * Note that the order of parameters in the final output can be controlled via {@link stringify}
-	 * using {@link TemplateOutputConfig.sortPredicate}, regardless of the insertion order tracked by this instance.
+	 * Note that the order of parameters in the final output can also be controlled via {@link stringify}, using
+	 * {@link TemplateOutputConfig.sortPredicate}, regardless of the insertion order tracked by this instance.
 	 *
 	 * @param key The key of the parameter. This can be an empty string for unnamed parameters.
 	 * @param value The value of the parameter.
-	 * @param overwrite
-	 * Whether to overwrite the existing value (`true`) or cancel the addition (`false`). (Default: `true`)
+	 * @param overwrite Whether to overwrite an existing parameter if it exists. (Default: `true`)
+	 * @param position Where to insert or move the parameter:
+	 * - `'start'`: Insert at the beginning.
+	 * - `'end'`: Insert at the end (default for new parameters).
+	 * - `{ before: referenceKey }`: Insert before the given key.
+	 * - `{ after: referenceKey }`: Insert after the given key.
+	 *
+	 * If `referenceKey` does not exist:
+	 * - For new parameters, insertion falls back to `'end'`.
+	 * - For existing parameters, the value is updated in place without moving it (i.e., behaves as if `position`
+	 *   is not specified).
+	 *
+	 * When specifying a `referenceKey`, it is best practice to verify its existence beforehand to ensure
+	 * expected behavior. See {@link hasParam} for the relevant utility.
+	 *
+	 * @returns The current instance for chaining.
 	 */
-	addParam(key: string, value: string, overwrite?: boolean): this;
+	insertParam(
+		key: string,
+		value: string,
+		overwrite?: boolean,
+		position?: 'start' | 'end' | {before: string} | {after: string}
+	): this;
 	/**
-	 * Sets a template parameter while preserving its original position in the list.
+	 * Updates the value of an existing parameter without changing its position.
 	 *
-	 * If a parameter with the same `key` already exists:
-	 * - If `overwrite` is `true`, it replaces the existing value while **keeping its original position**.
-	 * 	- This ensures that the order remains unchanged, e.g., `|1=|2=|3=` stays the same.
-	 * - If `overwrite` is `false`, the parameter remains unchanged.
+	 * - If no parameter with the given `key` exists, this method does nothing.
+	 * - If {@link TemplateParameterHierarchies | parameter hierarchies} are set, `key` is automatically
+	 *   resolved to the higher-priority key, if applicable.
 	 *
-	 * This differs from {@link addParam}, which moves the parameter to the end of the list.
+	 * This is functionally equivalent to calling {@link insertParam} with `overwrite = true` and no `position`,
+	 * **except** that it performs no operation if the parameter does not already exist.
 	 *
-	 * Note that the order of parameters in the final output can be controlled via {@link stringify}
-	 * using {@link TemplateOutputConfig.sortPredicate}, regardless of the insertion order tracked by this instance.
+	 * Use this method when you want to safely update a parameter **only if it exists**, without affecting the order
+	 * of parameters or accidentally inserting new ones.
 	 *
 	 * @param key The key of the parameter. This can be an empty string for unnamed parameters.
 	 * @param value The new value of the parameter.
-	 * @param overwrite
-	 * Whether to overwrite the existing value (`true`) or cancel the update (`false`). (Default: `true`)
+	 *
+	 * @returns The current instance for chaining.
 	 */
-	setParam(key: string, value: string, overwrite?: boolean): this;
+	updateParam(key: string, value: string): this;
 	/**
 	 * Gets a parameter object by key.
 	 *
@@ -232,7 +257,7 @@ export interface TemplateBase<T extends string | Title> {
  *
  * @example
  * const foo = new mwbot.Template('Foo');
- * foo.addParam('', 'bar').addParam('user', 'baz');
+ * foo.insertParam('', 'bar').insertParam('user', 'baz');
  * foo.stringify(); // {{Foo|bar|user=baz}}
  */
 export interface TemplateStatic extends TemplateBaseStatic<Title> {
@@ -801,17 +826,22 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 			// Register parameters
 			params.forEach(({key, value}) => {
-				this.registerParam(key || '', value, {overwrite: true, append: true, listDuplicates: true});
+				this.registerParam(key || '', value, {overwrite: true, position: 'end', listDuplicates: true});
 			});
 
 		}
 
-		addParam(key: string, value: string, overwrite = true): this {
-			return this.registerParam(key, value, {overwrite, append: true});
+		insertParam(
+			key: string,
+			value: string,
+			overwrite?: boolean,
+			position?: 'start' | 'end' | {before: string} | {after: string}
+		): this {
+			return this.registerParam(key, value, {overwrite: !!overwrite, position});
 		}
 
-		setParam(key: string, value: string, overwrite = true): this {
-			return this.registerParam(key, value, {overwrite, append: false});
+		updateParam(key: string, value: string): this {
+			return this.registerParam(key, value, {overwrite: 'must'});
 		}
 
 		getParam(key: string, resolveHierarchy = false): TemplateParameter | null {
@@ -1016,6 +1046,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 * @param key The key of the parameter. This can be an empty string if the parameter should be unnamed.
 		 * @param value The new value of the parameter.
 		 * @param options Options to register the parameter.
+		 * @returns The current instance for chaining.
 		 */
 		protected registerParam(
 			key: string,
@@ -1023,17 +1054,21 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			options: {
 				/**
 				 * Whether to overwrite existing parameters. If `false`, the new parameter is not registered
-				 * if there is an existing parameter with the same `key`.
+				 * if there is an existing parameter with the same `key`. If `'must'`, the method ensures that
+				 * it overwrites an existing parameter and does nothing if it would not.
 				 */
-				overwrite: boolean;
+				overwrite: boolean | 'must';
 				/**
-				 * Whether to append the new parameter to the end of the list if there is an existing parameter
-				 * with the same `key`. If `false`, the existing parameter value is replaced without changing
-				 * its position in the list.
+				 * Where to insert the parameter in the internal ordering. Can be:
+				 * - `'start'`: insert at the beginning,
+				 * - `'end'`: insert at the end (default),
+				 * - `{before: string}`: insert before the parameter with the given key,
+				 * - `{after: string}`: insert after the parameter with the given key.
 				 */
-				append: boolean;
+				position?: 'start' | 'end' | {before: string} | {after: string};
 				/**
-				 * Whether to list duplicate parameters. This option is for the constructor.
+				 * Whether to list duplicate parameters. This applies to overwrites and
+				 * will store previous values in the `duplicates` array.
 				 */
 				listDuplicates?: true;
 			}
@@ -1044,64 +1079,129 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			if (unnamed) {
 				key = this.findNumericKey();
 			} else {
-				value = value.trim();
+				value = value.trim(); // Trim value only if the key is named
 			}
 
-			const {overwrite, append, listDuplicates = false} = options;
+			const {overwrite, position, listDuplicates = false} = options;
 			const overrideStatus = this.checkKeyOverride(key);
 			const existing = overrideStatus !== null || key in this.params;
 
-			// If the key already exists but overwriting is disabled, do nothing
-			if (existing && !overwrite) {
+			// Early exit conditions:
+			// 1. If the key already exists and overwrite is not allowed.
+			// 2. If the key doesn't exist and overwrite is required ('must').
+			if ((existing && !overwrite) || (!existing && overwrite === 'must')) {
 				return this;
 			}
 
+			/**
+			 * Helper function to resolve the index of a reference key inside paramOrder.
+			 * Handles possible override relationships by checking both overriding and overridden keys.
+			 */
+			const findReferenceIndex = (order: string[], ref: string): number => {
+				let i = order.indexOf(ref);
+				if (i !== -1) return i;
+				const rel = this.checkKeyOverride(ref);
+				if (typeof rel?.overrides === 'string' && (i = order.indexOf(rel.overrides)) !== -1) return i;
+				if (typeof rel?.overridden === 'string' && (i = order.indexOf(rel.overridden)) !== -1) return i;
+				return -1;
+			};
+
+			const order = [...this.paramOrder];
 			if (existing) {
-				if (overrideStatus) {
-					if ('overrides' in overrideStatus) {
-						// The input key overrides an already registered key
-						const overriddenKey = overrideStatus.overrides as string;
-						const {duplicates, ...rest} = this.params[overriddenKey];
-						if (listDuplicates) {
-							duplicates.push(rest);
-						}
-						delete this.params[overriddenKey];
-						if (append) {
-							this.paramOrder.delete(overriddenKey);
-							this.paramOrder.add(key);
-						} else {
-							const orders = [...this.paramOrder];
-							orders.splice(orders.indexOf(overriddenKey), 1, key);
-							this.paramOrder = new Set(orders);
-						}
-						this.params[key] = this.createParam(key, value, unnamed, duplicates);
-					} else {
-						// The input key is overridden by an already registered key
-						if (listDuplicates) {
-							this.params[overrideStatus.overridden].duplicates.push(
-								this.createParam(key, value, unnamed, null)
-							);
-						}
-					}
-				} else {
-					// The input key is already registered
-					const {duplicates, ...rest} = this.params[key];
+				// Handle updates for an existing key
+
+				// The input key overrides another key (i.e., an alias), or it exists directly
+				if (overrideStatus?.overrides || key in this.params) {
+
+					const targetKey = overrideStatus?.overrides ?? key;
+					const {duplicates, ...previousParam} = this.params[targetKey];
 					if (listDuplicates) {
-						duplicates.push(rest);
+						// If duplicate tracking is enabled, save the previous param state
+						duplicates.push(previousParam);
 					}
-					if (append) {
-						this.paramOrder.delete(key);
-						this.paramOrder.add(key);
+					delete this.params[targetKey]; // Remove the old parameter before replacing
+
+					// Get the reference key if `position` is an object, ensuring that the ref key is a string
+					let refKey: string | null = null;
+					let isAfter = false;
+					if (isPlainObject(position)) {
+						if ('before' in position && typeof position.before === 'string') {
+							refKey = position.before;
+						} else if ('after' in position && typeof position.after === 'string') {
+							isAfter = true;
+							refKey = position.after;
+						}
 					}
+
+					// Self-reference should fall back to in-place update: Exclude such cases
+					if (!(refKey === targetKey || refKey === key)) {
+
+						// Remove the target from current order before reinserting
+						const targetKeyIndex = order.indexOf(targetKey);
+						order.splice(targetKeyIndex, 1);
+
+						if (refKey && isPlainObject(position)) {
+							let insertIndex = findReferenceIndex(order, refKey);
+							if (insertIndex !== -1) {
+								insertIndex = isAfter ? insertIndex + 1 : insertIndex;
+								order.splice(insertIndex, 0, key);
+							} else {
+								order.push(key);
+							}
+						} else if (position === 'start') {
+							order.unshift(key);
+						} else if (position === 'end') {
+							order.push(key);
+						} else {
+							// Default: preserve original index
+							order.splice(targetKeyIndex, 0, key);
+						}
+					}
+
 					this.params[key] = this.createParam(key, value, unnamed, duplicates);
+					this.paramOrder = new Set(order);
+				}
+
+				// The input key is overridden by an existing parameter
+				else if (overrideStatus?.overridden) {
+					if (listDuplicates) {
+						this.params[overrideStatus.overridden].duplicates.push(
+							this.createParam(key, value, unnamed, null)
+						);
+					}
+					// Do not modify existing parameter or reorder
 				}
 			} else {
-				// Register a new parameter
+				// Handle a brand new parameter
+
 				this.params[key] = this.createParam(key, value, unnamed, []);
+
+				// Update the insertion order with respect to the position
+				if (isPlainObject(position)) {
+					const isBefore = 'before' in position;
+					const refKey = isBefore ? position.before : position.after;
+					if (typeof refKey === 'string') {
+						const refIndex = findReferenceIndex(order, refKey);
+						if (refIndex !== -1) {
+							const insertAt = isBefore ? refIndex : refIndex + 1;
+							order.splice(insertAt, 0, key);
+						} else {
+							// If reference key is not found, append to end
+							order.push(key);
+						}
+					} else {
+						order.push(key);
+					}
+				} else if (position === 'start') {
+					order.unshift(key);
+				} else {
+					// Default to inserting at the end (position === 'end' or undefined)
+					order.push(key);
+				}
+				this.paramOrder = new Set(order);
 			}
 
 			return this;
-
 		}
 
 		/**
@@ -1112,10 +1212,10 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 */
 		protected _stringify(title: string, options: TemplateOutputConfig<T>): string {
 
-			const orders = [...this.paramOrder];
+			const order = [...this.paramOrder];
 			const {
 				append,
-				sortPredicate = (param1, param2) => orders.indexOf(param1.key) - orders.indexOf(param2.key),
+				sortPredicate = (param1, param2) => order.indexOf(param1.key) - order.indexOf(param2.key),
 				brPredicateTitle = () => false,
 				brPredicateParam = () => false
 			} = options;
