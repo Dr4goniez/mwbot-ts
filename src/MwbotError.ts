@@ -78,10 +78,10 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 		this.type = type;
 		this.code = code;
 		this.info = info;
-		if (isPlainObject(data) && !isEmptyObject(data)) {
+		if (isEmptyObject(data) === false) {
 			this.data = Object.assign({}, data);
 		}
-		if (!isEmptyObject(rest)) {
+		if (isEmptyObject(rest) === false) {
 			this.data = Object.assign(this.data || {}, {error: rest});
 		}
 

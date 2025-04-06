@@ -105,15 +105,13 @@ export function isPlainObject(value: unknown): value is Record<string | number |
 
 /**
  * Checks whether the given object is empty.
-
- * @param object
- * @returns `true` if the object has no properties; otherwise `false`.
  *
- * NOTE: Unlike `jQuery.isEmptyObject`, this function always returns `false` if the input is not an object.
+ * @param object
+ * @returns A boolean indicating whether the object has no properties. `null` if the input is not an object.
  */
-export function isEmptyObject(object: any): boolean {
+export function isEmptyObject(object: unknown): boolean | null {
 	if (!isObject(object)) {
-		return false;
+		return null;
 	}
 	for (const _key in object) {
 		return false;
@@ -127,7 +125,7 @@ export function isEmptyObject(object: any): boolean {
  * @param value
  * @returns
  */
-export function isClassInstance(value: any): boolean {
+export function isClassInstance(value: unknown): boolean {
 	if (!isObject(value)) {
 		return false;
 	}

@@ -687,7 +687,7 @@ export class Mwbot {
 				} else if (typeof selection === 'string' && value !== void 0) {
 					this.configData[selection as string] = value;
 					return true;
-				} else if (isPlainObject(selection) && !isEmptyObject(selection)) {
+				} else if (isEmptyObject(selection) === false) {
 					let registered = 0;
 					const wgVars: string[] = [];
 					for (const [k, v] of Object.entries(<U>selection)) {
@@ -1663,7 +1663,7 @@ export class Mwbot {
 		return this.get(params, requestOptions)
 		.then((res) => {
 			const resToken = res?.query?.tokens;
-			if (resToken && !isEmptyObject(resToken)) {
+			if (resToken && isEmptyObject(resToken) === false) {
 				this.tokens = resToken; // Update cashed tokens
 				const token = resToken[tokenName];
 				if (token) {
