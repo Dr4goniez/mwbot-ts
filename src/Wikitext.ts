@@ -712,7 +712,6 @@ export function WikitextFactory(
 				}
 				this.storage[key] = val; // Save
 				return clone
-					// @ts-expect-error TODO: Not all instances accept _clone(args)
 					? val.map((obj) => '_clone' in obj ? obj._clone(args) : isClassInstance(obj) ? deepCloneInstance(obj) : mergeDeep(obj))
 					: val;
 			}
@@ -1813,23 +1812,15 @@ export function WikitextFactory(
 						return {key: key.replace(/\x02/g, '|'), value: value.replace(/\x02/g, '|')};
 					});
 
-					// Hack: Update the `params` and `_initializer` properties
+					// Hack: Update `params` in `_initializer` and recreate instance
 					if (temp instanceof mw.ParserFunction) {
 						// @ts-expect-error Modifying a private property
 						temp._initializer.params = [temp._initializer.params[0]].concat(params);
-						const initParams = [temp.params[0]];
-						params.forEach(({key, value}) => {
-							initParams.push((key ? key + '=' : '') + value);
-						});
-						temp.params = initParams;
+						templates[i] = temp._clone();
 					} else {
-						// @ts-expect-error Modifying a read-only property
-						temp.params = params.map(({key, value}) => {
-							// @ts-expect-error Calling a private method
-							temp.registerParam(key || '', value, {overwrite: true, position: 'end', listDuplicates: true});
-						});
 						// @ts-expect-error Modifying a private property
 						temp._initializer.params = params;
+						templates[i] = temp._clone(options);
 					}
 				}
 

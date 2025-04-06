@@ -455,7 +455,7 @@ export interface ParsedTemplate extends Template {
 	/**
 	 * @hidden
 	 */
-	_clone(): ParsedTemplate;
+	_clone(options?: ParsedTemplateOptions): ParsedTemplate;
 }
 
 /**
@@ -581,7 +581,7 @@ export interface RawTemplate extends TemplateBase<string> {
 	/**
 	 * @hidden
 	 */
-	_clone(): RawTemplate;
+	_clone(options?: ParsedTemplateOptions): RawTemplate;
 }
 
 /**
