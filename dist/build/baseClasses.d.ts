@@ -1,6 +1,5 @@
 /**
  * A base class for another class that should have a `params` property that is a string array.
- * @internal
  */
 export declare abstract class ParamBase {
     /**

@@ -2,7 +2,6 @@ import { escapeRegExp } from './Util';
 
 /**
  * A base class for another class that should have a `params` property that is a string array.
- * @internal
  */
 export abstract class ParamBase {
 

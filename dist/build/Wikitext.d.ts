@@ -56,10 +56,10 @@
  *
  * @module
  */
-import type { Mwbot, MwbotRequestConfig } from './Mwbot';
+import type { MwbotRequestConfig } from './Mwbot';
 import type { Title } from './Title';
-import type { ParsedTemplateStatic, ParsedTemplate, RawTemplateStatic, RawTemplate, ParsedParserFunctionStatic, ParsedParserFunction, TemplateParameterHierarchies } from './Template';
-import type { ParsedWikilinkStatic, ParsedWikilink, ParsedFileWikilinkStatic, ParsedFileWikilink, ParsedRawWikilinkStatic, ParsedRawWikilink } from './Wikilink';
+import type { ParsedTemplate, RawTemplate, ParsedParserFunction, TemplateParameterHierarchies } from './Template';
+import type { ParsedWikilink, ParsedFileWikilink, ParsedRawWikilink } from './Wikilink';
 /**
  * @expand
  * @private
@@ -432,10 +432,6 @@ export interface Wikitext {
      */
     modifyWikilinks(modificationPredicate: (expressions: ModificationMap['wikilinks'][]) => Promise<(string | null)[]>): Promise<string>;
 }
-/**
- * @internal
- */
-export declare function WikitextFactory(mw: Mwbot, ParsedTemplate: ParsedTemplateStatic, RawTemplate: RawTemplateStatic, ParsedParserFunction: ParsedParserFunctionStatic, ParsedWikilink: ParsedWikilinkStatic, ParsedFileWikilink: ParsedFileWikilinkStatic, ParsedRawWikilink: ParsedRawWikilinkStatic): WikitextStatic;
 /**
  * Options for initializing a {@link Wikitext} instance.
  */

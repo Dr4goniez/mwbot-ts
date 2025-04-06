@@ -128,14 +128,14 @@ function TemplateFactory(config, info, Title) {
             this.hierarchies = Array.isArray(hierarchies) ? hierarchies.map((arr) => [...arr]) : [];
             // Register parameters
             params.forEach(({ key, value }) => {
-                this.registerParam(key || '', value, { overwrite: true, append: true, listDuplicates: true });
+                this.registerParam(key || '', value, { overwrite: true, position: 'end', listDuplicates: true });
             });
         }
-        addParam(key, value, overwrite = true) {
-            return this.registerParam(key, value, { overwrite, append: true });
+        insertParam(key, value, overwrite, position) {
+            return this.registerParam(key, value, { overwrite: !!overwrite, position });
         }
-        setParam(key, value, overwrite = true) {
-            return this.registerParam(key, value, { overwrite, append: false });
+        updateParam(key, value) {
+            return this.registerParam(key, value, { overwrite: 'must' });
         }
         getParam(key, resolveHierarchy = false) {
             if (resolveHierarchy) {
@@ -279,67 +279,133 @@ function TemplateFactory(config, info, Title) {
          * @param key The key of the parameter. This can be an empty string if the parameter should be unnamed.
          * @param value The new value of the parameter.
          * @param options Options to register the parameter.
+         * @returns The current instance for chaining.
          */
         registerParam(key, value, options) {
+            var _a;
             key = key.trim();
             const unnamed = key === '';
             if (unnamed) {
                 key = this.findNumericKey();
             }
             else {
-                value = value.trim();
+                value = value.trim(); // Trim value only if the key is named
             }
-            const { overwrite, append, listDuplicates = false } = options;
+            const { overwrite, position, listDuplicates = false } = options;
             const overrideStatus = this.checkKeyOverride(key);
             const existing = overrideStatus !== null || key in this.params;
-            // If the key already exists but overwriting is disabled, do nothing
-            if (existing && !overwrite) {
+            // Early exit conditions:
+            // 1. If the key already exists and overwrite is not allowed.
+            // 2. If the key doesn't exist and overwrite is required ('must').
+            if ((existing && !overwrite) || (!existing && overwrite === 'must')) {
                 return this;
             }
+            /**
+             * Helper function to resolve the index of a reference key inside paramOrder.
+             * Handles possible override relationships by checking both overriding and overridden keys.
+             */
+            const findReferenceIndex = (order, ref) => {
+                let i = order.indexOf(ref);
+                if (i !== -1)
+                    return i;
+                const rel = this.checkKeyOverride(ref);
+                if (typeof (rel === null || rel === void 0 ? void 0 : rel.overrides) === 'string' && (i = order.indexOf(rel.overrides)) !== -1)
+                    return i;
+                if (typeof (rel === null || rel === void 0 ? void 0 : rel.overridden) === 'string' && (i = order.indexOf(rel.overridden)) !== -1)
+                    return i;
+                return -1;
+            };
+            const order = [...this.paramOrder];
             if (existing) {
-                if (overrideStatus) {
-                    if ('overrides' in overrideStatus) {
-                        // The input key overrides an already registered key
-                        const overriddenKey = overrideStatus.overrides;
-                        const { duplicates, ...rest } = this.params[overriddenKey];
-                        if (listDuplicates) {
-                            duplicates.push(rest);
+                // Handle updates for an existing key
+                // The input key overrides another key (i.e., an alias), or it exists directly
+                if ((overrideStatus === null || overrideStatus === void 0 ? void 0 : overrideStatus.overrides) || key in this.params) {
+                    const targetKey = (_a = overrideStatus === null || overrideStatus === void 0 ? void 0 : overrideStatus.overrides) !== null && _a !== void 0 ? _a : key;
+                    const { duplicates, ...previousParam } = this.params[targetKey];
+                    if (listDuplicates) {
+                        // If duplicate tracking is enabled, save the previous param state
+                        duplicates.push(previousParam);
+                    }
+                    delete this.params[targetKey]; // Remove the old parameter before replacing
+                    // Get the reference key if `position` is an object, ensuring that the ref key is a string
+                    let refKey = null;
+                    let isAfter = false;
+                    if ((0, Util_1.isPlainObject)(position)) {
+                        if ('before' in position && typeof position.before === 'string') {
+                            refKey = position.before;
                         }
-                        delete this.params[overriddenKey];
-                        if (append) {
-                            this.paramOrder.delete(overriddenKey);
-                            this.paramOrder.add(key);
+                        else if ('after' in position && typeof position.after === 'string') {
+                            isAfter = true;
+                            refKey = position.after;
+                        }
+                    }
+                    // Self-reference should fall back to in-place update: Exclude such cases
+                    if (!(refKey === targetKey || refKey === key)) {
+                        // Remove the target from current order before reinserting
+                        const targetKeyIndex = order.indexOf(targetKey);
+                        order.splice(targetKeyIndex, 1);
+                        if (refKey && (0, Util_1.isPlainObject)(position)) {
+                            let insertIndex = findReferenceIndex(order, refKey);
+                            if (insertIndex !== -1) {
+                                insertIndex = isAfter ? insertIndex + 1 : insertIndex;
+                                order.splice(insertIndex, 0, key);
+                            }
+                            else {
+                                order.push(key);
+                            }
+                        }
+                        else if (position === 'start') {
+                            order.unshift(key);
+                        }
+                        else if (position === 'end') {
+                            order.push(key);
                         }
                         else {
-                            const orders = [...this.paramOrder];
-                            orders.splice(orders.indexOf(overriddenKey), 1, key);
-                            this.paramOrder = new Set(orders);
+                            // Default: preserve original index
+                            order.splice(targetKeyIndex, 0, key);
                         }
-                        this.params[key] = this.createParam(key, value, unnamed, duplicates);
-                    }
-                    else {
-                        // The input key is overridden by an already registered key
-                        if (listDuplicates) {
-                            this.params[overrideStatus.overridden].duplicates.push(this.createParam(key, value, unnamed, null));
-                        }
-                    }
-                }
-                else {
-                    // The input key is already registered
-                    const { duplicates, ...rest } = this.params[key];
-                    if (listDuplicates) {
-                        duplicates.push(rest);
-                    }
-                    if (append) {
-                        this.paramOrder.delete(key);
-                        this.paramOrder.add(key);
                     }
                     this.params[key] = this.createParam(key, value, unnamed, duplicates);
+                    this.paramOrder = new Set(order);
+                }
+                // The input key is overridden by an existing parameter
+                else if (overrideStatus === null || overrideStatus === void 0 ? void 0 : overrideStatus.overridden) {
+                    if (listDuplicates) {
+                        this.params[overrideStatus.overridden].duplicates.push(this.createParam(key, value, unnamed, null));
+                    }
+                    // Do not modify existing parameter or reorder
                 }
             }
             else {
-                // Register a new parameter
+                // Handle a brand new parameter
                 this.params[key] = this.createParam(key, value, unnamed, []);
+                // Update the insertion order with respect to the position
+                if ((0, Util_1.isPlainObject)(position)) {
+                    const isBefore = 'before' in position;
+                    const refKey = isBefore ? position.before : position.after;
+                    if (typeof refKey === 'string') {
+                        const refIndex = findReferenceIndex(order, refKey);
+                        if (refIndex !== -1) {
+                            const insertAt = isBefore ? refIndex : refIndex + 1;
+                            order.splice(insertAt, 0, key);
+                        }
+                        else {
+                            // If reference key is not found, append to end
+                            order.push(key);
+                        }
+                    }
+                    else {
+                        order.push(key);
+                    }
+                }
+                else if (position === 'start') {
+                    order.unshift(key);
+                }
+                else {
+                    // Default to inserting at the end (position === 'end' or undefined)
+                    order.push(key);
+                }
+                this.paramOrder = new Set(order);
             }
             return this;
         }
@@ -350,8 +416,8 @@ function TemplateFactory(config, info, Title) {
          * @returns
          */
         _stringify(title, options) {
-            const orders = [...this.paramOrder];
-            const { append, sortPredicate = (param1, param2) => orders.indexOf(param1.key) - orders.indexOf(param2.key), brPredicateTitle = () => false, brPredicateParam = () => false } = options;
+            const order = [...this.paramOrder];
+            const { append, sortPredicate = (param1, param2) => order.indexOf(param1.key) - order.indexOf(param2.key), brPredicateTitle = () => false, brPredicateParam = () => false } = options;
             let { prepend } = options;
             const ret = ['{{'];
             // Process the title part
@@ -482,8 +548,8 @@ function TemplateFactory(config, info, Title) {
         toString() {
             return this.stringify();
         }
-        _clone() {
-            return new ParsedTemplate(this._initializer);
+        _clone(options = {}) {
+            return new ParsedTemplate(this._initializer, options);
         }
     }
     const _parsedTemplateCheckStatic = ParsedTemplate;
@@ -550,8 +616,8 @@ function TemplateFactory(config, info, Title) {
         toString() {
             return this.stringify();
         }
-        _clone() {
-            return new RawTemplate(this._initializer);
+        _clone(options = {}) {
+            return new RawTemplate(this._initializer, options);
         }
     }
     const _rawTemplateCheckStatic = RawTemplate;

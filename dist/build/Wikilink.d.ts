@@ -18,8 +18,7 @@
  * @module
  */
 import { ParamBase } from './baseClasses';
-import type { Mwbot } from './Mwbot';
-import type { TitleStatic, Title } from './Title';
+import type { Title } from './Title';
 /**
  * The base class for {@link WikilinkStatic} and {@link RawWikilinkStatic}.
  *
@@ -579,17 +578,6 @@ export interface ParsedRawWikilink extends RawWikilink {
      */
     _clone(): ParsedRawWikilink;
 }
-/**
- * @internal
- */
-export declare function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic): {
-    Wikilink: WikilinkStatic;
-    ParsedWikilink: ParsedWikilinkStatic;
-    FileWikilink: FileWikilinkStatic;
-    ParsedFileWikilink: ParsedFileWikilinkStatic;
-    RawWikilink: RawWikilinkStatic;
-    ParsedRawWikilink: ParsedRawWikilinkStatic;
-};
 /**
  * Helper interface for {@link WikilinkStatic.is}.
  * @private

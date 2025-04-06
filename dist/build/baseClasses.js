@@ -4,7 +4,6 @@ exports.ParamBase = void 0;
 const Util_1 = require("./Util");
 /**
  * A base class for another class that should have a `params` property that is a string array.
- * @internal
  */
 class ParamBase {
     /**

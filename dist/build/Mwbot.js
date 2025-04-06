@@ -612,7 +612,7 @@ class Mwbot {
                     this.configData[selection] = value;
                     return true;
                 }
-                else if (isPlainObject(selection) && !isEmptyObject(selection)) {
+                else if (isEmptyObject(selection) === false) {
                     let registered = 0;
                     const wgVars = [];
                     for (const [k, v] of Object.entries(selection)) {
@@ -1461,7 +1461,7 @@ class Mwbot {
             .then((res) => {
             var _a;
             const resToken = (_a = res === null || res === void 0 ? void 0 : res.query) === null || _a === void 0 ? void 0 : _a.tokens;
-            if (resToken && !isEmptyObject(resToken)) {
+            if (resToken && isEmptyObject(resToken) === false) {
                 this.tokens = resToken; // Update cashed tokens
                 const token = resToken[tokenName];
                 if (token) {

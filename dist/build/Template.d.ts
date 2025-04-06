@@ -16,8 +16,7 @@
  *
  * @module
  */
-import type { Mwbot } from './Mwbot';
-import type { TitleStatic, Title } from './Title';
+import type { Title } from './Title';
 import { ParamBase } from './baseClasses';
 /**
  * The base class for {@link TemplateStatic} and {@link RawTemplateStatic}.
@@ -53,72 +52,92 @@ export interface TemplateBase<T extends string | Title> {
     /**
      * The template's parameters.
      *
-     * This property is read-only. To update it, use {@link addParam}, {@link setParam},
+     * This property is read-only. To update it, use {@link insertParam}, {@link updateParam},
      * or {@link deleteParam} as per your needs.
      */
     readonly params: Record<string, TemplateParameter>;
     /**
-     * Adds a template parameter to the end of the list.
+     * Inserts a template parameter into the list.
+     *
+     * By default, if the parameter is new:
+     * - It is inserted at the end of the list.
+     * - If `position` is specified, the insertion position is controlled accordingly.
      *
      * If a parameter with the same `key` already exists:
-     * - If `overwrite` is `true`, it replaces the existing value and **moves it to the end** of the list.
-     * 	- This may alter the position of the parameter, e.g., `|1=|2=|3=` could become `|1=|3=|2=`.
-     * - If `overwrite` is `false`, the parameter is not added, and the existing entry remains unchanged.
+     * - If `overwrite` is `true` (default):
+     *   - If `position` is not specified, the parameter’s value is updated **in place** (its position remains unchanged).
+     *   - If `position` is specified, the parameter’s value is updated **and moved** to the specified position.
+     * - If `overwrite` is `false`, the existing parameter is left unchanged and no insertion occurs.
      *
-     * This differs from {@link setParam}, which updates an existing key without changing its order.
+     * If {@link TemplateParameterHierarchies | parameter hierarchies} are set, `key` is automatically
+     * resolved to the higher-priority key, if applicable.
      *
-     * Note that the order of parameters in the final output can be controlled via {@link stringify}
-     * using {@link TemplateOutputConfig.sortPredicate}, regardless of the insertion order tracked by this instance.
+     * Note that the order of parameters in the final output can also be controlled via {@link stringify}, using
+     * {@link TemplateOutputConfig.sortPredicate}, regardless of the insertion order tracked by this instance.
      *
      * @param key The key of the parameter. This can be an empty string for unnamed parameters.
      * @param value The value of the parameter.
-     * @param overwrite
-     * Whether to overwrite the existing value (`true`) or cancel the addition (`false`). (Default: `true`)
+     * @param overwrite Whether to overwrite an existing parameter if it exists. (Default: `true`)
+     * @param position Where to insert or move the parameter:
+     * - `'start'`: Insert at the beginning.
+     * - `'end'`: Insert at the end (default for new parameters).
+     * - `{ before: referenceKey }`: Insert before the given key.
+     * - `{ after: referenceKey }`: Insert after the given key.
+     *
+     * If `referenceKey` does not exist:
+     * - For new parameters, insertion falls back to `'end'`.
+     * - For existing parameters, the value is updated in place without moving it (i.e., behaves as if `position`
+     *   is not specified).
+     *
+     * When specifying a `referenceKey`, it is best practice to verify its existence beforehand to ensure
+     * expected behavior. See {@link hasParam} for the relevant utility.
+     *
+     * @returns The current instance for chaining.
      */
-    addParam(key: string, value: string, overwrite?: boolean): this;
+    insertParam(key: string, value: string, overwrite?: boolean, position?: 'start' | 'end' | {
+        before: string;
+    } | {
+        after: string;
+    }): this;
     /**
-     * Sets a template parameter while preserving its original position in the list.
+     * Updates the value of an existing parameter without changing its position.
      *
-     * If a parameter with the same `key` already exists:
-     * - If `overwrite` is `true`, it replaces the existing value while **keeping its original position**.
-     * 	- This ensures that the order remains unchanged, e.g., `|1=|2=|3=` stays the same.
-     * - If `overwrite` is `false`, the parameter remains unchanged.
+     * - If no parameter with the given `key` exists, this method does nothing.
+     * - If {@link TemplateParameterHierarchies | parameter hierarchies} are set, `key` is automatically
+     *   resolved to the higher-priority key, if applicable.
      *
-     * This differs from {@link addParam}, which moves the parameter to the end of the list.
+     * This is functionally equivalent to calling {@link insertParam} with `overwrite = true` and no `position`,
+     * **except** that it performs no operation if the parameter does not already exist.
      *
-     * Note that the order of parameters in the final output can be controlled via {@link stringify}
-     * using {@link TemplateOutputConfig.sortPredicate}, regardless of the insertion order tracked by this instance.
+     * Use this method when you want to safely update a parameter **only if it exists**, without affecting the order
+     * of parameters or accidentally inserting new ones.
      *
      * @param key The key of the parameter. This can be an empty string for unnamed parameters.
      * @param value The new value of the parameter.
-     * @param overwrite
-     * Whether to overwrite the existing value (`true`) or cancel the update (`false`). (Default: `true`)
+     *
+     * @returns The current instance for chaining.
      */
-    setParam(key: string, value: string, overwrite?: boolean): this;
+    updateParam(key: string, value: string): this;
     /**
      * Gets a parameter object by key.
      *
      * **Caution**: The returned object is mutable.
      *
      * @param key The parameter key.
-     * @param resolveHierarchy
-     * *(Leave this parameter undefined if template parameter hierarchies have already been provided
-     * via the constructor or {@link ParseTemplatesConfig.hierarchies}. In that case, parameters are
-     * already registered according to the hierarchy, with lower-priority values overridden.)*
-     *
-     * Whether to consider {@link TemplateParameterHierarchies | hierarchies} when
-     * searching for a matching parameter. If `true`, this method first checks if `key` belongs to a hierarchy
-     * array. If {@link params} contains a parameter with a higher-priority key in that hierarchy, it returns
-     * that parameter instead. (Default: `false`).
+     * @param resolveHierarchy Whether to consider {@link TemplateParameterHierarchies | hierarchies} when
+     * searching for a matching parameter. If `true`, this method first checks whether `key` belongs to a hierarchy
+     * array. If {@link params} contains a parameter with a higher-priority key in that hierarchy, that parameter
+     * is returned instead. (Default: `false`).
      *
      * Example:
      * - Given `key = '1'`, `hierarchies = [['1', 'user', 'User']]`, and `params` containing a parameter keyed `'user'`,
-     * this method returns the `'user'` parameter.
+     *   this method returns the `'user'` parameter.
      *
-     * Note that if `key` does not belong to any hierarchy array, this method behaves the same as when
-     * `resolveHierarchy` is `false`.
+     * If `key` does not belong to any hierarchy array, the method behaves the same as when
+     * `resolveHierarchy` is `false`. This also applies if no template parameter hierarchies have been provided
+     * via the constructor or {@link ParseTemplatesConfig.hierarchies}.
      *
-     * @returns The parameter object if found, otherwise `null`.
+     * @returns The parameter object if found; otherwise, `null`.
      */
     getParam(key: string, resolveHierarchy?: boolean): TemplateParameter | null;
     /**
@@ -165,7 +184,7 @@ export interface TemplateBase<T extends string | Title> {
  *
  * @example
  * const foo = new mwbot.Template('Foo');
- * foo.addParam('', 'bar').addParam('user', 'baz');
+ * foo.insertParam('', 'bar').insertParam('user', 'baz');
  * foo.stringify(); // {{Foo|bar|user=baz}}
  */
 export interface TemplateStatic extends TemplateBaseStatic<Title> {
@@ -351,7 +370,7 @@ export interface ParsedTemplate extends Template {
     /**
      * @hidden
      */
-    _clone(): ParsedTemplate;
+    _clone(options?: ParsedTemplateOptions): ParsedTemplate;
 }
 /**
  * This interface defines the static members of the `RawTemplate` class. For instance members,
@@ -474,7 +493,7 @@ export interface RawTemplate extends TemplateBase<string> {
     /**
      * @hidden
      */
-    _clone(): RawTemplate;
+    _clone(options?: ParsedTemplateOptions): RawTemplate;
 }
 /**
  * This interface defines the static members of the `ParserFunction` class. For instance members,
@@ -639,16 +658,6 @@ export interface ParsedParserFunction extends ParserFunction {
      */
     _clone(): ParsedParserFunction;
 }
-/**
- * @internal
- */
-export declare function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], Title: TitleStatic): {
-    Template: TemplateStatic;
-    ParsedTemplate: ParsedTemplateStatic;
-    RawTemplate: RawTemplateStatic;
-    ParserFunction: ParserFunctionStatic;
-    ParsedParserFunction: ParsedParserFunctionStatic;
-};
 /**
  * Object that is used to initialize template parameters in {@link TemplateStatic.constructor}.
  */
@@ -827,12 +836,6 @@ interface ParsedTemplateInitializer {
     endIndex: number;
     nestLevel: number;
     skip: boolean;
-}
-/**
- * @internal
- */
-export interface ParsedTemplateOptions {
-    hierarchies?: Record<string, TemplateParameterHierarchies>;
 }
 /**
  * The return type of {@link ParserFunctionStatic.verify}.

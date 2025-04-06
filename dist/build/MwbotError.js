@@ -47,10 +47,10 @@ class MwbotError extends Error {
         this.type = type;
         this.code = code;
         this.info = info;
-        if ((0, Util_1.isPlainObject)(data) && !(0, Util_1.isEmptyObject)(data)) {
+        if ((0, Util_1.isEmptyObject)(data) === false) {
             this.data = Object.assign({}, data);
         }
-        if (!(0, Util_1.isEmptyObject)(rest)) {
+        if ((0, Util_1.isEmptyObject)(rest) === false) {
             this.data = Object.assign(this.data || {}, { error: rest });
         }
         // Ensure proper stack trace capture

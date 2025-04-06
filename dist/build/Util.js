@@ -99,15 +99,13 @@ function isPlainObject(value) {
 }
 /**
  * Checks whether the given object is empty.
-
- * @param object
- * @returns `true` if the object has no properties; otherwise `false`.
  *
- * NOTE: Unlike `jQuery.isEmptyObject`, this function always returns `false` if the input is not an object.
+ * @param object
+ * @returns A boolean indicating whether the object has no properties. `null` if the input is not an object.
  */
 function isEmptyObject(object) {
     if (!isObject(object)) {
-        return false;
+        return null;
     }
     for (const _key in object) {
         return false;

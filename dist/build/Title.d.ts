@@ -15,7 +15,6 @@
  *
  * @module
  */
-import type { Mwbot } from './Mwbot';
 /**
  * This interface defines the static members of the `Title` class. For instance members,
  * see {@link Title} (defined separately due to TypeScript limitations).
@@ -577,10 +576,6 @@ export interface Title {
      */
     equals(title: string | Title, evalFragment?: boolean): boolean | null;
 }
-/**
- * @internal
- */
-export declare function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): TitleStatic;
 /**
  * Options for {@link Title.getPrefixedDb} and {@link Title.getPrefixedText}.
  */

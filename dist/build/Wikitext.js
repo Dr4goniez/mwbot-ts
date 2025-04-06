@@ -207,7 +207,7 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                 }
                 this.storage[key] = val; // Save
                 return clone
-                    ? val.map((obj) => '_clone' in obj ? obj._clone() : (0, Util_1.isClassInstance)(obj) ? (0, Util_1.deepCloneInstance)(obj) : (0, Util_1.mergeDeep)(obj))
+                    ? val.map((obj) => '_clone' in obj ? obj._clone(args) : (0, Util_1.isClassInstance)(obj) ? (0, Util_1.deepCloneInstance)(obj) : (0, Util_1.mergeDeep)(obj))
                     : val;
             }
             // If setting a value
@@ -1181,24 +1181,16 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                         // eslint-disable-next-line no-control-regex
                         return { key: key.replace(/\x02/g, '|'), value: value.replace(/\x02/g, '|') };
                     });
-                    // Hack: Update the `params` and `_initializer` properties
+                    // Hack: Update `params` in `_initializer` and recreate instance
                     if (temp instanceof mw.ParserFunction) {
                         // @ts-expect-error Modifying a private property
                         temp._initializer.params = [temp._initializer.params[0]].concat(params);
-                        const initParams = [temp.params[0]];
-                        params.forEach(({ key, value }) => {
-                            initParams.push((key ? key + '=' : '') + value);
-                        });
-                        temp.params = initParams;
+                        templates[i] = temp._clone();
                     }
                     else {
-                        // @ts-expect-error Modifying a read-only property
-                        temp.params = params.map(({ key, value }) => {
-                            // @ts-expect-error Calling a private method
-                            temp.registerParam(key || '', value, { overwrite: true, append: true, listDuplicates: true });
-                        });
                         // @ts-expect-error Modifying a private property
                         temp._initializer.params = params;
+                        templates[i] = temp._clone(options);
                     }
                 }
                 // eslint-disable-next-line no-constant-condition

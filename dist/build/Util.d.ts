@@ -31,30 +31,28 @@ export type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) ex
  * @param value
  * @returns
  */
-export declare function isObject(value: any): boolean;
+export declare function isObject(value: unknown): value is Record<string | number | symbol, unknown>;
 /**
  * Checks whether a value is a plain object.
  *
  * @param value
  * @returns
  */
-export declare function isPlainObject(value: any): boolean;
+export declare function isPlainObject(value: unknown): value is Record<string | number | symbol, unknown>;
 /**
  * Checks whether the given object is empty.
-
- * @param object
- * @returns `true` if the object has no properties; otherwise `false`.
  *
- * NOTE: Unlike `jQuery.isEmptyObject`, this function always returns `false` if the input is not an object.
+ * @param object
+ * @returns A boolean indicating whether the object has no properties. `null` if the input is not an object.
  */
-export declare function isEmptyObject(object: any): boolean;
+export declare function isEmptyObject(object: unknown): boolean | null;
 /**
  * Checks if a value is a class instance.
  *
  * @param value
  * @returns
  */
-export declare function isClassInstance(value: any): boolean;
+export declare function isClassInstance(value: unknown): boolean;
 /**
  * Deeply clones a class instance, preserving its prototype, inherited properties,
  * and special object types like Map, Set, Date, and RegExp. Also handles cyclic references.
