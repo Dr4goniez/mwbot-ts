@@ -159,7 +159,7 @@ function TemplateFactory(config, info, Title) {
             }
             // If `keyOrPred` is a function, check against each param
             if (typeof keyOrPred === 'function') {
-                return Object.entries(this.params).some(([k, obj]) => keyOrPred(k, (0, Util_1.mergeDeep)(obj)));
+                return Object.values(this.params).some((obj) => keyOrPred((0, Util_1.mergeDeep)(obj)));
             }
             // Convert string key to a strict RegExp match
             const keyPattern = typeof keyOrPred === 'string'
@@ -171,7 +171,18 @@ function TemplateFactory(config, info, Title) {
                     (typeof value === 'string' && value === obj.value) ||
                     (value instanceof RegExp && value.test(obj.value))));
         }
-        deleteParam(key) {
+        deleteParam(key, resolveHierarchy = false) {
+            if (!(key in this.params) && resolveHierarchy) {
+                const overrideStatus = this.checkKeyOverride(key);
+                if (overrideStatus) {
+                    if (overrideStatus.overrides) {
+                        key = overrideStatus.overrides;
+                    }
+                    else if (overrideStatus.overridden) {
+                        key = overrideStatus.overridden;
+                    }
+                }
+            }
             if (!this.params[key]) {
                 return false;
             }

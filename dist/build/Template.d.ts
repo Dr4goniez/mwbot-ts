@@ -163,16 +163,19 @@ export interface TemplateBase<T extends string | Title> {
      * @returns `true` if a matching parameter exists; otherwise, `false`.
      *
      * @example
-     * hasParam((key, param) => key.startsWith("meta") && param.value.length > 10);
+     * hasParam((param) => param.key.startsWith("meta") && param.value.length > 10);
      */
-    hasParam(predicate: (key: string, param: TemplateParameter) => boolean): boolean;
+    hasParam(predicate: (param: TemplateParameter) => boolean): boolean;
     /**
      * Deletes a parameter from the template.
      *
      * @param key The parameter key to delete.
-     * @returns `true` if the parameter was deleted, otherwise `false`.
+     * @param resolveHierarchy Whether to consider {@link TemplateParameterHierarchies | hierarchies} when
+     * resolving the key. If `true`, this method checks the {@link params} object for any parameter whose key is
+     * an alias of `key` and deletes it if found. (Default: `false`)
+     * @returns `true` if a matching parameter was deleted; otherwise, `false`.
      */
-    deleteParam(key: string): boolean;
+    deleteParam(key: string, resolveHierarchy?: boolean): boolean;
 }
 /**
  * This interface defines the static members of the `Template` class. For instance members,
