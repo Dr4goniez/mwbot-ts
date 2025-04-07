@@ -242,9 +242,12 @@ export interface TemplateBase<T extends string | Title> {
 	 * Deletes a parameter from the template.
 	 *
 	 * @param key The parameter key to delete.
-	 * @returns `true` if the parameter was deleted, otherwise `false`.
+	 * @param resolveHierarchy Whether to consider {@link TemplateParameterHierarchies | hierarchies} when
+	 * resolving the key. If `true`, this method checks the {@link params} object for any parameter whose key is
+	 * an alias of `key` and deletes it if found. (Default: `false`)
+	 * @returns `true` if a matching parameter was deleted; otherwise, `false`.
 	 */
-	deleteParam(key: string): boolean;
+	deleteParam(key: string, resolveHierarchy?: boolean): boolean;
 }
 
 /**
@@ -892,7 +895,17 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			);
 		}
 
-		deleteParam(key: string): boolean {
+		deleteParam(key: string, resolveHierarchy = false): boolean {
+			if (!(key in this.params) && resolveHierarchy) {
+				const overrideStatus = this.checkKeyOverride(key);
+				if (overrideStatus) {
+					if (overrideStatus.overrides) {
+						key = overrideStatus.overrides;
+					} else if (overrideStatus.overridden) {
+						key = overrideStatus.overridden;
+					}
+				}
+			}
 			if (!this.params[key]) {
 				return false;
 			}
