@@ -235,9 +235,9 @@ export interface TemplateBase<T extends string | Title> {
 	 * @returns `true` if a matching parameter exists; otherwise, `false`.
 	 *
 	 * @example
-	 * hasParam((key, param) => key.startsWith("meta") && param.value.length > 10);
+	 * hasParam((param) => param.key.startsWith("meta") && param.value.length > 10);
 	 */
-	hasParam(predicate: (key: string, param: TemplateParameter) => boolean): boolean;
+	hasParam(predicate: (param: TemplateParameter) => boolean): boolean;
 	/**
 	 * Deletes a parameter from the template.
 	 *
@@ -862,7 +862,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		hasParam(
-			keyOrPred: string | RegExp | ((key: string, param: TemplateParameter) => boolean),
+			keyOrPred: string | RegExp | ((param: TemplateParameter) => boolean),
 			value?: string | RegExp
 		): boolean {
 			if (
@@ -876,7 +876,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 			// If `keyOrPred` is a function, check against each param
 			if (typeof keyOrPred === 'function') {
-				return Object.entries(this.params).some(([k, obj]) => keyOrPred(k, mergeDeep(obj)));
+				return Object.values(this.params).some((obj) => keyOrPred(mergeDeep(obj)));
 			}
 
 			// Convert string key to a strict RegExp match
