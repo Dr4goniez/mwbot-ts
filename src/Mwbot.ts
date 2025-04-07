@@ -2237,6 +2237,8 @@ export class Mwbot {
 			console.log('Retrying in 5 seconds...');
 			await sleep(5000);
 			return this.edit(title, transform, requestOptions, ++retry);
+		} else if (result instanceof Error) {
+			throw result;
 		}
 		return result;
 
