@@ -1532,15 +1532,12 @@ export interface ApiResponseQueryListEmbeddedin { // TODO: recheck
 // export interface ApiResponseQueryListGadgetcategories {}
 // export interface ApiResponseQueryListGadgets {}
 
-export interface ApiResponseQueryListGlobalallusers { // TODO: recheck
+export interface ApiResponseQueryListGlobalallusers { // Fully checked (source code level)
 	id: number;
 	name: string;
-	/** Array of global user rights. Local rights are not included. */
 	groups?: string[];
-	/** Empty string if the account exists locally, otherwise the key is undefined. */
-	existslocally?: "";
-	/** Empty string if the account globally locked, otherwise the key is undefined. */
-	locked?: "";
+	existslocally?: '';
+	locked?: '';
 }
 
 export interface ApiResponseQueryListGlobalblocks { // Fully checked (source code level)
