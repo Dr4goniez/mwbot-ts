@@ -111,6 +111,7 @@ export interface MwbotErrorCodes {
         emptytitle: 'The given title cannot be processed because it is empty.';
         interwikititle: 'The given title cannot be processed because it is interwiki.';
         pagemissing: 'The requested page does not exist.';
+        editfailed: 'The edit attempt failed with a `result: "Failure"` code.';
     };
     /**
      * Marks fatal exceptions attributed to the user's source code.

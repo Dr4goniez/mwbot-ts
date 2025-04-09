@@ -24,7 +24,7 @@ import { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { CookieJar } from 'tough-cookie';
 import { XOR } from 'ts-xor';
 import OAuth from 'oauth-1.0a';
-import { ApiParams, ApiParamsAction, ApiEditPageParams, ApiResponse, ApiResponseQueryMetaSiteinfoGeneral, ApiResponseQueryMetaSiteinfoNamespaces, ApiResponseQueryMetaSiteinfoNamespacealiases, ApiResponseQueryMetaTokens, ApiResponseQueryMetaUserinfo, ApiResponseQueryMetaSiteinfoInterwikimap, ApiResponseQueryMetaSiteinfoMagicwords, ApiResponseQueryMetaSiteinfoFunctionhooks } from './api_types';
+import { ApiParams, ApiParamsAction, ApiEditPageParams, ApiResponse, ApiResponseQueryMetaSiteinfoGeneral, ApiResponseQueryMetaSiteinfoNamespaces, ApiResponseQueryMetaSiteinfoNamespacealiases, ApiResponseQueryMetaTokens, ApiResponseQueryMetaUserinfo, ApiResponseQueryMetaSiteinfoInterwikimap, ApiResponseQueryMetaSiteinfoMagicwords, ApiResponseQueryMetaSiteinfoFunctionhooks, ApiResponseEdit } from './api_types';
 import { MwbotError } from './MwbotError';
 import * as Util from './Util';
 import * as mwString from './String';
@@ -405,32 +405,32 @@ export declare class Mwbot {
      */
     protected showWarnings(warnings: ApiResponse['warnings']): void;
     /**
-     * Returns a {@link MwbotError} instance by normalizing various error objects.
+     * Throws a {@link MwbotError} by normalizing various error objects.
      *
      * If `base` is an API response containing an error, it is converted into
      * an {@link MwbotError} instance.
      *
-     * If `base` is already an instance of {@link MwbotError}, it is returned as is.
+     * If `base` is already an instance of {@link MwbotError}, it is thrown as is.
      *
      * If a request UUID is provided, its entry in {@link uuid} is cleared.
      *
      * @param base An error object, which can be:
      * - An API response containing an `error` or `errors` property.
-     * - An existing {@link MwbotError} instance, in which case it is returned as is.
+     * - An existing {@link MwbotError} instance, in which case it is thrown as is.
      *
      * @param requestId The UUID of the request to be removed from {@link uuid}.
      * If provided, the corresponding entry is deleted before processing `base`.
      *
-     * @returns A normalized {@link MwbotError} instance.
+     * @throws
      */
-    protected error(base: Required<Pick<ApiResponse, 'error'>> | Required<Pick<ApiResponse, 'errors'>> | MwbotError, requestId?: string): MwbotError;
+    protected error(base: Required<Pick<ApiResponse, 'error'>> | Required<Pick<ApiResponse, 'errors'>> | MwbotError, requestId?: string): never;
     /**
-     * Returns a `mwbot_api_anonymous` error.
+     * Throws a `mwbot_api_anonymous` error.
      *
      * @param requestId If provided, the relevant entry in {@link uuid} is cleared.
-     * @returns
+     * @throws
      */
-    protected errorAnonymous(requestId?: string): MwbotError<'api_mwbot'>;
+    protected errorAnonymous(requestId?: string): never;
     /**
      * Attempts to retry a failed request under the following conditions:
      * - The number of requests issued so far (tracked with {@link uuid}) is less than the allowed maximum (`maxAttempts`).
@@ -445,7 +445,7 @@ export declare class Mwbot {
      * @param maxAttempts The maximum number of attempts (including the first request). Default is 2 (one retry after failure).
      * @param sleepSeconds The delay in seconds before retrying. Default is 10.
      * @param retryCallback A function to execute when attempting the retry. If not provided, {@link _request} is called on `requestOptions`.
-     * @returns A Promise of the retry request or a rejected error object.
+     * @returns A Promise of the retry request, or rejecting with an error.
      */
     protected retry(initialError: MwbotError, requestId: string, requestOptions: MwbotRequestConfig, maxAttempts?: number, sleepSeconds?: number, retryCallback?: () => Promise<ApiResponse>): Promise<ApiResponse>;
     /**
@@ -602,22 +602,18 @@ export declare class Mwbot {
      */
     getCsrfToken(requestOptions?: MwbotRequestConfig): Promise<string>;
     /**
-     * Validates and processes a title before editing.
-     *
-     * This method ensures that:
-     * - The user is not anonymous unless `allowAnonymous` is `true`.
-     * - The title is either a valid string or an instance of {@link Title}.
-     * - If the title is a string, it is converted to a {@link Title} instance.
-     * - The title is not empty.
-     * - The title is not interwiki.
-     *
-     * If any validation fails, it returns an {@link MwbotError}.
-     *
+     * Validates and processes a title before editing, and returns a {@link Title} instance.
+     * If any validation fails, this method throws an {@link MwbotError}.
      * @param title The page title, either as a string or a {@link Title} instance.
      * @param allowAnonymous Whether to allow anonymous users to proceed. Defaults to `false`.
-     * @returns A valid {@link Title} instance if successful, or an {@link MwbotError} if validation fails.
+     * @returns A {@link Title} instance.
+     * @throws If:
+     * - The user is anonymous while `allowAnonymous` is `false`.
+     * - The title is neither a string nor a {@link Title} instance.
+     * - The title is empty.
+     * - The title is interwiki.
      */
-    protected prepEdit(title: string | Title, allowAnonymous?: boolean): Title | MwbotError;
+    protected prepEdit(title: string | Title, allowAnonymous?: boolean): Title;
     /**
      * Sends an `action=edit` request.
      *
@@ -629,7 +625,7 @@ export declare class Mwbot {
      * @param requestOptions
      * @returns
      */
-    protected _save(title: Title, content: string, summary?: string, internalOptions?: ApiEditPageParams, additionalParams?: ApiEditPageParams, requestOptions?: MwbotRequestConfig): Promise<ApiResponse>;
+    protected _save(title: Title, content: string, summary?: string, internalOptions?: ApiEditPageParams, additionalParams?: ApiEditPageParams, requestOptions?: MwbotRequestConfig): Promise<ApiResponseEditSuccess>;
     /**
      * Creates a new page with the given content.
      *
@@ -647,6 +643,7 @@ export declare class Mwbot {
      *   createonly: true,
      *   format: 'json',
      *   formatversion: '2'
+     *   // `token` is automatically appended
      * }
      * ```
      *
@@ -656,9 +653,9 @@ export declare class Mwbot {
      * @param additionalParams Additional parameters for the API request. These can be used to
      * overwrite the default parameters.
      * @param requestOptions Optional HTTP request options.
-     * @returns A Promise resolving to the API response or rejecting with {@link MwbotError}.
+     * @returns A Promise resolving to {@link ApiResponseEditSuccess} or rejecting with {@link MwbotError}.
      */
-    create(title: string | Title, content: string, summary?: string, additionalParams?: ApiEditPageParams, requestOptions?: MwbotRequestConfig): Promise<ApiResponse>;
+    create(title: string | Title, content: string, summary?: string, additionalParams?: ApiEditPageParams, requestOptions?: MwbotRequestConfig): Promise<ApiResponseEditSuccess>;
     /**
      * Saves the given content to a page.
      *
@@ -676,6 +673,7 @@ export declare class Mwbot {
      *   nocreate: true,
      *   format: 'json',
      *   formatversion: '2'
+     *   // `token` is automatically appended
      * }
      * ```
      *
@@ -732,6 +730,7 @@ export declare class Mwbot {
      *   nocreate: true,
      *   format: 'json',
      *   formatversion: '2'
+     *   // `token` is automatically appended
      * }
      * ```
      *
@@ -742,7 +741,7 @@ export declare class Mwbot {
      */
     edit(title: string | Title, transform: TransformationPredicate, requestOptions?: MwbotRequestConfig, 
     /** @private */
-    retry?: number): Promise<ApiResponse>;
+    retry?: number): Promise<ApiResponseEditSuccess>;
     /**
      * Posts a new section to the given page.
      *
@@ -758,6 +757,7 @@ export declare class Mwbot {
      *   bot: true,
      *   format: 'json',
      *   formatversion: '2'
+     *   // `token` is automatically appended
      * }
      * ```
      *
@@ -1118,4 +1118,11 @@ export interface Revision {
  * using the `api_mwbot: aborted` error code.
  */
 export type TransformationPredicate = (wikitext: Wikitext, revision: Revision) => ApiEditPageParams | null | Promise<ApiEditPageParams | null>;
+/**
+ * A variant of {@link ApiResponseEdit} where the `result` property is guaranteed to be `'Success'`.
+ * Used in {@link Mwbot.create}, {@link Mwbot.save}, and {@link Mwbot.edit}.
+ */
+export type ApiResponseEditSuccess = Omit<ApiResponseEdit, 'result'> & {
+    result: 'Success';
+};
 //# sourceMappingURL=Mwbot.d.ts.map

@@ -775,7 +775,7 @@ class Mwbot {
      * @returns A Promise resolving to the API response or rejecting with an error.
      */
     async _request(requestOptions) {
-        var _a;
+        var _a, _b;
         const clonedParams = { ...requestOptions.params };
         if (requestOptions.method === 'POST') {
             // The API throws a "mustpostparams" error if it finds certain parameters in "params", even when "data"
@@ -801,7 +801,8 @@ class Mwbot {
             await sleep(sleepDuration); // sleep clamps negative values automatically
         }
         // Make the request and process the response
-        const response = await this.rawRequest(requestOptions).catch((error) => {
+        const response = await this.rawRequest(requestOptions).catch(async (error) => {
+            var _a, _b;
             const err = new MwbotError_1.MwbotError('api_mwbot', {
                 code: 'http',
                 info: 'HTTP request failed.'
@@ -809,33 +810,31 @@ class Mwbot {
             if (error && error.code === 'ERR_CANCELED') {
                 return this.error(err.setCode('aborted').setInfo('Request aborted by the user.'), requestId);
             }
-            else if (typeof error.status === 'number' && error.status >= 400) {
+            const status = (_b = (_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.status) !== null && _b !== void 0 ? _b : error === null || error === void 0 ? void 0 : error.status;
+            if (typeof status === 'number' && status >= 400) {
                 // Articulate the error object for common errors
-                switch (error.status) {
+                switch (status) {
                     case 404:
                         return this.error(err.setCode('notfound').setInfo(`Page not found (404): ${requestOptions.url}.`), requestId);
                     case 408:
-                        return this.retry(err.setCode('timeout').setInfo('Request timeout (408).'), requestId, requestOptions);
+                        return await this.retry(err.setCode('timeout').setInfo('Request timeout (408).'), requestId, requestOptions);
                     case 414:
                         return this.error(err.setCode('baduri').setInfo('URI too long (414): Consider using a POST request.'), requestId);
                     case 429:
-                        return this.retry(err.setCode('ratelimited').setInfo('Too many requests (429).'), requestId, requestOptions);
+                        return await this.retry(err.setCode('ratelimited').setInfo('Too many requests (429).'), requestId, requestOptions);
                     case 500:
-                        return this.retry(err.setCode('servererror').setInfo('Internal server error (500).'), requestId, requestOptions);
+                        return await this.retry(err.setCode('servererror').setInfo('Internal server error (500).'), requestId, requestOptions);
                     case 502:
-                        return this.retry(err.setCode('badgateway').setInfo('Bad gateway (502): Perhaps the server is down?'), requestId, requestOptions);
+                        return await this.retry(err.setCode('badgateway').setInfo('Bad gateway (502): Perhaps the server is down?'), requestId, requestOptions);
                     case 503:
-                        return this.retry(err.setCode('serviceunavailable').setInfo('Service Unavailable (503): Perhaps the server is down?'), requestId, requestOptions);
+                        return await this.retry(err.setCode('serviceunavailable').setInfo('Service Unavailable (503): Perhaps the server is down?'), requestId, requestOptions);
                     case 504:
-                        return this.retry(err.setCode('timeout').setInfo('Gateway timeout (504)'), requestId, requestOptions);
+                        return await this.retry(err.setCode('timeout').setInfo('Gateway timeout (504)'), requestId, requestOptions);
                 }
             }
             err.data = { axios: error }; // Include the full response for unknown errors
             return this.error(err, requestId);
         });
-        if (response instanceof Error) {
-            throw response;
-        }
         const data = response.data;
         // Show warnings only for the first request because retries use the same request body
         if (this.uuid[requestId] === 1) {
@@ -846,21 +845,21 @@ class Mwbot {
                 code: 'empty',
                 info: 'OK response but empty result (check HTTP headers?)'
             });
-            throw this.error(err, requestId);
+            return this.error(err, requestId);
         }
-        else if (typeof data !== 'object') {
+        if (typeof data !== 'object') {
             // In most cases the raw HTML of [[Main page]]
             const err = new MwbotError_1.MwbotError('api_mwbot', {
                 code: 'invalidjson',
                 info: 'No valid JSON response (check the request URL?)'
             });
-            throw this.error(err, requestId);
+            return this.error(err, requestId);
         }
-        else if ('error' in data || 'errors' in data) {
+        if ('error' in data || 'errors' in data) {
             const err = MwbotError_1.MwbotError.newFromResponse(data);
             // Handle error codes
             if (err.code === 'missingparam' && this.isAnonymous() && err.info.includes('The "token" parameter must be set')) {
-                throw this.errorAnonymous(requestId);
+                return this.errorAnonymous(requestId);
             }
             if (!requestOptions.disableRetryAPI) {
                 // Handle retries
@@ -868,50 +867,47 @@ class Mwbot {
                     case 'badtoken':
                     case 'notoken':
                         if (this.isAnonymous()) {
-                            throw this.errorAnonymous(requestId);
+                            return this.errorAnonymous(requestId);
                         }
-                        if (!((_a = requestOptions.disableRetryByCode) === null || _a === void 0 ? void 0 : _a.includes(clonedParams.action))) {
-                            return this.getTokenType(clonedParams.action).then((tokenType) => {
-                                if (!tokenType) {
-                                    throw this.error(err, requestId);
-                                }
-                                console.warn(`Warning: Encountered a "${err.code}" error.`);
-                                this.badToken(tokenType);
-                                delete clonedParams.token;
-                                return this.retry(err, requestId, requestOptions, 2, 0, () => {
-                                    // Clear the request ID because postWithToken issues a new one
-                                    delete this.uuid[requestId];
-                                    return this.postWithToken(tokenType, clonedParams);
-                                });
+                        if (clonedParams.action && !((_a = requestOptions.disableRetryByCode) === null || _a === void 0 ? void 0 : _a.includes(clonedParams.action))) {
+                            const tokenType = await this.getTokenType(clonedParams.action); // Identify the required token type
+                            if (!tokenType) {
+                                return this.error(err, requestId);
+                            }
+                            console.warn(`Warning: Encountered a "${err.code}" error.`);
+                            this.badToken(tokenType);
+                            delete clonedParams.token;
+                            return await this.retry(err, requestId, requestOptions, 2, 0, () => {
+                                // Clear the request ID because postWithToken issues a new one
+                                delete this.uuid[requestId];
+                                return this.postWithToken(tokenType, clonedParams);
                             });
                         }
                         break;
                     case 'readonly':
                         console.warn(`Warning: Encountered a "${err.code}" error.`);
-                        return this.retry(err, requestId, requestOptions, 3, 10);
+                        return await this.retry(err, requestId, requestOptions, 3, 10);
                     case 'maxlag': {
                         console.warn(`Warning: Encountered a "${err.code}" error.`);
-                        const retryAfter = parseInt(response.headers['retry-after']) || 5;
-                        return this.retry(err, requestId, requestOptions, 4, retryAfter);
+                        const retryAfter = parseInt((_b = response === null || response === void 0 ? void 0 : response.headers) === null || _b === void 0 ? void 0 : _b['retry-after']) || 5;
+                        return await this.retry(err, requestId, requestOptions, 4, retryAfter);
                     }
                     case 'mwoauth-invalid-authorization':
                         // Per https://phabricator.wikimedia.org/T106066, "Nonce already used" indicates
                         // an upstream memcached/redis failure which is transient
                         if (err.info.includes('Nonce already used')) {
-                            return this.retry(err, requestId, requestOptions, 2, 10);
+                            return await this.retry(err, requestId, requestOptions, 2, 10);
                         }
                 }
             }
-            throw this.error(err, requestId);
+            return this.error(err, requestId);
         }
-        else {
-            if (requiresInterval) {
-                // Save the current time for intervals as needed
-                this.lastRequestTime = Date.now();
-            }
-            delete this.uuid[requestId];
-            return data;
+        if (requiresInterval) {
+            // Save the current time for intervals as needed
+            this.lastRequestTime = Date.now();
         }
+        delete this.uuid[requestId];
+        return data;
     }
     /**
      * Massages parameters from the nice format we accept into a format suitable for the API.
@@ -1100,46 +1096,46 @@ class Mwbot {
         }
     }
     /**
-     * Returns a {@link MwbotError} instance by normalizing various error objects.
+     * Throws a {@link MwbotError} by normalizing various error objects.
      *
      * If `base` is an API response containing an error, it is converted into
      * an {@link MwbotError} instance.
      *
-     * If `base` is already an instance of {@link MwbotError}, it is returned as is.
+     * If `base` is already an instance of {@link MwbotError}, it is thrown as is.
      *
      * If a request UUID is provided, its entry in {@link uuid} is cleared.
      *
      * @param base An error object, which can be:
      * - An API response containing an `error` or `errors` property.
-     * - An existing {@link MwbotError} instance, in which case it is returned as is.
+     * - An existing {@link MwbotError} instance, in which case it is thrown as is.
      *
      * @param requestId The UUID of the request to be removed from {@link uuid}.
      * If provided, the corresponding entry is deleted before processing `base`.
      *
-     * @returns A normalized {@link MwbotError} instance.
+     * @throws
      */
     error(base, requestId) {
         if (requestId) {
             delete this.uuid[requestId];
         }
         if (base instanceof MwbotError_1.MwbotError) {
-            return base;
+            throw base;
         }
         else {
-            return MwbotError_1.MwbotError.newFromResponse(base);
+            throw MwbotError_1.MwbotError.newFromResponse(base);
         }
     }
     /**
-     * Returns a `mwbot_api_anonymous` error.
+     * Throws a `mwbot_api_anonymous` error.
      *
      * @param requestId If provided, the relevant entry in {@link uuid} is cleared.
-     * @returns
+     * @throws
      */
     errorAnonymous(requestId) {
         if (requestId) {
             delete this.uuid[requestId];
         }
-        return new MwbotError_1.MwbotError('api_mwbot', {
+        throw new MwbotError_1.MwbotError('api_mwbot', {
             code: 'anonymous',
             info: 'Anonymous users are limited to non-write requests.'
         });
@@ -1158,7 +1154,7 @@ class Mwbot {
      * @param maxAttempts The maximum number of attempts (including the first request). Default is 2 (one retry after failure).
      * @param sleepSeconds The delay in seconds before retrying. Default is 10.
      * @param retryCallback A function to execute when attempting the retry. If not provided, {@link _request} is called on `requestOptions`.
-     * @returns A Promise of the retry request or a rejected error object.
+     * @returns A Promise of the retry request, or rejecting with an error.
      */
     async retry(initialError, requestId, requestOptions, maxAttempts = 2, sleepSeconds = 10, retryCallback) {
         const attemptedCount = this.uuid[requestId] || 0; // Should never fall back to 0 but just in case
@@ -1184,7 +1180,7 @@ class Mwbot {
             }
         }
         // If retry conditions aren't met, reject with the error
-        throw this.error(initialError, requestId);
+        return this.error(initialError, requestId);
     }
     /**
      * Aborts all unfinished HTTP requests issued by this instance.
@@ -1259,24 +1255,19 @@ class Mwbot {
     async continuedRequest(parameters, limit = 10, rejectProof = false, requestOptions = {}) {
         const ret = [];
         const query = (params, count) => {
-            return this.get(params, requestOptions)
-                .then((res) => {
+            return this.get(params, requestOptions).then((res) => {
                 ret.push(res);
                 if (res.continue && count < limit) {
                     return query(Object.assign({}, res.continue, params), ++count);
                 }
-            }).catch((err) => {
-                throw err;
             });
         };
-        await query(parameters, 1).catch((err) => {
-            if (!rejectProof) {
-                throw err;
-            }
-            else {
-                console.error(err);
-            }
-        });
+        if (rejectProof) {
+            await query(parameters, 1).catch(console.error);
+        }
+        else {
+            await query(parameters, 1);
+        }
         const flattened = ret.reduce((acc, obj) => mergeDeep(acc, obj), Object.create(null));
         if (ret[ret.length - 1] && !ret[ret.length - 1].continue) {
             // Delete the continue property if the last response doesn't have it
@@ -1403,30 +1394,25 @@ class Mwbot {
      */
     async postWithToken(tokenType, parameters, requestOptions = {}) {
         if (this.isAnonymous()) {
-            throw this.errorAnonymous();
+            return this.errorAnonymous();
         }
         const assertParams = {
             assert: parameters.assert,
             assertuser: parameters.assertuser
         };
-        return this.getToken(tokenType, assertParams)
-            .then((token) => {
-            parameters.token = token;
-            return this.post(parameters, mergeDeep(requestOptions, { disableRetryByCode: ['badtoken'] })).catch((err) => {
-                // Error handler
-                if (err.code === 'badtoken') {
-                    this.badToken(tokenType);
-                    // Try again, once
-                    parameters.token = void 0;
-                    return this.getToken(tokenType, assertParams)
-                        .then((t) => {
-                        parameters.token = t;
-                        return this.post(parameters, requestOptions);
-                    }).catch(Promise.reject);
-                }
-                throw err;
-            });
-        }).catch(Promise.reject);
+        parameters.token = await this.getToken(tokenType, assertParams);
+        const err = await this.post(parameters, mergeDeep(requestOptions, { disableRetryByCode: ['badtoken'] })).catch((err) => err);
+        if (!(err instanceof Error)) {
+            return err; // Success
+        }
+        // Error handler
+        if (err.code === 'badtoken') {
+            this.badToken(tokenType);
+            // Try again, once
+            parameters.token = await this.getToken(tokenType, assertParams);
+            return this.post(parameters, requestOptions);
+        }
+        throw err;
     }
     /**
      * Retrieves a token of the specified type from the API.
@@ -1457,10 +1443,9 @@ class Mwbot {
             format: 'json',
             formatversion: '2'
         }, additionalParams);
-        return this.get(params, requestOptions)
-            .then((res) => {
+        return this.get(params, requestOptions).then((res) => {
             var _a;
-            const resToken = (_a = res === null || res === void 0 ? void 0 : res.query) === null || _a === void 0 ? void 0 : _a.tokens;
+            const resToken = (_a = res.query) === null || _a === void 0 ? void 0 : _a.tokens;
             if (resToken && isEmptyObject(resToken) === false) {
                 this.tokens = resToken; // Update cashed tokens
                 const token = resToken[tokenName];
@@ -1480,7 +1465,7 @@ class Mwbot {
                     info: 'OK response but empty result.'
                 });
             }
-        }).catch(Promise.reject);
+        });
     }
     /**
      * Converts legacy token types to `csrf`.
@@ -1538,8 +1523,7 @@ class Mwbot {
             var _a;
             const paramObj = (_a = res.paraminfo) === null || _a === void 0 ? void 0 : _a.modules[0].parameters.find((p) => p.name === 'token');
             return paramObj && paramObj.tokentype || null;
-        })
-            .catch(() => null);
+        }).catch(() => null);
     }
     /**
      * Performs a POST request to the MediaWiki API using a CSRF token.
@@ -1566,35 +1550,31 @@ class Mwbot {
     }
     // ****************************** EDIT-RELATED REQUEST METHODS ******************************
     /**
-     * Validates and processes a title before editing.
-     *
-     * This method ensures that:
-     * - The user is not anonymous unless `allowAnonymous` is `true`.
-     * - The title is either a valid string or an instance of {@link Title}.
-     * - If the title is a string, it is converted to a {@link Title} instance.
-     * - The title is not empty.
-     * - The title is not interwiki.
-     *
-     * If any validation fails, it returns an {@link MwbotError}.
-     *
+     * Validates and processes a title before editing, and returns a {@link Title} instance.
+     * If any validation fails, this method throws an {@link MwbotError}.
      * @param title The page title, either as a string or a {@link Title} instance.
      * @param allowAnonymous Whether to allow anonymous users to proceed. Defaults to `false`.
-     * @returns A valid {@link Title} instance if successful, or an {@link MwbotError} if validation fails.
+     * @returns A {@link Title} instance.
+     * @throws If:
+     * - The user is anonymous while `allowAnonymous` is `false`.
+     * - The title is neither a string nor a {@link Title} instance.
+     * - The title is empty.
+     * - The title is interwiki.
      */
     prepEdit(title, allowAnonymous = false) {
         if (this.isAnonymous() && !allowAnonymous) {
             return this.errorAnonymous();
         }
-        else if (typeof title !== 'string' && !(title instanceof this.Title)) {
-            return new MwbotError_1.MwbotError('fatal', {
+        if (typeof title !== 'string' && !(title instanceof this.Title)) {
+            throw new MwbotError_1.MwbotError('fatal', {
                 code: 'typemismatch',
                 info: `"${typeof title}" is not a valid type.`
             });
         }
-        else if (!(title instanceof this.Title)) {
+        if (!(title instanceof this.Title)) {
             const t = this.Title.newFromText(title);
             if (!t) {
-                return new MwbotError_1.MwbotError('api_mwbot', {
+                throw new MwbotError_1.MwbotError('api_mwbot', {
                     code: 'invalidtitle',
                     info: `"${title}" is not a valid title.`
                 });
@@ -1602,13 +1582,13 @@ class Mwbot {
             title = t;
         }
         if (!title.getMain()) {
-            return new MwbotError_1.MwbotError('api_mwbot', {
+            throw new MwbotError_1.MwbotError('api_mwbot', {
                 code: 'emptytitle',
                 info: 'The title is empty.'
             });
         }
-        else if (title.isExternal()) {
-            return new MwbotError_1.MwbotError('api_mwbot', {
+        if (title.isExternal()) {
+            throw new MwbotError_1.MwbotError('api_mwbot', {
                 code: 'interwikititle',
                 info: `"${title.getPrefixedText()}" is an interwiki title.`
             });
@@ -1626,7 +1606,8 @@ class Mwbot {
      * @param requestOptions
      * @returns
      */
-    _save(title, content, summary, internalOptions = {}, additionalParams = {}, requestOptions = {}) {
+    async _save(title, content, summary, internalOptions = {}, additionalParams = {}, requestOptions = {}) {
+        var _a;
         const params = Object.assign({
             action: 'edit',
             title: title.getPrefixedDb(),
@@ -1636,7 +1617,14 @@ class Mwbot {
             format: 'json',
             formatversion: '2'
         }, internalOptions, additionalParams);
-        return this.postWithCsrfToken(params, requestOptions);
+        const res = await this.postWithCsrfToken(params, requestOptions);
+        if (((_a = res.edit) === null || _a === void 0 ? void 0 : _a.result) === 'Success') {
+            return res.edit;
+        }
+        throw new MwbotError_1.MwbotError('api_mwbot', {
+            code: 'editfailed',
+            info: 'Edit failed.'
+        }, { response: res });
     }
     /**
      * Creates a new page with the given content.
@@ -1655,6 +1643,7 @@ class Mwbot {
      *   createonly: true,
      *   format: 'json',
      *   formatversion: '2'
+     *   // `token` is automatically appended
      * }
      * ```
      *
@@ -1664,14 +1653,10 @@ class Mwbot {
      * @param additionalParams Additional parameters for the API request. These can be used to
      * overwrite the default parameters.
      * @param requestOptions Optional HTTP request options.
-     * @returns A Promise resolving to the API response or rejecting with {@link MwbotError}.
+     * @returns A Promise resolving to {@link ApiResponseEditSuccess} or rejecting with {@link MwbotError}.
      */
     async create(title, content, summary, additionalParams = {}, requestOptions = {}) {
-        const validatedTitle = this.prepEdit(title);
-        if (validatedTitle instanceof MwbotError_1.MwbotError) {
-            throw validatedTitle;
-        }
-        return this._save(validatedTitle, content, summary, { createonly: true }, additionalParams, requestOptions);
+        return this._save(this.prepEdit(title), content, summary, { createonly: true }, additionalParams, requestOptions);
     }
     /**
      * Saves the given content to a page.
@@ -1690,6 +1675,7 @@ class Mwbot {
      *   nocreate: true,
      *   format: 'json',
      *   formatversion: '2'
+     *   // `token` is automatically appended
      * }
      * ```
      *
@@ -1702,11 +1688,7 @@ class Mwbot {
      * @returns A Promise resolving to the API response or rejecting with {@link MwbotError}.
      */
     async save(title, content, summary, additionalParams = {}, requestOptions = {}) {
-        const validatedTitle = this.prepEdit(title);
-        if (validatedTitle instanceof MwbotError_1.MwbotError) {
-            throw validatedTitle;
-        }
-        return this._save(validatedTitle, content, summary, { nocreate: true }, additionalParams, requestOptions);
+        return this._save(this.prepEdit(title), content, summary, { nocreate: true }, additionalParams, requestOptions);
     }
     async read(titles, requestOptions = {}) {
         var _a, _b, _c;
@@ -1737,13 +1719,8 @@ class Mwbot {
         // Pre-process and validate titles
         let errCount = 0;
         for (let i = 0; i < titlesTemp.length; i++) {
-            const validatedTitle = this.prepEdit(titlesTemp[i], true);
-            if (validatedTitle instanceof MwbotError_1.MwbotError) {
-                // Store errors immediately in the corresponding index
-                ret[i] = validatedTitle;
-                errCount++;
-            }
-            else {
+            try {
+                const validatedTitle = this.prepEdit(titlesTemp[i], true);
                 // Canonicalize all titles as in the API response and remember the array index
                 const page = validatedTitle.getPrefixedText();
                 titleMap[page] = titleMap[page] || [];
@@ -1752,6 +1729,11 @@ class Mwbot {
                     multiValues.push([]);
                 }
                 multiValues[multiValues.length - 1].push(page);
+            }
+            catch (err) {
+                // Store errors immediately in the corresponding index
+                ret[i] = err;
+                errCount++;
             }
         }
         // If all titles are invalid, return early without making API requests
@@ -1896,6 +1878,7 @@ class Mwbot {
      *   nocreate: true,
      *   format: 'json',
      *   formatversion: '2'
+     *   // `token` is automatically appended
      * }
      * ```
      *
@@ -1907,30 +1890,25 @@ class Mwbot {
     async edit(title, transform, requestOptions = {}, 
     /** @private */
     retry = 0) {
+        var _a;
         if (typeof transform !== 'function') {
             throw new MwbotError_1.MwbotError('fatal', {
                 code: 'typemismatch',
                 info: `Expected a function for "transform", but got ${typeof transform}.`
             });
         }
-        const revision = await this.read(title, requestOptions).catch((err) => err);
-        if (revision instanceof Error) {
-            throw revision;
-        }
+        const revision = await this.read(title, requestOptions);
         const unresolvedParams = transform(new this.Wikitext(revision.content), { ...revision });
         let params = unresolvedParams instanceof Promise
-            ? await unresolvedParams.catch((err) => err)
+            ? await unresolvedParams
             : unresolvedParams;
-        if (params instanceof Error) {
-            throw params;
-        }
-        else if (params === null) {
+        if (params === null) {
             throw new MwbotError_1.MwbotError('api_mwbot', {
                 code: 'aborted',
                 info: 'Edit aborted by the user.'
             });
         }
-        else if (!isPlainObject(params)) {
+        if (!isPlainObject(params)) {
             throw new MwbotError_1.MwbotError('fatal', {
                 code: 'typemismatch',
                 info: 'The transformation predicate must resolve to a plain object.'
@@ -1951,8 +1929,8 @@ class Mwbot {
             delete defaultParams.title; // Mutually exclusive
         }
         params = Object.assign(defaultParams, params);
-        const result = await this.postWithCsrfToken(params, requestOptions)
-            .catch((err) => err);
+        // Not using _save() here because it's complicated to destructure the user-defined params
+        const result = await this.postWithCsrfToken(params, requestOptions).catch((err) => err);
         const { disableRetry, disableRetryAPI, disableRetryByCode = [] } = requestOptions;
         if (result instanceof MwbotError_1.MwbotError && result.code === 'editconflict' &&
             typeof retry === 'number' && retry < 3 &&
@@ -1961,9 +1939,18 @@ class Mwbot {
             console.warn('Warning: Encountered an edit conflict.');
             console.log('Retrying in 5 seconds...');
             await sleep(5000);
-            return this.edit(title, transform, requestOptions, ++retry);
+            return await this.edit(title, transform, requestOptions, ++retry);
         }
-        return result;
+        if (result instanceof Error) {
+            throw result;
+        }
+        if (((_a = result.edit) === null || _a === void 0 ? void 0 : _a.result) === 'Success') {
+            return result.edit;
+        }
+        throw new MwbotError_1.MwbotError('api_mwbot', {
+            code: 'editfailed',
+            info: 'Edit failed.'
+        }, { response: result });
     }
     /**
      * Posts a new section to the given page.
@@ -1980,6 +1967,7 @@ class Mwbot {
      *   bot: true,
      *   format: 'json',
      *   formatversion: '2'
+     *   // `token` is automatically appended
      * }
      * ```
      *
@@ -1992,11 +1980,7 @@ class Mwbot {
      * @return A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
      */
     async newSection(title, sectiontitle, content, summary, additionalParams = {}, requestOptions = {}) {
-        const validatedTitle = this.prepEdit(title);
-        if (validatedTitle instanceof MwbotError_1.MwbotError) {
-            throw validatedTitle;
-        }
-        return this._save(validatedTitle, content, summary, { section: 'new', sectiontitle }, additionalParams, requestOptions);
+        return this._save(this.prepEdit(title), content, summary, { section: 'new', sectiontitle }, additionalParams, requestOptions);
     }
     // ****************************** SPECIFIC REQUEST METHODS ******************************
     /**
@@ -2009,10 +1993,7 @@ class Mwbot {
     async login(username, password) {
         // Fetch a login token
         const disableRetryAPI = { disableRetryAPI: true };
-        const token = await this.getToken('login', { maxlag: void 0 }, disableRetryAPI).catch((err) => err);
-        if (typeof token !== 'string') {
-            throw token; // Error object
-        }
+        const token = await this.getToken('login', { maxlag: void 0 }, disableRetryAPI);
         // Login
         const resLogin = await this.post({
             action: 'login',
@@ -2032,7 +2013,7 @@ class Mwbot {
         else if (resLogin.login.result !== 'Success') {
             throw new MwbotError_1.MwbotError('api_mwbot', {
                 code: 'loginfailed',
-                info: 'Failed to log in.'
+                info: resLogin.login.reason || 'Failed to log in.'
             }, { response: resLogin });
         }
         else {

@@ -183,14 +183,24 @@ export interface ApiResponseEdit {
     tempusercreated?: true;
     tempusercreatedredirect?: string;
 }
-export interface ApiResponseLogin {
-    result: string;
-    reason?: string;
-    lguserid?: number;
-    lgusername?: string;
+export type ApiResponseLogin = XOR<// Fully checked (source code level)
+{
+    result: 'Success';
+    lguserid: number;
+    lgusername: string;
+}, {
+    result: 'NeedToken';
     /** @deprecated */
-    token?: string;
-}
+    token: string;
+}, {
+    result: 'WrongToken';
+}, {
+    result: 'Failed';
+    reason: string;
+}, {
+    result: 'Aborted';
+    reason: string;
+}>;
 export interface ApiResponseParaminfo {
     helpformat: string;
     modules: ApiResponseParaminfoModules[];
@@ -412,6 +422,7 @@ export interface ApiResponseQuery {
     users?: ApiResponseQueryListUsers[];
 }
 export interface ApiResponseQueryPages {
+    [key: string]: unknown;
     pageid?: number;
     ns: number;
     title: string;
@@ -861,23 +872,27 @@ export interface ApiResponseQueryListEmbeddedin {
 export interface ApiResponseQueryListGlobalallusers {
     id: number;
     name: string;
-    /** Array of global user rights. Local rights are not included. */
     groups?: string[];
-    /** Empty string if the account exists locally, otherwise the key is undefined. */
-    existslocally?: "";
-    /** Empty string if the account globally locked, otherwise the key is undefined. */
-    locked?: "";
+    existslocally?: '';
+    locked?: '';
 }
 export interface ApiResponseQueryListGlobalblocks {
-    id: string;
-    address: string;
-    /** Empty string if anononly is enabled, otherwise the key is undefined. */
-    anononly?: "";
-    by: string;
-    bywiki: string;
-    timestamp: string;
-    expiry: string;
-    reason: string;
+    id?: string;
+    target?: string;
+    /**
+     * `bgprop=address` has been deprecated. Use `bgprop=target` instead.
+     * @deprecated
+     */
+    address?: string;
+    anononly?: boolean;
+    'account-creation-disabled'?: boolean;
+    'autoblocking-enabled'?: boolean;
+    automatic?: boolean;
+    by?: string;
+    bywiki?: string;
+    timestamp?: string;
+    expiry?: string;
+    reason?: string;
     rangestart?: string;
     rangeend?: string;
 }
@@ -990,7 +1005,6 @@ export interface ApiResponseQueryListUsercontribs {
     tags: string[];
 }
 export interface ApiResponseQueryListUsers {
-    /** May be `undefined` if the user doesn't exist. */
     userid?: number;
     name: string;
     missing?: boolean;
