@@ -412,6 +412,7 @@ export interface ApiResponseError { // errorformat=bc
 	docref?: string;
 	// [key: string]: unknown;
 }
+
 export type ApiResponseErrors = {
 	code: string;
 	module: string;
@@ -423,11 +424,13 @@ export type ApiResponseErrors = {
 	{text: string;}, // errorformat=wikitext, errorformat=plaintext
 	{key: string; params: string[];} // errorformat=raw
 >;
+
 export interface ApiResponseNormalized {
 	fromencoded?: boolean;
 	from: string;
 	to: string;
 }
+
 export type ApiResponseWarnings = {
 	code: string;
 	module: string;
@@ -440,6 +443,7 @@ export type ApiResponseWarnings = {
 	key?: string; // errorformat=raw
 	params?: string[]; // errorformat=raw
 };
+
 export type ApiResponseWarningsLegacy = PartialRecord<ApiParamsAction, XOR< // errorformat=bc
 	{
 		'*': string; // formatversion=1
@@ -523,14 +527,29 @@ export interface ApiResponseEdit { // Fully checked (source code level)
 // export interface ApiResponseLanguagesearch {}
 // export interface ApiResponseLinkaccount {}
 
-export interface ApiResponseLogin {
-	result: string;
-	reason?: string;
-	lguserid?: number;
-	lgusername?: string;
-	/** @deprecated */
-	token?: string;
-}
+export type ApiResponseLogin = XOR< // Fully checked (source code level)
+	{
+		result: 'Success';
+		lguserid: number;
+		lgusername: string;
+	},
+	{
+		result: 'NeedToken';
+		/** @deprecated */
+		token: string;
+	},
+	{
+		result: 'WrongToken';
+	},
+	{
+		result: 'Failed';
+		reason: string;
+	},
+	{
+		result: 'Aborted';
+		reason: string;
+	}
+>;
 
 // export interface ApiResponseLogout {}
 // export interface ApiResponseManagetags {}
@@ -889,6 +908,8 @@ export interface ApiResponseQuery {
 // ************************************** action=query (general properties) **************************************
 
 export interface ApiResponseQueryPages {
+
+	[key: string]: unknown;
 
 	// prop-independent
 	pageid?: number;
@@ -1437,17 +1458,20 @@ export type ApiResponseQueryMetaUserinfoRatelimits = {
 // export interface ApiResponseQueryListAllrevisions {}
 // export interface ApiResponseQueryListAlltransclusions {}
 // export interface ApiResponseQueryListAllusers {}
+
 export interface ApiResponseQueryListBacklinks { // TODO: recheck
 	pageid: number;
 	ns: number;
 	title: string;
 }
+
 export interface ApiResponseQueryListBetafeatures { // TODO: recheck
 	[key: string]: {
 		name: string;
 		count: number;
 	};
 }
+
 export interface ApiResponseQueryListBlocks { // Fully checked (source code level)
 	id?: number;
 	user?: string;
@@ -1480,6 +1504,7 @@ export interface ApiResponseQueryListBlocks { // Fully checked (source code leve
 		actions?: ('upload' | 'move' | 'create' | 'thanks')[];
 	};
 }
+
 export interface ApiResponseQueryListCategorymembers { // TODO: recheck
 	pageid: number;
 	ns: number;
@@ -1489,20 +1514,24 @@ export interface ApiResponseQueryListCategorymembers { // TODO: recheck
 	type?: string;
 	timestamp?: string;
 }
+
 // export interface ApiResponseQueryListCentralnoticeactivecampaigns {}
 // export interface ApiResponseQueryListCentralnoticelogs {}
 // export interface ApiResponseQueryListCheckuser {}
 // export interface ApiResponseQueryListCheckuserlog {}
+
 export interface ApiResponseQueryListEmbeddedin { // TODO: recheck
 	pageid: number;
 	ns: number;
 	title: string;
 }
+
 // export interface ApiResponseQueryListExtdistrepos {}
 // export interface ApiResponseQueryListExturlusage {}
 // export interface ApiResponseQueryListFilearchive {}
 // export interface ApiResponseQueryListGadgetcategories {}
 // export interface ApiResponseQueryListGadgets {}
+
 export interface ApiResponseQueryListGlobalallusers { // TODO: recheck
 	id: number;
 	name: string;
@@ -1513,24 +1542,34 @@ export interface ApiResponseQueryListGlobalallusers { // TODO: recheck
 	/** Empty string if the account globally locked, otherwise the key is undefined. */
 	locked?: "";
 }
-export interface ApiResponseQueryListGlobalblocks { // TODO: recheck
-	id: string;
-	address: string;
-	/** Empty string if anononly is enabled, otherwise the key is undefined. */
-	anononly?: "";
-	by: string;
-	bywiki: string;
-	timestamp: string;
-	expiry: string;
-	reason: string;
+
+export interface ApiResponseQueryListGlobalblocks { // Fully checked (source code level)
+	id?: string;
+	target?: string;
+	/**
+	 * `bgprop=address` has been deprecated. Use `bgprop=target` instead.
+	 * @deprecated
+	 */
+	address?: string;
+	anononly?: boolean;
+	'account-creation-disabled'?: boolean;
+	'autoblocking-enabled'?: boolean;
+	automatic?: boolean;
+	by?: string;
+	bywiki?: string;
+	timestamp?: string;
+	expiry?: string;
+	reason?: string;
 	rangestart?: string;
 	rangeend?: string;
 }
+
 // export interface ApiResponseQueryListGlobalgroups {}
 // export interface ApiResponseQueryListImageusage {}
 // export interface ApiResponseQueryListIwbacklinks {}
 // export interface ApiResponseQueryListLangbacklinks {}
 // export interface ApiResponseQueryListLinterrors {}
+
 export interface ApiResponseQueryListLogevents { // TODO: recheck
 	logid?: number;
 	ns?: number;
@@ -1607,6 +1646,7 @@ export interface ApiResponseQueryListLogevents { // TODO: recheck
 	parsedcomment?: string;
 	tags?: string[];
 }
+
 // export interface ApiResponseQueryListMessagecollection {}
 // export interface ApiResponseQueryListMostviewed {}
 // export interface ApiResponseQueryListMystashedfiles {}
@@ -1617,6 +1657,7 @@ export interface ApiResponseQueryListLogevents { // TODO: recheck
 // export interface ApiResponseQueryListQuerypage {}
 // export interface ApiResponseQueryListRandom {}
 // export interface ApiResponseQueryListRecentchanges {}
+
 export interface ApiResponseQueryListSearch { // TODO: recheck
 	ns: number;
 	title: string;
@@ -1629,8 +1670,10 @@ export interface ApiResponseQueryListSearch { // TODO: recheck
 	categorysnippet?: string;
 	isfilematch?: boolean;
 }
+
 // export interface ApiResponseQueryListTags {}
 // export interface ApiResponseQueryListThreads {}
+
 export interface ApiResponseQueryListUsercontribs { // TODO: recheck
 	userid: number;
 	user: string;
@@ -1651,8 +1694,8 @@ export interface ApiResponseQueryListUsercontribs { // TODO: recheck
 	sizediff: number;
 	tags: string[];
 }
+
 export interface ApiResponseQueryListUsers { // TODO: recheck
-	/** May be `undefined` if the user doesn't exist. */
 	userid?: number;
 	name: string;
 	missing?: boolean;
@@ -1688,6 +1731,7 @@ export interface ApiResponseQueryListUsers { // TODO: recheck
 		local: boolean;
 	}
 }
+
 // export interface ApiResponseQueryListWatchlist {}
 // export interface ApiResponseQueryListWatchlistraw {}
 // export interface ApiResponseQueryListWblistentityusage {}

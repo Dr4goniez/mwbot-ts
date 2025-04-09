@@ -2307,7 +2307,7 @@ export class Mwbot {
 		} else if (resLogin.login.result !== 'Success') {
 			throw new MwbotError('api_mwbot', {
 				code: 'loginfailed',
-				info: 'Failed to log in.'
+				info: resLogin.login.reason || 'Failed to log in.'
 			}, {response: resLogin});
 		} else {
 			this.tokens = {}; // Clear cashed tokens because these can't be used for the newly logged-in user
