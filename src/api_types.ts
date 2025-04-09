@@ -1567,7 +1567,7 @@ export interface ApiResponseQueryListGlobalblocks { // Fully checked (source cod
 // export interface ApiResponseQueryListLangbacklinks {}
 // export interface ApiResponseQueryListLinterrors {}
 
-export interface ApiResponseQueryListLogevents { // TODO: recheck
+export interface ApiResponseQueryListLogevents { // TODO: Needs continuous updates
 	logid?: number;
 	ns?: number;
 	title?: string;
@@ -1580,28 +1580,32 @@ export interface ApiResponseQueryListLogevents { // TODO: recheck
 		auto?: boolean;
 		description?: string;
 		cascade?: boolean;
-		details?: Array<{
+		details?: {
 			type: string;
 			level: string;
 			expiry: string;
 			cascade: boolean;
-		}>;
+		}[];
 		target_ns?: number;
 		target_title?: string;
 		suppressredirect?: boolean;
-		duration?: number | string;
 		oldgroups?: string[];
 		newgroups?: string[];
+		duration?: number | string;
 		flags?: string[];
 		restrictions?: {
-			pages?: Array<{
+			pages?: {
 				page_ns: number;
 				page_title: string;
-			}>;
+			}[];
+			namespaces?: number[];
+			actions?: ('upload' | 'move' | 'create' | 'thanks')[];
 		};
+		blockId?: number;
 		sitewide?: boolean;
-		url?: string;
 		expiry?: string;
+		'duration-l10n'?: string;
+		url?: string;
 		img_sha1?: string;
 		img_timestamp?: string;
 		oldtitle_ns?: number;
