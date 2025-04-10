@@ -279,7 +279,8 @@ export class Mwbot {
 	 */
 	constructor(mwbotInitOptions: MwbotInitOptions, requestOptions: MwbotRequestConfig = {}) {
 
-		const {credentials, ...options} = mwbotInitOptions;
+		const {credentials, ...options} = mergeDeep(mwbotInitOptions);
+		requestOptions = mergeDeep(requestOptions);
 
 		// Ensure that a valid URL is provided
 		requestOptions.url = requestOptions.url || options.apiUrl;
@@ -303,7 +304,7 @@ export class Mwbot {
 		// Initialize other class properties
 		this.initialized = false;
 		this.userMwbotOptions = options;
-		this.userRequestOptions = mergeDeep(requestOptions);
+		this.userRequestOptions = requestOptions;
 		this.abortions = [];
 		this.tokens = {};
 		this.uuid = {};
@@ -813,6 +814,11 @@ export class Mwbot {
 	 */
 	rawRequest(requestOptions: MwbotRequestConfig): Promise<AxiosResponse> {
 
+		if (!requestOptions._cloned) {
+			requestOptions = mergeDeep(requestOptions);
+			requestOptions._cloned = true;
+		}
+
 		// Add an AbortController to make it possible to abort this request later
 		if (!requestOptions.disableAbort) {
 			const controller = new AbortController();
@@ -835,8 +841,12 @@ export class Mwbot {
 	async request(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 
 		// Preprocess the request options
-		requestOptions.params = mergeDeep(this.userRequestOptions.params, requestOptions.params, parameters);
+		if (!requestOptions._cloned) {
+			requestOptions = mergeDeep(requestOptions);
+			requestOptions._cloned = true;
+		}
 		requestOptions = mergeDeep(Mwbot.defaultRequestOptions, this.userRequestOptions, requestOptions);
+		requestOptions.params = mergeDeep(requestOptions.params, parameters);
 		const hasLongFields = this.preprocessParameters(requestOptions.params);
 		if (requestOptions.params.format !== 'json') {
 			throw new MwbotError('api_mwbot', {
@@ -871,6 +881,11 @@ export class Mwbot {
 	 * @returns A Promise resolving to the API response or rejecting with an error.
 	 */
 	protected async _request(requestOptions: MwbotRequestConfig): Promise<ApiResponse> {
+
+		if (!requestOptions._cloned) {
+			requestOptions = mergeDeep(requestOptions);
+			requestOptions._cloned = true;
+		}
 
 		const clonedParams: ApiParams = {...requestOptions.params};
 		if (requestOptions.method === 'POST') {
@@ -1091,6 +1106,11 @@ export class Mwbot {
 	 */
 	protected async handlePost(requestOptions: MwbotRequestConfig, hasLongFields: boolean): Promise<void> {
 
+		if (!requestOptions._cloned) {
+			requestOptions = mergeDeep(requestOptions);
+			requestOptions._cloned = true;
+		}
+
 		// Ensure the token parameter is last (per [[mw:API:Edit#Token]])
 		// The token will be kept away if the user is anonymous
 		const {params} = requestOptions;
@@ -1133,6 +1153,10 @@ export class Mwbot {
 	 * @param token Optional token for authentication.
 	 */
 	protected async handlePostMultipartFormData(requestOptions: MwbotRequestConfig, token?: string): Promise<void> {
+		if (!requestOptions._cloned) {
+			requestOptions = mergeDeep(requestOptions);
+			requestOptions._cloned = true;
+		}
 		const {params} = requestOptions;
 		const form = new FormData();
 
@@ -1174,6 +1198,10 @@ export class Mwbot {
 	 * @param requestOptions
 	 */
 	protected applyAuthentication(requestOptions: MwbotRequestConfig): void {
+		if (!requestOptions._cloned) {
+			requestOptions = mergeDeep(requestOptions);
+			requestOptions._cloned = true;
+		}
 		if (!requestOptions.headers) {
 			requestOptions.headers = {};
 		}
@@ -1320,6 +1348,7 @@ export class Mwbot {
 		retryCallback?: () => Promise<ApiResponse>
 	): Promise<ApiResponse> {
 
+		delete requestOptions._cloned;
 		const attemptedCount = this.uuid[requestId] || 0; // Should never fall back to 0 but just in case
 		const {disableRetry, disableRetryByCode} = requestOptions;
 		const shouldRetry =
@@ -1369,6 +1398,10 @@ export class Mwbot {
 	 * @returns A Promise resolving to the API response or rejecting with an error.
 	 */
 	get(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
+		if (!requestOptions._cloned) {
+			requestOptions = mergeDeep(requestOptions);
+			requestOptions._cloned = true;
+		}
 		requestOptions.method = 'GET';
 		return this.request(parameters, requestOptions);
 	}
@@ -1381,6 +1414,10 @@ export class Mwbot {
 	 * @returns A Promise resolving to the API response or rejecting with an error.
 	 */
 	post(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
+		if (!requestOptions._cloned) {
+			requestOptions = mergeDeep(requestOptions);
+			requestOptions._cloned = true;
+		}
 		requestOptions.method = 'POST';
 		return this.request(parameters, requestOptions);
 	}
@@ -1397,6 +1434,10 @@ export class Mwbot {
 	 * @returns A Promise resolving to the API response or rejecting with an error.
 	 */
 	nonwritePost(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
+		if (!requestOptions._cloned) {
+			requestOptions = mergeDeep(requestOptions);
+			requestOptions._cloned = true;
+		}
 		requestOptions.method = 'POST';
 		requestOptions.headers = requestOptions.headers || {};
 		requestOptions.headers['Promise-Non-Write-API-Action'] = true;
@@ -1593,10 +1634,12 @@ export class Mwbot {
 			assertuser: parameters.assertuser
 		};
 		parameters.token = await this.getToken(tokenType, assertParams);
-		const err = await this.post(
-			parameters,
-			mergeDeep(requestOptions, {disableRetryByCode: ['badtoken']})
-		).catch((err: MwbotError) => err);
+		if (!requestOptions._cloned) {
+			requestOptions = mergeDeep(requestOptions);
+			requestOptions._cloned = true;
+		}
+		requestOptions.disableRetryByCode = ['badtoken'];
+		const err = await this.post(parameters, mergeDeep(requestOptions)).catch((err: MwbotError) => err);
 		if (!(err instanceof Error)) {
 			return err; // Success
 		}
@@ -2013,6 +2056,10 @@ export class Mwbot {
 		}
 
 		// Set a twice-as-long timeout because content-fetching is time-consuming
+		if (!requestOptions._cloned) {
+			requestOptions = mergeDeep(requestOptions);
+			requestOptions._cloned = true;
+		}
 		if (typeof requestOptions.timeout !== 'number') {
 			requestOptions.timeout = 120 * 1000; // 120 seconds
 		}
@@ -2174,7 +2221,7 @@ export class Mwbot {
 			});
 		}
 
-		const revision = await this.read(title, requestOptions);
+		const revision = await this.read(title, mergeDeep(requestOptions, {_cloned: true}));
 
 		const unresolvedParams = transform(new this.Wikitext(revision.content), {...revision});
 		let params = unresolvedParams instanceof Promise
@@ -2209,7 +2256,10 @@ export class Mwbot {
 		params = Object.assign(defaultParams, params);
 
 		// Not using _save() here because it's complicated to destructure the user-defined params
-		const result = await this.postWithCsrfToken(params as ApiParams, requestOptions).catch((err: MwbotError) => err);
+		const result = await this.postWithCsrfToken(
+			params as ApiParams,
+			mergeDeep(requestOptions, {_cloned: true})
+		).catch((err: MwbotError) => err);
 		const {disableRetry, disableRetryAPI, disableRetryByCode = []} = requestOptions;
 		if (
 			result instanceof MwbotError && result.code === 'editconflict' &&
@@ -2220,7 +2270,7 @@ export class Mwbot {
 			console.warn('Warning: Encountered an edit conflict.');
 			console.log('Retrying in 5 seconds...');
 			await sleep(5000);
-			return await this.edit(title, transform, requestOptions, ++retry);
+			return await this.edit(title, transform, mergeDeep(requestOptions, {_cloned: true}), ++retry);
 		}
 		if (result instanceof Error) {
 			throw result;
@@ -2536,6 +2586,14 @@ export type MwbotCredentials = XOR<
  * method. Higher-priority options override lower ones if they share the same properties.
  */
 export interface MwbotRequestConfig extends AxiosRequestConfig {
+	/**
+	 * Set to `true` when the `requestOptions` object passed to a method is deep-cloned to avoid
+	 * mutating the caller's original object. Mwbot methods check this property to prevent redundant
+	 * recursive calls to `mergeDeep`, ensuring optimal efficiency.
+	 * @hidden
+	 * @internal
+	 */
+	_cloned?: boolean;
 	/**
 	 * Whether to disable request abortion.
 	 *
