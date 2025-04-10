@@ -768,6 +768,20 @@ export interface TemplateOutputConfig<T> {
      */
     append?: string;
     /**
+     * By default, `stringify()` outputs all numeric keys (e.g., `'1='`), unless they were registered
+     * without an explicit key and were internally assigned numeric keys. However, it is best practice
+     * to explicitly name all keys when registering parameters via {@link Template.insertParam}, to avoid
+     * unintentionally assigning different numeric keys.
+     *
+     * In such cases, you can use this option to suppress specific numeric keys from the output by
+     * providing an array of keys (e.g., `{ suppressKeys: ['1'] }`). The specified keys will be excluded
+     * from the result.
+     *
+     * Note that this option has no effect if a parameter value contains an `'='`. To ensure correct rendering,
+     * `mwbot-ts` will always include the key for such parameters.
+     */
+    suppressKeys?: string[];
+    /**
      * Callback function to {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort | Array.prototype.sort},
      * called on an array-cast {@link Template.params} before stringifying the template parameters.
      *

@@ -429,6 +429,7 @@ function TemplateFactory(config, info, Title) {
         _stringify(title, options) {
             const order = [...this.paramOrder];
             const { append, sortPredicate = (param1, param2) => order.indexOf(param1.key) - order.indexOf(param2.key), brPredicateTitle = () => false, brPredicateParam = () => false } = options;
+            const suppressKeys = (options.suppressKeys || []).filter((key) => /^[1-9]\d*$/.test(key));
             let { prepend } = options;
             const ret = ['{{'];
             // Process the title part
@@ -448,7 +449,11 @@ function TemplateFactory(config, info, Title) {
             }
             // Process params
             for (const param of Object.values(this.params).sort(sortPredicate)) {
-                ret.push(param.text);
+                const { key, value, unnamed } = param;
+                const noKey = value.includes('=') ? false : // Always show key if value contains '='
+                    suppressKeys.includes(key) ? true : // Suppress key if it's in the list
+                        unnamed; // Fallback to the original setting
+                ret.push('|' + (noKey ? '' : key + '=') + value);
                 if (brPredicateParam(param)) {
                     ret.push('\n');
                 }

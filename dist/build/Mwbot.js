@@ -256,7 +256,8 @@ class Mwbot {
             'wgVersion',
             'wgWikiID'
         ];
-        const { credentials, ...options } = mwbotInitOptions;
+        const { credentials, ...options } = mergeDeep(mwbotInitOptions);
+        requestOptions = mergeDeep(requestOptions);
         // Ensure that a valid URL is provided
         requestOptions.url = requestOptions.url || options.apiUrl;
         if (!requestOptions.url) {
@@ -276,7 +277,7 @@ class Mwbot {
         // Initialize other class properties
         this.initialized = false;
         this.userMwbotOptions = options;
-        this.userRequestOptions = mergeDeep(requestOptions);
+        this.userRequestOptions = requestOptions;
         this.abortions = [];
         this.tokens = {};
         this.uuid = {};
@@ -724,6 +725,10 @@ class Mwbot {
      * @returns The raw Axios response of the HTTP request.
      */
     rawRequest(requestOptions) {
+        if (!requestOptions._cloned) {
+            requestOptions = mergeDeep(requestOptions);
+            requestOptions._cloned = true;
+        }
         // Add an AbortController to make it possible to abort this request later
         if (!requestOptions.disableAbort) {
             const controller = new AbortController();
@@ -742,8 +747,12 @@ class Mwbot {
      */
     async request(parameters, requestOptions = {}) {
         // Preprocess the request options
-        requestOptions.params = mergeDeep(this.userRequestOptions.params, requestOptions.params, parameters);
+        if (!requestOptions._cloned) {
+            requestOptions = mergeDeep(requestOptions);
+            requestOptions._cloned = true;
+        }
         requestOptions = mergeDeep(Mwbot.defaultRequestOptions, this.userRequestOptions, requestOptions);
+        requestOptions.params = mergeDeep(requestOptions.params, parameters);
         const hasLongFields = this.preprocessParameters(requestOptions.params);
         if (requestOptions.params.format !== 'json') {
             throw new MwbotError_1.MwbotError('api_mwbot', {
@@ -776,6 +785,10 @@ class Mwbot {
      */
     async _request(requestOptions) {
         var _a, _b;
+        if (!requestOptions._cloned) {
+            requestOptions = mergeDeep(requestOptions);
+            requestOptions._cloned = true;
+        }
         const clonedParams = { ...requestOptions.params };
         if (requestOptions.method === 'POST') {
             // The API throws a "mustpostparams" error if it finds certain parameters in "params", even when "data"
@@ -951,6 +964,10 @@ class Mwbot {
      * @param hasLongFields A boolean indicating whether the parameters have a long field.
      */
     async handlePost(requestOptions, hasLongFields) {
+        if (!requestOptions._cloned) {
+            requestOptions = mergeDeep(requestOptions);
+            requestOptions._cloned = true;
+        }
         // Ensure the token parameter is last (per [[mw:API:Edit#Token]])
         // The token will be kept away if the user is anonymous
         const { params } = requestOptions;
@@ -990,6 +1007,10 @@ class Mwbot {
      * @param token Optional token for authentication.
      */
     async handlePostMultipartFormData(requestOptions, token) {
+        if (!requestOptions._cloned) {
+            requestOptions = mergeDeep(requestOptions);
+            requestOptions._cloned = true;
+        }
         const { params } = requestOptions;
         const form = new form_data_1.default();
         for (const [key, val] of Object.entries(params)) {
@@ -1029,6 +1050,10 @@ class Mwbot {
      * @param requestOptions
      */
     applyAuthentication(requestOptions) {
+        if (!requestOptions._cloned) {
+            requestOptions = mergeDeep(requestOptions);
+            requestOptions._cloned = true;
+        }
         if (!requestOptions.headers) {
             requestOptions.headers = {};
         }
@@ -1157,6 +1182,7 @@ class Mwbot {
      * @returns A Promise of the retry request, or rejecting with an error.
      */
     async retry(initialError, requestId, requestOptions, maxAttempts = 2, sleepSeconds = 10, retryCallback) {
+        delete requestOptions._cloned;
         const attemptedCount = this.uuid[requestId] || 0; // Should never fall back to 0 but just in case
         const { disableRetry, disableRetryByCode } = requestOptions;
         const shouldRetry = attemptedCount < maxAttempts &&
@@ -1202,6 +1228,10 @@ class Mwbot {
      * @returns A Promise resolving to the API response or rejecting with an error.
      */
     get(parameters, requestOptions = {}) {
+        if (!requestOptions._cloned) {
+            requestOptions = mergeDeep(requestOptions);
+            requestOptions._cloned = true;
+        }
         requestOptions.method = 'GET';
         return this.request(parameters, requestOptions);
     }
@@ -1213,6 +1243,10 @@ class Mwbot {
      * @returns A Promise resolving to the API response or rejecting with an error.
      */
     post(parameters, requestOptions = {}) {
+        if (!requestOptions._cloned) {
+            requestOptions = mergeDeep(requestOptions);
+            requestOptions._cloned = true;
+        }
         requestOptions.method = 'POST';
         return this.request(parameters, requestOptions);
     }
@@ -1228,6 +1262,10 @@ class Mwbot {
      * @returns A Promise resolving to the API response or rejecting with an error.
      */
     nonwritePost(parameters, requestOptions = {}) {
+        if (!requestOptions._cloned) {
+            requestOptions = mergeDeep(requestOptions);
+            requestOptions._cloned = true;
+        }
         requestOptions.method = 'POST';
         requestOptions.headers = requestOptions.headers || {};
         requestOptions.headers['Promise-Non-Write-API-Action'] = true;
@@ -1401,7 +1439,12 @@ class Mwbot {
             assertuser: parameters.assertuser
         };
         parameters.token = await this.getToken(tokenType, assertParams);
-        const err = await this.post(parameters, mergeDeep(requestOptions, { disableRetryByCode: ['badtoken'] })).catch((err) => err);
+        if (!requestOptions._cloned) {
+            requestOptions = mergeDeep(requestOptions);
+            requestOptions._cloned = true;
+        }
+        requestOptions.disableRetryByCode = ['badtoken'];
+        const err = await this.post(parameters, mergeDeep(requestOptions)).catch((err) => err);
         if (!(err instanceof Error)) {
             return err; // Success
         }
@@ -1749,6 +1792,10 @@ class Mwbot {
             }
         }
         // Set a twice-as-long timeout because content-fetching is time-consuming
+        if (!requestOptions._cloned) {
+            requestOptions = mergeDeep(requestOptions);
+            requestOptions._cloned = true;
+        }
         if (typeof requestOptions.timeout !== 'number') {
             requestOptions.timeout = 120 * 1000; // 120 seconds
         }
@@ -1897,7 +1944,7 @@ class Mwbot {
                 info: `Expected a function for "transform", but got ${typeof transform}.`
             });
         }
-        const revision = await this.read(title, requestOptions);
+        const revision = await this.read(title, mergeDeep(requestOptions, { _cloned: true }));
         const unresolvedParams = transform(new this.Wikitext(revision.content), { ...revision });
         let params = unresolvedParams instanceof Promise
             ? await unresolvedParams
@@ -1930,7 +1977,7 @@ class Mwbot {
         }
         params = Object.assign(defaultParams, params);
         // Not using _save() here because it's complicated to destructure the user-defined params
-        const result = await this.postWithCsrfToken(params, requestOptions).catch((err) => err);
+        const result = await this.postWithCsrfToken(params, mergeDeep(requestOptions, { _cloned: true })).catch((err) => err);
         const { disableRetry, disableRetryAPI, disableRetryByCode = [] } = requestOptions;
         if (result instanceof MwbotError_1.MwbotError && result.code === 'editconflict' &&
             typeof retry === 'number' && retry < 3 &&
@@ -1939,7 +1986,7 @@ class Mwbot {
             console.warn('Warning: Encountered an edit conflict.');
             console.log('Retrying in 5 seconds...');
             await sleep(5000);
-            return await this.edit(title, transform, requestOptions, ++retry);
+            return await this.edit(title, transform, mergeDeep(requestOptions, { _cloned: true }), ++retry);
         }
         if (result instanceof Error) {
             throw result;
