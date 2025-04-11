@@ -878,7 +878,7 @@ export interface ApiResponseQuery {
 	globalallusers?: ApiResponseQueryListGlobalallusers[];
 	globalblocks?: ApiResponseQueryListGlobalblocks[];
 	// globalgroups?: ApiResponseQueryListGlobalgroups;
-	// imageusage?: ApiResponseQueryListImageusage;
+	imageusage?: ApiResponseQueryListImageusage[];
 	// iwbacklinks?: ApiResponseQueryListIwbacklinks;
 	// langbacklinks?: ApiResponseQueryListLangbacklinks;
 	// linterrors?: ApiResponseQueryListLinterrors;
@@ -987,6 +987,19 @@ export interface ApiResponseQueryPagesProtection { // TODO: Don't remember which
 }
 
 /**
+ * Response type for {@link https://gerrit.wikimedia.org/g/mediawiki/core/+/d8b82b8f7590c71163eb760f4cd3a50e9106dc53/includes/api/ApiQueryBacklinks.php | ApiQueryBacklinks.php}. Used for:
+ * - `list=backlinks`
+ * - `list=embeddedin`
+ * - `list=imageusage`
+ */
+interface _ApiQueryBacklinks {
+	pageid: number;
+	ns: number;
+	title: string;
+	redirect?: true;
+}
+
+/**
  * Response type for {@link https://gerrit.wikimedia.org/g/mediawiki/core/+/d8b82b8f7590c71163eb760f4cd3a50e9106dc53/includes/api/ApiQueryBacklinksprop.php | ApiQueryBacklinksprop.php}. Used for:
  * - `prop=fileusage`
  * - `prop=linkshere`
@@ -997,11 +1010,13 @@ export interface ApiResponseQueryPagesProtection { // TODO: Don't remember which
  * but they may be omitted if explicitly disabled; for example, by using `prop=linkshere&lhprop=`,
  * which sets an empty value for the parameter.
  */
-interface _ApiQueryBacklinksprop {
-	pageid?: number;
-	ns?: number;
-	title?: string;
+type _ApiQueryBacklinksprop = Partial<Omit<_ApiQueryBacklinks, 'redirect'>> & {
+	// Unlike the `list=` modules, `pageid`, `ns`, and `title` are optional, and `redirect` can be `false`
 	redirect?: boolean;
+	// fragment?: string; // Handle this separately because it's used only by "prop=redirects"
+};
+
+interface _ApiQueryBacklinkspropFragment {
 	fragment?: string;
 }
 
@@ -1013,7 +1028,7 @@ interface _ApiQueryBacklinksprop {
 // export interface ApiResponseQueryPagesPropExtlinks {}
 // export interface ApiResponseQueryPagesPropExtracts {}
 
-export type ApiResponseQueryPagesPropFileusage = Omit<_ApiQueryBacklinksprop, 'fragment'>;
+export type ApiResponseQueryPagesPropFileusage = _ApiQueryBacklinksprop; // Fully checked (source code level)
 
 // export interface ApiResponseQueryPagesPropGlobalusage {}
 // export interface ApiResponseQueryPagesPropImageinfo {}
@@ -1023,7 +1038,7 @@ export type ApiResponseQueryPagesPropFileusage = Omit<_ApiQueryBacklinksprop, 'f
 // export interface ApiResponseQueryPagesPropLanglinks {}
 // export interface ApiResponseQueryPagesPropLinks {}
 
-export type ApiResponseQueryPagesPropLinkshere = Omit<_ApiQueryBacklinksprop, 'fragment'>;
+export type ApiResponseQueryPagesPropLinkshere = _ApiQueryBacklinksprop; // Fully checked (source code level)
 
 // export interface ApiResponseQueryPagesPropMmcontent {}
 // export interface ApiResponseQueryPagesPropPageimages {}
@@ -1031,7 +1046,8 @@ export type ApiResponseQueryPagesPropLinkshere = Omit<_ApiQueryBacklinksprop, 'f
 // export interface ApiResponseQueryPagesPropPageterms {}
 // export interface ApiResponseQueryPagesPropPageviews {}
 
-export type ApiResponseQueryPagesPropRedirects = Omit<_ApiQueryBacklinksprop, 'redirect'>;
+export type ApiResponseQueryPagesPropRedirects = // Fully checked (source code level)
+	Omit<_ApiQueryBacklinksprop, 'redirect'> & _ApiQueryBacklinkspropFragment;
 
 export interface ApiResponseQueryPagesPropRevisions { // Fully checked
 	revid?: number;
@@ -1069,7 +1085,7 @@ export interface ApiResponseQueryPagesPropRevisions { // Fully checked
 // export interface ApiResponseQueryPagesPropStashimageinfo {}
 // export interface ApiResponseQueryPagesPropTemplates {}
 
-export type ApiResponseQueryPagesPropTranscludedin = Omit<_ApiQueryBacklinksprop, 'fragment'>;
+export type ApiResponseQueryPagesPropTranscludedin = _ApiQueryBacklinksprop; // Fully checked (source code level)
 
 // export interface ApiResponseQueryPagesPropTranscodestatus {}
 // export interface ApiResponseQueryPagesPropVideoinfo {}
@@ -1542,11 +1558,7 @@ export type ApiResponseQueryMetaUserinfoRatelimits = {
 // export interface ApiResponseQueryListAlltransclusions {}
 // export interface ApiResponseQueryListAllusers {}
 
-export interface ApiResponseQueryListBacklinks { // TODO: recheck
-	pageid: number;
-	ns: number;
-	title: string;
-}
+export type ApiResponseQueryListBacklinks = _ApiQueryBacklinks; // Fully checked (source code level)
 
 export interface ApiResponseQueryListBetafeatures { // TODO: recheck
 	[key: string]: {
@@ -1603,11 +1615,7 @@ export interface ApiResponseQueryListCategorymembers { // TODO: recheck
 // export interface ApiResponseQueryListCheckuser {}
 // export interface ApiResponseQueryListCheckuserlog {}
 
-export interface ApiResponseQueryListEmbeddedin { // TODO: recheck
-	pageid: number;
-	ns: number;
-	title: string;
-}
+export type ApiResponseQueryListEmbeddedin = _ApiQueryBacklinks; // Fully checked (source code level)
 
 // export interface ApiResponseQueryListExtdistrepos {}
 // export interface ApiResponseQueryListExturlusage {}
@@ -1645,7 +1653,9 @@ export interface ApiResponseQueryListGlobalblocks { // Fully checked (source cod
 }
 
 // export interface ApiResponseQueryListGlobalgroups {}
-// export interface ApiResponseQueryListImageusage {}
+
+export type ApiResponseQueryListImageusage = _ApiQueryBacklinks; // Fully checked (source code level)
+
 // export interface ApiResponseQueryListIwbacklinks {}
 // export interface ApiResponseQueryListLangbacklinks {}
 // export interface ApiResponseQueryListLinterrors {}
