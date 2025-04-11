@@ -940,9 +940,9 @@ export interface ApiResponseQueryPages {
 	known?: true;
 	invalid?: true;
 	invalidreason?: string;
+	special?: true;
 
 	// prop-dependent
-	// TODO: Tidy this up
 	contentmodel?: string;
 	pagelanguage?: string;
 	pagelanguagehtmlcode?: string;
@@ -951,24 +951,6 @@ export interface ApiResponseQueryPages {
 	lastrevid?: number;
 	length?: number;
 	redirect?: boolean;
-	protection?: ApiResponseQueryPagesProtection[];
-	restrictiontypes?: string[];
-	watched?: boolean;
-	watchers?: number;
-	visitingwatchers?: number;
-	notificationtimestamp?: string;
-	talkid?: number;
-	associatedpage?: string;
-	fullurl?: string;
-	editurl?: string;
-	canonicalurl?: string;
-	readable?: boolean;
-	preload?: string;
-	displaytitle?: string;
-	varianttitles?: {
-		[key: string]: string;
-	};
-	linkclasses?: string[];
 
 	// categories?: ApiResponseQueryPagesPropCategories
 	// categoryinfo?: ApiResponseQueryPagesPropCategoryinfo
@@ -981,7 +963,35 @@ export interface ApiResponseQueryPages {
 	// globalusage?: ApiResponseQueryPagesPropGlobalusage
 	// imageinfo?: ApiResponseQueryPagesPropImageinfo
 	// images?: ApiResponseQueryPagesPropImages
-	// info?: ApiResponseQueryPagesPropInfo
+	// info?: ApiResponseQueryPagesPropInfo // Fully checked (source code level)
+		// inprop=
+		associatedpage?: string;
+		displaytitle?: string;
+		editintro?: { [key: string]: string };
+		linkclasses?: string[];
+		notificationtimestamp?: string;
+		preloadcontent?: {
+			contentmodel: string;
+			contentformat: string;
+			content: string;
+		};
+			preloadisdefault?: boolean;
+		protection?: ApiResponseQueryPagesPropInfoProtection[];
+			restrictiontypes?: string[];
+		subjectid?: number;
+		talkid?: number;
+		fullurl?: string; // inprop=url
+		editurl?: string; // inprop=url
+		canonicalurl?: string; // inprop=url
+		varianttitles?: { [lang: string]: string };
+		visitingwatchers?: number;
+		watched?: boolean;
+			watchlistexpiry?: string;
+		watchers?: number;
+		/** @deprecated Use `preloadcontent` instead, which supports other kinds of preloaded text too. */
+		preload?: string | null;
+		/** @deprecated Use `intestactions=read` instead. */
+		readable?: boolean;
 	// iwlinks?: ApiResponseQueryPagesPropIwlinks
 	// langlinks?: ApiResponseQueryPagesPropLanglinks
 	// links?: ApiResponseQueryPagesPropLinks
@@ -1001,10 +1011,11 @@ export interface ApiResponseQueryPages {
 	// wbentityusage?: ApiResponseQueryPagesPropWbentityusage
 }
 
-export interface ApiResponseQueryPagesProtection { // TODO: Don't remember which prop this is for (prop=info?)
+export interface ApiResponseQueryPagesPropInfoProtection { // Fully checked (source code level)
 	type: string;
 	level: string;
 	expiry: string;
+	cascade?: true;
 }
 
 /**
@@ -1054,7 +1065,9 @@ export type ApiResponseQueryPagesPropFileusage = _ApiQueryBacklinksprop; // Full
 // export interface ApiResponseQueryPagesPropGlobalusage {}
 // export interface ApiResponseQueryPagesPropImageinfo {}
 // export interface ApiResponseQueryPagesPropImages {}
-// export interface ApiResponseQueryPagesPropInfo {}
+
+// export interface ApiResponseQueryPagesPropInfo {} // Fully checked (source code level; defined directly in ApiResponseQueryPages)
+
 // export interface ApiResponseQueryPagesPropIwlinks {}
 // export interface ApiResponseQueryPagesPropLanglinks {}
 // export interface ApiResponseQueryPagesPropLinks {}
