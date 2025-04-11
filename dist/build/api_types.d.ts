@@ -42,11 +42,11 @@ export type OnlyOneRecord<K extends string, V = any> = {
  * guarantees that each object will contain a `pageid` property. In such cases, you can do:
  *
  * ```ts
- * import { ApiResponseQueryPagesPropLinkshere } from 'mwbot-ts';
+ * import { PartiallyRequired, ApiResponseQueryPagesPropLinkshere } from 'mwbot-ts';
  * type ApiResponseQueryPagesPropLinkshereVerified = PartiallyRequired<ApiResponseQueryPagesPropLinkshere, 'pageid'>;
  * ```
  *
- * This creates a type where the `pageid` property is required, without modifying the rest of the type.
+ * This creates a type where the `pageid` property is non-optional, without modifying the rest of the type.
  *
  * @template T The base object type.
  * @template K The keys of `T` to make required.
@@ -452,6 +452,7 @@ export interface ApiResponseQueryPages {
     known?: true;
     invalid?: true;
     invalidreason?: string;
+    special?: true;
     contentmodel?: string;
     pagelanguage?: string;
     pagelanguagehtmlcode?: string;
@@ -460,33 +461,47 @@ export interface ApiResponseQueryPages {
     lastrevid?: number;
     length?: number;
     redirect?: boolean;
-    protection?: ApiResponseQueryPagesProtection[];
-    restrictiontypes?: string[];
-    watched?: boolean;
-    watchers?: number;
-    visitingwatchers?: number;
-    notificationtimestamp?: string;
-    talkid?: number;
+    fileusage?: ApiResponseQueryPagesPropFileusage[];
     associatedpage?: string;
-    fullurl?: string;
-    editurl?: string;
-    canonicalurl?: string;
-    readable?: boolean;
-    preload?: string;
     displaytitle?: string;
-    varianttitles?: {
+    editintro?: {
         [key: string]: string;
     };
     linkclasses?: string[];
-    fileusage?: ApiResponseQueryPagesPropFileusage[];
+    notificationtimestamp?: string;
+    preloadcontent?: {
+        contentmodel: string;
+        contentformat: string;
+        content: string;
+    };
+    preloadisdefault?: boolean;
+    protection?: ApiResponseQueryPagesPropInfoProtection[];
+    restrictiontypes?: string[];
+    subjectid?: number;
+    talkid?: number;
+    fullurl?: string;
+    editurl?: string;
+    canonicalurl?: string;
+    varianttitles?: {
+        [lang: string]: string;
+    };
+    visitingwatchers?: number;
+    watched?: boolean;
+    watchlistexpiry?: string;
+    watchers?: number;
+    /** @deprecated Use `preloadcontent` instead, which supports other kinds of preloaded text too. */
+    preload?: string | null;
+    /** @deprecated Use `intestactions=read` instead. */
+    readable?: boolean;
     redirects?: ApiResponseQueryPagesPropRedirects[];
     revisions?: ApiResponseQueryPagesPropRevisions[];
     transcludedin?: ApiResponseQueryPagesPropTranscludedin[];
 }
-export interface ApiResponseQueryPagesProtection {
+export interface ApiResponseQueryPagesPropInfoProtection {
     type: string;
     level: string;
     expiry: string;
+    cascade?: true;
 }
 /**
  * Response type for {@link https://gerrit.wikimedia.org/g/mediawiki/core/+/d8b82b8f7590c71163eb760f4cd3a50e9106dc53/includes/api/ApiQueryBacklinks.php | ApiQueryBacklinks.php}. Used for:
