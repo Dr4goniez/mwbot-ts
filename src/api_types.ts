@@ -49,11 +49,11 @@ export type OnlyOneRecord<K extends string, V = any> = {
  * guarantees that each object will contain a `pageid` property. In such cases, you can do:
  *
  * ```ts
- * import { ApiResponseQueryPagesPropLinkshere } from 'mwbot-ts';
+ * import { PartiallyRequired, ApiResponseQueryPagesPropLinkshere } from 'mwbot-ts';
  * type ApiResponseQueryPagesPropLinkshereVerified = PartiallyRequired<ApiResponseQueryPagesPropLinkshere, 'pageid'>;
  * ```
  *
- * This creates a type where the `pageid` property is required, without modifying the rest of the type.
+ * This creates a type where the `pageid` property is non-optional, without modifying the rest of the type.
  *
  * @template T The base object type.
  * @template K The keys of `T` to make required.
