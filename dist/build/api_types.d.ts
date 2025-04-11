@@ -416,6 +416,7 @@ export interface ApiResponseQuery {
     embeddedin?: ApiResponseQueryListEmbeddedin[];
     globalallusers?: ApiResponseQueryListGlobalallusers[];
     globalblocks?: ApiResponseQueryListGlobalblocks[];
+    imageusage?: ApiResponseQueryListImageusage[];
     logevents?: ApiResponseQueryListLogevents[];
     search?: ApiResponseQueryListSearch[];
     usercontribs?: ApiResponseQueryListUsercontribs[];
@@ -426,8 +427,9 @@ export interface ApiResponseQueryPages {
     pageid?: number;
     ns: number;
     title: string;
-    missing?: boolean;
-    invalid?: boolean;
+    missing?: true;
+    known?: true;
+    invalid?: true;
     invalidreason?: string;
     contentmodel?: string;
     pagelanguage?: string;
@@ -455,9 +457,49 @@ export interface ApiResponseQueryPages {
         [key: string]: string;
     };
     linkclasses?: string[];
-    /** prop=revisions */
+    fileusage?: ApiResponseQueryPagesPropFileusage[];
+    redirects?: ApiResponseQueryPagesPropRedirects[];
     revisions?: ApiResponseQueryPagesPropRevisions[];
+    transcludedin?: ApiResponseQueryPagesPropTranscludedin[];
 }
+export interface ApiResponseQueryPagesProtection {
+    type: string;
+    level: string;
+    expiry: string;
+}
+/**
+ * Response type for {@link https://gerrit.wikimedia.org/g/mediawiki/core/+/d8b82b8f7590c71163eb760f4cd3a50e9106dc53/includes/api/ApiQueryBacklinks.php | ApiQueryBacklinks.php}. Used for:
+ * - `list=backlinks`
+ * - `list=embeddedin`
+ * - `list=imageusage`
+ */
+interface _ApiQueryBacklinks {
+    pageid: number;
+    ns: number;
+    title: string;
+    redirect?: true;
+}
+/**
+ * Response type for {@link https://gerrit.wikimedia.org/g/mediawiki/core/+/d8b82b8f7590c71163eb760f4cd3a50e9106dc53/includes/api/ApiQueryBacklinksprop.php | ApiQueryBacklinksprop.php}. Used for:
+ * - `prop=fileusage`
+ * - `prop=linkshere`
+ * - `prop=redirects`
+ * - `prop=transcludedin`
+ *
+ * The `pageid`, `ns`, and `title` properties are present by default due to default parameters,
+ * but they may be omitted if explicitly disabled; for example, by using `prop=linkshere&lhprop=`,
+ * which sets an empty value for the parameter.
+ */
+type _ApiQueryBacklinksprop = Partial<Omit<_ApiQueryBacklinks, 'redirect'>> & {
+    redirect?: boolean;
+};
+interface _ApiQueryBacklinkspropFragment {
+    fragment?: string;
+}
+export type ApiResponseQueryPagesPropFileusage = _ApiQueryBacklinksprop;
+export type ApiResponseQueryPagesPropLinkshere = _ApiQueryBacklinksprop;
+export type ApiResponseQueryPagesPropRedirects = // Fully checked (source code level)
+Omit<_ApiQueryBacklinksprop, 'redirect'> & _ApiQueryBacklinkspropFragment;
 export interface ApiResponseQueryPagesPropRevisions {
     revid?: number;
     parentid?: number;
@@ -490,11 +532,7 @@ export interface ApiResponseQueryPagesPropRevisions {
     parsedcomment?: string;
     tags?: string[];
 }
-export interface ApiResponseQueryPagesProtection {
-    type: string;
-    level: string;
-    expiry: string;
-}
+export type ApiResponseQueryPagesPropTranscludedin = _ApiQueryBacklinksprop;
 export interface ApiResponseQueryMetaAllmessages {
     name: string;
     normalizedname: string;
@@ -812,11 +850,7 @@ export type ApiResponseQueryMetaUserinfoRatelimits = {
         seconds: number;
     }>;
 };
-export interface ApiResponseQueryListBacklinks {
-    pageid: number;
-    ns: number;
-    title: string;
-}
+export type ApiResponseQueryListBacklinks = _ApiQueryBacklinks;
 export interface ApiResponseQueryListBetafeatures {
     [key: string]: {
         name: string;
@@ -864,11 +898,7 @@ export interface ApiResponseQueryListCategorymembers {
     type?: string;
     timestamp?: string;
 }
-export interface ApiResponseQueryListEmbeddedin {
-    pageid: number;
-    ns: number;
-    title: string;
-}
+export type ApiResponseQueryListEmbeddedin = _ApiQueryBacklinks;
 export interface ApiResponseQueryListGlobalallusers {
     id: number;
     name: string;
@@ -896,6 +926,7 @@ export interface ApiResponseQueryListGlobalblocks {
     rangestart?: string;
     rangeend?: string;
 }
+export type ApiResponseQueryListImageusage = _ApiQueryBacklinks;
 export interface ApiResponseQueryListLogevents {
     logid?: number;
     ns?: number;
@@ -1044,4 +1075,5 @@ export interface ApiResponseQueryListUsers {
         local: boolean;
     };
 }
+export {};
 //# sourceMappingURL=api_types.d.ts.map
