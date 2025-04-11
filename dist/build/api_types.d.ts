@@ -84,7 +84,7 @@ export type ApiParamsAction = 'abusefiltercheckmatch' | 'abusefilterchecksyntax'
 export interface ApiEditPageParams extends ApiParams {
     title?: string;
     pageid?: number;
-    section?: string;
+    section?: number | string;
     sectiontitle?: string;
     text?: string;
     summary?: string;
