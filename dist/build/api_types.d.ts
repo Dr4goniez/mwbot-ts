@@ -32,6 +32,27 @@ export type OnlyOneRecord<K extends string, V = any> = {
     } : never;
 }[K];
 /**
+ * Utility type that makes a subset of properties in an object type required. Use this when certain properties
+ * in a generally optional object type are known to be present.
+ *
+ * For example, the `linkshere` property in the response from
+ * {@link https://en.wikipedia.org/w/api.php?action=query&formatversion=2&titles=Main_page&prop=linkshere&lhprop= | titles=Main_page&prop=linkshere&lhprop=}
+ * will be an array of empty objects because `lhprop=` is left empty. However, specifying
+ * {@link https://en.wikipedia.org/w/api.php?action=query&formatversion=2&titles=Main_page&prop=linkshere&lhprop=pageid | lhprop=pageid}
+ * guarantees that each object will contain a `pageid` property. In such cases, you can do:
+ *
+ * ```ts
+ * import { ApiResponseQueryPagesPropLinkshere } from 'mwbot-ts';
+ * type ApiResponseQueryPagesPropLinkshereVerified = PartiallyRequired<ApiResponseQueryPagesPropLinkshere, 'pageid'>;
+ * ```
+ *
+ * This creates a type where the `pageid` property is required, without modifying the rest of the type.
+ *
+ * @template T The base object type.
+ * @template K The keys of `T` to make required.
+ */
+export type PartiallyRequired<T extends Record<string, any>, K extends keyof T> = Required<Pick<T, K>> & Omit<T, K>;
+/**
  * The API query parameters.
  * @see https://www.mediawiki.org/wiki/API:Main_page
  */
