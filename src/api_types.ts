@@ -952,10 +952,10 @@ export interface ApiResponseQueryPages {
 	length?: number;
 	redirect?: boolean;
 
-	// categories?: ApiResponseQueryPagesPropCategories
-	// categoryinfo?: ApiResponseQueryPagesPropCategoryinfo
-	// contributors?: ApiResponseQueryPagesPropContributors
-	// deletedrevisions?: ApiResponseQueryPagesPropDeletedrevisions
+	categories?: ApiResponseQueryPagesPropCategories[];
+	categoryinfo?: ApiResponseQueryPagesPropCategoryinfo;
+	contributors?: ApiResponseQueryPagesPropContributors[];
+	deletedrevisions?: ApiResponseQueryPagesPropDeletedrevisions[];
 	// duplicatefiles?: ApiResponseQueryPagesPropDuplicatefiles
 	// extlinks?: ApiResponseQueryPagesPropExtlinks
 	// extracts?: ApiResponseQueryPagesPropExtracts
@@ -995,7 +995,7 @@ export interface ApiResponseQueryPages {
 	// iwlinks?: ApiResponseQueryPagesPropIwlinks
 	// langlinks?: ApiResponseQueryPagesPropLanglinks
 	// links?: ApiResponseQueryPagesPropLinks
-	// linkshere?: ApiResponseQueryPagesPropLinkshere
+	linkshere?: ApiResponseQueryPagesPropLinkshere[];
 	// mmcontent?: ApiResponseQueryPagesPropMmcontent
 	// pageimages?: ApiResponseQueryPagesPropPageimages
 	// pageprops?: ApiResponseQueryPagesPropPageprops
@@ -1052,10 +1052,48 @@ interface _ApiQueryBacklinkspropFragment {
 	fragment?: string;
 }
 
-// export interface ApiResponseQueryPagesPropCategories {}
-// export interface ApiResponseQueryPagesPropCategoryinfo {}
-// export interface ApiResponseQueryPagesPropContributors {}
-// export interface ApiResponseQueryPagesPropDeletedrevisions {}
+export interface ApiResponseQueryPagesPropCategories { // Fully checked (source code level)
+	ns: number;
+	title: string;
+	sortkey?: string; // clprop=sortkey
+	sortkeyprefix?: string; // clprop=sortkey
+	timestamp?: string; // clprop=timestamp
+	hidden?: boolean; // clprop=hidden
+}
+
+export interface ApiResponseQueryPagesPropCategoryinfo { // Fully checked (source code level)
+	size: number;
+	pages: number;
+	files: number;
+	subcats: number;
+	hidden: boolean;
+}
+
+export interface ApiResponseQueryPagesPropContributors { // Fully checked (source code level)
+	userid: number;
+	name: string;
+}
+
+export interface ApiResponseQueryPagesPropDeletedrevisions { // Checked (TODO: Check source code)
+	revid?: number;
+	parentid?: number;
+	minor?: boolean;
+	user?: string;
+	anon?: true;
+	userid?: number;
+	timestamp?: string;
+	size?: number;
+	sha1?: string;
+	roles?: string[];
+	contentmodel?: string;
+	parsetree?: string;
+	contentformat?: string;
+	content?: string;
+	comment?: string;
+	parsedcomment?: string;
+	tags?: string[];
+}
+
 // export interface ApiResponseQueryPagesPropDuplicatefiles {}
 // export interface ApiResponseQueryPagesPropExtlinks {}
 // export interface ApiResponseQueryPagesPropExtracts {}
