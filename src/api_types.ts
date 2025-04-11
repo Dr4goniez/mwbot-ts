@@ -225,7 +225,7 @@ export interface ApiEditPageParams extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki/blob/main/api_params/index.d.ts
 	title?: string;
 	pageid?: number;
-	section?: string;
+	section?: number | string;
 	sectiontitle?: string;
 	text?: string;
 	summary?: string;
