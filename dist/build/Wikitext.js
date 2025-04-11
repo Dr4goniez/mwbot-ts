@@ -361,7 +361,7 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                     if (regex.void.test(nodeName) || (pseudoVoid = (selfClosing && validTags.mediawiki.includes(nodeName)))) {
                         // Add void and "pseudo-void" self-closing tags to the stack immediately
                         // For "pseudo-void" tags, see the comments in the definition of `validTags`
-                        parsed.push(createVoidTagObject(nodeName, m[0], i, startTags.length, selfClosing, pseudoVoid));
+                        parsed.push(createVoidTagObject(nodeName, m[0], i, startTags.length, selfClosing, pseudoVoid, false));
                     }
                     else {
                         // Store non-void start tags for later matching with end tags.
@@ -384,7 +384,7 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                         if (nodeName === 'br') {
                             // MediaWiki converts </br> to <br>
                             // Void start tags aren't stored in "startTags" (i.e. there's no need to look them up in the stack)
-                            parsed.push(createVoidTagObject(nodeName, m[0], i, startTags.length, false, false));
+                            parsed.push(createVoidTagObject(nodeName, m[0], i, startTags.length, false, false, false));
                         }
                         else {
                             // Do nothing
@@ -419,7 +419,8 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                                 nestLevel: startTags.length - 1 - closedTagCnt,
                                 void: false,
                                 unclosed: !startTagMatched,
-                                selfClosing: start.selfClosing
+                                selfClosing: start.selfClosing,
+                                skip: false
                             });
                             closedTagCnt++;
                             // Exit the loop when we find a start-end pair
@@ -450,20 +451,17 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                     nestLevel: arr.length - 1 - i,
                     void: false,
                     unclosed: true,
-                    selfClosing
+                    selfClosing,
+                    skip: false
                 });
             });
             // Sort the parsed tags based on their positions in the wikitext and return
-            return parsed.sort((obj1, obj2) => {
-                if (obj1.startIndex < obj2.startIndex) {
-                    return -1;
-                }
-                else if (obj2.endIndex < obj1.endIndex) {
-                    return 1;
-                }
-                else {
-                    return 0;
-                }
+            parsed.sort((obj1, obj2) => obj1.startIndex - obj2.startIndex);
+            // Set up the `skip` property and return the result
+            const isInSkipRange = this.getSkipPredicate(parsed);
+            return parsed.map((tag) => {
+                tag.skip = isInSkipRange(tag.startIndex, tag.endIndex);
+                return tag;
             });
         }
         parseTags(config = {}) {
@@ -511,15 +509,18 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
          * Generates a function that evaluates whether a string starting at an index and ending at another
          * is inside a tag in which that string shouldn't be parsed.
          *
+         * @param tags Use these {@link Tag} objects to create the function rather than calling
+         * {@link storageManager}. Passed only from {@link _parseTags}.
          * @returns A function that checks whether a given range is inside any tag to skip parsing.
          */
-        getSkipPredicate() {
+        getSkipPredicate(tags) {
             if (!this.skipTags.join('')) {
                 return () => false;
             }
             const rSkipTags = new RegExp(`^(?:${this.skipTags.join('|')})$`);
             // Create an array to store the start and end indices of tags to skip
-            const indexMap = this.storageManager('tags', false).reduce((acc, tagObj) => {
+            tags = tags || this.storageManager('tags', false);
+            const indexMap = tags.reduce((acc, tagObj) => {
                 // If the tag is in the skip list and doesn't overlap with existing ranges, add its range
                 if (rSkipTags.test(tagObj.name)) {
                     // Check if the current range is already covered by an existing range
@@ -1348,7 +1349,7 @@ function sanitizeNodeName(name) {
  * @param pseudoVoid Whether this is a pseudo-void tag. Such tags are marked `{void: false}`.
  * @returns
  */
-function createVoidTagObject(nodeName, startTag, startIndex, nestLevel, selfClosing, pseudoVoid) {
+function createVoidTagObject(nodeName, startTag, startIndex, nestLevel, selfClosing, pseudoVoid, skip) {
     return {
         name: nodeName, // Not calling sanitizeNodeName because this is never a comment tag
         get text() {
@@ -1362,7 +1363,8 @@ function createVoidTagObject(nodeName, startTag, startIndex, nestLevel, selfClos
         nestLevel,
         void: !pseudoVoid,
         unclosed: false,
-        selfClosing
+        selfClosing,
+        skip
     };
 }
 // Interfaces and private members for "parseSections"

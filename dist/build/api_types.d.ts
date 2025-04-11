@@ -461,6 +461,10 @@ export interface ApiResponseQueryPages {
     lastrevid?: number;
     length?: number;
     redirect?: boolean;
+    categories?: ApiResponseQueryPagesPropCategories[];
+    categoryinfo?: ApiResponseQueryPagesPropCategoryinfo;
+    contributors?: ApiResponseQueryPagesPropContributors[];
+    deletedrevisions?: ApiResponseQueryPagesPropDeletedrevisions[];
     fileusage?: ApiResponseQueryPagesPropFileusage[];
     associatedpage?: string;
     displaytitle?: string;
@@ -493,6 +497,7 @@ export interface ApiResponseQueryPages {
     preload?: string | null;
     /** @deprecated Use `intestactions=read` instead. */
     readable?: boolean;
+    linkshere?: ApiResponseQueryPagesPropLinkshere[];
     redirects?: ApiResponseQueryPagesPropRedirects[];
     revisions?: ApiResponseQueryPagesPropRevisions[];
     transcludedin?: ApiResponseQueryPagesPropTranscludedin[];
@@ -531,6 +536,44 @@ type _ApiQueryBacklinksprop = Partial<Omit<_ApiQueryBacklinks, 'redirect'>> & {
 };
 interface _ApiQueryBacklinkspropFragment {
     fragment?: string;
+}
+export interface ApiResponseQueryPagesPropCategories {
+    ns: number;
+    title: string;
+    sortkey?: string;
+    sortkeyprefix?: string;
+    timestamp?: string;
+    hidden?: boolean;
+}
+export interface ApiResponseQueryPagesPropCategoryinfo {
+    size: number;
+    pages: number;
+    files: number;
+    subcats: number;
+    hidden: boolean;
+}
+export interface ApiResponseQueryPagesPropContributors {
+    userid: number;
+    name: string;
+}
+export interface ApiResponseQueryPagesPropDeletedrevisions {
+    revid?: number;
+    parentid?: number;
+    minor?: boolean;
+    user?: string;
+    anon?: true;
+    userid?: number;
+    timestamp?: string;
+    size?: number;
+    sha1?: string;
+    roles?: string[];
+    contentmodel?: string;
+    parsetree?: string;
+    contentformat?: string;
+    content?: string;
+    comment?: string;
+    parsedcomment?: string;
+    tags?: string[];
 }
 export type ApiResponseQueryPagesPropFileusage = _ApiQueryBacklinksprop;
 export type ApiResponseQueryPagesPropLinkshere = _ApiQueryBacklinksprop;

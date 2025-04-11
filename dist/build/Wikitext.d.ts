@@ -546,6 +546,10 @@ export interface Tag {
      * Whether this tag is a self-closing tag (which is invalid in HTML).
      */
     selfClosing: boolean;
+    /**
+     * Whether the tag appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+     */
+    skip: boolean;
 }
 /**
  * Configuration options for {@link Wikitext.parseTags}.
