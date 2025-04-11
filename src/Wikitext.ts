@@ -885,7 +885,7 @@ export function WikitextFactory(
 						// Add void and "pseudo-void" self-closing tags to the stack immediately
 						// For "pseudo-void" tags, see the comments in the definition of `validTags`
 						parsed.push(
-							createVoidTagObject(nodeName, m[0], i, startTags.length, selfClosing, pseudoVoid)
+							createVoidTagObject(nodeName, m[0], i, startTags.length, selfClosing, pseudoVoid, false)
 						);
 					} else {
 						// Store non-void start tags for later matching with end tags.
@@ -912,7 +912,7 @@ export function WikitextFactory(
 							// MediaWiki converts </br> to <br>
 							// Void start tags aren't stored in "startTags" (i.e. there's no need to look them up in the stack)
 							parsed.push(
-								createVoidTagObject(nodeName, m[0], i, startTags.length, false, false)
+								createVoidTagObject(nodeName, m[0], i, startTags.length, false, false, false)
 							);
 						} else {
 							// Do nothing
@@ -950,7 +950,8 @@ export function WikitextFactory(
 								nestLevel: startTags.length - 1 - closedTagCnt,
 								void: false,
 								unclosed: !startTagMatched,
-								selfClosing: start.selfClosing
+								selfClosing: start.selfClosing,
+								skip: false
 							});
 							closedTagCnt++;
 
@@ -987,19 +988,19 @@ export function WikitextFactory(
 					nestLevel: arr.length - 1 - i,
 					void: false,
 					unclosed: true,
-					selfClosing
+					selfClosing,
+					skip: false
 				});
 			});
 
 			// Sort the parsed tags based on their positions in the wikitext and return
-			return parsed.sort((obj1, obj2) => {
-				if (obj1.startIndex < obj2.startIndex) {
-					return -1;
-				} else if (obj2.endIndex < obj1.endIndex) {
-					return 1;
-				} else {
-					return 0;
-				}
+			parsed.sort((obj1, obj2) => obj1.startIndex - obj2.startIndex);
+
+			// Set up the `skip` property and return the result
+			const isInSkipRange = this.getSkipPredicate(parsed);
+			return parsed.map((tag) => {
+				tag.skip = isInSkipRange(tag.startIndex, tag.endIndex);
+				return tag;
 			});
 
 		}
@@ -1057,9 +1058,11 @@ export function WikitextFactory(
 		 * Generates a function that evaluates whether a string starting at an index and ending at another
 		 * is inside a tag in which that string shouldn't be parsed.
 		 *
+		 * @param tags Use these {@link Tag} objects to create the function rather than calling
+		 * {@link storageManager}. Passed only from {@link _parseTags}.
 		 * @returns A function that checks whether a given range is inside any tag to skip parsing.
 		 */
-		private getSkipPredicate(): (startIndex: number, endIndex: number) => boolean {
+		private getSkipPredicate(tags?: Tag[]): (startIndex: number, endIndex: number) => boolean {
 
 			if (!this.skipTags.join('')) {
 				return () => false;
@@ -1067,7 +1070,8 @@ export function WikitextFactory(
 			const rSkipTags = new RegExp(`^(?:${this.skipTags.join('|')})$`);
 
 			// Create an array to store the start and end indices of tags to skip
-			const indexMap = this.storageManager('tags', false).reduce((acc: number[][], tagObj) => {
+			tags = tags || this.storageManager('tags', false);
+			const indexMap = tags.reduce((acc: number[][], tagObj) => {
 				// If the tag is in the skip list and doesn't overlap with existing ranges, add its range
 				if (rSkipTags.test(tagObj.name)) {
 					// Check if the current range is already covered by an existing range
@@ -2109,6 +2113,10 @@ export interface Tag {
 	 * Whether this tag is a self-closing tag (which is invalid in HTML).
 	 */
 	selfClosing: boolean;
+	/**
+	 * Whether the tag appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+	 */
+	skip: boolean;
 }
 
 /**
@@ -2147,7 +2155,8 @@ function createVoidTagObject(
 	startIndex: number,
 	nestLevel: number,
 	selfClosing: boolean,
-	pseudoVoid: boolean
+	pseudoVoid: boolean,
+	skip: boolean
 ): Tag {
 	return {
 		name: nodeName, // Not calling sanitizeNodeName because this is never a comment tag
@@ -2162,7 +2171,8 @@ function createVoidTagObject(
 		nestLevel,
 		void: !pseudoVoid,
 		unclosed: false,
-		selfClosing
+		selfClosing,
+		skip
 	};
 }
 
