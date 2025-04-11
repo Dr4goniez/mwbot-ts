@@ -915,8 +915,9 @@ export interface ApiResponseQueryPages {
 	pageid?: number;
 	ns: number;
 	title: string;
-	missing?: boolean;
-	invalid?: boolean;
+	missing?: true;
+	known?: true;
+	invalid?: true;
 	invalidreason?: string;
 
 	// prop-dependent
@@ -948,10 +949,89 @@ export interface ApiResponseQueryPages {
 	};
 	linkclasses?: string[];
 
-	/** prop=revisions */
+	// categories?: ApiResponseQueryPagesPropCategories
+	// categoryinfo?: ApiResponseQueryPagesPropCategoryinfo
+	// contributors?: ApiResponseQueryPagesPropContributors
+	// deletedrevisions?: ApiResponseQueryPagesPropDeletedrevisions
+	// duplicatefiles?: ApiResponseQueryPagesPropDuplicatefiles
+	// extlinks?: ApiResponseQueryPagesPropExtlinks
+	// extracts?: ApiResponseQueryPagesPropExtracts
+	fileusage?: ApiResponseQueryPagesPropFileusage[];
+	// globalusage?: ApiResponseQueryPagesPropGlobalusage
+	// imageinfo?: ApiResponseQueryPagesPropImageinfo
+	// images?: ApiResponseQueryPagesPropImages
+	// info?: ApiResponseQueryPagesPropInfo
+	// iwlinks?: ApiResponseQueryPagesPropIwlinks
+	// langlinks?: ApiResponseQueryPagesPropLanglinks
+	// links?: ApiResponseQueryPagesPropLinks
+	// linkshere?: ApiResponseQueryPagesPropLinkshere
+	// mmcontent?: ApiResponseQueryPagesPropMmcontent
+	// pageimages?: ApiResponseQueryPagesPropPageimages
+	// pageprops?: ApiResponseQueryPagesPropPageprops
+	// pageterms?: ApiResponseQueryPagesPropPageterms
+	// pageviews?: ApiResponseQueryPagesPropPageviews
+	redirects?: ApiResponseQueryPagesPropRedirects[];
 	revisions?: ApiResponseQueryPagesPropRevisions[];
-
+	// stashimageinfo?: ApiResponseQueryPagesPropStashimageinfo
+	// templates?: ApiResponseQueryPagesPropTemplates
+	transcludedin?: ApiResponseQueryPagesPropTranscludedin[];
+	// transcodestatus?: ApiResponseQueryPagesPropTranscodestatus
+	// videoinfo?: ApiResponseQueryPagesPropVideoinfo
+	// wbentityusage?: ApiResponseQueryPagesPropWbentityusage
 }
+
+export interface ApiResponseQueryPagesProtection { // TODO: Don't remember which prop this is for (prop=info?)
+	type: string;
+	level: string;
+	expiry: string;
+}
+
+/**
+ * Response type for {@link https://gerrit.wikimedia.org/g/mediawiki/core/+/d8b82b8f7590c71163eb760f4cd3a50e9106dc53/includes/api/ApiQueryBacklinksprop.php | ApiQueryBacklinksprop.php}. Used for:
+ * - `prop=fileusage`
+ * - `prop=linkshere`
+ * - `prop=redirects`
+ * - `prop=transcludedin`
+ *
+ * The `pageid`, `ns`, and `title` properties are present by default due to default parameters,
+ * but they may be omitted if explicitly disabled; for example, by using `prop=linkshere&lhprop=`,
+ * which sets an empty value for the parameter.
+ */
+interface _ApiQueryBacklinksprop {
+	pageid?: number;
+	ns?: number;
+	title?: string;
+	redirect?: boolean;
+	fragment?: string;
+}
+
+// export interface ApiResponseQueryPagesPropCategories {}
+// export interface ApiResponseQueryPagesPropCategoryinfo {}
+// export interface ApiResponseQueryPagesPropContributors {}
+// export interface ApiResponseQueryPagesPropDeletedrevisions {}
+// export interface ApiResponseQueryPagesPropDuplicatefiles {}
+// export interface ApiResponseQueryPagesPropExtlinks {}
+// export interface ApiResponseQueryPagesPropExtracts {}
+
+export type ApiResponseQueryPagesPropFileusage = Omit<_ApiQueryBacklinksprop, 'fragment'>;
+
+// export interface ApiResponseQueryPagesPropGlobalusage {}
+// export interface ApiResponseQueryPagesPropImageinfo {}
+// export interface ApiResponseQueryPagesPropImages {}
+// export interface ApiResponseQueryPagesPropInfo {}
+// export interface ApiResponseQueryPagesPropIwlinks {}
+// export interface ApiResponseQueryPagesPropLanglinks {}
+// export interface ApiResponseQueryPagesPropLinks {}
+
+export type ApiResponseQueryPagesPropLinkshere = Omit<_ApiQueryBacklinksprop, 'fragment'>;
+
+// export interface ApiResponseQueryPagesPropMmcontent {}
+// export interface ApiResponseQueryPagesPropPageimages {}
+// export interface ApiResponseQueryPagesPropPageprops {}
+// export interface ApiResponseQueryPagesPropPageterms {}
+// export interface ApiResponseQueryPagesPropPageviews {}
+
+export type ApiResponseQueryPagesPropRedirects = Omit<_ApiQueryBacklinksprop, 'redirect'>;
 
 export interface ApiResponseQueryPagesPropRevisions { // Fully checked
 	revid?: number;
@@ -986,11 +1066,14 @@ export interface ApiResponseQueryPagesPropRevisions { // Fully checked
 	tags?: string[];
 }
 
-export interface ApiResponseQueryPagesProtection { // TODO: Don't remember which prop this is for (prop=info?)
-	type: string;
-	level: string;
-	expiry: string;
-}
+// export interface ApiResponseQueryPagesPropStashimageinfo {}
+// export interface ApiResponseQueryPagesPropTemplates {}
+
+export type ApiResponseQueryPagesPropTranscludedin = Omit<_ApiQueryBacklinksprop, 'fragment'>;
+
+// export interface ApiResponseQueryPagesPropTranscodestatus {}
+// export interface ApiResponseQueryPagesPropVideoinfo {}
+// export interface ApiResponseQueryPagesPropWbentityusage {}
 
 // ************************************** action=query&meta=something **************************************
 
