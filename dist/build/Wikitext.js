@@ -268,12 +268,17 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                 mods.forEach((text, i) => {
                     if (typeof text === 'string') {
                         const initialEndIndex = expressions[i].endIndex;
-                        newContent =
-                            newContent.slice(0, expressions[i].startIndex) +
-                                text +
-                                newContent.slice(initialEndIndex);
+                        const leadingPart = newContent.slice(0, expressions[i].startIndex);
+                        let trailingPart = newContent.slice(initialEndIndex);
+                        let m = null;
+                        if (text === '' && /(^|\n)[^\S\r\n]*$/.test(leadingPart) && (m = /^[^\S\r\n]*\n/.exec(trailingPart))) {
+                            // If the modification removes the expression and that creates an empty line,
+                            // also remove a trailing newline
+                            trailingPart = trailingPart.slice(m[0].length);
+                        }
+                        newContent = leadingPart + text + trailingPart;
                         // Update character indexes for subsequent modifications
-                        const lengthGap = text.length - expressions[i].text.length;
+                        const lengthGap = text.length - (m ? m[0].length : 0) - expressions[i].text.length;
                         expressions[i].endIndex += lengthGap;
                         expressions.forEach((obj, j) => {
                             if (j !== i) {
