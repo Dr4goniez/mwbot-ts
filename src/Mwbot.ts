@@ -594,7 +594,7 @@ export class Mwbot {
 	/**
 	 * The `wg`-keys of {@link ConfigData}, used in {@link config} to verify their existence.
 	 */
-	protected readonly configKeys: Array<keyof ConfigData> = [
+	protected readonly configKeys: Set<keyof ConfigData> = new Set([
 		'wgArticlePath',
 		'wgCaseSensitiveNamespaces',
 		'wgContentLanguage',
@@ -617,7 +617,7 @@ export class Mwbot {
 		'wgUserRights',
 		'wgVersion',
 		'wgWikiID'
-	];
+	]);
 
 	/**
 	 * Provides access to site and user configuration data.
@@ -683,7 +683,7 @@ export class Mwbot {
 				const warn = (variable: string): void => {
 					console.warn(`Warning: The pre-set wg-configuration variables are read-only (detected an attempt to update "${variable}").`);
 				};
-				if (typeof selection === 'string' && this.configKeys.includes(selection as K)) {
+				if (typeof selection === 'string' && this.configKeys.has(selection as K)) {
 					warn(selection);
 					return false;
 				} else if (typeof selection === 'string' && value !== void 0) {
@@ -691,17 +691,17 @@ export class Mwbot {
 					return true;
 				} else if (isEmptyObject(selection) === false) {
 					let registered = 0;
-					const wgVars: string[] = [];
+					const wgVars = new Set<string>();
 					for (const [k, v] of Object.entries(<U>selection)) {
-						if (this.configKeys.includes(k)) {
-							wgVars.push(k);
+						if (this.configKeys.has(k)) {
+							wgVars.add(k);
 						} else if (v !== void 0) {
 							this.configData[k] = v;
 							registered++;
 						}
 					}
-					if (wgVars.length) {
-						warn(wgVars.join(', '));
+					if (wgVars.size) {
+						warn(Array.from(wgVars).join(', '));
 					}
 					return !!registered;
 				}
@@ -1720,7 +1720,7 @@ export class Mwbot {
 	 * @returns
 	 */
 	protected static mapLegacyToken(action: string): string {
-		const csrfActions = [
+		const csrfActions = new Set([
 			'edit',
 			'delete',
 			'protect',
@@ -1730,8 +1730,8 @@ export class Mwbot {
 			'email',
 			'import',
 			'options'
-		];
-		if (csrfActions.includes(action)) {
+		]);
+		if (csrfActions.has(action)) {
 			return 'csrf';
 		}
 		return action;

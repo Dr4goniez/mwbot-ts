@@ -155,9 +155,9 @@ export interface WikitextStatic {
 	/**
 	 * Returns a list of valid HTML tag names that can be used in wikitext.
 	 *
-	 * @returns Array of tag names (all elements are in lowercase).
+	 * @returns Set of tag names (all elements are in lowercase).
 	 */
-	getValidTags(): string[];
+	getValidTags(): Set<string>;
 	/**
 	 * Checks whether a given tag name is valid in wikitext.
 	 *
@@ -533,37 +533,43 @@ export function WikitextFactory(
 	 * foo<tvar />bar
 	 * ```
 	 */
-	const validTags = {
-		native: [
-			/**
-			 * Standard HTML tags
-			 * @see https://www.mediawiki.org/wiki/Help:HTML_in_wikitext
-			 */
-			'abbr', 'b', 'bdi', 'bdo', 'big', 'blockquote', 'br', 'caption', 'cite', 'code', 'data', 'dd', 'del',
-			'dfn', 'div', 'dl', 'dt', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'ins', 'kbd', 'li',
-			'link', 'mark', 'meta', 'ol', 'p', /*'pre',*/ 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'small', 'span',
-			'strong', 'sub', 'sup', 'table', 'td', 'th', 'time', 'tr', 'u', 'ul', 'var', 'wbr',
-			// Deprecated HTML tags
-			'center', 'font', 'rb', 'rtc', 'strike', 'tt',
-			// Comment tag, used in mwbot-ts
-			'!--'
+	const validTags = new Map<'native' | 'mediawiki', Set<string>>([
+		[
+			'native',
+			new Set([
+				/**
+				 * Standard HTML tags
+				 * @see https://www.mediawiki.org/wiki/Help:HTML_in_wikitext
+				 */
+				'abbr', 'b', 'bdi', 'bdo', 'big', 'blockquote', 'br', 'caption', 'cite', 'code', 'data', 'dd', 'del',
+				'dfn', 'div', 'dl', 'dt', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'ins', 'kbd', 'li',
+				'link', 'mark', 'meta', 'ol', 'p', /*'pre',*/ 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'small', 'span',
+				'strong', 'sub', 'sup', 'table', 'td', 'th', 'time', 'tr', 'u', 'ul', 'var', 'wbr',
+				// Deprecated HTML tags
+				'center', 'font', 'rb', 'rtc', 'strike', 'tt',
+				// Comment tag, used in mwbot-ts
+				'!--'
+			])
 		],
-		mediawiki: [
-			/**
-			 * MediaWiki parser extension tags
-			 * @see https://www.mediawiki.org/wiki/Parser_extension_tags
-			 */
-			'categorytree', 'ce', 'chem', 'charinsert', 'gallery', 'graph', 'hiero', 'imagemap', 'indicator',
-			'inputbox', 'langconvert', 'mapframe', 'maplink', 'math', 'nowiki', 'poem', 'pre', 'ref', 'references',
-			'score', 'section', 'source', 'syntaxhighlight', 'templatedata', 'timeline',
-			// Other MediaWiki tags, added by extensions
-			'dynamicpagelist', 'languages', 'rss', 'talkpage', 'thread', 'html',
-			// Special MediaWiki inclusion/exclusion tags
-			'includeonly', 'noinclude', 'onlyinclude',
-			// Tags from Extension:Translate
-			'translate', 'tvar'
+		[
+			'mediawiki',
+			new Set([
+				/**
+				 * MediaWiki parser extension tags
+				 * @see https://www.mediawiki.org/wiki/Parser_extension_tags
+				 */
+				'categorytree', 'ce', 'chem', 'charinsert', 'gallery', 'graph', 'hiero', 'imagemap', 'indicator',
+				'inputbox', 'langconvert', 'mapframe', 'maplink', 'math', 'nowiki', 'poem', 'pre', 'ref', 'references',
+				'score', 'section', 'source', 'syntaxhighlight', 'templatedata', 'timeline',
+				// Other MediaWiki tags, added by extensions
+				'dynamicpagelist', 'languages', 'rss', 'talkpage', 'thread', 'html',
+				// Special MediaWiki inclusion/exclusion tags
+				'includeonly', 'noinclude', 'onlyinclude',
+				// Tags from Extension:Translate
+				'translate', 'tvar'
+			])
 		]
-	};
+	]);
 
 	class Wikitext implements Wikitext {
 
@@ -636,13 +642,13 @@ export function WikitextFactory(
 			return new Wikitext(rev.content, options);
 		}
 
-		static getValidTags(): string[] {
-			return Object.values(validTags).flat();
+		static getValidTags(): Set<string> {
+			return new Set([...validTags.values()].flatMap((set) => [...set]));
 		}
 
 		static isValidTag(tagName: string): boolean {
 			tagName = String(tagName).toLowerCase();
-			return Object.values(validTags).some((arr) => arr.includes(tagName));
+			return [...validTags.values()].some((set) => set.has(tagName));
 		}
 
 		get length(): number {
@@ -886,7 +892,7 @@ export function WikitextFactory(
 
 					// Check if the tag is a void tag
 					let pseudoVoid = false;
-					if (regex.void.test(nodeName) || (pseudoVoid = (selfClosing && validTags.mediawiki.includes(nodeName)))) {
+					if (regex.void.test(nodeName) || (pseudoVoid = (selfClosing && validTags.get('mediawiki')!.has(nodeName)))) {
 						// Add void and "pseudo-void" self-closing tags to the stack immediately
 						// For "pseudo-void" tags, see the comments in the definition of `validTags`
 						parsed.push(
@@ -1076,7 +1082,7 @@ export function WikitextFactory(
 
 			// Create an array to store the start and end indices of tags to skip
 			tags = tags || this.storageManager('tags', false);
-			const indexMap = tags.reduce((acc: number[][], tagObj) => {
+			const indexMap = tags.reduce((acc: [number, number][], tagObj) => {
 				// If the tag is in the skip list and doesn't overlap with existing ranges, add its range
 				if (rSkipTags.test(tagObj.name)) {
 					// Check if the current range is already covered by an existing range
@@ -1752,7 +1758,7 @@ export function WikitextFactory(
 
 				// Collect the start and end indices of gallery tags containing "|"
 				// Note: getIndexMap() has already filtered out gallery tags that don't contain any pipe
-				const galleryIndexMap = Object.entries(indexMap).reduce((acc: number[][], [index, obj]) => {
+				const galleryIndexMap = Object.entries(indexMap).reduce((acc: [number, number][], [index, obj]) => {
 					if (obj.type === 'gallery') {
 						const startIndex = parseInt(index);
 						acc.push([startIndex, startIndex + obj.text.length]);
