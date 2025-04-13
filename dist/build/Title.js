@@ -201,16 +201,16 @@ function TitleFactory(config, info) {
         return info.interwikimap.some((obj) => obj.prefix === prefix);
     };
     /**
-     * An array of interwiki prefixes for the local project (e.g., `ja` for jawiki).
+     * Set of interwiki prefixes for the local project (e.g., `ja` for jawiki).
      *
      * *This variable is exclusive to `mwbot-ts`.*
      */
     const localInterwikis = info.interwikimap.reduce((acc, { prefix, localinterwiki }) => {
         if (localinterwiki) {
-            acc.push(prefix);
+            acc.add(prefix);
         }
         return acc;
-    }, []);
+    }, new Set());
     /**
      * Get the subject namespace index for a given namespace.
      * Special namespaces (`NS_MEDIA`, `NS_SPECIAL`) are always the subject.
@@ -235,19 +235,19 @@ function TitleFactory(config, info) {
      */
     const CAPITAL_LINK_OVERRIDES = {};
     /**
-     * Array of the IDs of namespaces whose first letters are always capitalized.
+     * Set of the IDs of namespaces whose first letters are always capitalized.
      *
      * *This variable is exclusive to `mwbot-ts`.*
      */
     const ALWAYS_CAPITALIZED_NAMESPACES = Object.values(info.namespaces).reduce((acc, obj) => {
         if (obj.case === 'first-letter') {
-            acc.push(obj.id);
+            acc.add(obj.id);
         }
         else { // "case-sensitive"
             CAPITAL_LINK_OVERRIDES[obj.id] = false; // TODO: In theory this can be true
         }
         return acc;
-    }, []);
+    }, new Set());
     /**
      * Is the namespace first-letter capitalized?
      *
@@ -262,7 +262,7 @@ function TitleFactory(config, info) {
         // Make sure to get the subject of our namespace
         index = getSubject(index);
         // Some namespaces are special and should always be upper case
-        if (ALWAYS_CAPITALIZED_NAMESPACES.includes(index)) {
+        if (ALWAYS_CAPITALIZED_NAMESPACES.has(index)) {
             return true;
         }
         if (index in CAPITAL_LINK_OVERRIDES) {
@@ -326,7 +326,7 @@ function TitleFactory(config, info) {
                     // The prefix can be either a ns prefix or an iw prefix
                     if (ns !== null || iw.length) {
                         // If ns/iw prefix has previously been processed, that's an iw prefix
-                        if (localInterwikis.includes(iwPrefix)) {
+                        if (localInterwikis.has(iwPrefix)) {
                             // Local interwiki should be erased
                             // e.g., on enwiki, "en:Main_page" is the same as "Main_page"
                             local_interwiki = true;
@@ -379,7 +379,7 @@ function TitleFactory(config, info) {
                     }
                 }
                 else if (iwPrefix !== false) {
-                    if (localInterwikis.includes(iwPrefix)) {
+                    if (localInterwikis.has(iwPrefix)) {
                         local_interwiki = true;
                     }
                     else {
@@ -954,6 +954,17 @@ function TitleFactory(config, info) {
             }
             const options = { fragment: evalFragment };
             return this.getPrefixedDb(options) === title.getPrefixedDb(options);
+        }
+        _clone(seen) {
+            const cloned = Object.create(Title.prototype);
+            seen.set(this, cloned);
+            cloned.namespace = this.namespace;
+            cloned.title = this.title;
+            cloned.fragment = this.fragment;
+            cloned.colon = this.colon;
+            cloned.interwiki = this.interwiki;
+            cloned.local_interwiki = this.local_interwiki;
+            return cloned;
         }
     }
     Title.exist = {

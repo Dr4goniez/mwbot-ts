@@ -1,6 +1,10 @@
 /**
  * The core module of `mwbot-ts`.
  *
+ * See the documentation of the {@link Mwbot} class for the main entry point to the framework’s
+ * functionalities, and refer to the {@link https://dr4goniez.github.io/mwbot-ts/docs/index.html | README}
+ * for a getting started guide.
+ *
  * ### Credits
  *
  * Portions of this module are adapted from the following:
@@ -33,7 +37,56 @@ import { TemplateStatic, ParserFunctionStatic } from './Template';
 import { WikilinkStatic, FileWikilinkStatic, RawWikilinkStatic } from './Wikilink';
 import { WikitextStatic, Wikitext } from './Wikitext';
 /**
- * TODO: Add a doc comment here
+ * The core class of the `mwbot-ts` framework. This class provides a robust and extensible interface
+ * for interacting with the MediaWiki API.
+ *
+ * It encapsulates authentication, API request logic, session handling, token management, and
+ * lazy-loaded parsers for handling wikitext elements such as titles, templates, wikilinks, and more.
+ *
+ * A `Mwbot` instance must be initialized with {@link init} before using any instance methods or properties.
+ *
+ * **Example:**
+ * ```ts
+ * import { Mwbot, MwbotInitOptions } from 'mwbot-ts';
+ *
+ * const initOptions: MwbotInitOptions = {
+ *   apiUrl: 'https://en.wikipedia.org/w/api.php',
+ *   userAgent: 'MyCoolBot/1.0.0 (https://github.com/Foo/MyCoolBot)',
+ *   credentials: {
+ *     oAuth2AccessToken: '...'
+ *   }
+ * };
+ *
+ * new Mwbot(initOptions).init().then((mwbot) => {
+ *   // Interact with MediaWiki using mwbot instance...
+ * });
+ * ```
+ *
+ * ### Features
+ * - Supports all major MediaWiki authentication schemes: OAuth2, OAuth1.0a, BotPasswords, and
+ *   anonymous access for read-only requests. See {@link Credentials}, {@link MwbotOptions}, and
+ *   {@link MwbotInitOptions} for details on the available authentication types accepted by the
+ *   {@link Mwbot.constructor}.
+ * - All request methods (except {@link rawRequest}) include error handling via the {@link MwbotError}
+ *   class, offering standardized debugging. Refer to {@link MwbotErrorCodes} for all possible codes.
+ * - Automatically caches site and user information, along with tokens, after initialization.
+ *   Site metadata is available via {@link Mwbot.info}, while configuration variables are exposed
+ *   through {@link Mwbot.config}, providing a familiar `wg`-style interface.
+ * - Manages page titles through {@link Mwbot.Title}, which replicates the behavior of the native
+ *   `mediawiki.Title` class and extends it with interwiki support.
+ * - Enables powerful manipulation of wikitext via {@link Mwbot.Wikitext}, which handles MediaWiki’s
+ *   edge cases and parsing rules to simplify tasks like page edits and text analysis.
+ *   - See also: {@link Mwbot.Template}, {@link Mwbot.ParserFunction}, {@link Mwbot.Wikilink},
+ *     {@link Mwbot.FileWikilink}, and {@link Mwbot.RawWikilink}, which parse MediaWiki markup into
+ *     structured objects for convenient handling.
+ * - Provides static {@link String} and {@link Util} modules:
+ *   - {@link String} mirrors the `mediawiki.String` utility for consistent and familiar string operations.
+ *   - {@link Util} exposes internal framework utilities for advanced use (not to be confused with `mediawiki.util`).
+ *
+ * ### See Also
+ * - 📘 API Documentation: https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.html
+ * - 🐙 GitHub: https://github.com/Dr4goniez/mwbot-ts
+ * - 📦 npm: https://www.npmjs.com/package/mwbot-ts
  */
 export declare class Mwbot {
     /**
@@ -207,10 +260,9 @@ export declare class Mwbot {
      *   }
      * };
      *
-     * (async () => {
-     *   const mwbot = await new Mwbot(initOptions).init();
+     * new Mwbot(initOptions).init().then((mwbot) => {
      *   // Do something here and below...
-     * })();
+     * });
      * ```
      *
      * @param mwbotInitOptions Configuration object containing initialization settings and user credentials.
@@ -283,7 +335,7 @@ export declare class Mwbot {
     /**
      * The `wg`-keys of {@link ConfigData}, used in {@link config} to verify their existence.
      */
-    protected readonly configKeys: Array<keyof ConfigData>;
+    protected readonly configKeys: Set<keyof ConfigData>;
     /**
      * Provides access to site and user configuration data.
      *

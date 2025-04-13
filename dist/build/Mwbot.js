@@ -2,6 +2,10 @@
 /**
  * The core module of `mwbot-ts`.
  *
+ * See the documentation of the {@link Mwbot} class for the main entry point to the framework’s
+ * functionalities, and refer to the {@link https://dr4goniez.github.io/mwbot-ts/docs/index.html | README}
+ * for a getting started guide.
+ *
  * ### Credits
  *
  * Portions of this module are adapted from the following:
@@ -77,7 +81,56 @@ const Template_1 = require("./Template");
 const Wikilink_1 = require("./Wikilink");
 const Wikitext_1 = require("./Wikitext");
 /**
- * TODO: Add a doc comment here
+ * The core class of the `mwbot-ts` framework. This class provides a robust and extensible interface
+ * for interacting with the MediaWiki API.
+ *
+ * It encapsulates authentication, API request logic, session handling, token management, and
+ * lazy-loaded parsers for handling wikitext elements such as titles, templates, wikilinks, and more.
+ *
+ * A `Mwbot` instance must be initialized with {@link init} before using any instance methods or properties.
+ *
+ * **Example:**
+ * ```ts
+ * import { Mwbot, MwbotInitOptions } from 'mwbot-ts';
+ *
+ * const initOptions: MwbotInitOptions = {
+ *   apiUrl: 'https://en.wikipedia.org/w/api.php',
+ *   userAgent: 'MyCoolBot/1.0.0 (https://github.com/Foo/MyCoolBot)',
+ *   credentials: {
+ *     oAuth2AccessToken: '...'
+ *   }
+ * };
+ *
+ * new Mwbot(initOptions).init().then((mwbot) => {
+ *   // Interact with MediaWiki using mwbot instance...
+ * });
+ * ```
+ *
+ * ### Features
+ * - Supports all major MediaWiki authentication schemes: OAuth2, OAuth1.0a, BotPasswords, and
+ *   anonymous access for read-only requests. See {@link Credentials}, {@link MwbotOptions}, and
+ *   {@link MwbotInitOptions} for details on the available authentication types accepted by the
+ *   {@link Mwbot.constructor}.
+ * - All request methods (except {@link rawRequest}) include error handling via the {@link MwbotError}
+ *   class, offering standardized debugging. Refer to {@link MwbotErrorCodes} for all possible codes.
+ * - Automatically caches site and user information, along with tokens, after initialization.
+ *   Site metadata is available via {@link Mwbot.info}, while configuration variables are exposed
+ *   through {@link Mwbot.config}, providing a familiar `wg`-style interface.
+ * - Manages page titles through {@link Mwbot.Title}, which replicates the behavior of the native
+ *   `mediawiki.Title` class and extends it with interwiki support.
+ * - Enables powerful manipulation of wikitext via {@link Mwbot.Wikitext}, which handles MediaWiki’s
+ *   edge cases and parsing rules to simplify tasks like page edits and text analysis.
+ *   - See also: {@link Mwbot.Template}, {@link Mwbot.ParserFunction}, {@link Mwbot.Wikilink},
+ *     {@link Mwbot.FileWikilink}, and {@link Mwbot.RawWikilink}, which parse MediaWiki markup into
+ *     structured objects for convenient handling.
+ * - Provides static {@link String} and {@link Util} modules:
+ *   - {@link String} mirrors the `mediawiki.String` utility for consistent and familiar string operations.
+ *   - {@link Util} exposes internal framework utilities for advanced use (not to be confused with `mediawiki.util`).
+ *
+ * ### See Also
+ * - 📘 API Documentation: https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.html
+ * - 🐙 GitHub: https://github.com/Dr4goniez/mwbot-ts
+ * - 📦 npm: https://www.npmjs.com/package/mwbot-ts
  */
 class Mwbot {
     // ****************************** CLASS PROPERTIES ******************************
@@ -213,10 +266,9 @@ class Mwbot {
      *   }
      * };
      *
-     * (async () => {
-     *   const mwbot = await new Mwbot(initOptions).init();
+     * new Mwbot(initOptions).init().then((mwbot) => {
      *   // Do something here and below...
-     * })();
+     * });
      * ```
      *
      * @param mwbotInitOptions Configuration object containing initialization settings and user credentials.
@@ -232,7 +284,7 @@ class Mwbot {
         /**
          * The `wg`-keys of {@link ConfigData}, used in {@link config} to verify their existence.
          */
-        this.configKeys = [
+        this.configKeys = new Set([
             'wgArticlePath',
             'wgCaseSensitiveNamespaces',
             'wgContentLanguage',
@@ -255,7 +307,7 @@ class Mwbot {
             'wgUserRights',
             'wgVersion',
             'wgWikiID'
-        ];
+        ]);
         const { credentials, ...options } = mergeDeep(mwbotInitOptions);
         requestOptions = mergeDeep(requestOptions);
         // Ensure that a valid URL is provided
@@ -605,7 +657,7 @@ class Mwbot {
                 const warn = (variable) => {
                     console.warn(`Warning: The pre-set wg-configuration variables are read-only (detected an attempt to update "${variable}").`);
                 };
-                if (typeof selection === 'string' && this.configKeys.includes(selection)) {
+                if (typeof selection === 'string' && this.configKeys.has(selection)) {
                     warn(selection);
                     return false;
                 }
@@ -615,18 +667,18 @@ class Mwbot {
                 }
                 else if (isEmptyObject(selection) === false) {
                     let registered = 0;
-                    const wgVars = [];
+                    const wgVars = new Set();
                     for (const [k, v] of Object.entries(selection)) {
-                        if (this.configKeys.includes(k)) {
-                            wgVars.push(k);
+                        if (this.configKeys.has(k)) {
+                            wgVars.add(k);
                         }
                         else if (v !== void 0) {
                             this.configData[k] = v;
                             registered++;
                         }
                     }
-                    if (wgVars.length) {
-                        warn(wgVars.join(', '));
+                    if (wgVars.size) {
+                        warn(Array.from(wgVars).join(', '));
                     }
                     return !!registered;
                 }
@@ -1517,7 +1569,7 @@ class Mwbot {
      * @returns
      */
     static mapLegacyToken(action) {
-        const csrfActions = [
+        const csrfActions = new Set([
             'edit',
             'delete',
             'protect',
@@ -1527,8 +1579,8 @@ class Mwbot {
             'email',
             'import',
             'options'
-        ];
-        if (csrfActions.includes(action)) {
+        ]);
+        if (csrfActions.has(action)) {
             return 'csrf';
         }
         return action;

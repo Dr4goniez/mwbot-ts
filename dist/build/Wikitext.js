@@ -8,13 +8,13 @@
  *
  * **Usage**:
  * ```ts
- * import { Mwbot } from 'mwbot-ts';
- * (async () => {
- *   const mwbot = await new Mwbot(options).init();
- *   if (!mwbot) return;
+ * import { Mwbot, MwbotInitOptions } from 'mwbot-ts';
+ *
+ * const initOptions: MwbotInitOptions = {...};
+ * new Mwbot(initOptions).init().then((mwbot) => {
  *   const wikitext = new mwbot.Wikitext('your wikitext');
  *   // Wikitext manipulations...
- * })();
+ * });
  * ```
  *
  * ## Object Types
@@ -96,37 +96,43 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
      * foo<tvar />bar
      * ```
      */
-    const validTags = {
-        native: [
-            /**
-             * Standard HTML tags
-             * @see https://www.mediawiki.org/wiki/Help:HTML_in_wikitext
-             */
-            'abbr', 'b', 'bdi', 'bdo', 'big', 'blockquote', 'br', 'caption', 'cite', 'code', 'data', 'dd', 'del',
-            'dfn', 'div', 'dl', 'dt', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'ins', 'kbd', 'li',
-            'link', 'mark', 'meta', 'ol', 'p', /*'pre',*/ 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'small', 'span',
-            'strong', 'sub', 'sup', 'table', 'td', 'th', 'time', 'tr', 'u', 'ul', 'var', 'wbr',
-            // Deprecated HTML tags
-            'center', 'font', 'rb', 'rtc', 'strike', 'tt',
-            // Comment tag, used in mwbot-ts
-            '!--'
+    const validTags = new Map([
+        [
+            'native',
+            new Set([
+                /**
+                 * Standard HTML tags
+                 * @see https://www.mediawiki.org/wiki/Help:HTML_in_wikitext
+                 */
+                'abbr', 'b', 'bdi', 'bdo', 'big', 'blockquote', 'br', 'caption', 'cite', 'code', 'data', 'dd', 'del',
+                'dfn', 'div', 'dl', 'dt', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'ins', 'kbd', 'li',
+                'link', 'mark', 'meta', 'ol', 'p', /*'pre',*/ 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'small', 'span',
+                'strong', 'sub', 'sup', 'table', 'td', 'th', 'time', 'tr', 'u', 'ul', 'var', 'wbr',
+                // Deprecated HTML tags
+                'center', 'font', 'rb', 'rtc', 'strike', 'tt',
+                // Comment tag, used in mwbot-ts
+                '!--'
+            ])
         ],
-        mediawiki: [
-            /**
-             * MediaWiki parser extension tags
-             * @see https://www.mediawiki.org/wiki/Parser_extension_tags
-             */
-            'categorytree', 'ce', 'chem', 'charinsert', 'gallery', 'graph', 'hiero', 'imagemap', 'indicator',
-            'inputbox', 'langconvert', 'mapframe', 'maplink', 'math', 'nowiki', 'poem', 'pre', 'ref', 'references',
-            'score', 'section', 'source', 'syntaxhighlight', 'templatedata', 'timeline',
-            // Other MediaWiki tags, added by extensions
-            'dynamicpagelist', 'languages', 'rss', 'talkpage', 'thread', 'html',
-            // Special MediaWiki inclusion/exclusion tags
-            'includeonly', 'noinclude', 'onlyinclude',
-            // Tags from Extension:Translate
-            'translate', 'tvar'
+        [
+            'mediawiki',
+            new Set([
+                /**
+                 * MediaWiki parser extension tags
+                 * @see https://www.mediawiki.org/wiki/Parser_extension_tags
+                 */
+                'categorytree', 'ce', 'chem', 'charinsert', 'gallery', 'graph', 'hiero', 'imagemap', 'indicator',
+                'inputbox', 'langconvert', 'mapframe', 'maplink', 'math', 'nowiki', 'poem', 'pre', 'ref', 'references',
+                'score', 'section', 'source', 'syntaxhighlight', 'templatedata', 'timeline',
+                // Other MediaWiki tags, added by extensions
+                'dynamicpagelist', 'languages', 'rss', 'talkpage', 'thread', 'html',
+                // Special MediaWiki inclusion/exclusion tags
+                'includeonly', 'noinclude', 'onlyinclude',
+                // Tags from Extension:Translate
+                'translate', 'tvar'
+            ])
         ]
-    };
+    ]);
     class Wikitext {
         constructor(content, options = {}) {
             if (typeof content !== 'string') {
@@ -168,11 +174,11 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
             return new Wikitext(rev.content, options);
         }
         static getValidTags() {
-            return Object.values(validTags).flat();
+            return new Set([...validTags.values()].flatMap((set) => [...set]));
         }
         static isValidTag(tagName) {
             tagName = String(tagName).toLowerCase();
-            return Object.values(validTags).some((arr) => arr.includes(tagName));
+            return [...validTags.values()].some((set) => set.has(tagName));
         }
         get length() {
             return this.storage.content.length;
@@ -249,60 +255,50 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                     info: 'modificationPredicate must be a function.'
                 });
             }
-            const applyModification = (mods, expressions) => {
-                if (!Array.isArray(mods)) {
+            // Retrieve expressions from storage and apply modificationPredicate
+            let expressions = this.storageManager(type);
+            const mods = expressions.map(modificationPredicate);
+            expressions = // Refresh `expressions` because internal objects might have been mutated
+                this.storageManager(type, false);
+            let newContent = this.content;
+            // Apply modifications to the content
+            mods.forEach((text, i) => {
+                if (typeof text !== 'string' && text !== null) {
                     throw new MwbotError_1.MwbotError('fatal', {
                         code: 'typemismatch',
-                        info: 'modificationPredicate must return an array.'
-                    });
+                        info: 'modificationPredicate must return either a string or null.'
+                    }, { modified: mods.map((val) => typeof val) });
                 }
-                if (mods.length !== expressions.length) {
-                    throw new MwbotError_1.MwbotError('fatal', {
-                        code: 'lengthmismatch',
-                        info: `The returned array length from modificationPredicate does not match the length of "${type}".`
-                    });
-                }
-                // Apply modifications to the content
-                expressions = this.storageManager(type, false); // Refresh expressions
-                let newContent = this.content;
-                mods.forEach((text, i) => {
-                    if (typeof text === 'string') {
-                        const initialEndIndex = expressions[i].endIndex;
-                        const leadingPart = newContent.slice(0, expressions[i].startIndex);
-                        let trailingPart = newContent.slice(initialEndIndex);
-                        let m = null;
-                        if (text === '' && /(^|\n)[^\S\r\n]*$/.test(leadingPart) && (m = /^[^\S\r\n]*\n/.exec(trailingPart))) {
-                            // If the modification removes the expression and that creates an empty line,
-                            // also remove a trailing newline
-                            trailingPart = trailingPart.slice(m[0].length);
-                        }
-                        newContent = leadingPart + text + trailingPart;
-                        // Update character indexes for subsequent modifications
-                        const lengthGap = text.length - (m ? m[0].length : 0) - expressions[i].text.length;
-                        expressions[i].endIndex += lengthGap;
-                        expressions.forEach((obj, j) => {
-                            if (j !== i) {
-                                if (obj.startIndex > initialEndIndex) {
-                                    obj.startIndex += lengthGap;
-                                    obj.endIndex += lengthGap;
-                                }
-                                else if (obj.endIndex > initialEndIndex) {
-                                    obj.endIndex += lengthGap;
-                                }
-                            }
-                        });
+                if (typeof text === 'string') {
+                    const initialEndIndex = expressions[i].endIndex;
+                    const leadingPart = newContent.slice(0, expressions[i].startIndex);
+                    let trailingPart = newContent.slice(initialEndIndex);
+                    let m = null;
+                    if (text === '' && /(^|\n)[^\S\r\n]*$/.test(leadingPart) && (m = /^[^\S\r\n]*\n/.exec(trailingPart))) {
+                        // If the modification removes the expression and that creates an empty line,
+                        // also remove a trailing newline
+                        trailingPart = trailingPart.slice(m[0].length);
                     }
-                });
-                // Update stored content and return result
-                this.storageManager('content', newContent);
-                return this.content;
-            };
-            // Retrieve expressions from storage
-            const expressions = this.storageManager(type);
-            const mods = modificationPredicate(expressions);
-            return mods instanceof Promise
-                ? mods.then((modified) => applyModification(modified, expressions))
-                : applyModification(mods, expressions);
+                    newContent = leadingPart + text + trailingPart;
+                    // Update character indexes for subsequent modifications
+                    const lengthGap = text.length - (m ? m[0].length : 0) - expressions[i].text.length;
+                    expressions[i].endIndex += lengthGap;
+                    expressions.forEach((obj, j) => {
+                        if (j !== i) {
+                            if (obj.startIndex > initialEndIndex) {
+                                obj.startIndex += lengthGap;
+                                obj.endIndex += lengthGap;
+                            }
+                            else if (obj.endIndex > initialEndIndex) {
+                                obj.endIndex += lengthGap;
+                            }
+                        }
+                    });
+                }
+            });
+            // Update stored content and return result
+            this.storageManager('content', newContent);
+            return this.content;
         }
         /**
          * Parses the wikitext for HTML tags.
@@ -363,7 +359,7 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                     const selfClosing = regex.self.test(m[0]);
                     // Check if the tag is a void tag
                     let pseudoVoid = false;
-                    if (regex.void.test(nodeName) || (pseudoVoid = (selfClosing && validTags.mediawiki.includes(nodeName)))) {
+                    if (regex.void.test(nodeName) || (pseudoVoid = (selfClosing && validTags.get('mediawiki').has(nodeName)))) {
                         // Add void and "pseudo-void" self-closing tags to the stack immediately
                         // For "pseudo-void" tags, see the comments in the definition of `validTags`
                         parsed.push(createVoidTagObject(nodeName, m[0], i, startTags.length, selfClosing, pseudoVoid, false));

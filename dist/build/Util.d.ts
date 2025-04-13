@@ -60,8 +60,10 @@ export declare function isClassInstance(value: unknown): boolean;
  * **Features**:
  * - Retains the entire prototype chain, ensuring methods like `toString()` work as expected.
  * - Recursively clones objects, including nested structures.
- * - Supports special objects (`Date`, `RegExp`, `Map` and `Set`).
+ * - Supports special objects (`Date`, `RegExp`, `Map`, `Set`).
  * - Handles cyclic references to prevent infinite loops.
+ * - Supports a custom `_clone(seen)` method if defined on the object. This allows classes to override
+ *   the default cloning behavior and perform specialized cloning while still participating in cycle handling.
  *
  * **Limitations**:
  * - WeakMap & WeakSet: Cannot be cloned because their entries are weakly held.

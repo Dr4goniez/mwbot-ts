@@ -575,6 +575,10 @@ export interface Title {
      * @returns `true` if the titles are equal, `false` otherwise, or `null` if `title` is invalid.
      */
     equals(title: string | Title, evalFragment?: boolean): boolean | null;
+    /**
+     * @hidden
+     */
+    _clone(seen: WeakMap<object, any>): Title;
 }
 /**
  * Options for {@link Title.getPrefixedDb} and {@link Title.getPrefixedText}.

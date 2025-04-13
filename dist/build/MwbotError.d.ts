@@ -126,7 +126,6 @@ export interface MwbotErrorCodes {
         fieldmismatch: 'API parameters passed to Mwbot.massRequest involve unmatching multi-value fields.';
         nofields: 'No multi-value fields are provided for Mwbot.massRequest.';
         invalidtype: 'Wikitext.modify does not support this expression type.';
-        lengthmismatch: 'The returned value of modificationPredicate for Wikitext.modify is invalid.';
     };
 }
 /**
@@ -162,5 +161,10 @@ export interface MwbotErrorData {
      * values of incorrect types.
      */
     invalid?: unknown[];
+    /**
+     * Present if the result array from a {@link ModificationPredicate} contains values other than
+     * strings or `null`. This property lists the types of those unexpected values.
+     */
+    modified?: unknown[];
 }
 //# sourceMappingURL=MwbotError.d.ts.map
