@@ -584,6 +584,10 @@ export interface Title {
 	 * @returns `true` if the titles are equal, `false` otherwise, or `null` if `title` is invalid.
 	 */
 	equals(title: string | Title, evalFragment?: boolean): boolean | null;
+	/**
+	 * @hidden
+	 */
+	_clone(seen: WeakMap<object, any>): Title;
 }
 
 /**
@@ -1556,6 +1560,18 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			}
 			const options: TitleOutputOptions = {fragment: evalFragment};
 			return this.getPrefixedDb(options) === title.getPrefixedDb(options);
+		}
+
+		_clone(seen: WeakMap<object, any>): Title {
+			const cloned = Object.create(Title.prototype);
+			seen.set(this, cloned);
+			cloned.namespace = this.namespace;
+			cloned.title = this.title;
+			cloned.fragment = this.fragment;
+			cloned.colon = this.colon;
+			cloned.interwiki = this.interwiki;
+			cloned.local_interwiki = this.local_interwiki;
+			return cloned;
 		}
 	}
 
