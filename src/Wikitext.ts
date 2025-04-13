@@ -215,19 +215,20 @@ export interface Wikitext {
 	 *
 	 * #### Example: Closing unclosed tags
 	 * ```typescript
-	 * const wkt = new mwbot.Wikitext('<span>a<div><del>b</span><span>c');
-	 * const oldContent = wkt.content;
-	 * const newContent = wkt.modify('tags', (tags) => {
-	 *   return tags.map((obj) => {
-	 *     if (obj.unclosed && !obj.skip) {
-	 *       // If this tag is unclosed, append its expected end tag to the tag text.
-	 *       // `Tag` objects with the `unclosed` property set to `true` have their
-	 *       // expected end tag stored in the `end` property.
-	 *       return obj.text + obj.end; // Returning a string applies the modification.
-	 *     } else {
-	 *       return null; // Returning `null` means no modification is made.
-	 *     }
-	 *   });
+	 * const wikitext = new mwbot.Wikitext('<span>a<div><del>b</span><span>c');
+	 * const oldContent = wikitext.content;
+	 * const newContent = wikitext.modify('tags', (tag) => {
+	 *   if (tag.unclosed && !tag.skip) {
+	 *     // If this tag is unclosed, append its expected end tag to the tag text.
+	 *     // `Tag` objects with the `unclosed` property set to `true` have their
+	 *     // expected end tag stored in the `end` property.
+	 *     // In most cases, the `skip` property should be guaranteed to be `false`
+	 *     // to ensure we're not modifying special cases such as
+	 *     // "<nowiki><noinclude></nowiki>".
+	 *     return tag.text + tag.end; // Returning a string applies the modification.
+	 *   } else {
+	 *     return null; // Returning `null` means no modification is made.
+	 *   }
 	 * });
 	 *
 	 * if (oldContent !== newContent) {
@@ -244,60 +245,45 @@ export interface Wikitext {
 	 * - {@link modifyWikilinks}
 	 *
 	 * #### Important notes
-	 * - This method (and its shorthand versions) modifies and updates {@link content}
-	 * and its associated expressions.
-	 * - Any copies of `content` and parsed expressions made before calling this
-	 * method should **not** be reused, because properties such as `startIndex` will
-	 * be different after the modification.
+	 * - This method (and its shorthand variants) modifies and updates {@link content}
+	 *   and its associated expressions.
+	 * - Any copies of `content` or parsed expressions made before calling this
+	 *   method should **not** be reused, as properties such as `startIndex` will
+	 *   change after modification.
 	 *
 	 * @param type The type of expressions to modify.
 	 *
 	 * <table>
 	 * 	<thead>
-	 * 		<th>Type</th>
-	 * 		<th>First Argument of <code>modificationPredicate</code></th>
+	 * 		<tr><th>Type</th><th>First argument of <code>modificationPredicate</code></th></tr>
 	 * 	</thead>
 	 * 	<tbody>
-	 * 		<tr><td>tags</td><td>Array of {@link Tag}</td></tr>
-	 * 		<tr><td>parameters</td><td>Array of {@link Parameter}</td></tr>
-	 * 		<tr><td>sections</td><td>Array of {@link Section}</td></tr>
-	 * 		<tr><td>templates</td><td>Array of {@link ParsedTemplate}, {@link ParsedParserFunction}, or {@link RawTemplate}</td></tr>
-	 * 		<tr><td>wikilinks</td><td>Array of {@link ParsedWikilink}, {@link ParsedFileWikilink}, or {@link ParsedRawWikilink}</td></tr>
+	 * 		<tr><td>tags</td><td>{@link Tag}</td></tr>
+	 * 		<tr><td>parameters</td><td>{@link Parameter}</td></tr>
+	 * 		<tr><td>sections</td><td>{@link Section}</td></tr>
+	 * 		<tr><td>templates</td><td>{@link ParsedTemplate}, {@link ParsedParserFunction}, or {@link RawTemplate}</td></tr>
+	 * 		<tr><td>wikilinks</td><td>{@link ParsedWikilink}, {@link ParsedFileWikilink}, or {@link ParsedRawWikilink}</td></tr>
 	 * 	</tbody>
 	 * </table>
 	 * See also {@link ModificationMap} for the interface that defines this mapping.
 	 *
 	 * @param modificationPredicate
-	 * A function that processes an array of expression objects and returns an array of
-	 * strings or `null` values. It may also return a Promise resolving to such an array
-	 * if asynchronous operations are required.
+	 * A function that processes expression objects and returns a string or `null`.
+	 * - Each returned string replaces the corresponding expression.
+	 * - Returning `null` means no modification is applied to that expression.
 	 *
-	 * - The input array consists of objects corresponding to the specified `type`.
-	 * - The returned array **must** have the same length as the input array.
-	 * 	- Each string element replaces the corresponding expression.
-	 * 	- `null` means no modification for that expression.
-	 *
-	 * @returns The modified wikitext content. If `modificationPredicate` is asynchronous,
-	 * returns a Promise resolving to the modified content.
+	 * @returns The modified wikitext content.
 	 *
 	 * @throws {MwbotError}
 	 * - If `type` is invalid.
 	 * - If `modificationPredicate` is not a function.
-	 * - If the returned array length does not match the input array.
-	 *
-	 * @throws {Error} If `modificationPredicate` returns a rejected Promise.
+	 * - If the array created from `modificationPredicate` contains values other than
+	 *   strings or `null`.
 	 */
 	modify<K extends keyof ModificationMap>(
 		type: K,
-		modificationPredicate: (expressions: ModificationMap[K][]) => (string | null)[]
+		modificationPredicate: ModificationPredicate<ModificationMap[K]>
 	): string;
-	/**
-	 * @inheritDoc
-	 */
-	modify<K extends keyof ModificationMap>(
-		type: K,
-		modificationPredicate: (expressions: ModificationMap[K][]) => Promise<(string | null)[]>
-	): Promise<string>;
 	/**
 	 * Parses the wikitext content for HTML tags.
 	 *
@@ -314,14 +300,8 @@ export interface Wikitext {
 	 * @returns
 	 */
 	modifyTags(
-		modificationPredicate: (expressions: ModificationMap['tags'][]) => (string | null)[]
+		modificationPredicate: ModificationPredicate<ModificationMap['tags']>
 	): string;
-	/**
-	 * @inheritDoc
-	 */
-	modifyTags(
-		modificationPredicate: (expressions: ModificationMap['tags'][]) => Promise<(string | null)[]>
-	): Promise<string>;
 	/**
 	 * Adds tags in which elements shouldn't be parsed, if the tags are not already registered.
 	 *
@@ -371,14 +351,8 @@ export interface Wikitext {
 	 * @returns
 	 */
 	modifySections(
-		modificationPredicate: (expressions: ModificationMap['sections'][]) => (string | null)[]
+		modificationPredicate: ModificationPredicate<ModificationMap['sections']>
 	): string;
-	/**
-	 * @inheritDoc
-	 */
-	modifySections(
-		modificationPredicate: (expressions: ModificationMap['sections'][]) => Promise<(string | null)[]>
-	): Promise<string>;
 	/**
 	 * Identifies the section containing an expression based on its start and end indices.
 	 *
@@ -429,14 +403,8 @@ export interface Wikitext {
 	 * @returns
 	 */
 	modifyParameters(
-		modificationPredicate: (expressions: ModificationMap['parameters'][]) => (string | null)[]
+		modificationPredicate: ModificationPredicate<ModificationMap['parameters']>
 	): string;
-	/**
-	 * @inheritDoc
-	 */
-	modifyParameters(
-		modificationPredicate: (expressions: ModificationMap['parameters'][]) => Promise<(string | null)[]>
-	): Promise<string>;
 	/**
 	 * Parses `{{template}}` expressions in the wikitext.
 	 *
@@ -455,14 +423,8 @@ export interface Wikitext {
 	 * @returns
 	 */
 	modifyTemplates(
-		modificationPredicate: (expressions: ModificationMap['templates'][]) => (string | null)[]
+		modificationPredicate: ModificationPredicate<ModificationMap['templates']>
 	): string;
-	/**
-	 * @inheritDoc
-	 */
-	modifyTemplates(
-		modificationPredicate: (expressions: ModificationMap['templates'][]) => Promise<(string | null)[]>
-	): Promise<string>;
 	/**
 	 * Parses `[[wikilink]]` expressions in the wikitext.
 	 *
@@ -479,14 +441,8 @@ export interface Wikitext {
 	 * @returns
 	 */
 	modifyWikilinks(
-		modificationPredicate: (expressions: ModificationMap['wikilinks'][]) => (string | null)[]
+		modificationPredicate: ModificationPredicate<ModificationMap['wikilinks']>
 	): string;
-	/**
-	 * @inheritDoc
-	 */
-	modifyWikilinks(
-		modificationPredicate: (expressions: ModificationMap['wikilinks'][]) => Promise<(string | null)[]>
-	): Promise<string>;
 }
 
 /**
@@ -750,7 +706,7 @@ export function WikitextFactory(
 		modify<K extends keyof ModificationMap>(
 			type: K,
 			modificationPredicate: ModificationPredicate<ModificationMap[K]>
-		): string | Promise<string> {
+		): string {
 
 			// Validate the arguments
 			if (typeof type !== 'string' || !['tags', 'parameters', 'sections', 'templates', 'wikilinks'].includes(type)) {
@@ -765,64 +721,52 @@ export function WikitextFactory(
 				});
 			}
 
-			const applyModification = (mods: (string | null)[], expressions: ModificationMap[K][]) => {
-				if (!Array.isArray(mods)) {
+			// Retrieve expressions from storage and apply modificationPredicate
+			let expressions = this.storageManager(type) as ModificationMap[K][];
+			const mods = expressions.map(modificationPredicate);
+			expressions = // Refresh `expressions` because internal objects might have been mutated
+				this.storageManager(type, false) as ModificationMap[K][];
+			let newContent = this.content;
+
+			// Apply modifications to the content
+			mods.forEach((text, i) => {
+				if (typeof text !== 'string' && text !== null) {
 					throw new MwbotError('fatal', {
 						code: 'typemismatch',
-						info: 'modificationPredicate must return an array.'
-					});
+						info: 'modificationPredicate must return either a string or null.'
+					}, {modified: mods.map((val) => typeof val)});
 				}
-				if (mods.length !== expressions.length) {
-					throw new MwbotError('fatal', {
-						code: 'lengthmismatch',
-						info: `The returned array length from modificationPredicate does not match the length of "${type}".`
-					});
-				}
-
-				// Apply modifications to the content
-				expressions = this.storageManager(type, false) as ModificationMap[K][]; // Refresh expressions
-				let newContent = this.content;
-
-				mods.forEach((text, i) => {
-					if (typeof text === 'string') {
-						const initialEndIndex = expressions[i].endIndex;
-						const leadingPart = newContent.slice(0, expressions[i].startIndex);
-						let trailingPart = newContent.slice(initialEndIndex);
-						let m: RegExpExecArray | null = null;
-						if (text === '' && /(^|\n)[^\S\r\n]*$/.test(leadingPart) && (m = /^[^\S\r\n]*\n/.exec(trailingPart))) {
-							// If the modification removes the expression and that creates an empty line,
-							// also remove a trailing newline
-							trailingPart = trailingPart.slice(m[0].length);
-						}
-						newContent = leadingPart + text + trailingPart;
-
-						// Update character indexes for subsequent modifications
-						const lengthGap = text.length - (m ? m[0].length : 0) - expressions[i].text.length;
-						expressions[i].endIndex += lengthGap;
-						expressions.forEach((obj, j) => {
-							if (j !== i) {
-								if (obj.startIndex > initialEndIndex) {
-									obj.startIndex += lengthGap;
-									obj.endIndex += lengthGap;
-								} else if (obj.endIndex > initialEndIndex) {
-									obj.endIndex += lengthGap;
-								}
-							}
-						});
+				if (typeof text === 'string') {
+					const initialEndIndex = expressions[i].endIndex;
+					const leadingPart = newContent.slice(0, expressions[i].startIndex);
+					let trailingPart = newContent.slice(initialEndIndex);
+					let m: RegExpExecArray | null = null;
+					if (text === '' && /(^|\n)[^\S\r\n]*$/.test(leadingPart) && (m = /^[^\S\r\n]*\n/.exec(trailingPart))) {
+						// If the modification removes the expression and that creates an empty line,
+						// also remove a trailing newline
+						trailingPart = trailingPart.slice(m[0].length);
 					}
-				});
+					newContent = leadingPart + text + trailingPart;
 
-				// Update stored content and return result
-				this.storageManager('content', newContent);
-				return this.content;
-			};
+					// Update character indexes for subsequent modifications
+					const lengthGap = text.length - (m ? m[0].length : 0) - expressions[i].text.length;
+					expressions[i].endIndex += lengthGap;
+					expressions.forEach((obj, j) => {
+						if (j !== i) {
+							if (obj.startIndex > initialEndIndex) {
+								obj.startIndex += lengthGap;
+								obj.endIndex += lengthGap;
+							} else if (obj.endIndex > initialEndIndex) {
+								obj.endIndex += lengthGap;
+							}
+						}
+					});
+				}
+			});
 
-			// Retrieve expressions from storage
-			const expressions = this.storageManager(type) as ModificationMap[K][];
-			const mods = modificationPredicate(expressions);
-			return mods instanceof Promise
-				? mods.then((modified) => applyModification(modified, expressions))
-				: applyModification(mods, expressions);
+			// Update stored content and return result
+			this.storageManager('content', newContent);
+			return this.content;
 
 		}
 
@@ -2038,20 +1982,15 @@ interface StorageArgumentMap {
 /**
  * Type of the callback function for {@link Wikitext.modify}.
  *
- * The function takes an array of expressions and returns a transformed array
- * where each element is either a modified string or `null` (indicating no modification).
- *
- * It supports both synchronous and asynchronous implementations.
- *
- * - Synchronous version: Returns `(string | null)[]`.
- * - Asynchronous version: Returns `Promise<(string | null)[]>`.
+ * This is used as the predicate function for
+ * {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map | Array.prototype.map}.
  *
  * @template T The type of expressions being modified. This corresponds to the values of
  * {@link ModificationMap} (e.g., `Tag`).
+ *
+ * @returns A `string` to replace the current `value`, or `null` to leave it unmodified.
  */
-export type ModificationPredicate<T> =
-	| ((expressions: T[]) => (string | null)[])
-	| ((expressions: T[]) => Promise<(string | null)[]>);
+export type ModificationPredicate<T> = (value: T, index: number, array: T[]) => string | null;
 
 /**
  * A mapping of a type key to its object type, used in {@link Wikitext.modify}.

@@ -14,6 +14,8 @@ import type { ConfigData } from './Mwbot';
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { Mwbot } from './Mwbot';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { ModificationPredicate } from './Wikitext';
 
 /**
  * Custom error class for {@link Mwbot}, extending the built-in `Error` class.
@@ -204,7 +206,6 @@ export interface MwbotErrorCodes {
 		nofields: 'No multi-value fields are provided for Mwbot.massRequest.';
 		// Used in Wikitext.modify
 		invalidtype: 'Wikitext.modify does not support this expression type.';
-		lengthmismatch: 'The returned value of modificationPredicate for Wikitext.modify is invalid.'
 	};
 }
 
@@ -241,4 +242,9 @@ export interface MwbotErrorData {
 	 * values of incorrect types.
 	 */
 	invalid?: unknown[];
+	/**
+	 * Present if the result array from a {@link ModificationPredicate} contains values other than
+	 * strings or `null`. This property lists the types of those unexpected values.
+	 */
+	modified?: unknown[];
 }
