@@ -7,13 +7,13 @@
  *
  * **Usage**:
  * ```ts
- * import { Mwbot } from 'mwbot-ts';
- * (async () => {
- *   const mwbot = await new Mwbot(options).init();
- *   if (!mwbot) return;
+ * import { Mwbot, MwbotInitOptions } from 'mwbot-ts';
+ *
+ * const initOptions: MwbotInitOptions = {...};
+ * new Mwbot(initOptions).init().then((mwbot) => {
  *   const wikitext = new mwbot.Wikitext('your wikitext');
  *   // Wikitext manipulations...
- * })();
+ * });
  * ```
  *
  * ## Object Types
@@ -219,7 +219,7 @@ export interface Wikitext {
 	 * const oldContent = wkt.content;
 	 * const newContent = wkt.modify('tags', (tags) => {
 	 *   return tags.map((obj) => {
-	 *     if (obj.unclosed) {
+	 *     if (obj.unclosed && !obj.skip) {
 	 *       // If this tag is unclosed, append its expected end tag to the tag text.
 	 *       // `Tag` objects with the `unclosed` property set to `true` have their
 	 *       // expected end tag stored in the `end` property.
@@ -2118,6 +2118,8 @@ export interface Tag {
 	void: boolean;
 	/**
 	 * Whether this tag is properly closed.
+	 *
+	 * Note that {@link void} tags have this property set to `false` because they do not need to be closed.
 	 */
 	unclosed: boolean;
 	/**
