@@ -33,6 +33,8 @@ import FormData from 'form-data';
 import { XOR } from 'ts-xor';
 import OAuth from 'oauth-1.0a';
 import crypto from 'crypto';
+import * as http from 'http';
+import * as https from 'https';
 import { v4 as generateId } from 'uuid';
 
 import { MWBOT_VERSION } from './version';
@@ -131,6 +133,8 @@ export class Mwbot {
 	 *	    'Content-Type': 'application/x-www-form-urlencoded',
 	 *	    'Accept-Encoding': 'gzip'
 	 *	  },
+	 *    httpAgent: new http.Agent({keepAlive: true}),
+	 *    httpsAgent: new https.Agent({keepAlive: true}),
 	 *	  params: {
 	 *	    action: 'query',
 	 *	    format: 'json',
@@ -151,6 +155,8 @@ export class Mwbot {
 				'Content-Type': 'application/x-www-form-urlencoded',
 				'Accept-Encoding': 'gzip'
 			},
+			httpAgent: new http.Agent({keepAlive: true}),
+			httpsAgent: new https.Agent({keepAlive: true}),
 			params: {
 				action: 'query',
 				format: 'json',
