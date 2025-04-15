@@ -28,6 +28,8 @@ import { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { CookieJar } from 'tough-cookie';
 import { XOR } from 'ts-xor';
 import OAuth from 'oauth-1.0a';
+import * as http from 'http';
+import * as https from 'https';
 import { ApiParams, ApiParamsAction, ApiEditPageParams, ApiResponse, ApiResponseQueryMetaSiteinfoGeneral, ApiResponseQueryMetaSiteinfoNamespaces, ApiResponseQueryMetaSiteinfoNamespacealiases, ApiResponseQueryMetaTokens, ApiResponseQueryMetaUserinfo, ApiResponseQueryMetaSiteinfoInterwikimap, ApiResponseQueryMetaSiteinfoMagicwords, ApiResponseQueryMetaSiteinfoFunctionhooks, ApiResponseEdit } from './api_types';
 import { MwbotError } from './MwbotError';
 import * as Util from './Util';
@@ -41,9 +43,10 @@ import { WikitextStatic, Wikitext } from './Wikitext';
  * for interacting with the MediaWiki API.
  *
  * It encapsulates authentication, API request logic, session handling, token management, and
- * lazy-loaded parsers for handling wikitext elements such as titles, templates, wikilinks, and more.
+ * parsers for working with wikitext elements such as titles, templates, wikilinks, and more.
  *
- * A `Mwbot` instance must be initialized with {@link init} before using any instance methods or properties.
+ * A `Mwbot` instance must be created using the static {@link init} method (not the protected constructor)
+ * to ensure that all lazy-loaded classes, properties, and methods are properly initialized.
  *
  * **Example:**
  * ```ts
@@ -57,30 +60,29 @@ import { WikitextStatic, Wikitext } from './Wikitext';
  *   }
  * };
  *
- * new Mwbot(initOptions).init().then((mwbot) => {
- *   // Interact with MediaWiki using mwbot instance...
+ * Mwbot.init(initOptions).then((mwbot) => {
+ *   // Interact with MediaWiki using the mwbot instance...
  * });
  * ```
  *
  * ### Features
  * - Supports all major MediaWiki authentication schemes: OAuth2, OAuth1.0a, BotPasswords, and
  *   anonymous access for read-only requests. See {@link Credentials}, {@link MwbotOptions}, and
- *   {@link MwbotInitOptions} for details on the available authentication types accepted by the
- *   {@link Mwbot.constructor}.
+ *   {@link MwbotInitOptions} for details on supported authentication types.
  * - All request methods (except {@link rawRequest}) include error handling via the {@link MwbotError}
- *   class, offering standardized debugging. Refer to {@link MwbotErrorCodes} for all possible codes.
- * - Automatically caches site and user information, along with tokens, after initialization.
+ *   class, offering standardized and descriptive debugging. Refer to {@link MwbotErrorCodes} for all possible codes.
+ * - Automatically caches site and user information, as well as tokens, after initialization.
  *   Site metadata is available via {@link Mwbot.info}, while configuration variables are exposed
  *   through {@link Mwbot.config}, providing a familiar `wg`-style interface.
- * - Manages page titles through {@link Mwbot.Title}, which replicates the behavior of the native
- *   `mediawiki.Title` class and extends it with interwiki support.
+ * - Manages page titles via {@link Mwbot.Title}, which replicates the behavior of the native
+ *   `mediawiki.Title` class and extends it with support for interwiki prefixes.
  * - Enables powerful manipulation of wikitext via {@link Mwbot.Wikitext}, which handles MediaWiki’s
  *   edge cases and parsing rules to simplify tasks like page edits and text analysis.
  *   - See also: {@link Mwbot.Template}, {@link Mwbot.ParserFunction}, {@link Mwbot.Wikilink},
  *     {@link Mwbot.FileWikilink}, and {@link Mwbot.RawWikilink}, which parse MediaWiki markup into
  *     structured objects for convenient handling.
  * - Provides static {@link String} and {@link Util} modules:
- *   - {@link String} mirrors the `mediawiki.String` utility for consistent and familiar string operations.
+ *   - {@link String} mirrors the `mediawiki.String` utility, offering consistent and familiar string operations.
  *   - {@link Util} exposes internal framework utilities for advanced use (not to be confused with `mediawiki.util`).
  *
  * ### See Also
@@ -100,6 +102,8 @@ export declare class Mwbot {
      *	    'Content-Type': 'application/x-www-form-urlencoded',
      *	    'Accept-Encoding': 'gzip'
      *	  },
+     *    httpAgent: new http.Agent({keepAlive: true}),
+     *    httpsAgent: new https.Agent({keepAlive: true}),
      *	  params: {
      *	    action: 'query',
      *	    format: 'json',
@@ -119,6 +123,8 @@ export declare class Mwbot {
             'Content-Type': string;
             'Accept-Encoding': string;
         };
+        httpAgent: http.Agent;
+        httpsAgent: https.Agent;
         params: {
             action: string;
             format: string;
@@ -137,10 +143,6 @@ export declare class Mwbot {
      * A cookie jar that stores session and login cookies for this instance.
      */
     protected readonly jar: CookieJar;
-    /**
-     * Whether the instance has been initialized.
-     */
-    protected initialized: boolean;
     /**
      * The user options for this intance.
      */
@@ -246,30 +248,15 @@ export declare class Mwbot {
      */
     get Wikitext(): WikitextStatic;
     /**
-     * Creates a `Mwbot` instance. **{@link init} must subsequently be called for initialization.**
+     * Creates a `Mwbot` instance.
      *
-     * **Example:**
-     * ```ts
-     * import { Mwbot, MwbotInitOptions } from 'mwbot-ts';
-     *
-     * const initOptions: MwbotInitOptions = {
-     *   apiUrl: 'https://en.wikipedia.org/w/api.php',
-     *   userAgent: 'MyCoolBot/1.0.0 (https://github.com/Foo/MyCoolBot)',
-     *   credentials: {
-     *     oAuth2AccessToken: '...'
-     *   }
-     * };
-     *
-     * new Mwbot(initOptions).init().then((mwbot) => {
-     *   // Do something here and below...
-     * });
-     * ```
+     * **This constructor is protected**. Call {@link init} instead.
      *
      * @param mwbotInitOptions Configuration object containing initialization settings and user credentials.
      * @param requestOptions Custom request options applied to all HTTP requests issued by the new instance.
      * @throws {MwbotError} If no valid API endpoint is provided or if the user credentials are malformed.
      */
-    constructor(mwbotInitOptions: MwbotInitOptions, requestOptions?: MwbotRequestConfig);
+    protected constructor(mwbotInitOptions: MwbotInitOptions, requestOptions: MwbotRequestConfig);
     /**
      * Validates user credentials and determines the authentication type.
      *
@@ -278,6 +265,67 @@ export declare class Mwbot {
      * @throws {MwbotError} If the credentials format is incorrect, or if unexpected keys are present.
      */
     protected static validateCredentials(credentials: Credentials): MwbotCredentials;
+    /**
+     * Initializes a new `Mwbot` instance.
+     *
+     * This static factory method should always be used to create instances of `Mwbot` or its subclasses.
+     * It handles token fetching, site info, and class initialization in one convenient place.
+     *
+     * > **Note:** The generic signature may look intimidating, but it’s designed to ensure subclasses
+     * > are constructed correctly while preserving type safety. You usually don’t need to worry about it.
+     *
+     * **Example:**
+     * ```ts
+     * import { Mwbot, MwbotInitOptions, MwbotRequestConfig } from 'mwbot-ts';
+     *
+     * const initOptions: MwbotInitOptions = {
+     *   apiUrl: 'https://en.wikipedia.org/w/api.php',
+     *   userAgent: 'MyCoolBot/1.0.0 (https://github.com/Foo/MyCoolBot)',
+     *   credentials: {
+     *     oAuth2AccessToken: '...'
+     *   }
+     * };
+     * const requestOptions: MwbotRequestConfig = { // This object is optional
+     *   // ...
+     * };
+     *
+     * Mwbot.init(initOptions, requestOptions).then((mwbot) => {
+     *   // Do something here and below...
+     * });
+     * ```
+     *
+     * @param mwbotInitOptions Configuration object containing initialization settings and user credentials.
+     * @param requestOptions Custom request options applied to all HTTP requests issued by the new instance.
+     * @throws {MwbotError} If no valid API endpoint is provided or if the user credentials are malformed.
+     */
+    /*!
+     * Developer Note:
+     *
+     * The seemingly redundant generic parameters (`MwbotStatic`, `MwbotConstructor`) are intentional workarounds
+     * for TypeScript limitations:
+     *
+     * 1. Static methods cannot directly instantiate a class with a `protected` constructor,
+     *    even from within the same class or a subclass.
+     *
+     * 2. Subclasses calling `init()` would lose correct return type inference without these generics.
+     *
+     * `MwbotStatic` ensures that something like `class Mwbot2 extends Mwbot {}` is compatible with calling
+     * this static `init()` method, such that `Mwbot2.init(options).then(mwbot => ...)` correctly infers
+     * `mwbot` as an instance of `Mwbot2`. It is also important that we use "new this(...)" instead of "new Mwbot(...)".
+     * By using the former, subclasses instantiate their own classes, not the parent class, via this method.
+     *
+     * `MwbotConstructor` provides a constructor signature override as if the class had a public constructor,
+     * enabling instantiation within the method body via type-safe casting.
+     */
+    static init<MwbotStatic extends PrototypeOf<Mwbot>, MwbotConstructor extends new (mwbotInitOptions: MwbotInitOptions, requestOptions: MwbotRequestConfig) => InstanceOf<MwbotStatic>>(this: MwbotStatic, mwbotInitOptions: MwbotInitOptions, requestOptions?: MwbotRequestConfig): Promise<InstanceOf<MwbotStatic>>;
+    /**
+     * Internal handler for instance initialization.
+     *
+     * @param attemptIndex The number of times we have attempted initialization, including the current attempt.
+     * On a certain type of failure, a retry is attempted once (i.e., when this index is less than or equal to `2`).
+     * @returns A Promise resolving to the current instance, or rejecting with an error.
+     */
+    protected _init(attemptIndex: number): Promise<this>;
     /**
      * Updates the bot options stored in the instance.
      *
@@ -304,24 +352,6 @@ export declare class Mwbot {
      * @returns The current instance for chaining.
      */
     setRequestOptions(options: MwbotRequestConfig, merge?: boolean): Mwbot;
-    /**
-     * Initializes the `Mwbot` instance to make all functionalities ready.
-     *
-     * @returns A Promise resolving to the current instance, or rejecting with an error.
-     */
-    init(): Promise<this>;
-    /**
-     * Internal handler for instance initialization.
-     *
-     * @param attemptIndex The number of times we have attempted initialization, including the current attempt.
-     * On a certain type of failure, a retry is attempted once (i.e., when this index is less than or equal to `2`).
-     * @returns A Promise resolving to the current instance, or rejecting with an error.
-     */
-    protected _init(attemptIndex: number): Promise<this>;
-    /**
-     * Throws an error if the instance is not initialized.
-     */
-    protected checkInit(): void;
     /**
      * Returns the user's API limit for multi-value requests.
      *
@@ -855,13 +885,13 @@ export declare class Mwbot {
     purge(titles: (string | Title)[], additionalParams?: ApiParams, requestOptions?: MwbotRequestConfig): Promise<ApiResponse>;
 }
 /**
- * Options to be passed as the first argument of {@link Mwbot.constructor}.
+ * Options to be passed as the first argument of {@link Mwbot.init}.
  */
 export type MwbotInitOptions = MwbotOptions & {
     credentials: Credentials;
 };
 /**
- * Configuration options for {@link Mwbot.constructor}. These options can also be updated later
+ * Configuration options for {@link Mwbot.init}. These options can also be updated later
  * via {@link Mwbot.setMwbotOptions}.
  */
 export interface MwbotOptions {
@@ -1074,6 +1104,30 @@ export interface ConfigData {
     wgWikiID: string;
     [key: string]: unknown;
 }
+/**
+ * @private
+ * Utility type that describes a class definition whose `prototype` matches a specific instance type.
+ *
+ * This is used internally to connect a class constructor with its corresponding instance type
+ * in a safe and type-checkable way.
+ *
+ * @template T The instance type associated with the class.
+ */
+export type PrototypeOf<T> = {
+    prototype: T;
+};
+/**
+ * @private
+ * Resolves the instance type of a given class definition.
+ *
+ * This is a reverse utility to {@link PrototypeOf}, used to infer the type of instances
+ * constructed by a class that matches the given definition.
+ *
+ * @template T A class definition (with a `prototype` property).
+ */
+export type InstanceOf<T> = T extends {
+    prototype: infer R;
+} ? R : never;
 /**
  * Type used to define {@link MwConfig}.
  * @private

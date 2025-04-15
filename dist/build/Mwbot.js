@@ -70,6 +70,8 @@ const axios_cookiejar_support_1 = require("axios-cookiejar-support");
 const form_data_1 = __importDefault(require("form-data"));
 const oauth_1_0a_1 = __importDefault(require("oauth-1.0a"));
 const crypto_1 = __importDefault(require("crypto"));
+const http = __importStar(require("http"));
+const https = __importStar(require("https"));
 const uuid_1 = require("uuid");
 const version_1 = require("./version");
 const MwbotError_1 = require("./MwbotError");
@@ -85,9 +87,10 @@ const Wikitext_1 = require("./Wikitext");
  * for interacting with the MediaWiki API.
  *
  * It encapsulates authentication, API request logic, session handling, token management, and
- * lazy-loaded parsers for handling wikitext elements such as titles, templates, wikilinks, and more.
+ * parsers for working with wikitext elements such as titles, templates, wikilinks, and more.
  *
- * A `Mwbot` instance must be initialized with {@link init} before using any instance methods or properties.
+ * A `Mwbot` instance must be created using the static {@link init} method (not the protected constructor)
+ * to ensure that all lazy-loaded classes, properties, and methods are properly initialized.
  *
  * **Example:**
  * ```ts
@@ -101,30 +104,29 @@ const Wikitext_1 = require("./Wikitext");
  *   }
  * };
  *
- * new Mwbot(initOptions).init().then((mwbot) => {
- *   // Interact with MediaWiki using mwbot instance...
+ * Mwbot.init(initOptions).then((mwbot) => {
+ *   // Interact with MediaWiki using the mwbot instance...
  * });
  * ```
  *
  * ### Features
  * - Supports all major MediaWiki authentication schemes: OAuth2, OAuth1.0a, BotPasswords, and
  *   anonymous access for read-only requests. See {@link Credentials}, {@link MwbotOptions}, and
- *   {@link MwbotInitOptions} for details on the available authentication types accepted by the
- *   {@link Mwbot.constructor}.
+ *   {@link MwbotInitOptions} for details on supported authentication types.
  * - All request methods (except {@link rawRequest}) include error handling via the {@link MwbotError}
- *   class, offering standardized debugging. Refer to {@link MwbotErrorCodes} for all possible codes.
- * - Automatically caches site and user information, along with tokens, after initialization.
+ *   class, offering standardized and descriptive debugging. Refer to {@link MwbotErrorCodes} for all possible codes.
+ * - Automatically caches site and user information, as well as tokens, after initialization.
  *   Site metadata is available via {@link Mwbot.info}, while configuration variables are exposed
  *   through {@link Mwbot.config}, providing a familiar `wg`-style interface.
- * - Manages page titles through {@link Mwbot.Title}, which replicates the behavior of the native
- *   `mediawiki.Title` class and extends it with interwiki support.
+ * - Manages page titles via {@link Mwbot.Title}, which replicates the behavior of the native
+ *   `mediawiki.Title` class and extends it with support for interwiki prefixes.
  * - Enables powerful manipulation of wikitext via {@link Mwbot.Wikitext}, which handles MediaWiki’s
  *   edge cases and parsing rules to simplify tasks like page edits and text analysis.
  *   - See also: {@link Mwbot.Template}, {@link Mwbot.ParserFunction}, {@link Mwbot.Wikilink},
  *     {@link Mwbot.FileWikilink}, and {@link Mwbot.RawWikilink}, which parse MediaWiki markup into
  *     structured objects for convenient handling.
  * - Provides static {@link String} and {@link Util} modules:
- *   - {@link String} mirrors the `mediawiki.String` utility for consistent and familiar string operations.
+ *   - {@link String} mirrors the `mediawiki.String` utility, offering consistent and familiar string operations.
  *   - {@link Util} exposes internal framework utilities for advanced use (not to be confused with `mediawiki.util`).
  *
  * ### See Also
@@ -145,6 +147,8 @@ class Mwbot {
      *	    'Content-Type': 'application/x-www-form-urlencoded',
      *	    'Accept-Encoding': 'gzip'
      *	  },
+     *    httpAgent: new http.Agent({keepAlive: true}),
+     *    httpsAgent: new https.Agent({keepAlive: true}),
      *	  params: {
      *	    action: 'query',
      *	    format: 'json',
@@ -165,6 +169,8 @@ class Mwbot {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'Accept-Encoding': 'gzip'
             },
+            httpAgent: new http.Agent({ keepAlive: true }),
+            httpsAgent: new https.Agent({ keepAlive: true }),
             params: {
                 action: 'query',
                 format: 'json',
@@ -198,84 +204,61 @@ class Mwbot {
      * Returns (a deep copy of) the site and user information fetched by {@link init}.
      */
     get info() {
-        this.checkInit();
         return mergeDeep(this._info);
     }
     /**
      * Title class for this instance.
      */
     get Title() {
-        this.checkInit();
         return this._Title;
     }
     /**
      * Template class for this instance.
      */
     get Template() {
-        this.checkInit();
         return this._Template;
     }
     /**
      * ParserFunction class for this instance.
      */
     get ParserFunction() {
-        this.checkInit();
         return this._ParserFunction;
     }
     /**
      * Wikilink class for this instance.
      */
     get Wikilink() {
-        this.checkInit();
         return this._Wikilink;
     }
     /**
      * FileWikilink class for this instance.
      */
     get FileWikilink() {
-        this.checkInit();
         return this._FileWikilink;
     }
     /**
      * RawWikilink class for this instance.
      */
     get RawWikilink() {
-        this.checkInit();
         return this._RawWikilink;
     }
     /**
      * Wikitext class for this instance.
      */
     get Wikitext() {
-        this.checkInit();
         return this._Wikitext;
     }
     // ****************************** CONSTRUCTOR-RELATED METHODS ******************************
     /**
-     * Creates a `Mwbot` instance. **{@link init} must subsequently be called for initialization.**
+     * Creates a `Mwbot` instance.
      *
-     * **Example:**
-     * ```ts
-     * import { Mwbot, MwbotInitOptions } from 'mwbot-ts';
-     *
-     * const initOptions: MwbotInitOptions = {
-     *   apiUrl: 'https://en.wikipedia.org/w/api.php',
-     *   userAgent: 'MyCoolBot/1.0.0 (https://github.com/Foo/MyCoolBot)',
-     *   credentials: {
-     *     oAuth2AccessToken: '...'
-     *   }
-     * };
-     *
-     * new Mwbot(initOptions).init().then((mwbot) => {
-     *   // Do something here and below...
-     * });
-     * ```
+     * **This constructor is protected**. Call {@link init} instead.
      *
      * @param mwbotInitOptions Configuration object containing initialization settings and user credentials.
      * @param requestOptions Custom request options applied to all HTTP requests issued by the new instance.
      * @throws {MwbotError} If no valid API endpoint is provided or if the user credentials are malformed.
      */
-    constructor(mwbotInitOptions, requestOptions = {}) {
+    constructor(mwbotInitOptions, requestOptions) {
         // ****************************** SITE-RELATED CONFIG ******************************
         /**
          * Stores configuration values for the site and user.
@@ -327,7 +310,6 @@ class Mwbot {
             requestOptions.headers['User-Agent'] = options.userAgent;
         }
         // Initialize other class properties
-        this.initialized = false;
         this.userMwbotOptions = options;
         this.userRequestOptions = requestOptions;
         this.abortions = [];
@@ -425,61 +407,59 @@ class Mwbot {
         }
     }
     /**
-     * Updates the bot options stored in the instance.
+     * Initializes a new `Mwbot` instance.
      *
-     * @param options The new options to apply.
-     * @param merge Whether to merge `options` with the existing ones (default: `true`).
+     * This static factory method should always be used to create instances of `Mwbot` or its subclasses.
+     * It handles token fetching, site info, and class initialization in one convenient place.
      *
-     * If `false`, all current settings are cleared before applying `options`, ***except*** for the required
-     * {@link MwbotOptions.apiUrl | apiUrl} property. While `apiUrl` can be updated if provided in `options`,
-     * doing so is discouraged since a `Mwbot` instance is initialized with site-specific data based on the URL.
-     * Instead, consider creating a new instance with a different URL.
+     * > **Note:** The generic signature may look intimidating, but it’s designed to ensure subclasses
+     * > are constructed correctly while preserving type safety. You usually don’t need to worry about it.
      *
-     * @returns The current instance for chaining.
-     * @throws If the resulting options lack an `apiUrl` property.
+     * **Example:**
+     * ```ts
+     * import { Mwbot, MwbotInitOptions, MwbotRequestConfig } from 'mwbot-ts';
+     *
+     * const initOptions: MwbotInitOptions = {
+     *   apiUrl: 'https://en.wikipedia.org/w/api.php',
+     *   userAgent: 'MyCoolBot/1.0.0 (https://github.com/Foo/MyCoolBot)',
+     *   credentials: {
+     *     oAuth2AccessToken: '...'
+     *   }
+     * };
+     * const requestOptions: MwbotRequestConfig = { // This object is optional
+     *   // ...
+     * };
+     *
+     * Mwbot.init(initOptions, requestOptions).then((mwbot) => {
+     *   // Do something here and below...
+     * });
+     * ```
+     *
+     * @param mwbotInitOptions Configuration object containing initialization settings and user credentials.
+     * @param requestOptions Custom request options applied to all HTTP requests issued by the new instance.
+     * @throws {MwbotError} If no valid API endpoint is provided or if the user credentials are malformed.
      */
-    setMwbotOptions(options, merge = true) {
-        if (merge) {
-            this.userMwbotOptions = mergeDeep(this.userMwbotOptions, options);
-        }
-        else {
-            const { apiUrl } = this.userMwbotOptions;
-            this.userMwbotOptions = mergeDeep({ apiUrl }, options);
-        }
-        if (!this.userMwbotOptions.apiUrl) {
-            throw new MwbotError_1.MwbotError('fatal', {
-                code: 'nourl',
-                info: '"apiUrl" must be retained.'
-            });
-        }
-        return this;
-    }
-    /**
-     * Updates the default request options stored in the instance.
+    /*!
+     * Developer Note:
      *
-     * @param options The options to apply.
-     * @param merge Whether to merge `options` with the existing ones (default: `true`).
+     * The seemingly redundant generic parameters (`MwbotStatic`, `MwbotConstructor`) are intentional workarounds
+     * for TypeScript limitations:
      *
-     * If `false`, the current settings are cleared before applying `options`.
+     * 1. Static methods cannot directly instantiate a class with a `protected` constructor,
+     *    even from within the same class or a subclass.
      *
-     * @returns The current instance for chaining.
+     * 2. Subclasses calling `init()` would lose correct return type inference without these generics.
+     *
+     * `MwbotStatic` ensures that something like `class Mwbot2 extends Mwbot {}` is compatible with calling
+     * this static `init()` method, such that `Mwbot2.init(options).then(mwbot => ...)` correctly infers
+     * `mwbot` as an instance of `Mwbot2`. It is also important that we use "new this(...)" instead of "new Mwbot(...)".
+     * By using the former, subclasses instantiate their own classes, not the parent class, via this method.
+     *
+     * `MwbotConstructor` provides a constructor signature override as if the class had a public constructor,
+     * enabling instantiation within the method body via type-safe casting.
      */
-    setRequestOptions(options, merge = true) {
-        if (merge) {
-            this.userRequestOptions = mergeDeep(this.userRequestOptions, options);
-        }
-        else {
-            this.userRequestOptions = mergeDeep(options);
-        }
-        return this;
-    }
-    /**
-     * Initializes the `Mwbot` instance to make all functionalities ready.
-     *
-     * @returns A Promise resolving to the current instance, or rejecting with an error.
-     */
-    init() {
-        return this._init(1);
+    static init(mwbotInitOptions, requestOptions = {}) {
+        return new this(mwbotInitOptions, requestOptions)._init(1);
     }
     /**
      * Internal handler for instance initialization.
@@ -543,7 +523,6 @@ class Mwbot {
             return retryIfPossible(error, attemptIndex);
         }
         // Set up instance properties
-        this.initialized = true; // This substitution must be done HERE (Mwbot.info and other getters call checkInit in them)
         const config = this.config;
         this._info = {
             functionhooks,
@@ -570,15 +549,53 @@ class Mwbot {
         return this;
     }
     /**
-     * Throws an error if the instance is not initialized.
+     * Updates the bot options stored in the instance.
+     *
+     * @param options The new options to apply.
+     * @param merge Whether to merge `options` with the existing ones (default: `true`).
+     *
+     * If `false`, all current settings are cleared before applying `options`, ***except*** for the required
+     * {@link MwbotOptions.apiUrl | apiUrl} property. While `apiUrl` can be updated if provided in `options`,
+     * doing so is discouraged since a `Mwbot` instance is initialized with site-specific data based on the URL.
+     * Instead, consider creating a new instance with a different URL.
+     *
+     * @returns The current instance for chaining.
+     * @throws If the resulting options lack an `apiUrl` property.
      */
-    checkInit() {
-        if (!this.initialized) {
+    setMwbotOptions(options, merge = true) {
+        if (merge) {
+            this.userMwbotOptions = mergeDeep(this.userMwbotOptions, options);
+        }
+        else {
+            const { apiUrl } = this.userMwbotOptions;
+            this.userMwbotOptions = mergeDeep({ apiUrl }, options);
+        }
+        if (!this.userMwbotOptions.apiUrl) {
             throw new MwbotError_1.MwbotError('fatal', {
-                code: 'callinit',
-                info: 'The instance must be initialized before performing this action.'
+                code: 'nourl',
+                info: '"apiUrl" must be retained.'
             });
         }
+        return this;
+    }
+    /**
+     * Updates the default request options stored in the instance.
+     *
+     * @param options The options to apply.
+     * @param merge Whether to merge `options` with the existing ones (default: `true`).
+     *
+     * If `false`, the current settings are cleared before applying `options`.
+     *
+     * @returns The current instance for chaining.
+     */
+    setRequestOptions(options, merge = true) {
+        if (merge) {
+            this.userRequestOptions = mergeDeep(this.userRequestOptions, options);
+        }
+        else {
+            this.userRequestOptions = mergeDeep(options);
+        }
+        return this;
     }
     /**
      * Returns the user's API limit for multi-value requests.
@@ -586,7 +603,6 @@ class Mwbot {
      * @returns `500` for users with the `apihighlimits` permission; otherwise, `50`.
      */
     get apilimit() {
-        this.checkInit();
         return this._info.user.rights.includes('apihighlimits') ? 500 : 50;
     }
     /**
@@ -625,7 +641,6 @@ class Mwbot {
      * * Returns `true` if `selection` exists as a key with a defined value.
      */
     get config() {
-        this.checkInit();
         // eslint-disable-next-line @typescript-eslint/no-this-alias
         const _this = this;
         return {

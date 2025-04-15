@@ -10,7 +10,7 @@
  * import { Mwbot, MwbotInitOptions } from 'mwbot-ts';
  *
  * const initOptions: MwbotInitOptions = {...};
- * new Mwbot(initOptions).init().then((mwbot) => {
+ * Mwbot.init(initOptions).then((mwbot) => {
  *   const wikitext = new mwbot.Wikitext('your wikitext');
  *   // Wikitext manipulations...
  * });
