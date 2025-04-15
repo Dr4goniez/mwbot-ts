@@ -24,12 +24,10 @@
  *
  * @module
  */
-import { AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { CookieJar } from 'tough-cookie';
 import { XOR } from 'ts-xor';
 import OAuth from 'oauth-1.0a';
-import * as http from 'http';
-import * as https from 'https';
 import { ApiParams, ApiParamsAction, ApiEditPageParams, ApiResponse, ApiResponseQueryMetaSiteinfoGeneral, ApiResponseQueryMetaSiteinfoNamespaces, ApiResponseQueryMetaSiteinfoNamespacealiases, ApiResponseQueryMetaTokens, ApiResponseQueryMetaUserinfo, ApiResponseQueryMetaSiteinfoInterwikimap, ApiResponseQueryMetaSiteinfoMagicwords, ApiResponseQueryMetaSiteinfoFunctionhooks, ApiResponseEdit } from './api_types';
 import { MwbotError } from './MwbotError';
 import * as Util from './Util';
@@ -123,8 +121,6 @@ export declare class Mwbot {
             'Content-Type': string;
             'Accept-Encoding': string;
         };
-        httpAgent: http.Agent;
-        httpsAgent: https.Agent;
         params: {
             action: string;
             format: string;
@@ -139,6 +135,10 @@ export declare class Mwbot {
      * User credentials.
      */
     protected readonly credentials: MwbotCredentials;
+    /**
+     * Axios instance for this intance.
+     */
+    protected readonly axios: axios.AxiosInstance;
     /**
      * A cookie jar that stores session and login cookies for this instance.
      */
@@ -523,13 +523,14 @@ export declare class Mwbot {
      *
      * @param initialError The error that triggered the retry attempt.
      * @param requestId The UUID of the request being retried.
+     * @param params Request parameters. Since {@link _request} might have deleted them, they are re-injected as needed.
      * @param requestOptions The original request options, using which we make another request.
      * @param maxAttempts The maximum number of attempts (including the first request). Default is 2 (one retry after failure).
      * @param sleepSeconds The delay in seconds before retrying. Default is 10.
      * @param retryCallback A function to execute when attempting the retry. If not provided, {@link _request} is called on `requestOptions`.
      * @returns A Promise of the retry request, or rejecting with an error.
      */
-    protected retry(initialError: MwbotError, requestId: string, requestOptions: MwbotRequestConfig, maxAttempts?: number, sleepSeconds?: number, retryCallback?: () => Promise<ApiResponse>): Promise<ApiResponse>;
+    protected retry(initialError: MwbotError, requestId: string, params: ApiParams, requestOptions: MwbotRequestConfig, maxAttempts?: number, sleepSeconds?: number, retryCallback?: () => Promise<ApiResponse>): Promise<ApiResponse>;
     /**
      * Aborts all unfinished HTTP requests issued by this instance.
      */
