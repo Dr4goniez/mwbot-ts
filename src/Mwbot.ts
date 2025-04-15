@@ -155,8 +155,6 @@ export class Mwbot {
 				'Content-Type': 'application/x-www-form-urlencoded',
 				'Accept-Encoding': 'gzip'
 			},
-			httpAgent: new http.Agent({keepAlive: true}),
-			httpsAgent: new https.Agent({keepAlive: true}),
 			params: {
 				action: 'query',
 				format: 'json',
@@ -172,6 +170,10 @@ export class Mwbot {
 	 * User credentials.
 	 */
 	protected readonly credentials: MwbotCredentials;
+	/**
+	 * Axios instance for this intance.
+	 */
+	protected readonly axios: axios.AxiosInstance;
 	/**
 	 * A cookie jar that stores session and login cookies for this instance.
 	 */
@@ -328,7 +330,6 @@ export class Mwbot {
 
 		// Determine authentication type
 		this.credentials = Mwbot.validateCredentials(credentials);
-		this.jar = new CookieJar();
 
 		// Set up the User-Agent header if provided
 		if (typeof options.userAgent === 'string') {
@@ -337,6 +338,15 @@ export class Mwbot {
 		}
 
 		// Initialize other class properties
+		this.axios = axios.create({
+			/**
+			 * Manages keep-alive connections for HTTP requests.
+			 * See https://www.mediawiki.org/wiki/Manual:Creating_a_bot#Bot_best_practices
+			 */
+			httpAgent: new http.Agent({keepAlive: true}),
+			httpsAgent: new https.Agent({keepAlive: true})
+		});
+		this.jar = new CookieJar();
 		this.userMwbotOptions = options;
 		this.userRequestOptions = requestOptions;
 		this.abortions = [];
@@ -892,15 +902,15 @@ export class Mwbot {
 			requestOptions._cloned = true;
 		}
 
-		// Add an AbortController to make it possible to abort this request later
+		// Setup AbortController
 		if (!requestOptions.disableAbort) {
 			const controller = new AbortController();
 			requestOptions.signal = controller.signal;
 			this.abortions.push(controller);
 		}
 
-		// Make an HTTP request
-		return axios(requestOptions);
+		// Make the request
+		return this.axios(requestOptions);
 
 	}
 
@@ -960,6 +970,7 @@ export class Mwbot {
 			requestOptions._cloned = true;
 		}
 
+		// Clone params early since POST requests will delete them from `requestOptions`
 		const clonedParams: ApiParams = {...requestOptions.params};
 		if (requestOptions.method === 'POST') {
 			// The API throws a "mustpostparams" error if it finds certain parameters in "params", even when "data"
@@ -1012,7 +1023,7 @@ export class Mwbot {
 					case 408:
 						return await this.retry(
 							err.setCode('timeout').setInfo('Request timeout (408).'),
-							requestId, requestOptions
+							requestId, clonedParams, requestOptions
 						);
 					case 414:
 						return this.error(
@@ -1022,27 +1033,27 @@ export class Mwbot {
 					case 429:
 						return await this.retry(
 							err.setCode('ratelimited').setInfo('Too many requests (429).'),
-							requestId, requestOptions
+							requestId, clonedParams, requestOptions
 						);
 					case 500:
 						return await this.retry(
 							err.setCode('servererror').setInfo('Internal server error (500).'),
-							requestId, requestOptions
+							requestId, clonedParams, requestOptions
 						);
 					case 502:
 						return await this.retry(
 							err.setCode('badgateway').setInfo('Bad gateway (502): Perhaps the server is down?'),
-							requestId, requestOptions
+							requestId, clonedParams, requestOptions
 						);
 					case 503:
 						return await this.retry(
 							err.setCode('serviceunavailable').setInfo('Service Unavailable (503): Perhaps the server is down?'),
-							requestId, requestOptions
+							requestId, clonedParams, requestOptions
 						);
 					case 504:
 						return await this.retry(
 							err.setCode('timeout').setInfo('Gateway timeout (504)'),
-							requestId, requestOptions
+							requestId, clonedParams, requestOptions
 						);
 				}
 			}
@@ -1100,9 +1111,7 @@ export class Mwbot {
 							this.badToken(tokenType);
 							delete clonedParams.token;
 
-							return await this.retry(err, requestId, requestOptions, 2, 0, () => {
-								// Clear the request ID because postWithToken issues a new one
-								delete this.uuid[requestId];
+							return await this.retry(err, requestId, clonedParams, requestOptions, 2, 0, () => {
 								return this.postWithToken(tokenType, clonedParams);
 							});
 						}
@@ -1110,19 +1119,19 @@ export class Mwbot {
 
 					case 'readonly':
 						console.warn(`Warning: Encountered a "${err.code}" error.`);
-						return await this.retry(err, requestId, requestOptions, 3, 10);
+						return await this.retry(err, requestId, clonedParams, requestOptions, 3, 10);
 
 					case 'maxlag': {
 						console.warn(`Warning: Encountered a "${err.code}" error.`);
 						const retryAfter = parseInt(response?.headers?.['retry-after']) || 5;
-						return await this.retry(err, requestId, requestOptions, 4, retryAfter);
+						return await this.retry(err, requestId, clonedParams, requestOptions, 4, retryAfter);
 					}
 
 					case 'mwoauth-invalid-authorization':
 						// Per https://phabricator.wikimedia.org/T106066, "Nonce already used" indicates
 						// an upstream memcached/redis failure which is transient
 						if (err.info.includes('Nonce already used')) {
-							return await this.retry(err, requestId, requestOptions, 2, 10);
+							return await this.retry(err, requestId, clonedParams, requestOptions, 2, 10);
 						}
 				}
 			}
@@ -1406,6 +1415,7 @@ export class Mwbot {
 	 *
 	 * @param initialError The error that triggered the retry attempt.
 	 * @param requestId The UUID of the request being retried.
+	 * @param params Request parameters. Since {@link _request} might have deleted them, they are re-injected as needed.
 	 * @param requestOptions The original request options, using which we make another request.
 	 * @param maxAttempts The maximum number of attempts (including the first request). Default is 2 (one retry after failure).
 	 * @param sleepSeconds The delay in seconds before retrying. Default is 10.
@@ -1415,13 +1425,13 @@ export class Mwbot {
 	protected async retry(
 		initialError: MwbotError,
 		requestId: string,
+		params: ApiParams,
 		requestOptions: MwbotRequestConfig,
 		maxAttempts = 2,
 		sleepSeconds = 10,
 		retryCallback?: () => Promise<ApiResponse>
 	): Promise<ApiResponse> {
 
-		delete requestOptions._cloned;
 		const attemptedCount = this.uuid[requestId] || 0; // Should never fall back to 0 but just in case
 		const {disableRetry, disableRetryByCode} = requestOptions;
 		const shouldRetry =
@@ -1439,8 +1449,15 @@ export class Mwbot {
 			}
 			await sleep(sleepSeconds * 1000);
 			if (typeof retryCallback === 'function') {
-				return retryCallback(); // TODO: Delete the request ID from uuid here?
+				if (requestId) {
+					// Clear the request ID because retryCallback should issue a new one
+					delete this.uuid[requestId];
+				}
+				delete requestOptions._cloned;
+				delete requestOptions.signal;
+				return retryCallback();
 			} else {
+				requestOptions.params = params;
 				return this._request(requestOptions);
 			}
 		}
