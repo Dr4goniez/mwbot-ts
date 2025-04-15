@@ -857,7 +857,7 @@ class Mwbot {
      * @returns A Promise resolving to the API response or rejecting with an error.
      */
     async _request(requestOptions) {
-        var _a, _b;
+        var _a, _b, _c;
         if (!requestOptions._cloned) {
             requestOptions = mergeDeep(requestOptions);
             requestOptions._cloned = true;
@@ -956,7 +956,7 @@ class Mwbot {
                         if (this.isAnonymous()) {
                             return this.errorAnonymous(requestId);
                         }
-                        if (clonedParams.action && !((_a = requestOptions.disableRetryByCode) === null || _a === void 0 ? void 0 : _a.includes(clonedParams.action))) {
+                        if (requestOptions.method === 'POST' && clonedParams.action && !((_a = requestOptions.disableRetryByCode) === null || _a === void 0 ? void 0 : _a.includes(clonedParams.action))) {
                             const tokenType = await this.getTokenType(clonedParams.action); // Identify the required token type
                             if (!tokenType) {
                                 return this.error(err, requestId);
@@ -977,6 +977,45 @@ class Mwbot {
                         const retryAfter = parseInt((_b = response === null || response === void 0 ? void 0 : response.headers) === null || _b === void 0 ? void 0 : _b['retry-after']) || 5;
                         return await this.retry(err, requestId, clonedParams, requestOptions, 4, retryAfter);
                     }
+                    case 'assertbotfailed':
+                    case 'assertuserfailed':
+                        if (!this.isAnonymous()) {
+                            console.warn(`Warning: Encountered a "${err.code}" error.`);
+                            let retryAfter = 10;
+                            const { username, password } = this.credentials.user || {};
+                            if (username && password) {
+                                console.log('Re-logging in...');
+                                const loggedIn = await this.login(username, password).catch((err) => err);
+                                if (loggedIn instanceof MwbotError_1.MwbotError) {
+                                    console.log(loggedIn);
+                                    return this.error(err, requestId);
+                                }
+                                console.log('Re-login successful.');
+                                if (requestOptions.method === 'POST' && clonedParams.token &&
+                                    clonedParams.action && !((_c = requestOptions.disableRetryByCode) === null || _c === void 0 ? void 0 : _c.includes(clonedParams.action))) {
+                                    console.log('Will retry if possible...');
+                                    const tokenType = await this.getTokenType(clonedParams.action);
+                                    if (!tokenType) {
+                                        return this.error(err, requestId);
+                                    }
+                                    const token = await this.getToken(tokenType).catch(() => null);
+                                    if (!token) {
+                                        return this.error(err, requestId);
+                                    }
+                                    clonedParams.token = token;
+                                    requestOptions.params = clonedParams;
+                                    delete requestOptions.data;
+                                    const formatted = await this.handlePost(requestOptions, false).catch(() => null);
+                                    if (formatted === null) {
+                                        return this.error(err, requestId);
+                                    }
+                                    delete requestOptions.params;
+                                    retryAfter = 0;
+                                }
+                            }
+                            return await this.retry(err, requestId, clonedParams, requestOptions, 2, retryAfter);
+                        }
+                        break;
                     case 'mwoauth-invalid-authorization':
                         // Per https://phabricator.wikimedia.org/T106066, "Nonce already used" indicates
                         // an upstream memcached/redis failure which is transient
@@ -1002,6 +1041,10 @@ class Mwbot {
      */
     preprocessParameters(parameters) {
         let hasLongFields = false;
+        if (!this.isAnonymous()) {
+            // Enforce {assert: 'user'} for logged-in users
+            parameters.assert = 'user';
+        }
         Object.entries(parameters).forEach(([key, val]) => {
             if (Array.isArray(val)) {
                 // Multi-value fields must be stringified
@@ -1065,6 +1108,7 @@ class Mwbot {
             // Use application/x-www-form-urlencoded (default)
             requestOptions.data = new URLSearchParams(params);
             if (token && !this.isAnonymous()) {
+                params.token = token;
                 requestOptions.data.append('token', token);
             }
         }
@@ -1095,6 +1139,7 @@ class Mwbot {
             }
         }
         if (token && !this.isAnonymous()) {
+            params.token = token;
             form.append('token', token);
         }
         requestOptions.data = form;
