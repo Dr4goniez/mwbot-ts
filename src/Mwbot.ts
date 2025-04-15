@@ -650,7 +650,7 @@ export class Mwbot {
 	 *
 	 * @returns The current instance for chaining.
 	 */
-	setRequestOptions(options: MwbotRequestConfig, merge = true): Mwbot {
+	setRequestOptions(options: MwbotRequestConfig, merge = true): this {
 		if (merge) {
 			this.userRequestOptions = mergeDeep(this.userRequestOptions, options);
 		} else {
@@ -1517,7 +1517,7 @@ export class Mwbot {
 	/**
 	 * Aborts all unfinished HTTP requests issued by this instance.
 	 */
-	abort(): Mwbot {
+	abort(): this {
 		this.abortions.forEach((controller) => {
 			if (controller) {
 				controller.abort();
@@ -1880,7 +1880,7 @@ export class Mwbot {
 	 * @param tokenType The type of token to invalidate (e.g., `csrf`).
 	 * @returns The current instance for chaining.
 	 */
-	badToken(tokenType: string): Mwbot {
+	badToken(tokenType: string): this {
 		tokenType = Mwbot.mapLegacyToken(tokenType);
 		const tokenName = `${tokenType}token` as keyof ApiResponseQueryMetaTokens;
 		if (this.tokens[tokenName]) {
@@ -2476,7 +2476,7 @@ export class Mwbot {
 		const token = await this.getToken('login', {maxlag: void 0}, disableRetryAPI);
 
 		// Login
-		const resLogin: ApiResponse | MwbotError = await this.post({
+		const resLogin = await this.post({
 			action: 'login',
 			lgname: username,
 			lgpassword: password,
