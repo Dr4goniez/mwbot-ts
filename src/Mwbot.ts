@@ -1102,7 +1102,7 @@ export class Mwbot {
 						if (this.isAnonymous()) {
 							return this.errorAnonymous(requestId);
 						}
-						if (clonedParams.action && !requestOptions.disableRetryByCode?.includes(clonedParams.action)) {
+						if (requestOptions.method === 'POST' && clonedParams.action && !requestOptions.disableRetryByCode?.includes(clonedParams.action)) {
 							const tokenType = await this.getTokenType(clonedParams.action); // Identify the required token type
 							if (!tokenType) {
 								return this.error(err, requestId);
@@ -1126,6 +1126,47 @@ export class Mwbot {
 						const retryAfter = parseInt(response?.headers?.['retry-after']) || 5;
 						return await this.retry(err, requestId, clonedParams, requestOptions, 4, retryAfter);
 					}
+
+					case 'assertbotfailed':
+					case 'assertuserfailed':
+						if (!this.isAnonymous()) {
+							console.warn(`Warning: Encountered a "${err.code}" error.`);
+							let retryAfter = 10;
+							const {username, password} = this.credentials.user || {};
+							if (username && password) {
+								console.log('Re-logging in...');
+								const loggedIn = await this.login(username, password).catch((err: MwbotError) => err);
+								if (loggedIn instanceof MwbotError) {
+									console.log(loggedIn);
+									return this.error(err, requestId);
+								}
+								console.log('Re-login successful.');
+								if (requestOptions.method === 'POST' && clonedParams.token &&
+									clonedParams.action && !requestOptions.disableRetryByCode?.includes(clonedParams.action)
+								) {
+									console.log('Will retry if possible...');
+									const tokenType = await this.getTokenType(clonedParams.action);
+									if (!tokenType) {
+										return this.error(err, requestId);
+									}
+									const token = await this.getToken(tokenType).catch(() => null);
+									if (!token) {
+										return this.error(err, requestId);
+									}
+									clonedParams.token = token;
+									requestOptions.params = clonedParams;
+									delete requestOptions.data;
+									const formatted = await this.handlePost(requestOptions, false).catch(() => null);
+									if (formatted === null) {
+										return this.error(err, requestId);
+									}
+									delete requestOptions.params;
+									retryAfter = 0;
+								}
+							}
+							return await this.retry(err, requestId, clonedParams, requestOptions, 2, retryAfter);
+						}
+						break;
 
 					case 'mwoauth-invalid-authorization':
 						// Per https://phabricator.wikimedia.org/T106066, "Nonce already used" indicates
@@ -1157,6 +1198,10 @@ export class Mwbot {
 	 */
 	protected preprocessParameters(parameters: ApiParams): boolean {
 		let hasLongFields = false;
+		if (!this.isAnonymous()) {
+			// Enforce {assert: 'user'} for logged-in users
+			parameters.assert = 'user';
+		}
 		Object.entries(parameters).forEach(([key, val]) => {
 			if (Array.isArray(val)) {
 				// Multi-value fields must be stringified
@@ -1219,6 +1264,7 @@ export class Mwbot {
 			// Use application/x-www-form-urlencoded (default)
 			requestOptions.data = new URLSearchParams(params);
 			if (token && !this.isAnonymous()) {
+				params.token = token;
 				requestOptions.data.append('token', token);
 			}
 		}
@@ -1251,6 +1297,7 @@ export class Mwbot {
 			}
 		}
 		if (token && !this.isAnonymous()) {
+			params.token = token;
 			form.append('token', token);
 		}
 
