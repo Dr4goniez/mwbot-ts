@@ -1424,6 +1424,7 @@ export function WikitextFactory(
 			let title = '';
 			let rawTitle = '';
 			let isLeftSealed = false;
+			const unprocessed: number[] = [];
 
 			for (let i = 0; i < wikitext.length; i++) {
 
@@ -1463,6 +1464,11 @@ export function WikitextFactory(
 
 				if (regex.start.test(wkt)) {
 					// Regard any occurrence of "[[" as the potential start of a wikilink
+					if (inLink) {
+						// If this is the start of a wikilink nested inside another, store the start index of
+						// the parent wikilink to return to after processing this one
+						unprocessed.unshift(startIndex);
+					}
 					inLink = true;
 					startIndex = i;
 					title = '';
@@ -1484,6 +1490,7 @@ export function WikitextFactory(
 						rawTitle = rawTitle.slice(0, -1);
 					}
 					links.push({
+						// TODO: Add a `nestLevel` property?
 						right,
 						title,
 						rawTitle,
@@ -1492,8 +1499,19 @@ export function WikitextFactory(
 						endIndex,
 						skip: isInSkipRange(startIndex, endIndex)
 					});
+					if (unprocessed.length) {
+						// If this was a nested wikilink, resume parsing from the parent wikilink's start index
+						// Also register this nested link in the indexMap so it won't be parsed again
+						indexMap[startIndex] = {
+							text,
+							type: 'wikilink_fuzzy',
+							inner: null // If `inner` is `null`, its content won't be parsed recursively
+						};
+						i = (unprocessed.shift() as number) - 1; // Go back to the start of the nesting wikilink in the next iteration
+					} else {
+						i++;
+					}
 					inLink = false;
-					i++;
 				} else if (inLink && !isLeftSealed) {
 					if (wkt[0] === '|') {
 						isLeftSealed = true;
