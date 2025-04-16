@@ -245,6 +245,13 @@ export interface ParsedWikilink extends Wikilink {
 	 */
 	endIndex: number;
 	/**
+	 * The nesting level of this wikilink. `0` if it is not nested within another wikilink.
+	 *
+	 * A value of `1` or greater indicates that the wikilink is either incorrectly embedded
+	 * within another wikilink, or that it serves as part of the thumb text of a file wikilink.
+	 */
+	nestLevel: number;
+	/**
 	 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
 	 */
 	skip: boolean;
@@ -415,6 +422,13 @@ export interface ParsedFileWikilink extends FileWikilink {
 	 */
 	endIndex: number;
 	/**
+	 * The nesting level of this wikilink. `0` if it is not nested within another wikilink.
+	 *
+	 * A value of `1` or greater indicates that the wikilink is either incorrectly embedded
+	 * within another wikilink, or that it serves as part of the thumb text of a file wikilink.
+	 */
+	nestLevel: number;
+	/**
 	 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
 	 */
 	skip: boolean;
@@ -569,6 +583,13 @@ export interface ParsedRawWikilink extends RawWikilink {
 	 * The ending index of this wikilink in the wikitext (exclusive).
 	 */
 	endIndex: number;
+	/**
+	 * The nesting level of this wikilink. `0` if it is not nested within another wikilink.
+	 *
+	 * A value of `1` or greater indicates that the wikilink is either incorrectly embedded
+	 * within another wikilink, or that it serves as part of the thumb text of a file wikilink.
+	 */
+	nestLevel: number;
 	/**
 	 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
 	 */
@@ -778,6 +799,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		text: string;
 		startIndex: number;
 		endIndex: number;
+		nestLevel: number;
 		skip: boolean;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
@@ -789,7 +811,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		private _initializer: ParsedWikilinkInitializer;
 
 		constructor(initializer: ParsedWikilinkInitializer) {
-			const {display, title, rawTitle, _rawTitle, text, startIndex, endIndex, skip} = initializer;
+			const {display, title, rawTitle, _rawTitle, text, startIndex, endIndex, nestLevel, skip} = initializer;
 			super(title, display);
 			this._initializer = initializer;
 			this.rawTitle = rawTitle;
@@ -797,6 +819,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			this.text = text;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
+			this.nestLevel = nestLevel;
 			this.skip = skip;
 		}
 
@@ -963,6 +986,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		text: string;
 		startIndex: number;
 		endIndex: number;
+		nestLevel: number;
 		skip: boolean;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
@@ -974,7 +998,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		private _initializer: ParsedFileWikilinkInitializer;
 
 		constructor(initializer: ParsedFileWikilinkInitializer) {
-			const {params, title, rawTitle, _rawTitle, text, startIndex, endIndex, skip} = initializer;
+			const {params, title, rawTitle, _rawTitle, text, startIndex, endIndex, nestLevel, skip} = initializer;
 			super(title, params);
 			this._initializer = initializer;
 			this.rawTitle = rawTitle;
@@ -982,6 +1006,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			this.text = text;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
+			this.nestLevel = nestLevel;
 			this.skip = skip;
 		}
 
@@ -1097,6 +1122,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		text: string;
 		startIndex: number;
 		endIndex: number;
+		nestLevel: number;
 		skip: boolean;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
@@ -1108,7 +1134,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		private _initializer: ParsedRawWikilinkInitializer;
 
 		constructor(initializer: ParsedRawWikilinkInitializer) {
-			const {display, title, rawTitle, _rawTitle, text, startIndex, endIndex, skip} = initializer;
+			const {display, title, rawTitle, _rawTitle, text, startIndex, endIndex, nestLevel, skip} = initializer;
 			super(title, display);
 			this._initializer = initializer;
 			this.rawTitle = rawTitle;
@@ -1116,6 +1142,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			this.text = text;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
+			this.nestLevel = nestLevel;
 			this.skip = skip;
 		}
 
@@ -1285,6 +1312,7 @@ interface ParsedWikilinkInitializerBase<T extends string | Title> {
 	text: string;
 	startIndex: number;
 	endIndex: number;
+	nestLevel: number;
 	skip: boolean;
 }
 

@@ -1489,17 +1489,18 @@ export function WikitextFactory(
 						title = title.slice(0, -1); // Remove the trailing pipe
 						rawTitle = rawTitle.slice(0, -1);
 					}
+					const nestLevel = unprocessed.length;
 					links.push({
-						// TODO: Add a `nestLevel` property?
 						right,
 						title,
 						rawTitle,
 						text,
 						startIndex,
 						endIndex,
+						nestLevel,
 						skip: isInSkipRange(startIndex, endIndex)
 					});
-					if (unprocessed.length) {
+					if (nestLevel) {
 						// If this was a nested wikilink, resume parsing from the parent wikilink's start index
 						// Also register this nested link in the indexMap so it won't be parsed again
 						indexMap[startIndex] = {
@@ -2354,6 +2355,13 @@ interface FuzzyWikilink {
 	 * The ending index of the wikilink in the wikitext (exclusive).
 	 */
 	endIndex: number;
+	/**
+	 * The nesting level of this wikilink. `0` if it is not nested within another wikilink.
+	 *
+	 * A value of `1` or greater indicates that the wikilink is either incorrectly embedded
+	 * within another wikilink, or that it serves as part of the thumb text of a file wikilink.
+	 */
+	nestLevel: number;
 	/**
 	 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
 	 */
