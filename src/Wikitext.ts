@@ -999,7 +999,8 @@ export function WikitextFactory(
 				const m = regex.tag.exec(tagObj.name);
 				if (m && !isInSkipRange(tagObj.startIndex, tagObj.endIndex)) {
 					acc.push({
-						text: tagObj.text,
+						text: tagObj.text, // TODO: Remove comments
+						rawText: tagObj.text,
 						// TODO: Should we deal with cases like "this <span>is</span> a heading" and "this [[is]] a heading"?
 						title: mw.Title.clean(removeComments(tagObj.content!)),
 						level: parseInt(m[1]),
@@ -1028,7 +1029,8 @@ export function WikitextFactory(
 				const title = '='.repeat(overflowLeft) + m[2] + '='.repeat(overflowRight);
 
 				headings.push({
-					text: m[0].trim(),
+					text: m[0].trim(), // TODO: Remove comments
+					rawText: m[0],
 					title: mw.Title.clean(removeComments(title)),
 					level,
 					index: m.index
@@ -1038,10 +1040,10 @@ export function WikitextFactory(
 
 			// Sort headings by index and add the top section
 			headings.sort((a, b) => a.index - b.index);
-			headings.unshift({text: '', title: 'top', level: 1, index: 0}); // Top section
+			headings.unshift({text: '', rawText: '', title: 'top', level: 1, index: 0}); // Top section
 
 			// Parse sections from the headings
-			const sections: Section[] = headings.map(({text, title, level, index}, i, arr) => {
+			const sections: Section[] = headings.map(({text, rawText, title, level, index}, i, arr) => {
 				const boundaryIdx = i === 0
 					? (arr.length > 1 ? 1 : -1) // If top section, next heading or no boundary
 					: arr.findIndex((obj, j) => j > i && obj.level <= level); // Find the next non-subsection
@@ -1049,16 +1051,20 @@ export function WikitextFactory(
 				const content = wikitext.slice(
 					index,
 					boundaryIdx !== -1 ? arr[boundaryIdx].index : wikitext.length
-				);
+				).replace(rawText, '');
 
 				return {
 					heading: text,
+					rawHeading: rawText,
 					title,
 					level,
 					index: i,
 					startIndex: index,
 					endIndex: index + content.length,
-					text: content
+					content,
+					get text() {
+						return this.rawHeading + this.content;
+					}
 				};
 			});
 
@@ -2082,6 +2088,10 @@ interface Heading {
 	 */
 	text: string;
 	/**
+	 * The raw `== heading ==`, as directly parsed from the wikitext.
+	 */
+	rawText: string;
+	/**
 	 * The inner text of the heading (i.e., the content between the equal signs).
 	 * This could be different from the result of `action=parse` if it contains HTML tags or templates.
 	 */
@@ -2105,10 +2115,15 @@ interface Heading {
  */
 export interface Section {
 	/**
-	 * `==heading==` or the outerHTML of a heading element. Any leading/trailing `\s`s are trimmed.
+	 * `==heading==` or the outerHTML of a heading element. Leading and trailing `\s` characters are trimmed.
 	 * For the top section, the value is empty.
 	 */
 	heading: string;
+	/**
+	 * `==heading==` or the outerHTML of a heading element, as directly parsed from the wikitext.
+	 * Unlike the sanitized {@link heading}, this may include comment tags and a trailing newline.
+	 */
+	rawHeading: string;
 	/**
 	 * The title of the section. Could be different from the result of `action=parse` if it contains HTML tags or templates.
 	 * For the top section, the value is `top`.
@@ -2132,9 +2147,15 @@ export interface Section {
 	 */
 	endIndex: number;
 	/**
-	 * The content of the section including the heading.
+	 * The body content of the section, with leading and trailing whitespace preserved.
 	 */
-	text: string;
+	content: string;
+	/**
+	 * The full text of the section, including the heading.
+	 *
+	 * This is a getter that returns the concatenation of {@link rawHeading} and {@link content}.
+	 */
+	readonly text: string;
 }
 
 /**
