@@ -25,7 +25,7 @@ import { ParamBase } from './baseClasses';
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { Wikitext, WikitextOptions, ParseTemplatesConfig } from './Wikitext';
+import type { Wikitext, SkipTags, ParseTemplatesConfig } from './Wikitext';
 
 /**
  * A list of no-hash functions. The listed members must not have a leading hash to function as a parser function.
@@ -420,7 +420,7 @@ export interface ParsedTemplate extends Template {
 	 */
 	nestLevel: number;
 	/**
-	 * Whether the template appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+	 * Whether the template appears inside an HTML tag specified in {@link SkipTags}.
 	 */
 	skip: boolean;
 
@@ -522,7 +522,7 @@ export interface RawTemplate extends TemplateBase<string> {
 	 */
 	nestLevel: number;
 	/**
-	 * Whether the template appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+	 * Whether the template appears inside an HTML tag specified in {@link SkipTags}.
 	 */
 	skip: boolean;
 
@@ -726,7 +726,7 @@ export interface ParsedParserFunction extends ParserFunction {
 	 */
 	nestLevel: number;
 	/**
-	 * Whether the parser function appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+	 * Whether the parser function appears inside an HTML tag specified in {@link SkipTags}.
 	 */
 	skip: boolean;
 

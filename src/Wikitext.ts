@@ -99,6 +99,12 @@ export type DoubleBracedClasses = ParsedTemplate | ParsedParserFunction | RawTem
  */
 export type DoubleBracketedClasses = ParsedWikilink | ParsedFileWikilink | ParsedRawWikilink;
 
+// TODO: Cannot handle rare cases like "<nowiki>[[link<!--]]-->|display]]</nowiki>", where a comment tag is nested
+// inside a non-comment skip tag. To handle these, it'll be necessary to differentiate the types of skip tags.
+const skipTags: SkipTags[] = ['!--', 'nowiki', 'pre', 'syntaxhighlight', 'source', 'math'];
+
+const rSkipTags = new RegExp(`^(?:${skipTags.join('|')})$`);
+
 /**
  * This interface defines the static members of the `Wikitext` class. For instance members,
  * see {@link Wikitext} (defined separately due to TypeScript limitations).
@@ -115,10 +121,9 @@ export interface WikitextStatic {
 	 * ```
 	 *
 	 * @param content A wikitext content.
-	 * @param options Options for the initialization of the instance.
 	 * @throws If `content` is not a string.
 	 */
-	new(content: string, options?: WikitextOptions): Wikitext;
+	new(content: string): Wikitext;
 	/**
 	 * Alias of the {@link WikitextStatic.constructor | constructor}.
 	 *
@@ -128,10 +133,9 @@ export interface WikitextStatic {
 	 * ```
 	 *
 	 * @param content A wikitext content.
-	 * @param options Options for the initialization of the instance.
 	 * @throws If `content` is not a string.
 	 */
-	'new'(content: string, options?: WikitextOptions): Wikitext;
+	'new'(content: string): Wikitext;
 	/**
 	 * Creates a new instance by fetching the content of the given title.
 	 *
@@ -147,11 +151,10 @@ export interface WikitextStatic {
 	 * ```
 	 *
 	 * @param title The page title, either as a string or a {@link Title} instance.
-	 * @param options Options for the initialization of the instance.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to a new `Wikitext` instance.
 	 */
-	newFromTitle(title: string | Title, options?: WikitextOptions, requestOptions?: MwbotRequestConfig): Promise<Wikitext>;
+	newFromTitle(title: string | Title, requestOptions?: MwbotRequestConfig): Promise<Wikitext>;
 	/**
 	 * Returns a list of valid HTML tag names that can be used in wikitext.
 	 *
@@ -302,39 +305,6 @@ export interface Wikitext {
 	modifyTags(
 		modificationPredicate: ModificationPredicate<ModificationMap['tags']>
 	): string;
-	/**
-	 * Adds tags in which elements shouldn't be parsed, if the tags are not already registered.
-	 *
-	 * CAUTION: This may lead to inconsistent parsing results.
-	 *
-	 * @param skipTags Array of tag names to add.
-	 * @returns The current Wikitext instance.
-	 */
-	addSkipTags(skipTags: string[]): this;
-	/**
-	 * Sets tags in which elements shouldn't be parsed, overwriting any existing settings.
-	 *
-	 * CAUTION: This may lead to inconsistent parsing results.
-	 *
-	 * @param skipTags Array of tag names to set.
-	 * @returns The current Wikitext instance.
-	 */
-	setSkipTags(skipTags: string[]): this;
-	/**
-	 * Removes tags from the list of tags in which elements shouldn't be parsed.
-	 *
-	 * CAUTION: This may lead to inconsistent parsing results.
-	 *
-	 * @param skipTags Array of tag names to remove.
-	 * @returns The current Wikitext instance.
-	 */
-	removeSkipTags(skipTags: string[]): this;
-	/**
-	 * Gets a copy of the names of currently registered tags in which elements shouldn't be parsed.
-	 *
-	 * @returns An array of the current skip tag names.
-	 */
-	getSkipTags(): string[];
 	/**
 	 * Parses sections in the wikitext.
 	 *
@@ -541,16 +511,8 @@ export function WikitextFactory(
 			templates: DoubleBracedClasses[] | null;
 			wikilinks: DoubleBracketedClasses[] | null;
 		};
-		/**
-		 * The names of tags in which elements shouldn't be parsed.
-		 *
-		 * The default values are `!--`, `nowiki`, `pre`, `syntaxhighlight`, `source`, and `math`.
-		 *
-		 * See also {@link WikitextOptions}.
-		 */
-		private skipTags: string[];
 
-		constructor(content: string, options: WikitextOptions = {}) {
+		constructor(content: string) {
 
 			if (typeof content !== 'string') {
 				throw new MwbotError('fatal', {
@@ -568,34 +530,15 @@ export function WikitextFactory(
 				wikilinks: null
 			};
 
-			// Initialize the names of tags in which elements shouldn't be parsed
-			const defaultSkipTags =
-				options.overwriteSkipTags ?
-				[] :
-				// TODO: Cannot handle rare cases like "<nowiki>[[link<!--]]-->|display]]</nowiki>", where a comment tag is nested
-				// inside a non-comment skip tag. To handle these, it'll be necessary to differentiate the types of skip tags.
-				['!--', 'nowiki', 'pre', 'syntaxhighlight', 'source', 'math'];
-			if (options.skipTags) {
-				defaultSkipTags.push(
-					...options.skipTags.reduce((acc: string[], el: unknown) => {
-						if (typeof el === 'string') {
-							acc.push(el.toLowerCase());
-						}
-						return acc;
-					}, [])
-				);
-			}
-			this.skipTags = [...new Set(defaultSkipTags)];
-
 		}
 
-		static new(content: string, options: WikitextOptions = {}): Wikitext {
-			return new Wikitext(content, options);
+		static new(content: string): Wikitext {
+			return new Wikitext(content);
 		}
 
-		static async newFromTitle(title: string | Title, options: WikitextOptions = {}, requestOptions: MwbotRequestConfig = {}): Promise<Wikitext> {
+		static async newFromTitle(title: string | Title, requestOptions: MwbotRequestConfig = {}): Promise<Wikitext> {
 			const rev = await mw.read(title, requestOptions);
-			return new Wikitext(rev.content, options);
+			return new Wikitext(rev.content);
 		}
 
 		static getValidTags(): Set<string> {
@@ -978,37 +921,6 @@ export function WikitextFactory(
 			return this.modify('tags', modificationPredicate);
 		}
 
-		addSkipTags(skipTags: string[]): Wikitext {
-			skipTags.forEach((el: unknown) => {
-				if (typeof el === 'string' && !skipTags.includes((el = el.toLowerCase()))) {
-					this.skipTags.push(el as string);
-				}
-			});
-			return this;
-		}
-
-		setSkipTags(skipTags: string[]): Wikitext {
-			this.skipTags = skipTags.reduce((acc: string[], el: unknown) => {
-				if (typeof el === 'string') {
-					acc.push(el.toLowerCase());
-				}
-				return acc;
-			}, []);
-			return this;
-		}
-
-		removeSkipTags(skipTags: string[]): Wikitext {
-			if (skipTags.join('')) {
-				const rSkipTags = new RegExp(`^(?:${skipTags.join('|')})$`);
-				this.skipTags = this.skipTags.filter((el) => rSkipTags.test(el));
-			}
-			return this;
-		}
-
-		getSkipTags(): string[] {
-			return [...this.skipTags];
-		}
-
 		/**
 		 * Generates a function that evaluates whether a string starting at an index and ending at another
 		 * is inside a tag in which that string shouldn't be parsed.
@@ -1018,11 +930,6 @@ export function WikitextFactory(
 		 * @returns A function that checks whether a given range is inside any tag to skip parsing.
 		 */
 		private getSkipPredicate(tags?: Tag[]): (startIndex: number, endIndex: number) => boolean {
-
-			if (!this.skipTags.join('')) {
-				return () => false;
-			}
-			const rSkipTags = new RegExp(`^(?:${this.skipTags.join('|')})$`);
 
 			// Create an array to store the start and end indices of tags to skip
 			tags = tags || this.storageManager('tags', false);
@@ -1321,7 +1228,6 @@ export function WikitextFactory(
 			const indexMap: IndexMap = Object.create(null);
 
 			// Process skipTags
-			const rSkipTags = new RegExp(`^(?:${this.skipTags.join('|')})$`);
 			this.storageManager('tags', false).forEach(({text, startIndex, name, content}) => {
 				// If this is a skip tag or a gallery tag whose content contains a pipe character
 				if (rSkipTags.test(name) || name === 'gallery' && options.gallery && content && content.includes('|')) {
@@ -1953,36 +1859,22 @@ export function WikitextFactory(
 // Interfaces for constructor and the entire module
 
 /**
- * Options for initializing a {@link Wikitext} instance.
+ * HTML tags in which elements shouldn't be parsed.
+ *
+ * Example:
+ * ```
+ * blah blah <!-- {{Template}} --> {{Template}} blah blah
+ * ```
+ * In many cases, `{{Template}}` inside a comment tag shouldn't be parsed.
+ * This type declaration defines such tags to control parsing behavior.
  */
-export interface WikitextOptions {
-	/**
-	 * HTML tags in which elements shouldn't be parsed.
-	 *
-	 * NOTE: This option is usually unnecessary.
-	 *
-	 * Example:
-	 * ```
-	 * blah blah <!-- {{Template}} --> {{Template}} blah blah
-	 * ```
-	 * In many cases, `{{Template}}` inside a comment tag shouldn't be parsed.
-	 * Specify such tags to control parsing behavior.
-	 *
-	 * By default, elements inside the following tags (referred to as "skip tags" in this framework)
-	 * are parsed with `{skip: true}`:
-	 * * `!--`, `nowiki`, `pre`, `syntaxhighlight`, `source`, and `math`.
-	 *
-	 * The specified tags will be merged with the defaults unless {@link overwriteSkipTags} is `true`.
-	 */
-	skipTags?: string[];
-	/**
-	 * Whether to overwrite the default skip tags. If `true`, {@link skipTags} replaces the default list
-	 * instead of merging with it.
-	 *
-	 * NOTE: This may lead to inconsistent parsing results.
-	 */
-	overwriteSkipTags?: boolean;
-}
+export type SkipTags =
+	| '!--'
+	| 'nowiki'
+	| 'pre'
+	| 'syntaxhighlight'
+	| 'source'
+	| 'math';
 
 /**
  * A mapping of a storage key to parser methods' arguments, used to make it possible to pass
@@ -2085,7 +1977,7 @@ export interface Tag {
 	 */
 	selfClosing: boolean;
 	/**
-	 * Whether the tag appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+	 * Whether the tag appears inside an HTML tag specified in {@link SkipTags}.
 	 */
 	skip: boolean;
 }
@@ -2295,7 +2187,7 @@ export interface Parameter {
 	 */
 	nestLevel: number;
 	/**
-	 * Whether the parameter appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+	 * Whether the parameter appears inside an HTML tag specified in {@link SkipTags}.
 	 */
 	skip: boolean;
 }
@@ -2363,7 +2255,7 @@ interface FuzzyWikilink {
 	 */
 	nestLevel: number;
 	/**
-	 * Whether the wikilink appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+	 * Whether the wikilink appears inside an HTML tag specified in {@link SkipTags}.
 	 */
 	skip: boolean;
 }
