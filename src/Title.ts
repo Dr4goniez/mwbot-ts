@@ -682,7 +682,6 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		},
 		// control characters
 		{
-			// eslint-disable-next-line no-control-regex
 			pattern: /[\x00-\x1f\x7f]/g,
 			replace: '',
 			generalRule: true
