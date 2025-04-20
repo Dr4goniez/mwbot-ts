@@ -1264,10 +1264,13 @@ export function WikitextFactory(
 						key: paramName,
 						value: paramValue.trim(),
 						text: paramText,
+						index: params.length,
 						startIndex: match.index,
 						endIndex: regex.params.lastIndex,
 						nestLevel,
-						skip: isInSkipRange(match.index, regex.params.lastIndex)
+						skip: isInSkipRange(match.index, regex.params.lastIndex),
+						parent: null,
+						children: new Set()
 					};
 					params.push(param);
 
@@ -1282,6 +1285,9 @@ export function WikitextFactory(
 
 			}
 
+			for (const param of params) {
+				setKinships(param, params);
+			}
 			return params;
 
 		}
@@ -1978,7 +1984,7 @@ export type SkipTags =
  * @param arr The array of the objects.
  */
 function setKinships<
-	T extends Tag | Section
+	T extends Tag | Section | Parameter
 >(obj: T, arr: T[]): void {
 	const getLevel = (x: T): number => 'level' in x ? x.level : x.nestLevel;
 	let parentIndex: [number, number] = [-1, Infinity];
@@ -2332,6 +2338,10 @@ export interface Parameter {
 	 */
 	text: string;
 	/**
+	 * The index of this Parameter object within the result array returned by `parseParameters`.
+	 */
+	index: number;
+	/**
 	 * The starting index of the parameter in the wikitext.
 	 */
 	startIndex: number;
@@ -2349,6 +2359,14 @@ export interface Parameter {
 	 * Whether the parameter appears inside an HTML tag specified in {@link SkipTags}.
 	 */
 	skip: boolean;
+	/**
+	 * The index of the parent Parameter object within the `parseParameters` result array, or `null` if there is no parent.
+	 */
+	parent: number | null;
+	/**
+	 * The indices of the child Parameter objects within the `parseParameters` result array.
+	 */
+	children: Set<number>;
 }
 
 /**
