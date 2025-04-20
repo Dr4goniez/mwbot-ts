@@ -903,25 +903,8 @@ export function WikitextFactory(
 			const isInSkipRange = this.getSkipPredicate(parsed);
 			return parsed.map((tag, i, arr) => {
 				tag.index = i;
-				let parentIndex: [number, number] = [-1, Infinity];
-				for (const [index, {startIndex, endIndex, nestLevel}] of arr.entries()) {
-					// Set parent
-					if (
-						(startIndex < tag.startIndex && tag.endIndex < endIndex) &&
-						// Ensure to retrieve the immediate parent
-						parentIndex[0] < startIndex && endIndex < parentIndex[1]
-					) {
-						tag.parent = index;
-						parentIndex = [startIndex, endIndex];
-					}
-					// Set children
-					if (nestLevel === tag.nestLevel + 1 &&
-						tag.startIndex < startIndex && endIndex < tag.endIndex
-					) {
-						tag.children.add(index);
-					}
-				}
 				tag.skip = isInSkipRange(tag.startIndex, tag.endIndex);
+				setKinships(tag, arr);
 				return tag;
 			});
 
@@ -1165,9 +1148,14 @@ export function WikitextFactory(
 					content,
 					get text() {
 						return this.heading + this.content;
-					}
+					},
+					parent: null,
+					children: new Set()
 				};
 			});
+			for (const obj of sections) {
+				setKinships(obj, sections);
+			}
 
 			return sections;
 
@@ -1983,6 +1971,39 @@ export type SkipTags =
 	| 'math';
 
 /**
+ * Assigns the `parent` and `children` relationships for the given object by
+ * examining its position and nesting level relative to other objects in the array.
+ *
+ * @param obj The object whose relationships are to be assigned.
+ * @param arr The array of the objects.
+ */
+function setKinships<
+	T extends Tag | Section
+>(obj: T, arr: T[]): void {
+	const getLevel = (x: T): number => 'level' in x ? x.level : x.nestLevel;
+	let parentIndex: [number, number] = [-1, Infinity];
+	for (const [index, current] of arr.entries()) {
+		const {startIndex, endIndex} = current;
+		// Set parent
+		if (
+			startIndex < obj.startIndex && obj.endIndex < endIndex &&
+			// Ensure to retrieve the immediate parent
+			parentIndex[0] < startIndex && endIndex < parentIndex[1]
+		) {
+			obj.parent = index;
+			parentIndex = [startIndex, endIndex];
+		}
+		// Set children
+		if (
+			getLevel(current) === getLevel(obj) + 1 &&
+			obj.startIndex < startIndex && endIndex < obj.endIndex
+		) {
+			obj.children.add(index);
+		}
+	}
+}
+
+/**
  * A mapping of a storage key to parser methods' arguments, used to make it possible to pass
  * function arguments to storageManager.
  */
@@ -2054,6 +2075,10 @@ export interface Tag {
 	 */
 	end: string;
 	/**
+	 * The index of this Tag object within the result array returned by `parseTags`.
+	 */
+	index: number;
+	/**
 	 * The index at which this tag starts in the wikitext.
 	 */
 	startIndex: number;
@@ -2086,10 +2111,6 @@ export interface Tag {
 	 * Whether the tag appears inside an HTML tag specified in {@link SkipTags}.
 	 */
 	skip: boolean;
-	/**
-	 * The index of this Tag object within the result array returned by `parseTags`.
-	 */
-	index: number;
 	/**
 	 * The index of the parent Tag object within the `parseTags` result array, or `null` if there is no parent.
 	 */
@@ -2243,6 +2264,8 @@ export interface Section {
 	/**
 	 * The index number of the section. This is the same as the `section` parameter of {@link https://www.mediawiki.org/wiki/API:Edit | the edit API}.
 	 * For the top section, the value is `0`.
+	 *
+	 * This property also matches the index of this Section object within the result array returned by `parseSections`.
 	 */
 	index: number;
 	/**
@@ -2263,6 +2286,14 @@ export interface Section {
 	 * This is a getter that returns the concatenation of {@link heading} and {@link content}.
 	 */
 	readonly text: string;
+	/**
+	 * The index of the parent Section object within the `parseSections` result array, or `null` if there is no parent.
+	 */
+	parent: number | null;
+	/**
+	 * The indices of the child Section objects within the `parseSections` result array.
+	 */
+	children: Set<number>;
 }
 
 /**
