@@ -848,7 +848,10 @@ export function WikitextFactory(
 								void: false,
 								unclosed: !startTagMatched,
 								selfClosing: start.selfClosing,
-								skip: false
+								skip: false,
+								index: -1,
+								parent: null,
+								children: new Set()
 							});
 							closedTagCnt++;
 
@@ -886,16 +889,38 @@ export function WikitextFactory(
 					void: false,
 					unclosed: true,
 					selfClosing,
-					skip: false
+					skip: false,
+					index: -1,
+					parent: null,
+					children: new Set()
 				});
 			});
 
 			// Sort the parsed tags based on their positions in the wikitext and return
 			parsed.sort((obj1, obj2) => obj1.startIndex - obj2.startIndex);
 
-			// Set up the `skip` property and return the result
+			// Set up the `skip` and index-related properties and return the result
 			const isInSkipRange = this.getSkipPredicate(parsed);
-			return parsed.map((tag) => {
+			return parsed.map((tag, i, arr) => {
+				tag.index = i;
+				let parentIndex: [number, number] = [-1, Infinity];
+				for (const [index, {startIndex, endIndex, nestLevel}] of arr.entries()) {
+					// Set parent
+					if (
+						(startIndex < tag.startIndex && tag.endIndex < endIndex) &&
+						// Ensure to retrieve the immediate parent
+						parentIndex[0] < startIndex && endIndex < parentIndex[1]
+					) {
+						tag.parent = index;
+						parentIndex = [startIndex, endIndex];
+					}
+					// Set children
+					if (nestLevel === tag.nestLevel + 1 &&
+						tag.startIndex < startIndex && endIndex < tag.endIndex
+					) {
+						tag.children.add(index);
+					}
+				}
 				tag.skip = isInSkipRange(tag.startIndex, tag.endIndex);
 				return tag;
 			});
@@ -2061,6 +2086,18 @@ export interface Tag {
 	 * Whether the tag appears inside an HTML tag specified in {@link SkipTags}.
 	 */
 	skip: boolean;
+	/**
+	 * The index of this Tag object within the result array returned by `parseTags`.
+	 */
+	index: number;
+	/**
+	 * The index of the parent Tag object within the `parseTags` result array, or `null` if there is no parent.
+	 */
+	parent: number | null;
+	/**
+	 * The indices of the child Tag objects within the `parseTags` result array.
+	 */
+	children: Set<number>;
 }
 
 /**
@@ -2116,7 +2153,10 @@ function createVoidTagObject(
 		void: !pseudoVoid,
 		unclosed: false,
 		selfClosing,
-		skip
+		skip,
+		index: -1,
+		parent: null,
+		children: new Set()
 	};
 }
 
