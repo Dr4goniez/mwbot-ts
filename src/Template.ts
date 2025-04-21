@@ -112,7 +112,6 @@ export interface TemplateBaseStatic<T extends string | Title> {
  * @protected
  */
 export interface TemplateBase<T extends string | Title> {
-
 	/**
 	 * The template's title.
 	 *
@@ -397,32 +396,11 @@ export interface ParsedTemplateStatic extends Omit<TemplateStatic, 'new'> {
  * The instance members of the `ParsedTemplate` class. For static members,
  * see {@link ParsedTemplateStatic} (defined separately due to TypeScript limitations).
  */
-export interface ParsedTemplate extends Template {
+export interface ParsedTemplate extends Template, ParsedClassProps<ParsedTemplate> {
 	/**
 	 * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
 	 */
 	rawTitle: string;
-	/**
-	 * The original text of the template parsed from the wikitext.
-	 * The value of this property is static.
-	 */
-	text: string;
-	/**
-	 * The starting index of this template in the wikitext.
-	 */
-	startIndex: number;
-	/**
-	 * The ending index of this template in the wikitext (exclusive).
-	 */
-	endIndex: number;
-	/**
-	 * The nesting level of this template. `0` if not nested within another double-braced expression.
-	 */
-	nestLevel: number;
-	/**
-	 * Whether the template appears inside an HTML tag specified in {@link SkipTags}.
-	 */
-	skip: boolean;
 
 	/**
 	 * Converts the instance to a {@link ParsedParserFunction}.
@@ -455,10 +433,61 @@ export interface ParsedTemplate extends Template {
 	 * @inheritdoc
 	 */
 	toString(): string;
+}
+
+export interface ParsedClassProps<CLS> {
+	/**
+	 * The original text of the double-braced markup parsed from the wikitext.
+	 * The value of this property is static.
+	 */
+	text: string;
+	/**
+	 * The index of this object within the result array returned by {@link Wikitext.parseTemplates | parseTemplates}.
+	 */
+	index: number;
+	/**
+	 * The starting index of this double-braced markup in the wikitext.
+	 */
+	startIndex: number;
+	/**
+	 * The ending index of this double-braced markup in the wikitext (exclusive).
+	 */
+	endIndex: number;
+	/**
+	 * The nesting level of this double-braced markup. `0` if not nested within another double-braced expression.
+	 */
+	nestLevel: number;
+	/**
+	 * Whether the double-braced markup appears inside an HTML tag specified in {@link SkipTags}.
+	 */
+	skip: boolean;
+	/**
+	 * The index of the parent object within the {@link Wikitext.parseTemplates | parseTemplates} result array,
+	 * or `null` if there is no parent.
+	 */
+	parent: number | null;
+	/**
+	 * The indices of the child objects within the {@link Wikitext.parseTemplates | parseTemplates} result array.
+	 */
+	children: Set<number>;
+
 	/**
 	 * @hidden
 	 */
-	_clone(options?: ParsedTemplateOptions): ParsedTemplate;
+	_clone(options?: ParsedTemplateOptions): CLS;
+	/**
+	 * @hidden
+	 */
+	_getInitializer<
+		K extends keyof ParsedTemplateInitializer
+	>(key: K): ParsedTemplateInitializer[K];
+	/**
+	 * @hidden
+	 */
+	_updateInitializer<
+		K extends keyof ParsedTemplateInitializer,
+		T extends ParsedTemplateInitializer
+	>(key: K, value: T[K]): CLS;
 }
 
 /**
@@ -499,32 +528,11 @@ export interface RawTemplateStatic extends Omit<TemplateBaseStatic<string>, 'new
  * The instance members of the `RawTemplate` class. For static members,
  * see {@link RawTemplateStatic} (defined separately due to TypeScript limitations).
  */
-export interface RawTemplate extends TemplateBase<string> {
+export interface RawTemplate extends TemplateBase<string>, ParsedClassProps<RawTemplate> {
 	/**
 	 * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
 	 */
 	rawTitle: string;
-	/**
-	 * The original text of the template parsed from the wikitext.
-	 * The value of this property is static.
-	 */
-	text: string;
-	/**
-	 * The starting index of this template in the wikitext.
-	 */
-	startIndex: number;
-	/**
-	 * The ending index of this template in the wikitext (exclusive).
-	 */
-	endIndex: number;
-	/**
-	 * The nesting level of this template. `0` if not nested within another double-braced expression.
-	 */
-	nestLevel: number;
-	/**
-	 * Whether the template appears inside an HTML tag specified in {@link SkipTags}.
-	 */
-	skip: boolean;
 
 	/**
 	 * Sets a new title to the instance.
@@ -581,10 +589,6 @@ export interface RawTemplate extends TemplateBase<string> {
 	 * @returns The template as a string.
 	 */
 	toString(): string;
-	/**
-	 * @hidden
-	 */
-	_clone(options?: ParsedTemplateOptions): RawTemplate;
 }
 
 /**
@@ -703,32 +707,11 @@ export interface ParsedParserFunctionStatic extends Omit<ParserFunctionStatic, '
  * The instance members of the `ParsedParserFunction` class. For static members,
  * see {@link ParsedParserFunctionStatic} (defined separately due to TypeScript limitations).
  */
-export interface ParsedParserFunction extends ParserFunction {
+export interface ParsedParserFunction extends ParserFunction, ParsedClassProps<ParsedParserFunction> {
 	/**
 	 * The raw parser function hook, as directly parsed from the wikitext.
 	 */
 	rawHook: string;
-	/**
-	 * The original text of the parser function parsed from the wikitext.
-	 * The value of this property is static.
-	 */
-	text: string;
-	/**
-	 * The starting index of this parser function in the wikitext.
-	 */
-	startIndex: number;
-	/**
-	 * The ending index of this parser function in the wikitext (exclusive).
-	 */
-	endIndex: number;
-	/**
-	 * The nesting level of this parser function. `0` if not nested within another double-braced expression.
-	 */
-	nestLevel: number;
-	/**
-	 * Whether the parser function appears inside an HTML tag specified in {@link SkipTags}.
-	 */
-	skip: boolean;
 
 	/**
 	 * Converts the instance to a {@link ParsedTemplate}.
@@ -750,10 +733,6 @@ export interface ParsedParserFunction extends ParserFunction {
 	 * @inheritdoc
 	 */
 	toString(): string;
-	/**
-	 * @hidden
-	 */
-	_clone(): ParsedParserFunction;
 }
 
 /**
@@ -1350,10 +1329,13 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		rawTitle: string;
 		text: string;
+		index: number;
 		startIndex: number;
 		endIndex: number;
 		nestLevel: number;
 		skip: boolean;
+		parent: number | null;
+		children: Set<number>;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
@@ -1364,21 +1346,21 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		private _initializer: ParsedTemplateInitializer;
 
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
-			const {title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip} = initializer;
+			const {title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children} = initializer;
 			const t = Template.validateTitle(title);
 			const titleStr = t.getPrefixedDb();
-			const hierarchies = options.hierarchies && titleStr in options.hierarchies
-				? options.hierarchies[titleStr].map((arr) => arr.slice())
-				: [];
-			super(t, params, hierarchies);
+			super(t, params, options.hierarchies?.[titleStr]);
 			this._initializer = initializer;
 			this.rawTitle = rawTitle.replace('\x01', title);
 			this._rawTitle = rawTitle;
 			this.text = text;
+			this.index = index;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
 			this.nestLevel = nestLevel;
 			this.skip = skip;
+			this.parent = parent;
+			this.children = new Set([...children]);
 		}
 
 		toParserFunction(title: string | Title, verbose = false): ParsedParserFunction | null {
@@ -1415,6 +1397,20 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return new ParsedTemplate(this._initializer, options);
 		}
 
+		_getInitializer<
+			K extends keyof ParsedTemplateInitializer
+		>(key: K): ParsedTemplateInitializer[K] {
+			return this._initializer[key];
+		}
+
+		_updateInitializer<
+			K extends keyof ParsedTemplateInitializer,
+			T extends ParsedTemplateInitializer
+		>(key: K, value: T[K]): this {
+			this._initializer[key] = value;
+			return this;
+		}
+
 	}
 
 	// Check missing members
@@ -1426,10 +1422,13 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		rawTitle: string;
 		text: string;
+		index: number;
 		startIndex: number;
 		endIndex: number;
 		nestLevel: number;
 		skip: boolean;
+		parent: number | null;
+		children: Set<number>;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
@@ -1440,19 +1439,19 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		private _initializer: ParsedTemplateInitializer;
 
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
-			const {title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip} = initializer;
-			const hierarchies = options.hierarchies && title in options.hierarchies
-				? options.hierarchies[title].map((arr) => arr.slice())
-				: [];
-			super(title, params, hierarchies);
+			const {title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children} = initializer;
+			super(title, params, options.hierarchies?.[title]);
 			this._initializer = initializer;
 			this.rawTitle = rawTitle.replace('\x01', title);
 			this._rawTitle = rawTitle;
 			this.text = text;
+			this.index = index;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
 			this.nestLevel = nestLevel;
 			this.skip = skip;
+			this.parent = parent;
+			this.children = new Set([...children]);
 		}
 
 		setTitle(title: string): this {
@@ -1506,6 +1505,20 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		_clone(options: ParsedTemplateOptions = {}) {
 			return new RawTemplate(this._initializer, options);
+		}
+
+		_getInitializer<
+			K extends keyof ParsedTemplateInitializer
+		>(key: K): ParsedTemplateInitializer[K] {
+			return this._initializer[key];
+		}
+
+		_updateInitializer<
+			K extends keyof ParsedTemplateInitializer,
+			T extends ParsedTemplateInitializer
+		>(key: K, value: T[K]): this {
+			this._initializer[key] = value;
+			return this;
 		}
 
 	}
@@ -1613,10 +1626,13 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		rawHook: string;
 		text: string;
+		index: number;
 		startIndex: number;
 		endIndex: number;
 		nestLevel: number;
 		skip: boolean;
+		parent: number | null;
+		children: Set<number>;
 		/**
 		 * {@link rawHook} with the insertion point of {@link hook} replaced with a control character.
 		 */
@@ -1628,7 +1644,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		constructor(initializer: ParsedTemplateInitializer) {
 
-			const {title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip} = initializer;
+			const {title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children} = initializer;
 			const verified = ParserFunction.verify(title);
 			if (!verified) {
 				throw new Error(`"${title}" is not a valid function hook.`);
@@ -1690,10 +1706,13 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			this.rawHook = rawHook;
 			this._rawHook = _rawHook;
 			this.text = text;
+			this.index = index;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
 			this.nestLevel = nestLevel;
 			this.skip = skip;
+			this.parent = parent;
+			this.children = new Set([...children]);
 
 		}
 
@@ -1728,6 +1747,20 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		_clone() {
 			return new ParsedParserFunction(this._initializer);
+		}
+
+		_getInitializer<
+			K extends keyof ParsedTemplateInitializer
+		>(key: K): ParsedTemplateInitializer[K] {
+			return this._initializer[key];
+		}
+
+		_updateInitializer<
+			K extends keyof ParsedTemplateInitializer,
+			T extends ParsedTemplateInitializer
+		>(key: K, value: T[K]): this {
+			this._initializer[key] = value;
+			return this;
 		}
 
 	}
@@ -1935,17 +1968,21 @@ export interface RawTemplateOutputConfig extends TemplateOutputConfig<string> {
 }
 
 /**
- * The initializer object for ParsedTemplate and RawTemplate constructors.
+ * The initializer object for ParsedTemplate, ParsedParserFunction and RawTemplate constructors.
+ * @internal
  */
-interface ParsedTemplateInitializer {
+export interface ParsedTemplateInitializer {
 	title: string;
 	rawTitle: string;
 	text: string;
 	params: NewTemplateParameter[];
 	startIndex: number;
+	index: number;
 	endIndex: number;
 	nestLevel: number;
 	skip: boolean;
+	parent: number | null;
+	children: Set<number>;
 }
 
 /**

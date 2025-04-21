@@ -71,7 +71,8 @@ import type {
 	ParsedParserFunction,
 	NewTemplateParameter,
 	TemplateParameterHierarchies,
-	ParsedTemplateOptions
+	ParsedTemplateOptions,
+	ParsedTemplateInitializer
 } from './Template';
 import type {
 	ParsedWikilinkStatic,
@@ -1285,8 +1286,8 @@ export function WikitextFactory(
 
 			}
 
-			for (const param of params) {
-				setKinships(param, params);
+			for (const obj of params) {
+				setKinships(obj, params);
 			}
 			return params;
 
@@ -1659,15 +1660,18 @@ export function WikitextFactory(
 						}
 						const endIndex = i + 2;
 						const text = wikitext.slice(startIndex, endIndex);
-						const initializer = {
+						const initializer: ParsedTemplateInitializer = {
 							title,
 							rawTitle,
 							text,
 							params,
+							index: -1,
 							startIndex,
 							endIndex,
 							nestLevel,
-							skip: isInSkipRange(startIndex, endIndex)
+							skip: isInSkipRange(startIndex, endIndex),
+							parent: null,
+							children: new Set()
 						};
 						let temp: DoubleBracedClasses;
 						try {
@@ -1796,14 +1800,13 @@ export function WikitextFactory(
 						return {key: key.replace(/\x02/g, '|'), value: value.replace(/\x02/g, '|')};
 					});
 
-					// Hack: Update `params` in `_initializer` and recreate instance
+					// Update `params` in `_initializer` and recreate instance
 					if (temp instanceof mw.ParserFunction) {
-						// @ts-expect-error Modifying a private property
-						temp._initializer.params = [temp._initializer.params[0]].concat(params);
+						const [param1] = temp._getInitializer('params');
+						temp._updateInitializer('params', [param1].concat(params));
 						templates[i] = temp._clone();
 					} else {
-						// @ts-expect-error Modifying a private property
-						temp._initializer.params = params;
+						temp._updateInitializer('params', params);
 						templates[i] = temp._clone(options);
 					}
 				}
@@ -1811,7 +1814,17 @@ export function WikitextFactory(
 			// eslint-disable-next-line no-constant-condition
 			} while (false); // Always get out of the loop automatically
 
-			return templates.sort((obj1, obj2) => obj1.startIndex - obj2.startIndex);
+			templates.sort((obj1, obj2) => obj1.startIndex - obj2.startIndex);
+			for (const [index, obj] of templates.entries()) {
+				obj.index = index;
+				setKinships(obj, templates);
+				obj
+					._updateInitializer('index', index)
+					._updateInitializer('parent', obj.parent)
+					._updateInitializer('children', obj.children)
+			}
+
+			return templates;
 
 		}
 
@@ -1984,7 +1997,7 @@ export type SkipTags =
  * @param arr The array of the objects.
  */
 function setKinships<
-	T extends Tag | Section | Parameter
+	T extends Tag | Section | Parameter | DoubleBracedClasses
 >(obj: T, arr: T[]): void {
 	const getLevel = (x: T): number => 'level' in x ? x.level : x.nestLevel;
 	let parentIndex: [number, number] = [-1, Infinity];
