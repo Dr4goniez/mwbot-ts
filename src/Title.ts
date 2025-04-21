@@ -16,6 +16,7 @@
  * @module
  */
 
+import { IPUtil } from 'ip-wiki';
 import type { Mwbot } from './Mwbot';
 import { toUpperMap, toLowerMap } from './phpCharMap';
 import * as mwString from './String';
@@ -617,6 +618,8 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	const NS_SPECIAL = namespaceIds.special;
 	const NS_MEDIA = namespaceIds.media;
 	const NS_FILE = namespaceIds.file;
+	const NS_USER = namespaceIds.user;
+	const NS_USER_TALK = namespaceIds.user_talk;
 	const FILENAME_MAX_BYTES = 240;
 	const TITLE_MAX_BYTES = 255;
 
@@ -1015,20 +1018,16 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		if (namespace !== NS_SPECIAL && mwString.byteLength(title) > TITLE_MAX_BYTES) {
 			return false;
 		}
-		/*
-		TODO: Need a function to validate IPv6 addresses
 		// Allow IPv6 usernames to start with '::' by canonicalizing IPv6 titles.
 		// IP names are not allowed for accounts, and can only be referring to
 		// edits from the IP. Given '::' abbreviations and caps/lowercaps,
 		// there are numerous ways to present the same IP. Having sp:contribs scan
 		// them all is silly and having some show the edits and others not is
 		// inconsistent. Same for talk/userpages. Keep them normalized instead.
-		if ( $dbkey !== '' && ( $parts['namespace'] === NS_USER || $parts['namespace'] === NS_USER_TALK ) ) {
-			$dbkey = IPUtils::sanitizeIP( $dbkey );
-			// IPUtils::sanitizeIP return null only for bad input
-			'@phan-var string $dbkey';
+		let sanitizedIp;
+		if ((namespace === NS_USER || namespace === NS_USER_TALK) && (sanitizedIp = IPUtil.sanitize(title, true))) {
+			title = sanitizedIp;
 		}
-		*/
 		// Any remaining initial :s are illegal.
 		if (title[0] === ':') {
 			return false;
