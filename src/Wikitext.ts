@@ -80,7 +80,10 @@ import type {
 	ParsedFileWikilinkStatic,
 	ParsedFileWikilink,
 	ParsedRawWikilinkStatic,
-	ParsedRawWikilink
+	ParsedRawWikilink,
+	ParsedFileWikilinkInitializer,
+	ParsedWikilinkInitializer,
+	ParsedRawWikilinkInitializer
 } from './Wikilink';
 
 // Imported only for docs
@@ -1803,10 +1806,10 @@ export function WikitextFactory(
 					// Update `params` in `_initializer` and recreate instance
 					if (temp instanceof mw.ParserFunction) {
 						const [param1] = temp._getInitializer('params');
-						temp._updateInitializer('params', [param1].concat(params));
+						temp._setInitializer({params: [param1].concat(params)});
 						templates[i] = temp._clone();
 					} else {
-						temp._updateInitializer('params', params);
+						temp._setInitializer({params});
 						templates[i] = temp._clone(options);
 					}
 				}
@@ -1818,10 +1821,11 @@ export function WikitextFactory(
 			for (const [index, obj] of templates.entries()) {
 				obj.index = index;
 				setKinships(obj, templates);
-				obj
-					._updateInitializer('index', index)
-					._updateInitializer('parent', obj.parent)
-					._updateInitializer('children', obj.children)
+				obj._setInitializer({
+					index,
+					parent: obj.parent,
+					children: obj.children
+				});
 			}
 
 			return templates;
@@ -1855,7 +1859,7 @@ export function WikitextFactory(
 		private _parseWikilinks(): DoubleBracketedClasses[] {
 			// Call _parseWikilinksFuzzy() with an index map including templates (this avoids circular calls)
 			const indexMap = this.getIndexMap({parameters: true, templates: true});
-			return this._parseWikilinksFuzzy(indexMap).reduce((acc: DoubleBracketedClasses[], obj) => {
+			const links = this._parseWikilinksFuzzy(indexMap).map((obj, index) => {
 
 				const {right, title, ...rest} = obj;
 
@@ -1915,34 +1919,57 @@ export function WikitextFactory(
 						}
 						params.push(text); // Push the remaining file link parameter
 					}
-					const initializer = {
+					const initializer: ParsedFileWikilinkInitializer = {
 						params,
 						_rawTitle,
 						title: verifiedTitle,
+						index,
+						parent: null,
+						children: new Set(),
 						...rest
 					};
-					acc.push(new ParsedFileWikilink(initializer));
+					return new ParsedFileWikilink(initializer);
 				} else if (verifiedTitle) {
 					// This is a normal [[wikilink]], including [[:File:...]]
-					const initializer = {
+					const initializer: ParsedWikilinkInitializer = {
 						display: right || undefined,
 						_rawTitle,
 						title: verifiedTitle,
+						index,
+						parent: null,
+						children: new Set(),
 						...rest
 					};
-					acc.push(new ParsedWikilink(initializer));
+					return new ParsedWikilink(initializer);
 				} else {
 					// `title` is invalid or unparsable
-					const initializer = {
+					const initializer: ParsedRawWikilinkInitializer = {
 						display: right || undefined,
 						_rawTitle,
 						title,
+						index,
+						parent: null,
+						children: new Set(),
 						...rest
 					};
-					acc.push(new ParsedRawWikilink(initializer));
+					return new ParsedRawWikilink(initializer);
 				}
-				return acc;
-			}, []);
+			});
+			for (const obj of links) {
+				setKinships(obj, links);
+				const init = {
+					parent: obj.parent,
+					children: obj.children
+				};
+				if (obj instanceof ParsedWikilink) {
+					obj._setInitializer(init);
+				} else if (obj instanceof ParsedFileWikilink) {
+					obj._setInitializer(init);
+				} else if (obj instanceof ParsedRawWikilink) {
+					obj._setInitializer(init);
+				}
+			}
+			return links;
 		}
 
 		parseWikilinks(config: ParseWikilinksConfig = {}): DoubleBracketedClasses[] {
@@ -1997,7 +2024,7 @@ export type SkipTags =
  * @param arr The array of the objects.
  */
 function setKinships<
-	T extends Tag | Section | Parameter | DoubleBracedClasses
+	T extends Tag | Section | Parameter | DoubleBracedClasses | DoubleBracketedClasses
 >(obj: T, arr: T[]): void {
 	const getLevel = (x: T): number => 'level' in x ? x.level : x.nestLevel;
 	let parentIndex: [number, number] = [-1, Infinity];

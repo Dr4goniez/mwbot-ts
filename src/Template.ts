@@ -396,7 +396,7 @@ export interface ParsedTemplateStatic extends Omit<TemplateStatic, 'new'> {
  * The instance members of the `ParsedTemplate` class. For static members,
  * see {@link ParsedTemplateStatic} (defined separately due to TypeScript limitations).
  */
-export interface ParsedTemplate extends Template, ParsedClassProps<ParsedTemplate> {
+export interface ParsedTemplate extends Template, ParsedTemplateProps<ParsedTemplate> {
 	/**
 	 * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
 	 */
@@ -435,7 +435,7 @@ export interface ParsedTemplate extends Template, ParsedClassProps<ParsedTemplat
 	toString(): string;
 }
 
-export interface ParsedClassProps<CLS> {
+export interface ParsedTemplateProps<CLS> {
 	/**
 	 * The original text of the double-braced markup parsed from the wikitext.
 	 * The value of this property is static.
@@ -484,10 +484,7 @@ export interface ParsedClassProps<CLS> {
 	/**
 	 * @hidden
 	 */
-	_updateInitializer<
-		K extends keyof ParsedTemplateInitializer,
-		T extends ParsedTemplateInitializer
-	>(key: K, value: T[K]): CLS;
+	_setInitializer(obj: Partial<ParsedTemplateInitializer>): CLS;
 }
 
 /**
@@ -528,7 +525,7 @@ export interface RawTemplateStatic extends Omit<TemplateBaseStatic<string>, 'new
  * The instance members of the `RawTemplate` class. For static members,
  * see {@link RawTemplateStatic} (defined separately due to TypeScript limitations).
  */
-export interface RawTemplate extends TemplateBase<string>, ParsedClassProps<RawTemplate> {
+export interface RawTemplate extends TemplateBase<string>, ParsedTemplateProps<RawTemplate> {
 	/**
 	 * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
 	 */
@@ -707,7 +704,7 @@ export interface ParsedParserFunctionStatic extends Omit<ParserFunctionStatic, '
  * The instance members of the `ParsedParserFunction` class. For static members,
  * see {@link ParsedParserFunctionStatic} (defined separately due to TypeScript limitations).
  */
-export interface ParsedParserFunction extends ParserFunction, ParsedClassProps<ParsedParserFunction> {
+export interface ParsedParserFunction extends ParserFunction, ParsedTemplateProps<ParsedParserFunction> {
 	/**
 	 * The raw parser function hook, as directly parsed from the wikitext.
 	 */
@@ -1403,11 +1400,12 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return this._initializer[key];
 		}
 
-		_updateInitializer<
-			K extends keyof ParsedTemplateInitializer,
-			T extends ParsedTemplateInitializer
-		>(key: K, value: T[K]): this {
-			this._initializer[key] = value;
+		_setInitializer<T extends ParsedTemplateInitializer>(obj: Partial<T>): this {
+			for (const key in obj) {
+				if (obj[key] !== undefined) {
+					(this._initializer as any)[key] = obj[key];
+				}
+			}
 			return this;
 		}
 
@@ -1513,11 +1511,12 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return this._initializer[key];
 		}
 
-		_updateInitializer<
-			K extends keyof ParsedTemplateInitializer,
-			T extends ParsedTemplateInitializer
-		>(key: K, value: T[K]): this {
-			this._initializer[key] = value;
+		_setInitializer<T extends ParsedTemplateInitializer>(obj: Partial<T>): this {
+			for (const key in obj) {
+				if (obj[key] !== undefined) {
+					(this._initializer as any)[key] = obj[key];
+				}
+			}
 			return this;
 		}
 
@@ -1755,11 +1754,12 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return this._initializer[key];
 		}
 
-		_updateInitializer<
-			K extends keyof ParsedTemplateInitializer,
-			T extends ParsedTemplateInitializer
-		>(key: K, value: T[K]): this {
-			this._initializer[key] = value;
+		_setInitializer<T extends ParsedTemplateInitializer>(obj: Partial<T>): this {
+			for (const key in obj) {
+				if (obj[key] !== undefined) {
+					(this._initializer as any)[key] = obj[key];
+				}
+			}
 			return this;
 		}
 

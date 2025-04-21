@@ -226,35 +226,11 @@ export interface ParsedWikilinkStatic extends Omit<WikilinkStatic, 'new'> {
  * The instance members of the `ParsedWikilink` class. For static members,
  * see {@link ParsedWikilinkStatic} (defined separately due to TypeScript limitations).
  */
-export interface ParsedWikilink extends Wikilink {
+export interface ParsedWikilink extends Wikilink, ParsedWikilinkProps<ParsedWikilink> {
 	/**
 	 * The raw wikilink title, as directly parsed from the left part of a `[[wikilink|...]]` expression.
 	 */
 	rawTitle: string;
-	/**
-	 * The original text of the wikilink parsed from the wikitext.
-	 * The value of this property is static.
-	 */
-	text: string;
-	/**
-	 * The starting index of this wikilink in the wikitext.
-	 */
-	startIndex: number;
-	/**
-	 * The ending index of this wikilink in the wikitext (exclusive).
-	 */
-	endIndex: number;
-	/**
-	 * The nesting level of this wikilink. `0` if it is not nested within another wikilink.
-	 *
-	 * A value of `1` or greater indicates that the wikilink is either incorrectly embedded
-	 * within another wikilink, or that it serves as part of the thumb text of a file wikilink.
-	 */
-	nestLevel: number;
-	/**
-	 * Whether the wikilink appears inside an HTML tag specified in {@link SkipTags}.
-	 */
-	skip: boolean;
 
 	/**
 	 * Creates a new {@link ParsedFileWikilink} instance, inheriting the current instance's properties.
@@ -277,10 +253,55 @@ export interface ParsedWikilink extends Wikilink {
 	 * @returns The wikilink as a string.
 	 */
 	toString(): string;
+}
+
+export interface ParsedWikilinkProps<CLS> {
+	/**
+	 * The original text of the wikilink parsed from the wikitext.
+	 * The value of this property is static.
+	 */
+	text: string;
+	/**
+	 * The index of this object within the result array returned by {@link Wikitext.parseWikilinks | parseWikilinks}.
+	 */
+	index: number;
+	/**
+	 * The starting index of this wikilink in the wikitext.
+	 */
+	startIndex: number;
+	/**
+	 * The ending index of this wikilink in the wikitext (exclusive).
+	 */
+	endIndex: number;
+	/**
+	 * The nesting level of this wikilink. `0` if it is not nested within another wikilink.
+	 *
+	 * A value of `1` or greater indicates that the wikilink is either incorrectly embedded
+	 * within another wikilink, or that it serves as part of the thumb text of a file wikilink.
+	 */
+	nestLevel: number;
+	/**
+	 * Whether the wikilink appears inside an HTML tag specified in {@link SkipTags}.
+	 */
+	skip: boolean;
+	/**
+	 * The index of the parent object within the {@link Wikitext.parseWikilinks | parseWikilinks} result array,
+	 * or `null` if there is no parent.
+	 */
+	parent: number | null;
+	/**
+	 * The indices of the child objects within the {@link Wikitext.parseWikilinks | parseWikilinks} result array.
+	 */
+	children: Set<number>;
+
 	/**
 	 * @hidden
 	 */
-	_clone(): ParsedWikilink;
+	_clone(): CLS;
+	/**
+	 * @hidden
+	 */
+	_setInitializer(obj: Partial<InitializerFor<CLS>>): CLS;
 }
 
 /**
@@ -403,35 +424,11 @@ export interface ParsedFileWikilinkStatic extends Omit<FileWikilinkStatic, 'new'
  * The instance members of the `ParsedFileWikilink` class. For static members,
  * see {@link ParsedFileWikilinkStatic} (defined separately due to TypeScript limitations).
  */
-export interface ParsedFileWikilink extends FileWikilink {
+export interface ParsedFileWikilink extends FileWikilink, ParsedWikilinkProps<ParsedFileWikilink> {
 	/**
 	 * The raw wikilink title, as directly parsed from the left part of a `[[wikilink|...]]` expression.
 	 */
 	rawTitle: string;
-	/**
-	 * The original text of the wikilink parsed from the wikitext.
-	 * The value of this property is static.
-	 */
-	text: string;
-	/**
-	 * The starting index of this wikilink in the wikitext.
-	 */
-	startIndex: number;
-	/**
-	 * The ending index of this wikilink in the wikitext (exclusive).
-	 */
-	endIndex: number;
-	/**
-	 * The nesting level of this wikilink. `0` if it is not nested within another wikilink.
-	 *
-	 * A value of `1` or greater indicates that the wikilink is either incorrectly embedded
-	 * within another wikilink, or that it serves as part of the thumb text of a file wikilink.
-	 */
-	nestLevel: number;
-	/**
-	 * Whether the wikilink appears inside an HTML tag specified in {@link SkipTags}.
-	 */
-	skip: boolean;
 
 	/**
 	 * Creates a new {@link ParsedWikilink} instance, inheriting the current instance's properties.
@@ -449,10 +446,6 @@ export interface ParsedFileWikilink extends FileWikilink {
 	 * @inheritdoc
 	 */
 	toString(): string;
-	/**
-	 * @hidden
-	 */
-	_clone(): ParsedFileWikilink;
 }
 
 /**
@@ -565,35 +558,11 @@ export interface ParsedRawWikilinkStatic extends Omit<RawWikilinkStatic, 'new'> 
  * The instance members of the `ParsedRawWikilink` class. For static members,
  * see {@link ParsedRawWikilinkStatic} (defined separately due to TypeScript limitations).
  */
-export interface ParsedRawWikilink extends RawWikilink {
+export interface ParsedRawWikilink extends RawWikilink, ParsedWikilinkProps<ParsedRawWikilink> {
 	/**
 	 * The raw wikilink title, as directly parsed from the left part of a `[[wikilink|...]]` expression.
 	 */
 	rawTitle: string;
-	/**
-	 * The original text of the wikilink parsed from the wikitext.
-	 * The value of this property is static.
-	 */
-	text: string;
-	/**
-	 * The starting index of this wikilink in the wikitext.
-	 */
-	startIndex: number;
-	/**
-	 * The ending index of this wikilink in the wikitext (exclusive).
-	 */
-	endIndex: number;
-	/**
-	 * The nesting level of this wikilink. `0` if it is not nested within another wikilink.
-	 *
-	 * A value of `1` or greater indicates that the wikilink is either incorrectly embedded
-	 * within another wikilink, or that it serves as part of the thumb text of a file wikilink.
-	 */
-	nestLevel: number;
-	/**
-	 * Whether the wikilink appears inside an HTML tag specified in {@link SkipTags}.
-	 */
-	skip: boolean;
 
 	/**
 	 * Creates a new {@link ParsedWikilink} instance, inheriting the current instance's properties.
@@ -619,10 +588,6 @@ export interface ParsedRawWikilink extends RawWikilink {
 	 * @inheritdoc
 	 */
 	toString(): string;
-	/**
-	 * @hidden
-	 */
-	_clone(): ParsedRawWikilink;
 }
 
 /**
@@ -797,10 +762,13 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		rawTitle: string;
 		text: string;
+		index: number;
 		startIndex: number;
 		endIndex: number;
 		nestLevel: number;
 		skip: boolean;
+		parent: number | null;
+		children: Set<number>;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
@@ -811,16 +779,19 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		private _initializer: ParsedWikilinkInitializer;
 
 		constructor(initializer: ParsedWikilinkInitializer) {
-			const {display, title, rawTitle, _rawTitle, text, startIndex, endIndex, nestLevel, skip} = initializer;
+			const {display, title, rawTitle, _rawTitle, text, index, startIndex, endIndex, nestLevel, skip, parent, children} = initializer;
 			super(title, display);
 			this._initializer = initializer;
 			this.rawTitle = rawTitle;
 			this._rawTitle = _rawTitle;
 			this.text = text;
+			this.index = index;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
 			this.nestLevel = nestLevel;
 			this.skip = skip;
+			this.parent = parent;
+			this.children = new Set([...children]);
 		}
 
 		override toFileWikilink(title: string | Title, verbose = false): ParsedFileWikilink | null {
@@ -861,6 +832,15 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		_clone(): ParsedWikilink {
 			return new ParsedWikilink(this._initializer);
+		}
+
+		_setInitializer<T extends ParsedWikilinkInitializer>(obj: Partial<T>): this {
+			for (const key in obj) {
+				if (obj[key] !== undefined) {
+					(this._initializer as any)[key] = obj[key];
+				}
+			}
+			return this;
 		}
 
 	}
@@ -984,10 +964,13 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		rawTitle: string;
 		text: string;
+		index: number;
 		startIndex: number;
 		endIndex: number;
 		nestLevel: number;
 		skip: boolean;
+		parent: number | null;
+		children: Set<number>;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
@@ -998,16 +981,19 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		private _initializer: ParsedFileWikilinkInitializer;
 
 		constructor(initializer: ParsedFileWikilinkInitializer) {
-			const {params, title, rawTitle, _rawTitle, text, startIndex, endIndex, nestLevel, skip} = initializer;
+			const {params, title, rawTitle, _rawTitle, text, index, startIndex, endIndex, nestLevel, skip, parent, children} = initializer;
 			super(title, params);
 			this._initializer = initializer;
 			this.rawTitle = rawTitle;
 			this._rawTitle = _rawTitle;
 			this.text = text;
+			this.index = index;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
 			this.nestLevel = nestLevel;
 			this.skip = skip;
+			this.parent = parent;
+			this.children = new Set([...children]);
 		}
 
 		override toWikilink(title: string | Title, verbose = false): ParsedWikilink | null{
@@ -1052,6 +1038,15 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		_clone() {
 			return new ParsedFileWikilink(this._initializer);
+		}
+
+		_setInitializer<T extends ParsedFileWikilinkInitializer>(obj: Partial<T>): this {
+			for (const key in obj) {
+				if (obj[key] !== undefined) {
+					(this._initializer as any)[key] = obj[key];
+				}
+			}
+			return this;
 		}
 
 	}
@@ -1120,10 +1115,13 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		rawTitle: string;
 		text: string;
+		index: number;
 		startIndex: number;
 		endIndex: number;
 		nestLevel: number;
 		skip: boolean;
+		parent: number | null;
+		children: Set<number>;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
@@ -1134,16 +1132,19 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		private _initializer: ParsedRawWikilinkInitializer;
 
 		constructor(initializer: ParsedRawWikilinkInitializer) {
-			const {display, title, rawTitle, _rawTitle, text, startIndex, endIndex, nestLevel, skip} = initializer;
+			const {display, title, rawTitle, _rawTitle, text, index, startIndex, endIndex, nestLevel, skip, parent, children} = initializer;
 			super(title, display);
 			this._initializer = initializer;
 			this.rawTitle = rawTitle;
 			this._rawTitle = _rawTitle;
 			this.text = text;
+			this.index = index;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
 			this.nestLevel = nestLevel;
 			this.skip = skip;
+			this.parent = parent;
+			this.children = new Set([...children]);
 		}
 
 		override toWikilink(title: string | Title, verbose = false): ParsedWikilink | null {
@@ -1195,6 +1196,15 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		_clone() {
 			return new ParsedRawWikilink(this._initializer);
+		}
+
+		_setInitializer<T extends ParsedRawWikilinkInitializer>(obj: Partial<T>): this {
+			for (const key in obj) {
+				if (obj[key] !== undefined) {
+					(this._initializer as any)[key] = obj[key];
+				}
+			}
+			return this;
 		}
 
 	}
@@ -1310,29 +1320,41 @@ interface ParsedWikilinkInitializerBase<T extends string | Title> {
 	/** Potentially includes a control character. */
 	_rawTitle: string;
 	text: string;
+	index: number;
 	startIndex: number;
 	endIndex: number;
 	nestLevel: number;
 	skip: boolean;
+	parent: number | null;
+	children: Set<number>;
 }
 
 /**
  * The initializer object for {@link ParsedWikilink}.
+ * @internal
  */
-interface ParsedWikilinkInitializer extends ParsedWikilinkInitializerBase<Title> {
+export interface ParsedWikilinkInitializer extends ParsedWikilinkInitializerBase<Title> {
 	display?: string;
 }
 
 /**
  * The initializer object for {@link ParsedFileWikilink}.
+ * @internal
  */
-interface ParsedFileWikilinkInitializer extends ParsedWikilinkInitializerBase<Title> {
+export interface ParsedFileWikilinkInitializer extends ParsedWikilinkInitializerBase<Title> {
 	params?: string[];
 }
 
 /**
  * The initializer object for {@link ParsedRawWikilink}.
+ * @internal
  */
-interface ParsedRawWikilinkInitializer extends ParsedWikilinkInitializerBase<string> {
+export interface ParsedRawWikilinkInitializer extends ParsedWikilinkInitializerBase<string> {
 	display?: string;
 }
+
+type InitializerFor<CLS> =
+	CLS extends ParsedWikilink ? ParsedWikilinkInitializer :
+	CLS extends ParsedFileWikilink ? ParsedFileWikilinkInitializer :
+	CLS extends ParsedRawWikilink ? ParsedRawWikilinkInitializer :
+	never;
