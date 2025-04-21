@@ -307,6 +307,20 @@ export interface TitleStatic {
 	 * @returns
 	 */
 	lc(str: string): string;
+	/**
+	 * Normalizes a title to its canonical form.
+	 *
+	 * This capitalizes the first character of the base (unprefixed) title and localizes the
+	 * namespace according to the wiki’s configuration.
+	 *
+	 * *This method is exclusive to `mwbot-ts`.*
+	 *
+	 * @param title The title to normalize.
+	 * @param options Options that control how the title is normalized.
+	 * @returns The normalized title as a string, or `null` if the input is not a valid title.
+	 * @throws If `title` is not a string.
+	 */
+	normalize(title: string, options?: TitleNormalizeOptions): string | null;
 }
 
 /**
@@ -499,7 +513,7 @@ export interface Title {
 	 */
 	getRelativeText(namespace: number): string;
 	/**
-	 * Get the fragment (if any).
+	 * Get the fragment (if any), with all underscores replaced by spaces.
 	 *
 	 * Note that this method (by design) does not include the hash character and
 	 * the value is *not* URL-encoded.
@@ -1115,11 +1129,29 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 * *This variable is exclusive to `mwbot-ts`.*
 	 */
 	const rLowerPhpChars = new RegExp(`[${Object.keys(toLowerMap).join('')}]`);
+	/**
+	 * *This function is exclusive to `mwbot-ts`.*
+	 */
+	const getMain = (title: string, namespace: number, interwiki: string): string => {
+		if (
+			config.get('wgCaseSensitiveNamespaces').indexOf(namespace) !== -1 ||
+			!title.length ||
+			// Normally, all wiki links are forced to have an initial capital letter so [[foo]]
+			// and [[Foo]] point to the same place. Don't force it for interwikis, since the
+			// other site might be case-sensitive.
+			!(interwiki === '' && isCapitalized(namespace))
+		) {
+			return title;
+		}
+		const firstChar = mwString.charAt(title, 0);
+		return Title.phpCharToUpper(firstChar) + title.slice(firstChar.length);
+	};
 
 	class Title implements Title {
 
 		private namespace: number;
 		private title: string;
+		/** All underscores are replaced by spaces. */
 		private fragment: string | null;
 		private colon: Colon;
 		private interwiki: string;
@@ -1329,6 +1361,34 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			return str.toLowerCase();
 		}
 
+		static normalize(title: string, options: TitleNormalizeOptions = {}): string | null {
+			if (typeof title !== 'string') {
+				throw new TypeError(`Expected a string for "title", but got ${typeof title}.`);
+			}
+			const parsed = parse(title, options.namespace ?? NS_MAIN);
+			if (!parsed) {
+				return null;
+			}
+			let ret = '';
+			if (options.colon) {
+				ret += parsed.colon;
+			}
+			if (options.interwiki !== false) {
+				ret += parsed.interwiki && parsed.interwiki + ':';
+			}
+			let t = getNamespacePrefix(parsed.namespace) + getMain(parsed.title, parsed.namespace, parsed.interwiki);
+			if (options.format === 'api') {
+				t = text(t);
+			}
+			ret += t;
+			if (options.fragment) {
+				let fragment = parsed.fragment || '';
+				fragment = fragment && '#' + fragment;
+				ret += fragment;
+			}
+			return ret;
+		}
+
 		hadLeadingColon(): boolean {
 			return this.colon !== '';
 		}
@@ -1427,18 +1487,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		}
 
 		getMain(): string {
-			if (
-				config.get('wgCaseSensitiveNamespaces').indexOf(this.namespace) !== -1 ||
-				!this.title.length ||
-				// Normally, all wiki links are forced to have an initial capital letter so [[foo]]
-				// and [[Foo]] point to the same place. Don't force it for interwikis, since the
-				// other site might be case-sensitive.
-				!(this.interwiki === '' && isCapitalized(this.namespace))
-			) {
-				return this.title;
-			}
-			const firstChar = mwString.charAt(this.title, 0);
-			return Title.phpCharToUpper(firstChar) + this.title.slice(firstChar.length);
+			return getMain(this.title, this.namespace, this.interwiki);
 		}
 
 		getMainText(): string {
@@ -1587,6 +1636,7 @@ export interface TitleOutputOptions {
 	interwiki?: boolean;
 	/**
 	 * Whether to include the fragment in the output. (Default: `false`)
+	 * All underscores are replaced by spaces.
 	 *
 	 * This option has no effect if {@link Title.getFragment} returns `null`.
 	 */
@@ -1597,4 +1647,21 @@ export interface TitleOutputOptions {
 	 * This option has no effect if {@link Title.hadLeadingColon} returns `false`.
 	 */
 	colon?: boolean;
+}
+
+/**
+ * Options for {@link TitleStatic.normalize}.
+ */
+export interface TitleNormalizeOptions extends TitleOutputOptions {
+	/**
+	 * The default namespace to use for the given title. (Default: `NS_MAIN`)
+	 */
+	namespace?: number;
+	/**
+	 * The normalization format to apply. (Default: `'db'`)
+	 *
+	 * - `'db'`: Replaces all spaces with underscores.
+	 * - `'api'`: Replaces all underscores with spaces.
+	 */
+	format?: 'db' | 'api';
 }
