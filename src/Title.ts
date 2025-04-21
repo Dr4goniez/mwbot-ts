@@ -138,7 +138,6 @@ export interface TitleStatic {
 	 * "Unicode bidirectional characters" are characters that can slip into cut-and-pasted texts,
 	 * represented as red dots in WikiEditor.
 	 *
-	 *
 	 * *This method is exclusive to `mwbot-ts`.*
 	 *
 	 * @param str Input string.
@@ -1599,15 +1598,19 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		}
 
 		equals(title: string | Title, evalFragment = false): boolean | null {
-			if (!(title instanceof Title)) {
-				const t = Title.newFromText(String(title));
-				if (t === null) {
+			const options: TitleOutputOptions = {fragment: evalFragment};
+			if (title instanceof Title) {
+				title = title.getPrefixedDb(options);
+			} else if (typeof title === 'string') {
+				const t = Title.normalize(title, options);
+				if (!t) {
 					return null;
 				}
 				title = t;
+			} else {
+				return null;
 			}
-			const options: TitleOutputOptions = {fragment: evalFragment};
-			return this.getPrefixedDb(options) === title.getPrefixedDb(options);
+			return this.getPrefixedDb(options) === title;
 		}
 
 		_clone(seen: WeakMap<object, any>): Title {
