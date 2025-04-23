@@ -16,7 +16,7 @@
     "docs": "node -e \"require('fs-extra').emptyDir('docs');\" & npx typedoc --options typedoc.json"
   },
   "engines": {
-    "node": ">=12"
+    "node": ">=14.18.3"
   },
   "repository": {
     "type": "git",
