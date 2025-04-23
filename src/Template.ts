@@ -786,11 +786,11 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		/**
 		 * The order of parameter registration.
 		 */
-		protected paramOrder: Set<string>;
+		protected _paramOrder: Set<string>;
 		/**
 		 * Template parameter hierarchies.
 		 */
-		protected hierarchies: TemplateParameterHierarchies;
+		protected _hierarchies: TemplateParameterHierarchies;
 
 		constructor(
 			title: T,
@@ -800,8 +800,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 			this.title = title;
 			this.params = Object.create(null);
-			this.paramOrder = new Set();
-			this.hierarchies = Array.isArray(hierarchies) ? hierarchies.map((arr) => [...arr]) : [];
+			this._paramOrder = new Set();
+			this._hierarchies = Array.isArray(hierarchies) ? hierarchies.map((arr) => [...arr]) : [];
 
 			// Register parameters
 			params.forEach(({key, value}) => {
@@ -825,7 +825,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		getParam(key: string, resolveHierarchy = false): TemplateParameter | null {
 			if (resolveHierarchy) {
-				const hier = this.hierarchies.find((arr) => arr.includes(key));
+				const hier = this._hierarchies.find((arr) => arr.includes(key));
 				if (hier) {
 					for (let i = hier.length - 1; i >= 0; i--) {
 						if (hier[i] in this.params) {
@@ -886,7 +886,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				return false;
 			}
 			delete this.params[key];
-			this.paramOrder.delete(key);
+			this._paramOrder.delete(key);
 			return true;
 		}
 
@@ -967,12 +967,12 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 * The returned key will always be different from the input key.
 		 */
 		protected checkKeyOverride(key: string): XOR<{overrides: string}, {overridden: string}> | null {
-			if (!this.hierarchies.length) {
+			if (!this._hierarchies.length) {
 				return null;
 			}
 
 			// Locate the hierarchy that includes the input key
-			const hier = this.hierarchies.find((arr) => arr.includes(key));
+			const hier = this._hierarchies.find((arr) => arr.includes(key));
 			if (!hier) {
 				return null;
 			}
@@ -1083,7 +1083,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			}
 
 			/**
-			 * Helper function to resolve the index of a reference key inside paramOrder.
+			 * Helper function to resolve the index of a reference key inside _paramOrder.
 			 * Handles possible override relationships by checking both overriding and overridden keys.
 			 */
 			const findReferenceIndex = (order: string[], ref: string): number => {
@@ -1095,7 +1095,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				return -1;
 			};
 
-			const order = [...this.paramOrder];
+			const order = [...this._paramOrder];
 			if (existing) {
 				// Handle updates for an existing key
 
@@ -1148,7 +1148,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 					}
 
 					this.params[key] = this.createParam(key, value, unnamed, duplicates);
-					this.paramOrder = new Set(order);
+					this._paramOrder = new Set(order);
 				}
 
 				// The input key is overridden by an existing parameter
@@ -1187,7 +1187,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 					// Default to inserting at the end (position === 'end' or undefined)
 					order.push(key);
 				}
-				this.paramOrder = new Set(order);
+				this._paramOrder = new Set(order);
 			}
 
 			return this;
@@ -1201,7 +1201,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 */
 		protected _stringify(title: string, options: TemplateOutputConfig<T>): string {
 
-			const order = [...this.paramOrder];
+			const order = [...this._paramOrder];
 			const {
 				append,
 				sortPredicate = (param1, param2) => order.indexOf(param1.key) - order.indexOf(param2.key),
@@ -1336,20 +1336,20 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
-		private _rawTitle: string;
+		#rawTitle: string;
 		/**
 		 * @hidden
 		 */
-		private _initializer: ParsedTemplateInitializer;
+		#initializer: ParsedTemplateInitializer;
 
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
 			const {title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children} = initializer;
 			const t = Template.validateTitle(title);
 			const titleStr = t.getPrefixedDb();
 			super(t, params, options.hierarchies?.[titleStr]);
-			this._initializer = initializer;
+			this.#initializer = initializer;
 			this.rawTitle = rawTitle.replace('\x01', title);
-			this._rawTitle = rawTitle;
+			this.#rawTitle = rawTitle;
 			this.text = text;
 			this.index = index;
 			this.startIndex = startIndex;
@@ -1370,7 +1370,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				}
 				return null;
 			}
-			const initializer = mergeDeep(this._initializer);
+			const initializer = mergeDeep(this.#initializer);
 			initializer.title = title;
 			return new ParsedParserFunction(initializer);
 		}
@@ -1380,8 +1380,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			let title = this.title.getNamespaceId() === NS_TEMPLATE
 				? this.title.getMain()
 				: this.title.getPrefixedText({colon: true});
-			if (optRawTitle && this._rawTitle.includes('\x01')) {
-				title = this._rawTitle.replace('\x01', title);
+			if (optRawTitle && this.#rawTitle.includes('\x01')) {
+				title = this.#rawTitle.replace('\x01', title);
 			}
 			return this._stringify(title, rawOptions);
 		}
@@ -1391,19 +1391,19 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		_clone(options: ParsedTemplateOptions = {}) {
-			return new ParsedTemplate(this._initializer, options);
+			return new ParsedTemplate(this.#initializer, options);
 		}
 
 		_getInitializer<
 			K extends keyof ParsedTemplateInitializer
 		>(key: K): ParsedTemplateInitializer[K] {
-			return this._initializer[key];
+			return this.#initializer[key];
 		}
 
 		_setInitializer<T extends ParsedTemplateInitializer>(obj: Partial<T>): this {
 			for (const key in obj) {
 				if (obj[key] !== undefined) {
-					(this._initializer as any)[key] = obj[key];
+					(this.#initializer as any)[key] = obj[key];
 				}
 			}
 			return this;
@@ -1430,18 +1430,18 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
-		private _rawTitle: string;
+		#rawTitle: string;
 		/**
 		 * @hidden
 		 */
-		private _initializer: ParsedTemplateInitializer;
+		#initializer: ParsedTemplateInitializer;
 
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
 			const {title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children} = initializer;
 			super(title, params, options.hierarchies?.[title]);
-			this._initializer = initializer;
+			this.#initializer = initializer;
 			this.rawTitle = rawTitle.replace('\x01', title);
-			this._rawTitle = rawTitle;
+			this.#rawTitle = rawTitle;
 			this.text = text;
 			this.index = index;
 			this.startIndex = startIndex;
@@ -1468,7 +1468,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				}
 				return null;
 			}
-			const initializer = mergeDeep(this._initializer);
+			const initializer = mergeDeep(this.#initializer);
 			initializer.title = title;
 			return new ParsedTemplate(initializer);
 		}
@@ -1483,7 +1483,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				}
 				return null;
 			}
-			const initializer = mergeDeep(this._initializer);
+			const initializer = mergeDeep(this.#initializer);
 			initializer.title = title;
 			return new ParsedParserFunction(initializer);
 		}
@@ -1491,8 +1491,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		stringify(options: RawTemplateOutputConfig = {}): string {
 			const {rawTitle: optRawTitle, ...rawOptions} = options;
 			let title = this.title;
-			if (optRawTitle && this._rawTitle.includes('\x01')) {
-				title = this._rawTitle.replace('\x01', title);
+			if (optRawTitle && this.#rawTitle.includes('\x01')) {
+				title = this.#rawTitle.replace('\x01', title);
 			}
 			return this._stringify(title, rawOptions);
 		}
@@ -1502,19 +1502,19 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		_clone(options: ParsedTemplateOptions = {}) {
-			return new RawTemplate(this._initializer, options);
+			return new RawTemplate(this.#initializer, options);
 		}
 
 		_getInitializer<
 			K extends keyof ParsedTemplateInitializer
 		>(key: K): ParsedTemplateInitializer[K] {
-			return this._initializer[key];
+			return this.#initializer[key];
 		}
 
 		_setInitializer<T extends ParsedTemplateInitializer>(obj: Partial<T>): this {
 			for (const key in obj) {
 				if (obj[key] !== undefined) {
-					(this._initializer as any)[key] = obj[key];
+					(this.#initializer as any)[key] = obj[key];
 				}
 			}
 			return this;
@@ -1635,11 +1635,11 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		/**
 		 * {@link rawHook} with the insertion point of {@link hook} replaced with a control character.
 		 */
-		private _rawHook: string;
+		#rawHook: string;
 		/**
 		 * @hidden
 		 */
-		private _initializer: ParsedTemplateInitializer;
+		#initializer: ParsedTemplateInitializer;
 
 		constructor(initializer: ParsedTemplateInitializer) {
 
@@ -1700,10 +1700,10 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				initParams.push((key ? key + '=' : '') + value);
 			});
 			super(title, initParams);
-			this._initializer = initializer;
+			this.#initializer = initializer;
 
 			this.rawHook = rawHook;
-			this._rawHook = _rawHook;
+			this.#rawHook = _rawHook;
 			this.text = text;
 			this.index = index;
 			this.startIndex = startIndex;
@@ -1726,7 +1726,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				}
 				return null;
 			}
-			const initializer = mergeDeep(this._initializer);
+			const initializer = mergeDeep(this.#initializer);
 			initializer.title = title;
 			return new ParsedTemplate(initializer);
 		}
@@ -1734,8 +1734,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		override stringify(options: ParsedParserFunctionOutputConfig = {}): string {
 			const {rawHook: optRawHook, useCanonical, ...rawOptions} = options;
 			let hook = useCanonical ? this.canonicalHook : this.hook;
-			if (optRawHook && this._rawHook.includes('\x01')) {
-				hook = this._rawHook.replace('\x01', hook);
+			if (optRawHook && this.#rawHook.includes('\x01')) {
+				hook = this.#rawHook.replace('\x01', hook);
 			}
 			return this._stringify(hook, rawOptions);
 		}
@@ -1745,19 +1745,19 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		_clone() {
-			return new ParsedParserFunction(this._initializer);
+			return new ParsedParserFunction(this.#initializer);
 		}
 
 		_getInitializer<
 			K extends keyof ParsedTemplateInitializer
 		>(key: K): ParsedTemplateInitializer[K] {
-			return this._initializer[key];
+			return this.#initializer[key];
 		}
 
 		_setInitializer<T extends ParsedTemplateInitializer>(obj: Partial<T>): this {
 			for (const key in obj) {
 				if (obj[key] !== undefined) {
-					(this._initializer as any)[key] = obj[key];
+					(this.#initializer as any)[key] = obj[key];
 				}
 			}
 			return this;
