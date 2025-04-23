@@ -35,7 +35,7 @@
     "@types/tough-cookie": "^4.0.5",
     "@types/uuid": "^10.0.0",
     "axios": "^1.8.4",
-    "axios-cookiejar-support": "^5.0.5",
+    "axios-cookiejar-support": "^4.0.7",
     "form-data": "^4.0.2",
     "ip-wiki": "^1.1.2",
     "oauth-1.0a": "^2.2.6",
