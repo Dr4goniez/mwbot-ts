@@ -1307,7 +1307,7 @@ export function WikitextFactory(
 				if (isValid) {
 					const param: Parameter = {
 						key: paramName,
-						value: paramValue !== null ? paramValue.trim() : null,
+						value: paramValue !== null ? paramValue : null,
 						text: paramText,
 						index: params.length,
 						startIndex: match.index,
