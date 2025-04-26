@@ -2121,15 +2121,15 @@ interface StorageArgumentMap {
  * Note: As with `value`, the `startIndex` and `endIndex` values of the objects in the array are dynamically
  * updated.
  *
- * @param info Dynamic modification-related information.
+ * @param context Dynamic modification-related information.
  *
- * @param info.touched
+ * @param context.touched
  * A boolean indicating whether this expression is a **nested child** of a previously modified expression.
  * This typically occurs when markup structures are nested (e.g., a `<b>` inside a `<div>`), and the parent
  * has already been replaced or modified. In such cases, the expression itself may be invalidated or contextually
  * incorrect in the new content, and the predicate can use this flag to skip or handle it differently.
  *
- * @param info.content
+ * @param context.content
  * The current state of the full wikitext content. This string is updated after every successful modification
  * (i.e., whenever the predicate returns a string). It reflects the content as it exists *at the time* this predicate
  * is called for this expression. This is useful for context-sensitive changes, such as inspecting neighboring characters
@@ -2143,7 +2143,7 @@ export type ModificationPredicate<T> = (
 	value: T,
 	index: number,
 	array: T[],
-	info: {
+	context: {
 		touched: boolean;
 		content: string;
 	}
