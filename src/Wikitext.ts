@@ -667,52 +667,60 @@ export function WikitextFactory(
 				});
 			}
 
-			// Retrieve expressions from storage and apply modificationPredicate
-			let expressions = this.storageManager(type) as ModificationMap[K][];
-			const mods = expressions.map(modificationPredicate);
-			expressions = // Refresh `expressions` because internal objects might have been mutated
-				this.storageManager(type, false) as ModificationMap[K][];
-			let newContent = this.content;
-
 			// Apply modifications to the content
-			mods.forEach((text, i) => {
-				if (typeof text !== 'string' && text !== null) {
+			let newContent = this.content;
+			const clonedMarkups = this.storageManager(type) as ModificationMap[K][];
+			const touched = new Set<number>();
+			(this.storageManager(type, false) as ModificationMap[K][]).forEach((expr, i, markups) => {
+
+				// Expose the cloned objects to the user to prevent mutation
+				const mod = modificationPredicate(clonedMarkups[i], i, clonedMarkups, {touched: touched.has(i), content: newContent});
+
+				if (typeof mod !== 'string' && mod !== null) {
 					throw new MwbotError('fatal', {
 						code: 'typemismatch',
 						info: 'modificationPredicate must return either a string or null.'
-					}, {modified: mods.map((val) => typeof val)});
+					}, {modified: {[i]: mod}});
 				}
-				if (typeof text === 'string') {
-					const initialEndIndex = expressions[i].endIndex;
-					const leadingPart = newContent.slice(0, expressions[i].startIndex);
+				if (typeof mod === 'string') {
+					const initialEndIndex = expr.endIndex;
+					const leadingPart = newContent.slice(0, expr.startIndex);
 					let trailingPart = newContent.slice(initialEndIndex);
 					let m: RegExpExecArray | null = null;
-					if (text === '' && /(^|\n)[^\S\r\n]*$/.test(leadingPart) && (m = /^[^\S\r\n]*\n/.exec(trailingPart))) {
+					if (mod === '' && /(^|\n)[^\S\r\n]*$/.test(leadingPart) && (m = /^[^\S\r\n]*\n/.exec(trailingPart))) {
 						// If the modification removes the expression and that creates an empty line,
 						// also remove a trailing newline
 						trailingPart = trailingPart.slice(m[0].length);
 					}
-					newContent = leadingPart + text + trailingPart;
+					newContent = leadingPart + mod + trailingPart;
 
 					// Update character indexes for subsequent modifications
-					const lengthGap = text.length - (m ? m[0].length : 0) - expressions[i].text.length;
-					expressions[i].endIndex += lengthGap;
-					expressions.forEach((obj, j) => {
+					const lengthGap = mod.length - (m ? m[0].length : 0) - expr.text.length;
+					expr.endIndex += lengthGap;
+					markups.forEach((obj, j) => {
 						if (j !== i) {
-							if (obj.startIndex > initialEndIndex) {
+							if (obj.startIndex >= initialEndIndex) {
 								obj.startIndex += lengthGap;
 								obj.endIndex += lengthGap;
-							} else if (obj.endIndex > initialEndIndex) {
+							} else if (obj.endIndex >= initialEndIndex) {
 								obj.endIndex += lengthGap;
 							}
 						}
 					});
+
+					// If the modification touched a nested markup, remember its index
+					for (const index of expr.children) {
+						const {startIndex, text} = markups[index];
+						if (!newContent.slice(startIndex).startsWith(text)) {
+							touched.add(index);
+						}
+					}
 				}
+
 			});
 
 			// Update stored content and return result
-			this.storageManager('content', newContent);
-			return this.content;
+			return this.storageManager('content', newContent).content;
 
 		}
 
@@ -2064,17 +2072,53 @@ interface StorageArgumentMap {
 }
 
 /**
- * Type of the callback function for {@link Wikitext.modify}.
+ * Type of the callback function used by {@link Wikitext.modify} and its shorthand variants.
+ * This function is called once for each expression of the specified type and determines
+ * whether the expression should be modified.
  *
- * This is used as the predicate function for
- * {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map | Array.prototype.map}.
+ * @template T The type of markup expressions being modified. This corresponds to the values
+ * of {@link ModificationMap}, such as {@link Tag} for `"tags"` or {@link Parameter} for `"parameters"`.
  *
- * @template T The type of expressions being modified. This corresponds to the values of
- * {@link ModificationMap} (e.g., `Tag`).
+ * @param value The current expression object under consideration for modification.
  *
- * @returns A `string` to replace the current `value`, or `null` to leave it unmodified.
+ * Note: The object's `startIndex` and `endIndex` values (but not others) are **updated in-place**
+ * as modifications are applied.
+ *
+ * @param index The position of this expression in the array of parsed expressions.
+ *
+ * @param array
+ * The current array of all expressions of this type, as returned by the corresponding parsing method.
+ *
+ * Note: As with `value`, the `startIndex` and `endIndex` values of the objects in the array are dynamically
+ * updated.
+ *
+ * @param info Dynamic modification-related information.
+ *
+ * @param info.touched
+ * A boolean indicating whether this expression is a **nested child** of a previously modified expression.
+ * This typically occurs when markup structures are nested (e.g., a `<b>` inside a `<div>`), and the parent
+ * has already been replaced or modified. In such cases, the expression itself may be invalidated or contextually
+ * incorrect in the new content, and the predicate can use this flag to skip or handle it differently.
+ *
+ * @param info.content
+ * The current state of the full wikitext content. This string is updated after every successful modification
+ * (i.e., whenever the predicate returns a string). It reflects the content as it exists *at the time* this predicate
+ * is called for this expression. This is useful for context-sensitive changes, such as inspecting neighboring characters
+ * or avoiding redundant edits.
+ *
+ * @returns
+ * A `string` to replace the current expression, or `null` to leave it unchanged. Returning `null` ensures that
+ * the original text is preserved.
  */
-export type ModificationPredicate<T> = (value: T, index: number, array: T[]) => string | null;
+export type ModificationPredicate<T> = (
+	value: T,
+	index: number,
+	array: T[],
+	info: {
+		touched: boolean;
+		content: string;
+	}
+) => string | null;
 
 /**
  * A mapping of a type key to its object type, used in {@link Wikitext.modify}.
@@ -2103,7 +2147,7 @@ export interface Tag {
 	/**
 	 * The outerHTML of the tag.
 	 */
-	readonly text: string;
+	get text(): string;
 	/**
 	 * The start tag.
 	 */
@@ -2331,7 +2375,7 @@ export interface Section {
 	 *
 	 * This is a getter that returns the concatenation of {@link heading} and {@link content}.
 	 */
-	readonly text: string;
+	get text(): string;
 	/**
 	 * The index of the parent Section object within the `parseSections` result array, or `null` if there is no parent.
 	 */
