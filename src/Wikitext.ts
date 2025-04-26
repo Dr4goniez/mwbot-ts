@@ -1245,9 +1245,9 @@ export function WikitextFactory(
 				/**
 				 * Capturing groups:
 				 * * `$1`: Parameter name
-				 * * `$2`: Parameter value
+				 * * `$2`: Parameter value (possibly undefined)
 				 */
-				params: /\{{3}(?!{)([^|}]*)\|?([^}]*)\}{3}/g,
+				params: /\{{3}(?!{)([^|}]*)(?:\|([^}]*))?\}{3}/g,
 				twoOrMoreLeftBreaces: /\{{2,}/g,
 				twoOrMoreRightBreaces: /\}{2,}/g,
 				startWithTwoOrMoreRightBreaces: /^\}{2,}/,
@@ -1261,7 +1261,7 @@ export function WikitextFactory(
 
 				// Skip parameters that don't satisfy the namePredicate
 				const paramName = match[1].trim();
-				let paramValue = match[2];
+				let paramValue: string | null = match[2] ?? null;
 				let paramText = match[0];
 
 				/**
@@ -1287,7 +1287,11 @@ export function WikitextFactory(
 								// If the right braces close all the left braces
 								const lastIndex = pos + (leftBraceCnt - rightBraceCnt);
 								paramText = wikitext.slice(match.index, lastIndex); // Get the correct parameter
-								paramValue += paramText.slice(rightBraceStartIndex - lastIndex).replace(regex.endWithThreeRightBraces, '');
+								if (paramValue !== null) {
+									paramValue += paramText
+										.slice(rightBraceStartIndex - lastIndex)
+										.replace(regex.endWithThreeRightBraces, '');
+								}
 								isValid = true;
 								regex.params.lastIndex = lastIndex; // Update search position
 								break;
@@ -1303,7 +1307,7 @@ export function WikitextFactory(
 				if (isValid) {
 					const param: Parameter = {
 						key: paramName,
-						value: paramValue.trim(),
+						value: paramValue !== null ? paramValue.trim() : null,
 						text: paramText,
 						index: params.length,
 						startIndex: match.index,
@@ -2444,8 +2448,10 @@ export interface Parameter {
 	key: string;
 	/**
 	 * The parameter value (i.e., the right operand of `{{{key|value}}}`).
+	 *
+	 * If the parameter is not pipe-separated, this property is `null`.
 	 */
-	value: string;
+	value: string | null;
 	/**
 	 * The full wikitext representation of the parameter.
 	 */
