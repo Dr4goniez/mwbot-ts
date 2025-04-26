@@ -341,7 +341,7 @@ export interface Wikitext {
 	 *
 	 * const wikitext = new mwbot.Wikitext(text);
 	 * const [main] = wikitext.parseWikilinks();
-	 * console.log(wikitext.identifySection(main.startIndex, main.endIndex));
+	 * console.log(wikitext.identifySection(main));
 	 * // Output:
 	 * // {
 	 * //   heading: '=== Bar ===',
@@ -353,6 +353,13 @@ export interface Wikitext {
 	 * //   text: '=== Bar ===\n[[Main page]]\n'
 	 * // }
 	 * ```
+	 *
+	 * @param obj Any (markup) object containing `startIndex` and `endIndex` properties.
+	 * @returns The deepest {@link Section} containing the expression, or `null` if none is found.
+	 */
+	identifySection(obj: { startIndex: number; endIndex: number } & Record<string, any>): Section | null;
+	/**
+	 * Identifies the section containing an expression based on its start and end indices.
 	 *
 	 * This method is intended to be used with expressions obtained from parser methods.
 	 *
@@ -1188,7 +1195,29 @@ export function WikitextFactory(
 			return this.modify('sections', modificationPredicate);
 		}
 
-		identifySection(startIndex: number, endIndex: number): Section | null {
+		identifySection(
+			startIndexOrObj: number | ({ startIndex: number; endIndex: number } & Record<string, any>),
+			endIndex?: number
+		): Section | null {
+			let startIndex;
+			if (typeof startIndexOrObj === 'object') {
+				startIndex = startIndexOrObj.startIndex;
+				endIndex = startIndexOrObj.endIndex;
+			} else {
+				startIndex = startIndexOrObj;
+			}
+			if (typeof startIndex !== 'number') {
+				throw new MwbotError('fatal', {
+					code: 'typemismatch',
+					info: `Expected a number for "startIndex", but got ${typeof startIndex}.`
+				});
+			}
+			if (typeof endIndex !== 'number') {
+				throw new MwbotError('fatal', {
+					code: 'typemismatch',
+					info: `Expected a number for "endIndex", but got ${typeof endIndex}.`
+				});
+			}
 			const sections = this.storageManager('sections');
 			let ret: Section | null = null;
 			for (const sect of sections) {
