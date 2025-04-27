@@ -1126,37 +1126,62 @@ export type ApiResponseQueryPagesPropLinkshere = _ApiQueryBacklinksprop; // Full
 export type ApiResponseQueryPagesPropRedirects = // Fully checked (source code level)
 	Omit<_ApiQueryBacklinksprop, 'redirect'> & _ApiQueryBacklinkspropFragment;
 
-export interface ApiResponseQueryPagesPropRevisions { // Fully checked
+export interface ApiResponseQueryPagesPropRevisions { // Fully checked (source code level)
 	revid?: number;
 	parentid?: number;
 	minor?: boolean;
+	userhidden?: true;
 	user?: string;
+	temp?: true;
+	anon?: true;
 	userid?: number;
 	timestamp?: string;
 	size?: number;
+	sha1hidden?: true;
 	sha1?: string;
 	roles?: string[];
+	slotsmissing?: true;
+	textmissing?: true;
 	slots?: {
 		main: { // [slot: string]
 			size?: number;
+			sha1hidden?: true;
 			sha1?: string;
+			texthidden?: true;
+			textmissing?: true;
+			// nosuchsection?: true; // Used internally to decide whether to call dieWithError
+			missing?: true;
+			badcontentformat?: true;
 			contentmodel?: string;
 			contentformat?: string;
 			content?: string;
-			badcontentformat?: boolean;
 		};
 	};
-	/** @deprecated Specify the `rvslots` parameter. */
-	contentmodel?: string;
-	/** @deprecated Use `action=expandtemplates` or `action=parse` instead. */
-	parsetree?: string;
-	/** @deprecated Specify the `rvslots` parameter. */
-	contentformat?: string;
-	/** @deprecated Specify the `rvslots` parameter. */
-	content?: string;
+	commenthidden?: true;
 	comment?: string;
 	parsedcomment?: string;
 	tags?: string[];
+	suppressed?: true;
+	/** @deprecated Use `action=expandtemplates` or `action=parse` instead. */
+	parsetree?: string;
+	/** @deprecated */
+	badcontentformatforparsetree?: true;
+	/** @deprecated */
+	badcontentformat?: true;
+	/** @deprecated Specify the `rvslots` parameter. */
+	contentformat?: string;
+	/** @deprecated Specify the `rvslots` parameter. */
+	contentmodel?: string;
+	/** @deprecated Specify the `rvslots` parameter. */
+	content?: string;
+	/** @deprecated */
+	diff?: {
+		badcontentformat?: true;
+		from?: number;
+		to?: number;
+		body?: string;
+		notcached?: true;
+	};
 }
 
 // export interface ApiResponseQueryPagesPropStashimageinfo {}
