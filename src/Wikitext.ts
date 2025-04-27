@@ -195,8 +195,7 @@ export interface Wikitext {
 	 *
 	 * The same result can be obtained by using:
 	 * ```ts
-	 * const len = wikitext.content.length;
-	 * // (`wikitext` is an instance of the Wikitext class)
+	 * wikitext.content.length;
 	 * ```
 	 */
 	get length(): number;
@@ -205,8 +204,7 @@ export interface Wikitext {
 	 *
 	 * The same result can be obtained by using:
 	 * ```ts
-	 * const byteLen = Mwbot.String.byteLength(wikitext.content);
-	 * // (`wikitext` is an instance of the Wikitext class)
+	 * Mwbot.String.byteLength(wikitext.content);
 	 * ```
 	 */
 	get byteLength(): number;
@@ -252,11 +250,10 @@ export interface Wikitext {
 	 * - {@link modifyWikilinks}
 	 *
 	 * #### Important notes
-	 * - This method (and its shorthand variants) modifies and updates {@link content}
-	 *   and its associated expressions.
-	 * - Any copies of `content` or parsed expressions made before calling this
-	 *   method should **not** be reused, as properties such as `startIndex` will
-	 *   change after modification.
+	 * - This method (and its shorthand variants) modifies and updates {@link content} and its
+	 *   associated expressions.
+	 * - Any copies of `content` or parsed expressions made before calling this method should **not**
+	 *   be reused, as properties such as `startIndex` will change after modification.
 	 *
 	 * @param type The type of expressions to modify.
 	 *
@@ -284,8 +281,7 @@ export interface Wikitext {
 	 * @throws {MwbotError}
 	 * - If `type` is invalid.
 	 * - If `modificationPredicate` is not a function.
-	 * - If the array created from `modificationPredicate` contains values other than
-	 *   strings or `null`.
+	 * - If the array created from `modificationPredicate` contains values other than strings or `null`.
 	 */
 	modify<K extends keyof ModificationMap>(
 		type: K,
@@ -430,7 +426,7 @@ export interface Wikitext {
  * @internal
  */
 export function WikitextFactory(
-	mw: Mwbot,
+	mwbot: Mwbot,
 	ParsedTemplate: ParsedTemplateStatic,
 	RawTemplate: RawTemplateStatic,
 	ParsedParserFunction: ParsedParserFunctionStatic,
@@ -439,7 +435,7 @@ export function WikitextFactory(
 	ParsedRawWikilink: ParsedRawWikilinkStatic
 ) {
 
-	const namespaceIds = mw.config.get('wgNamespaceIds');
+	const namespaceIds = mwbot.config.get('wgNamespaceIds');
 	const NS_FILE = namespaceIds.file;
 	const rCtrlStart = /^\x01+/;
 
@@ -547,7 +543,7 @@ export function WikitextFactory(
 		}
 
 		static async newFromTitle(title: string | Title, requestOptions: MwbotRequestConfig = {}): Promise<Wikitext> {
-			const rev = await mw.read(title, requestOptions);
+			const rev = await mwbot.read(title, requestOptions);
 			return new Wikitext(rev.content);
 		}
 
@@ -1045,7 +1041,7 @@ export function WikitextFactory(
 					acc.push({
 						text: text,
 						// TODO: Should we handle tags like <span> or [[wikilinks]] within headings?
-						title: mw.Title.clean(removeComments(content!)),
+						title: mwbot.Title.clean(removeComments(content!)),
 						level: parseInt(m[1]),
 						index: startIndex
 					});
@@ -1135,7 +1131,7 @@ export function WikitextFactory(
 				const newline = wikitext.charAt(m.index + m[0].length) === '\n' ? '\n' : '';
 				headings.push({
 					text: rebindComments(m[0]) + newline,
-					title: mw.Title.clean(title),
+					title: mwbot.Title.clean(title),
 					level,
 					index: m.index
 				});
@@ -1261,7 +1257,7 @@ export function WikitextFactory(
 
 				// Skip parameters that don't satisfy the namePredicate
 				const paramName = match[1].trim();
-				let paramValue: string | null = match[2] ?? null;
+				let paramValue = (match[2] ?? null) as string | null;
 				let paramText = match[0];
 
 				/**
@@ -1307,7 +1303,7 @@ export function WikitextFactory(
 				if (isValid) {
 					const param: Parameter = {
 						key: paramName,
-						value: paramValue !== null ? paramValue : null,
+						value: paramValue,
 						text: paramText,
 						index: params.length,
 						startIndex: match.index,
@@ -1360,6 +1356,7 @@ export function WikitextFactory(
 		 *
 		 * The mapping includes:
 		 * * Skip tags (e.g., `<nowiki>`, `<!-- -->`)
+		 * * Gallery tags (`<gallery>`; not included by default)
 		 * * Parameters (`{{{parameter}}}`; not included by default)
 		 * * Fuzzy wikilinks (`[[wikilink]]`; not included by default)
 		 * * Templates (`{{tempalte}}`; not included by default)
@@ -1845,7 +1842,7 @@ export function WikitextFactory(
 					});
 
 					// Update `params` in `_initializer` and recreate instance
-					if (temp instanceof mw.ParserFunction) {
+					if (temp instanceof mwbot.ParserFunction) {
 						const [param1] = temp._getInitializer('params');
 						temp._setInitializer({params: [param1].concat(params)});
 						templates[i] = temp._clone();
@@ -1924,7 +1921,7 @@ export function WikitextFactory(
 				}
 
 				// Verify the title, process the right part, and create an instance
-				const verifiedTitle = mw.Title.newFromText(title);
+				const verifiedTitle = mwbot.Title.newFromText(title);
 				if (verifiedTitle && verifiedTitle.getNamespaceId() === NS_FILE && !verifiedTitle.hadLeadingColon()) {
 					const params: string[] = [];
 					// This is a [[File:...]] link
@@ -1933,7 +1930,7 @@ export function WikitextFactory(
 						// Do nothing
 					} else if (!right.includes('|')) {
 						// This file link is like [[File:...|param]]
-						params.push(mw.Title.clean(right));
+						params.push(mwbot.Title.clean(right));
 					} else {
 						// This file link is like [[File:...|param1|param2]]
 						let text = '';
@@ -1951,7 +1948,7 @@ export function WikitextFactory(
 								i += expr.length - 1;
 							} else if (right[i] === '|') {
 								// Found the start of a new file link parameter
-								params.push(mw.Title.clean(text));
+								params.push(mwbot.Title.clean(text));
 								text = '';
 							} else {
 								// Just part of a file link parameter
@@ -1998,17 +1995,10 @@ export function WikitextFactory(
 			});
 			for (const obj of links) {
 				setKinships(obj, links);
-				const init = {
+				obj._setInitializer({
 					parent: obj.parent,
 					children: obj.children
-				};
-				if (obj instanceof ParsedWikilink) {
-					obj._setInitializer(init);
-				} else if (obj instanceof ParsedFileWikilink) {
-					obj._setInitializer(init);
-				} else if (obj instanceof ParsedRawWikilink) {
-					obj._setInitializer(init);
-				}
+				});
 			}
 			return links;
 		}
