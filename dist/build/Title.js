@@ -51,6 +51,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TitleFactory = TitleFactory;
+const ip_wiki_1 = require("ip-wiki");
 const phpCharMap_1 = require("./phpCharMap");
 const mwString = __importStar(require("./String"));
 /**
@@ -65,6 +66,8 @@ function TitleFactory(config, info) {
     const NS_SPECIAL = namespaceIds.special;
     const NS_MEDIA = namespaceIds.media;
     const NS_FILE = namespaceIds.file;
+    const NS_USER = namespaceIds.user;
+    const NS_USER_TALK = namespaceIds.user_talk;
     const FILENAME_MAX_BYTES = 240;
     const TITLE_MAX_BYTES = 255;
     /**
@@ -140,7 +143,6 @@ function TitleFactory(config, info) {
         },
         // control characters
         {
-            // eslint-disable-next-line no-control-regex
             pattern: /[\x00-\x1f\x7f]/g,
             replace: '',
             generalRule: true
@@ -460,20 +462,16 @@ function TitleFactory(config, info) {
         if (namespace !== NS_SPECIAL && mwString.byteLength(title) > TITLE_MAX_BYTES) {
             return false;
         }
-        /*
-        TODO: Need a function to validate IPv6 addresses
         // Allow IPv6 usernames to start with '::' by canonicalizing IPv6 titles.
         // IP names are not allowed for accounts, and can only be referring to
         // edits from the IP. Given '::' abbreviations and caps/lowercaps,
         // there are numerous ways to present the same IP. Having sp:contribs scan
         // them all is silly and having some show the edits and others not is
         // inconsistent. Same for talk/userpages. Keep them normalized instead.
-        if ( $dbkey !== '' && ( $parts['namespace'] === NS_USER || $parts['namespace'] === NS_USER_TALK ) ) {
-            $dbkey = IPUtils::sanitizeIP( $dbkey );
-            // IPUtils::sanitizeIP return null only for bad input
-            '@phan-var string $dbkey';
+        let sanitizedIp;
+        if ((namespace === NS_USER || namespace === NS_USER_TALK) && (sanitizedIp = ip_wiki_1.IPUtil.sanitize(title, true))) {
+            title = sanitizedIp;
         }
-        */
         // Any remaining initial :s are illegal.
         if (title[0] === ':') {
             return false;
@@ -573,7 +571,29 @@ function TitleFactory(config, info) {
      * *This variable is exclusive to `mwbot-ts`.*
      */
     const rLowerPhpChars = new RegExp(`[${Object.keys(phpCharMap_1.toLowerMap).join('')}]`);
+    /**
+     * *This function is exclusive to `mwbot-ts`.*
+     */
+    const getMain = (title, namespace, interwiki) => {
+        if (config.get('wgCaseSensitiveNamespaces').indexOf(namespace) !== -1 ||
+            !title.length ||
+            // Normally, all wiki links are forced to have an initial capital letter so [[foo]]
+            // and [[Foo]] point to the same place. Don't force it for interwikis, since the
+            // other site might be case-sensitive.
+            !(interwiki === '' && isCapitalized(namespace))) {
+            return title;
+        }
+        const firstChar = mwString.charAt(title, 0);
+        return Title.phpCharToUpper(firstChar) + title.slice(firstChar.length);
+    };
     class Title {
+        namespace;
+        title;
+        /** All underscores are replaced by spaces. */
+        fragment;
+        colon;
+        interwiki;
+        local_interwiki;
         constructor(title, namespace = NS_MAIN) {
             const parsed = parse(title, namespace);
             if (!parsed) {
@@ -708,6 +728,18 @@ function TitleFactory(config, info) {
             }
             return match;
         }
+        static exist = {
+            pages: {},
+            set: function (titles, state) {
+                const pages = this.pages;
+                titles = Array.isArray(titles) ? titles : [titles];
+                state = state === undefined ? true : !!state;
+                for (let i = 0, len = titles.length; i < len; i++) {
+                    pages[titles[i]] = state;
+                }
+                return true;
+            }
+        };
         static normalizeExtension(extension) {
             const lower = extension.toLowerCase();
             const normalizations = {
@@ -750,6 +782,33 @@ function TitleFactory(config, info) {
                 return Array.from(str).reduce((acc, char) => acc += Title.phpCharToLower(char), '');
             }
             return str.toLowerCase();
+        }
+        static normalize(title, options = {}) {
+            if (typeof title !== 'string') {
+                throw new TypeError(`Expected a string for "title", but got ${typeof title}.`);
+            }
+            const parsed = parse(title, options.namespace ?? NS_MAIN);
+            if (!parsed) {
+                return null;
+            }
+            let ret = '';
+            if (options.colon) {
+                ret += parsed.colon;
+            }
+            if (options.interwiki !== false) {
+                ret += parsed.interwiki && parsed.interwiki + ':';
+            }
+            let t = getNamespacePrefix(parsed.namespace) + getMain(parsed.title, parsed.namespace, parsed.interwiki);
+            if (options.format === 'api') {
+                t = text(t);
+            }
+            ret += t;
+            if (options.fragment) {
+                let fragment = parsed.fragment || '';
+                fragment = fragment && '#' + fragment;
+                ret += fragment;
+            }
+            return ret;
         }
         hadLeadingColon() {
             return this.colon !== '';
@@ -836,16 +895,7 @@ function TitleFactory(config, info) {
             return this.title.slice(lastDot + 1) || null;
         }
         getMain() {
-            if (config.get('wgCaseSensitiveNamespaces').indexOf(this.namespace) !== -1 ||
-                !this.title.length ||
-                // Normally, all wiki links are forced to have an initial capital letter so [[foo]]
-                // and [[Foo]] point to the same place. Don't force it for interwikis, since the
-                // other site might be case-sensitive.
-                !(this.interwiki === '' && isCapitalized(this.namespace))) {
-                return this.title;
-            }
-            const firstChar = mwString.charAt(this.title, 0);
-            return Title.phpCharToUpper(firstChar) + this.title.slice(firstChar.length);
+            return getMain(this.title, this.namespace, this.interwiki);
         }
         getMainText() {
             return text(this.getMain());
@@ -945,15 +995,21 @@ function TitleFactory(config, info) {
             return this.getPrefixedText();
         }
         equals(title, evalFragment = false) {
-            if (!(title instanceof Title)) {
-                const t = Title.newFromText(String(title));
-                if (t === null) {
+            const options = { fragment: evalFragment };
+            if (title instanceof Title) {
+                title = title.getPrefixedDb(options);
+            }
+            else if (typeof title === 'string') {
+                const t = Title.normalize(title, options);
+                if (!t) {
                     return null;
                 }
                 title = t;
             }
-            const options = { fragment: evalFragment };
-            return this.getPrefixedDb(options) === title.getPrefixedDb(options);
+            else {
+                return null;
+            }
+            return this.getPrefixedDb(options) === title;
         }
         _clone(seen) {
             const cloned = Object.create(Title.prototype);
@@ -967,17 +1023,5 @@ function TitleFactory(config, info) {
             return cloned;
         }
     }
-    Title.exist = {
-        pages: {},
-        set: function (titles, state) {
-            const pages = this.pages;
-            titles = Array.isArray(titles) ? titles : [titles];
-            state = state === undefined ? true : !!state;
-            for (let i = 0, len = titles.length; i < len; i++) {
-                pages[titles[i]] = state;
-            }
-            return true;
-        }
-    };
     return Title;
 }

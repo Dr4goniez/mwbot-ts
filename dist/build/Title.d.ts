@@ -133,7 +133,6 @@ export interface TitleStatic {
      * "Unicode bidirectional characters" are characters that can slip into cut-and-pasted texts,
      * represented as red dots in WikiEditor.
      *
-     *
      * *This method is exclusive to `mwbot-ts`.*
      *
      * @param str Input string.
@@ -302,6 +301,20 @@ export interface TitleStatic {
      * @returns
      */
     lc(str: string): string;
+    /**
+     * Normalizes a title to its canonical form.
+     *
+     * This capitalizes the first character of the base (unprefixed) title and localizes the
+     * namespace according to the wiki’s configuration.
+     *
+     * *This method is exclusive to `mwbot-ts`.*
+     *
+     * @param title The title to normalize.
+     * @param options Options that control how the title is normalized.
+     * @returns The normalized title as a string, or `null` if the input is not a valid title.
+     * @throws If `title` is not a string.
+     */
+    normalize(title: string, options?: TitleNormalizeOptions): string | null;
 }
 /**
  * The instance members of the `Title` class. For static members including the constructor
@@ -491,7 +504,7 @@ export interface Title {
      */
     getRelativeText(namespace: number): string;
     /**
-     * Get the fragment (if any).
+     * Get the fragment (if any), with all underscores replaced by spaces.
      *
      * Note that this method (by design) does not include the hash character and
      * the value is *not* URL-encoded.
@@ -590,6 +603,7 @@ export interface TitleOutputOptions {
     interwiki?: boolean;
     /**
      * Whether to include the fragment in the output. (Default: `false`)
+     * All underscores are replaced by spaces.
      *
      * This option has no effect if {@link Title.getFragment} returns `null`.
      */
@@ -600,5 +614,21 @@ export interface TitleOutputOptions {
      * This option has no effect if {@link Title.hadLeadingColon} returns `false`.
      */
     colon?: boolean;
+}
+/**
+ * Options for {@link TitleStatic.normalize}.
+ */
+export interface TitleNormalizeOptions extends TitleOutputOptions {
+    /**
+     * The default namespace to use for the given title. (Default: `NS_MAIN`)
+     */
+    namespace?: number;
+    /**
+     * The normalization format to apply. (Default: `'db'`)
+     *
+     * - `'db'`: Replaces all spaces with underscores.
+     * - `'api'`: Replaces all underscores with spaces.
+     */
+    format?: 'db' | 'api';
 }
 //# sourceMappingURL=Title.d.ts.map

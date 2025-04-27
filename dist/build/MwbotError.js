@@ -22,12 +22,28 @@ const Util_1 = require("./Util");
  */
 class MwbotError extends Error {
     /**
+     * The type of the error.
+     */
+    type;
+    /**
+     * The code of the error.
+     */
+    code;
+    /**
+     * The information of the error.
+     */
+    info;
+    /**
      * Returns the {@link info} property. This property is only for compatibility
      * with the parent Error class.
      */
     get message() {
         return this.info;
     }
+    /**
+     * Additional data of the error.
+     */
+    data;
     /**
      * Creates a new instance.
      *

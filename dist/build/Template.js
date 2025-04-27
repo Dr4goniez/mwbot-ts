@@ -121,11 +121,21 @@ function TemplateFactory(config, info, Title) {
         return acc;
     }, Object.create(null));
     class TemplateBase {
+        title;
+        params;
+        /**
+         * The order of parameter registration.
+         */
+        _paramOrder;
+        /**
+         * Template parameter hierarchies.
+         */
+        _hierarchies;
         constructor(title, params = [], hierarchies) {
             this.title = title;
             this.params = Object.create(null);
-            this.paramOrder = new Set();
-            this.hierarchies = Array.isArray(hierarchies) ? hierarchies.map((arr) => [...arr]) : [];
+            this._paramOrder = new Set();
+            this._hierarchies = Array.isArray(hierarchies) ? hierarchies.map((arr) => [...arr]) : [];
             // Register parameters
             params.forEach(({ key, value }) => {
                 this.registerParam(key || '', value, { overwrite: true, position: 'end', listDuplicates: true });
@@ -139,7 +149,7 @@ function TemplateFactory(config, info, Title) {
         }
         getParam(key, resolveHierarchy = false) {
             if (resolveHierarchy) {
-                const hier = this.hierarchies.find((arr) => arr.includes(key));
+                const hier = this._hierarchies.find((arr) => arr.includes(key));
                 if (hier) {
                     for (let i = hier.length - 1; i >= 0; i--) {
                         if (hier[i] in this.params) {
@@ -187,7 +197,7 @@ function TemplateFactory(config, info, Title) {
                 return false;
             }
             delete this.params[key];
-            this.paramOrder.delete(key);
+            this._paramOrder.delete(key);
             return true;
         }
         static validateTitle(title, asHook = false) {
@@ -249,11 +259,11 @@ function TemplateFactory(config, info, Title) {
          * The returned key will always be different from the input key.
          */
         checkKeyOverride(key) {
-            if (!this.hierarchies.length) {
+            if (!this._hierarchies.length) {
                 return null;
             }
             // Locate the hierarchy that includes the input key
-            const hier = this.hierarchies.find((arr) => arr.includes(key));
+            const hier = this._hierarchies.find((arr) => arr.includes(key));
             if (!hier) {
                 return null;
             }
@@ -293,7 +303,6 @@ function TemplateFactory(config, info, Title) {
          * @returns The current instance for chaining.
          */
         registerParam(key, value, options) {
-            var _a;
             key = key.trim();
             const unnamed = key === '';
             if (unnamed) {
@@ -312,7 +321,7 @@ function TemplateFactory(config, info, Title) {
                 return this;
             }
             /**
-             * Helper function to resolve the index of a reference key inside paramOrder.
+             * Helper function to resolve the index of a reference key inside _paramOrder.
              * Handles possible override relationships by checking both overriding and overridden keys.
              */
             const findReferenceIndex = (order, ref) => {
@@ -320,18 +329,18 @@ function TemplateFactory(config, info, Title) {
                 if (i !== -1)
                     return i;
                 const rel = this.checkKeyOverride(ref);
-                if (typeof (rel === null || rel === void 0 ? void 0 : rel.overrides) === 'string' && (i = order.indexOf(rel.overrides)) !== -1)
+                if (typeof rel?.overrides === 'string' && (i = order.indexOf(rel.overrides)) !== -1)
                     return i;
-                if (typeof (rel === null || rel === void 0 ? void 0 : rel.overridden) === 'string' && (i = order.indexOf(rel.overridden)) !== -1)
+                if (typeof rel?.overridden === 'string' && (i = order.indexOf(rel.overridden)) !== -1)
                     return i;
                 return -1;
             };
-            const order = [...this.paramOrder];
+            const order = [...this._paramOrder];
             if (existing) {
                 // Handle updates for an existing key
                 // The input key overrides another key (i.e., an alias), or it exists directly
-                if ((overrideStatus === null || overrideStatus === void 0 ? void 0 : overrideStatus.overrides) || key in this.params) {
-                    const targetKey = (_a = overrideStatus === null || overrideStatus === void 0 ? void 0 : overrideStatus.overrides) !== null && _a !== void 0 ? _a : key;
+                if (overrideStatus?.overrides || key in this.params) {
+                    const targetKey = overrideStatus?.overrides ?? key;
                     const { duplicates, ...previousParam } = this.params[targetKey];
                     if (listDuplicates) {
                         // If duplicate tracking is enabled, save the previous param state
@@ -377,10 +386,10 @@ function TemplateFactory(config, info, Title) {
                         }
                     }
                     this.params[key] = this.createParam(key, value, unnamed, duplicates);
-                    this.paramOrder = new Set(order);
+                    this._paramOrder = new Set(order);
                 }
                 // The input key is overridden by an existing parameter
-                else if (overrideStatus === null || overrideStatus === void 0 ? void 0 : overrideStatus.overridden) {
+                else if (overrideStatus?.overridden) {
                     if (listDuplicates) {
                         this.params[overrideStatus.overridden].duplicates.push(this.createParam(key, value, unnamed, null));
                     }
@@ -416,7 +425,7 @@ function TemplateFactory(config, info, Title) {
                     // Default to inserting at the end (position === 'end' or undefined)
                     order.push(key);
                 }
-                this.paramOrder = new Set(order);
+                this._paramOrder = new Set(order);
             }
             return this;
         }
@@ -427,7 +436,7 @@ function TemplateFactory(config, info, Title) {
          * @returns
          */
         _stringify(title, options) {
-            const order = [...this.paramOrder];
+            const order = [...this._paramOrder];
             const { append, sortPredicate = (param1, param2) => order.indexOf(param1.key) - order.indexOf(param2.key), brPredicateTitle = () => false, brPredicateParam = () => false } = options;
             const suppressKeys = (options.suppressKeys || []).filter((key) => /^[1-9]\d*$/.test(key));
             let { prepend } = options;
@@ -519,22 +528,39 @@ function TemplateFactory(config, info, Title) {
     const _templateCheckStatic = Template;
     // const _templateCheckInstance: Template = new Template('');
     class ParsedTemplate extends Template {
+        rawTitle;
+        text;
+        index;
+        startIndex;
+        endIndex;
+        nestLevel;
+        skip;
+        parent;
+        children;
+        /**
+         * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
+         */
+        #rawTitle;
+        /**
+         * @hidden
+         */
+        #initializer;
         constructor(initializer, options = {}) {
-            const { title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip } = initializer;
+            const { title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children } = initializer;
             const t = Template.validateTitle(title);
             const titleStr = t.getPrefixedDb();
-            const hierarchies = options.hierarchies && titleStr in options.hierarchies
-                ? options.hierarchies[titleStr].map((arr) => arr.slice())
-                : [];
-            super(t, params, hierarchies);
-            this._initializer = initializer;
+            super(t, params, options.hierarchies?.[titleStr]);
+            this.#initializer = initializer;
             this.rawTitle = rawTitle.replace('\x01', title);
-            this._rawTitle = rawTitle;
+            this.#rawTitle = rawTitle;
             this.text = text;
+            this.index = index;
             this.startIndex = startIndex;
             this.endIndex = endIndex;
             this.nestLevel = nestLevel;
             this.skip = skip;
+            this.parent = parent;
+            this.children = new Set([...children]);
         }
         toParserFunction(title, verbose = false) {
             title = typeof title === 'string' ? title : title.getPrefixedDb({ colon: true, fragment: true });
@@ -547,7 +573,7 @@ function TemplateFactory(config, info, Title) {
                 }
                 return null;
             }
-            const initializer = (0, Util_1.mergeDeep)(this._initializer);
+            const initializer = (0, Util_1.mergeDeep)(this.#initializer);
             initializer.title = title;
             return new ParsedParserFunction(initializer);
         }
@@ -556,8 +582,8 @@ function TemplateFactory(config, info, Title) {
             let title = this.title.getNamespaceId() === NS_TEMPLATE
                 ? this.title.getMain()
                 : this.title.getPrefixedText({ colon: true });
-            if (optRawTitle && this._rawTitle.includes('\x01')) {
-                title = this._rawTitle.replace('\x01', title);
+            if (optRawTitle && this.#rawTitle.includes('\x01')) {
+                title = this.#rawTitle.replace('\x01', title);
             }
             return this._stringify(title, rawOptions);
         }
@@ -565,26 +591,54 @@ function TemplateFactory(config, info, Title) {
             return this.stringify();
         }
         _clone(options = {}) {
-            return new ParsedTemplate(this._initializer, options);
+            return new ParsedTemplate(this.#initializer, options);
+        }
+        _getInitializer(key) {
+            return this.#initializer[key];
+        }
+        _setInitializer(obj) {
+            for (const key in obj) {
+                if (obj[key] !== undefined) {
+                    this.#initializer[key] = obj[key];
+                }
+            }
+            return this;
         }
     }
     const _parsedTemplateCheckStatic = ParsedTemplate;
     // const _parsedTemplateCheckInstance: ParsedTemplate = new ParsedTemplate(Object.create(null));
     class RawTemplate extends TemplateBase {
+        rawTitle;
+        text;
+        index;
+        startIndex;
+        endIndex;
+        nestLevel;
+        skip;
+        parent;
+        children;
+        /**
+         * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
+         */
+        #rawTitle;
+        /**
+         * @hidden
+         */
+        #initializer;
         constructor(initializer, options = {}) {
-            const { title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip } = initializer;
-            const hierarchies = options.hierarchies && title in options.hierarchies
-                ? options.hierarchies[title].map((arr) => arr.slice())
-                : [];
-            super(title, params, hierarchies);
-            this._initializer = initializer;
+            const { title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children } = initializer;
+            super(title, params, options.hierarchies?.[title]);
+            this.#initializer = initializer;
             this.rawTitle = rawTitle.replace('\x01', title);
-            this._rawTitle = rawTitle;
+            this.#rawTitle = rawTitle;
             this.text = text;
+            this.index = index;
             this.startIndex = startIndex;
             this.endIndex = endIndex;
             this.nestLevel = nestLevel;
             this.skip = skip;
+            this.parent = parent;
+            this.children = new Set([...children]);
         }
         setTitle(title) {
             // @ts-expect-error
@@ -602,7 +656,7 @@ function TemplateFactory(config, info, Title) {
                 }
                 return null;
             }
-            const initializer = (0, Util_1.mergeDeep)(this._initializer);
+            const initializer = (0, Util_1.mergeDeep)(this.#initializer);
             initializer.title = title;
             return new ParsedTemplate(initializer);
         }
@@ -617,15 +671,15 @@ function TemplateFactory(config, info, Title) {
                 }
                 return null;
             }
-            const initializer = (0, Util_1.mergeDeep)(this._initializer);
+            const initializer = (0, Util_1.mergeDeep)(this.#initializer);
             initializer.title = title;
             return new ParsedParserFunction(initializer);
         }
         stringify(options = {}) {
             const { rawTitle: optRawTitle, ...rawOptions } = options;
             let title = this.title;
-            if (optRawTitle && this._rawTitle.includes('\x01')) {
-                title = this._rawTitle.replace('\x01', title);
+            if (optRawTitle && this.#rawTitle.includes('\x01')) {
+                title = this.#rawTitle.replace('\x01', title);
             }
             return this._stringify(title, rawOptions);
         }
@@ -633,12 +687,25 @@ function TemplateFactory(config, info, Title) {
             return this.stringify();
         }
         _clone(options = {}) {
-            return new RawTemplate(this._initializer, options);
+            return new RawTemplate(this.#initializer, options);
+        }
+        _getInitializer(key) {
+            return this.#initializer[key];
+        }
+        _setInitializer(obj) {
+            for (const key in obj) {
+                if (obj[key] !== undefined) {
+                    this.#initializer[key] = obj[key];
+                }
+            }
+            return this;
         }
     }
     const _rawTemplateCheckStatic = RawTemplate;
     // const _rawTemplateCheckInstance: RawTemplate = new RawTemplate(Object.create(null));
     class ParserFunction extends baseClasses_1.ParamBase {
+        hook;
+        canonicalHook;
         constructor(hook, params = []) {
             const verified = ParserFunction.verify(hook);
             if (!verified) {
@@ -719,8 +786,25 @@ function TemplateFactory(config, info, Title) {
     const _parserFunctionCheckStatic = ParserFunction;
     // const _parserFunctionCheckInstance: ParserFunction = new ParserFunction('');
     class ParsedParserFunction extends ParserFunction {
+        rawHook;
+        text;
+        index;
+        startIndex;
+        endIndex;
+        nestLevel;
+        skip;
+        parent;
+        children;
+        /**
+         * {@link rawHook} with the insertion point of {@link hook} replaced with a control character.
+         */
+        #rawHook;
+        /**
+         * @hidden
+         */
+        #initializer;
         constructor(initializer) {
-            const { title, rawTitle, text, params, startIndex, endIndex, nestLevel, skip } = initializer;
+            const { title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children } = initializer;
             const verified = ParserFunction.verify(title);
             if (!verified) {
                 throw new Error(`"${title}" is not a valid function hook.`);
@@ -776,14 +860,17 @@ function TemplateFactory(config, info, Title) {
                 initParams.push((key ? key + '=' : '') + value);
             });
             super(title, initParams);
-            this._initializer = initializer;
+            this.#initializer = initializer;
             this.rawHook = rawHook;
-            this._rawHook = _rawHook;
+            this.#rawHook = _rawHook;
             this.text = text;
+            this.index = index;
             this.startIndex = startIndex;
             this.endIndex = endIndex;
             this.nestLevel = nestLevel;
             this.skip = skip;
+            this.parent = parent;
+            this.children = new Set([...children]);
         }
         toTemplate(title, verbose = false) {
             title = typeof title === 'string' ? title : title.getPrefixedDb({ colon: true, fragment: true });
@@ -797,15 +884,15 @@ function TemplateFactory(config, info, Title) {
                 }
                 return null;
             }
-            const initializer = (0, Util_1.mergeDeep)(this._initializer);
+            const initializer = (0, Util_1.mergeDeep)(this.#initializer);
             initializer.title = title;
             return new ParsedTemplate(initializer);
         }
         stringify(options = {}) {
             const { rawHook: optRawHook, useCanonical, ...rawOptions } = options;
             let hook = useCanonical ? this.canonicalHook : this.hook;
-            if (optRawHook && this._rawHook.includes('\x01')) {
-                hook = this._rawHook.replace('\x01', hook);
+            if (optRawHook && this.#rawHook.includes('\x01')) {
+                hook = this.#rawHook.replace('\x01', hook);
             }
             return this._stringify(hook, rawOptions);
         }
@@ -813,7 +900,18 @@ function TemplateFactory(config, info, Title) {
             return this.stringify();
         }
         _clone() {
-            return new ParsedParserFunction(this._initializer);
+            return new ParsedParserFunction(this.#initializer);
+        }
+        _getInitializer(key) {
+            return this.#initializer[key];
+        }
+        _setInitializer(obj) {
+            for (const key in obj) {
+                if (obj[key] !== undefined) {
+                    this.#initializer[key] = obj[key];
+                }
+            }
+            return this;
         }
     }
     const _parsedParserFunctionCheckStatic = ParsedParserFunction;

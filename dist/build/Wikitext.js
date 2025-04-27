@@ -62,13 +62,16 @@ exports.WikitextFactory = WikitextFactory;
 const MwbotError_1 = require("./MwbotError");
 const Util_1 = require("./Util");
 const String_1 = require("./String");
+// TODO: Cannot handle rare cases like "<nowiki>[[link<!--]]-->|display]]</nowiki>", where a comment tag is nested
+// inside a non-comment skip tag. To handle these, it'll be necessary to differentiate the types of skip tags.
+const skipTags = ['!--', 'nowiki', 'pre', 'syntaxhighlight', 'source', 'math'];
+const rSkipTags = new RegExp(`^(?:${skipTags.join('|')})$`);
 /**
  * @internal
  */
-function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, ParsedWikilink, ParsedFileWikilink, ParsedRawWikilink) {
-    const namespaceIds = mw.config.get('wgNamespaceIds');
+function WikitextFactory(mwbot, ParsedTemplate, RawTemplate, ParsedParserFunction, ParsedWikilink, ParsedFileWikilink, ParsedRawWikilink) {
+    const namespaceIds = mwbot.config.get('wgNamespaceIds');
     const NS_FILE = namespaceIds.file;
-    // eslint-disable-next-line no-control-regex
     const rCtrlStart = /^\x01+/;
     /**
      * List of valid HTML tag names that can be used in wikitext. All tag names are in lowercase.
@@ -134,7 +137,11 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
         ]
     ]);
     class Wikitext {
-        constructor(content, options = {}) {
+        /**
+         * Storage of the content and parsed entries. Used for the efficiency of parsing methods.
+         */
+        storage;
+        constructor(content) {
             if (typeof content !== 'string') {
                 throw new MwbotError_1.MwbotError('fatal', {
                     code: 'typemismatch',
@@ -150,28 +157,13 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                 templates: null,
                 wikilinks: null
             };
-            // Initialize the names of tags in which elements shouldn't be parsed
-            const defaultSkipTags = options.overwriteSkipTags ?
-                [] :
-                // TODO: Cannot handle rare cases like "<nowiki>[[link<!--]]-->|display]]</nowiki>", where a comment tag is nested
-                // inside a non-comment skip tag. To handle these, it'll be necessary to differentiate the types of skip tags.
-                ['!--', 'nowiki', 'pre', 'syntaxhighlight', 'source', 'math'];
-            if (options.skipTags) {
-                defaultSkipTags.push(...options.skipTags.reduce((acc, el) => {
-                    if (typeof el === 'string') {
-                        acc.push(el.toLowerCase());
-                    }
-                    return acc;
-                }, []));
-            }
-            this.skipTags = [...new Set(defaultSkipTags)];
         }
-        static new(content, options = {}) {
-            return new Wikitext(content, options);
+        static new(content) {
+            return new Wikitext(content);
         }
-        static async newFromTitle(title, options = {}, requestOptions = {}) {
-            const rev = await mw.read(title, requestOptions);
-            return new Wikitext(rev.content, options);
+        static async newFromTitle(title, requestOptions = {}) {
+            const rev = await mwbot.read(title, requestOptions);
+            return new Wikitext(rev.content);
         }
         static getValidTags() {
             return new Set([...validTags.values()].flatMap((set) => [...set]));
@@ -190,11 +182,10 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
             return this.storageManager('content');
         }
         storageManager(key, valueOrClone, args) {
-            var _a;
             // If retrieving a value
             if (typeof valueOrClone === 'boolean' || valueOrClone === undefined) {
-                const clone = valueOrClone !== null && valueOrClone !== void 0 ? valueOrClone : true; // Default to true
-                const val = ((_a = this.storage[key]) !== null && _a !== void 0 ? _a : (() => {
+                const clone = valueOrClone ?? true; // Default to true
+                const val = (this.storage[key] ?? (() => {
                     switch (key) {
                         case 'content': return this.storage.content;
                         case 'tags': return this._parseTags();
@@ -255,50 +246,55 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                     info: 'modificationPredicate must be a function.'
                 });
             }
-            // Retrieve expressions from storage and apply modificationPredicate
-            let expressions = this.storageManager(type);
-            const mods = expressions.map(modificationPredicate);
-            expressions = // Refresh `expressions` because internal objects might have been mutated
-                this.storageManager(type, false);
-            let newContent = this.content;
             // Apply modifications to the content
-            mods.forEach((text, i) => {
-                if (typeof text !== 'string' && text !== null) {
+            let newContent = this.content;
+            const clonedMarkups = this.storageManager(type);
+            const touched = new Set();
+            this.storageManager(type, false).forEach((expr, i, markups) => {
+                // Expose the cloned objects to the user to prevent mutation
+                const mod = modificationPredicate(clonedMarkups[i], i, clonedMarkups, { touched: touched.has(i), content: newContent });
+                if (typeof mod !== 'string' && mod !== null) {
                     throw new MwbotError_1.MwbotError('fatal', {
                         code: 'typemismatch',
                         info: 'modificationPredicate must return either a string or null.'
-                    }, { modified: mods.map((val) => typeof val) });
+                    }, { modified: { [i]: mod } });
                 }
-                if (typeof text === 'string') {
-                    const initialEndIndex = expressions[i].endIndex;
-                    const leadingPart = newContent.slice(0, expressions[i].startIndex);
+                if (typeof mod === 'string') {
+                    const initialEndIndex = expr.endIndex;
+                    const leadingPart = newContent.slice(0, expr.startIndex);
                     let trailingPart = newContent.slice(initialEndIndex);
                     let m = null;
-                    if (text === '' && /(^|\n)[^\S\r\n]*$/.test(leadingPart) && (m = /^[^\S\r\n]*\n/.exec(trailingPart))) {
+                    if (mod === '' && /(^|\n)[^\S\r\n]*$/.test(leadingPart) && (m = /^[^\S\r\n]*\n/.exec(trailingPart))) {
                         // If the modification removes the expression and that creates an empty line,
                         // also remove a trailing newline
                         trailingPart = trailingPart.slice(m[0].length);
                     }
-                    newContent = leadingPart + text + trailingPart;
+                    newContent = leadingPart + mod + trailingPart;
                     // Update character indexes for subsequent modifications
-                    const lengthGap = text.length - (m ? m[0].length : 0) - expressions[i].text.length;
-                    expressions[i].endIndex += lengthGap;
-                    expressions.forEach((obj, j) => {
+                    const lengthGap = mod.length - (m ? m[0].length : 0) - expr.text.length;
+                    expr.endIndex += lengthGap;
+                    markups.forEach((obj, j) => {
                         if (j !== i) {
-                            if (obj.startIndex > initialEndIndex) {
+                            if (obj.startIndex >= initialEndIndex) {
                                 obj.startIndex += lengthGap;
                                 obj.endIndex += lengthGap;
                             }
-                            else if (obj.endIndex > initialEndIndex) {
+                            else if (obj.endIndex >= initialEndIndex) {
                                 obj.endIndex += lengthGap;
                             }
                         }
                     });
+                    // If the modification touched a nested markup, remember its index
+                    for (const index of expr.children) {
+                        const { startIndex, text } = markups[index];
+                        if (!newContent.slice(startIndex).startsWith(text)) {
+                            touched.add(index);
+                        }
+                    }
                 }
             });
             // Update stored content and return result
-            this.storageManager('content', newContent);
-            return this.content;
+            return this.storageManager('content', newContent).content;
         }
         /**
          * Parses the wikitext for HTML tags.
@@ -421,7 +417,10 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                                 void: false,
                                 unclosed: !startTagMatched,
                                 selfClosing: start.selfClosing,
-                                skip: false
+                                skip: false,
+                                index: -1,
+                                parent: null,
+                                children: new Set()
                             });
                             closedTagCnt++;
                             // Exit the loop when we find a start-end pair
@@ -453,15 +452,20 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                     void: false,
                     unclosed: true,
                     selfClosing,
-                    skip: false
+                    skip: false,
+                    index: -1,
+                    parent: null,
+                    children: new Set()
                 });
             });
             // Sort the parsed tags based on their positions in the wikitext and return
             parsed.sort((obj1, obj2) => obj1.startIndex - obj2.startIndex);
-            // Set up the `skip` property and return the result
+            // Set up the `skip` and index-related properties and return the result
             const isInSkipRange = this.getSkipPredicate(parsed);
-            return parsed.map((tag) => {
+            return parsed.map((tag, i, arr) => {
+                tag.index = i;
                 tag.skip = isInSkipRange(tag.startIndex, tag.endIndex);
+                setKinships(tag, arr);
                 return tag;
             });
         }
@@ -479,33 +483,6 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
         modifyTags(modificationPredicate) {
             return this.modify('tags', modificationPredicate);
         }
-        addSkipTags(skipTags) {
-            skipTags.forEach((el) => {
-                if (typeof el === 'string' && !skipTags.includes((el = el.toLowerCase()))) {
-                    this.skipTags.push(el);
-                }
-            });
-            return this;
-        }
-        setSkipTags(skipTags) {
-            this.skipTags = skipTags.reduce((acc, el) => {
-                if (typeof el === 'string') {
-                    acc.push(el.toLowerCase());
-                }
-                return acc;
-            }, []);
-            return this;
-        }
-        removeSkipTags(skipTags) {
-            if (skipTags.join('')) {
-                const rSkipTags = new RegExp(`^(?:${skipTags.join('|')})$`);
-                this.skipTags = this.skipTags.filter((el) => rSkipTags.test(el));
-            }
-            return this;
-        }
-        getSkipTags() {
-            return [...this.skipTags];
-        }
         /**
          * Generates a function that evaluates whether a string starting at an index and ending at another
          * is inside a tag in which that string shouldn't be parsed.
@@ -515,10 +492,6 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
          * @returns A function that checks whether a given range is inside any tag to skip parsing.
          */
         getSkipPredicate(tags) {
-            if (!this.skipTags.join('')) {
-                return () => false;
-            }
-            const rSkipTags = new RegExp(`^(?:${this.skipTags.join('|')})$`);
             // Create an array to store the start and end indices of tags to skip
             tags = tags || this.storageManager('tags', false);
             const indexMap = tags.reduce((acc, tagObj) => {
@@ -538,14 +511,14 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
             };
         }
         /**
-         * Parses sections in the wikitext.
+         * Parses sections from the wikitext.
          *
          * @returns An array of parsed sections.
          */
         _parseSections() {
             const isInSkipRange = this.getSkipPredicate();
             /**
-             * Regular expressions to parse `<hN>` tags and `==heading==`s.
+             * Regular expressions to parse `<hN>` tags and `==heading==` markups.
              */
             const regex = {
                 /**
@@ -554,60 +527,136 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                  */
                 tag: /^h([1-6])$/,
                 /**
-                 * The wiki markup of headings:
-                 * * `== 1 ===`: `<h2>1 =</h2>` (left equals: 2, right equals: 3)
-                 * * `=== 1 ==`: `<h2>= 1</h2>` (left equals: 3, right equals: 2)
-                 * * `== 1 ==\S+`: Not recognized as the beginning of a section (but see below)
-                 * * `== 1 ==<!--string-->`: `<h2>1</h2>`
-                 * * `======= 1 =======`: `<h6>= 1 =</h6>` (left equals: 7, right equals: 7)
+                 * Matches potential wikitext-style headings with comment placeholders.
+                 *
+                 * Examples of matched inputs:
+                 * `\x01(1)\x02\x02\x02\x02\x02 == heading ==<extra chars>`
+                 *
+                 * Comment tags are replaced with control sequences like `\x01{n}\x02+`.
                  *
                  * Capturing groups:
-                 * * `$1`: Left equals
-                 * * `$2`: Heading text
-                 * * `$3`: Right equals
-                 * * `$4`: Remaining characters
+                 * * `$1`: Leading equals or control chars (e.g. `==`, or `\x01...\x02`)
+                 * * `$2`: Heading text (can include inline markup)
+                 * * `$3`: Trailing equals or control chars
+                 * * `$4`: Trailing space characters (must be [\t\n\u0020\u00a0])
                  *
-                 * In `$4`, the only characters that can appear are:
-                 * * `[\t\n\u0020\u00a0]` (i.e. tab, new line, space, and non-breaking space)
+                 * Notes on wiki heading parsing:
+                 * * `== 1 ===` → `<h2>1 =</h2>` (left: 2, right: 3)
+                 * * `=== 1 ==` → `<h2>= 1</h2>` (left: 3, right: 2)
+                 * * `== 1 ==\S+` → Ignored as a valid heading (due to extra non-space characters)
+                 * * `<!--string-->== 1 ==` → `<h2>1</h2>` (comment is ignored)
+                 * * `== 1 ==<!--string-->` → `<h2>1</h2>`
+                 * * `=<!--string-->= 1 ==` → `<h1>1</h1>`
+                 * * `======= 1 =======` → `<h6>= 1 =</h6>` (left: 7, right: 7)
+                 */
+                headingCandidate: /^([\x01\x02\d=]+)(.+?)([\x01\x02\d=]+)(.*)$/gm,
+                /**
+                 * Strict heading matcher, applied after restoring comments.
                  *
-                 * Note that this is not the same as the JS `\s`, which is equivalent to
+                 * Uses same capturing groups as `headingCandidate`.
+                 */
+                heading: /^(=+)(.+?)(=+)(.*)$/,
+                /**
+                 * Matches whitespace characters allowed after a heading.
+                 *
+                 * This is not the same as the JavaScript `\s`, which is equivalent to
                  * `[\t\n\v\f\r\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]`.
                  */
-                heading: /^(=+)(.+?)(=+)([^\n]*)\n?$/gm,
                 whitespace: /[\t\u0020\u00a0]+/g
             };
-            // Extract HTML-style headings (h1–h6)
-            const headings = this.storageManager('tags', false).reduce((acc, tagObj) => {
-                const m = regex.tag.exec(tagObj.name);
-                if (m && !isInSkipRange(tagObj.startIndex, tagObj.endIndex)) {
+            // Extract HTML-style headings (<h1>–<h6>)
+            let wikitextWithPlaceholders = this.content;
+            const comments = [];
+            const headings = this.storageManager('tags', false).reduce((acc, { name, startIndex, endIndex, text, content }) => {
+                const m = regex.tag.exec(name);
+                if (m && !isInSkipRange(startIndex, endIndex)) {
                     acc.push({
-                        text: tagObj.text,
-                        // TODO: Should we deal with cases like "this <span>is</span> a heading" and "this [[is]] a heading"?
-                        title: mw.Title.clean(removeComments(tagObj.content)),
+                        text: text,
+                        // TODO: Should we handle tags like <span> or [[wikilinks]] within headings?
+                        title: mwbot.Title.clean(removeComments(content)),
                         level: parseInt(m[1]),
-                        index: tagObj.startIndex
+                        index: startIndex
                     });
+                }
+                if (name === '!--' && comments.length < 100_000) {
+                    // If the tag is an HTML comment, replace it with a placeholder and store it.
+                    // The placeholder has the same length as the original for index stability.
+                    // Format: "\x01{n}\x02..." where {n} is the comment index in `comments`.
+                    // Handles up to 99,999 comments. (e.g. "<!---->" → 7 characters → (\x01, \x02, and a 5-digit number)
+                    const key = '\x01' + comments.length + '\x02' + '\x02'.repeat(text.length - 3);
+                    comments.push(text);
+                    wikitextWithPlaceholders = wikitextWithPlaceholders.replace(text, key);
                 }
                 return acc;
             }, []);
+            /**
+             * Restores or removes comment placeholders from a string.
+             *
+             * @param str     The string containing comment placeholders.
+             * @param remove  If `true`, removes placeholders instead of restoring them.
+             * @returns       The updated string.
+             */
+            const rebindComments = (str, remove = false) => {
+                const rKeys = /\x01(\d+)\x02+/g;
+                let m;
+                while ((m = rKeys.exec(str))) {
+                    if (remove) {
+                        str = str.replace(m[0], '');
+                    }
+                    else {
+                        const index = parseInt(m[1]);
+                        str = str.replace(m[0], comments[index]);
+                    }
+                }
+                return str;
+            };
             // Parse wikitext-style headings (==heading==)
+            // `RegExp.prototype.exec` here handles edge cases such as the following:
+            // 1. <!--c-->== H ==
+            // 2. =<!--c-->= H ==
+            // 3. ==<!--c--> H ==
+            // 4. == H <!--c-->==
+            // 5. == H =<!--c-->=
+            // 6. == H ==<!--c-->
+            // Patterns 2 and 5, where a comment tag interrupts equal signs, are tricky in that the section level
+            // is determined based on the number of equals before/after the interruption (for #2, the level is 1
+            // because 1 equal sign precedes the comment; also for #5, the level is 1 because 1 equal sign follows
+            // the comment)
+            // The exec() here first matches lines including comment placeholders and equal signs, by virtue of using
+            // `regex.headingCandidate`. `regex.heading` validates the matched lines (from which comments are REMOVED)
+            // as well-formed ==heading== markups.
             const wikitext = this.content;
             let m;
-            while ((m = regex.heading.exec(wikitext))) {
+            while ((m = regex.headingCandidate.exec(wikitextWithPlaceholders))) {
+                // Ensure the `== heading ==` markup is valid even after removing comment placeholders
+                const mClean = regex.heading.exec(rebindComments(m[0], true));
+                if (!mClean) {
+                    continue;
+                }
                 // If `$4` isn't empty or the heading is within a skip range, ignore it
-                // See regex for capturing groups
-                const m4 = removeComments(m[4]).replace(regex.whitespace, '');
+                const m4 = mClean[4].replace(regex.whitespace, '');
                 if (m4 || isInSkipRange(m.index, m.index + m[0].length)) {
                     continue;
                 }
+                // If either of the left or right equals are interrupted, get the correct level for this section
+                let eq;
+                let maxLevel = -1;
+                if ((eq = /^(=+)(?:\x01\d+\x02+)+=/.exec(m[1]))) {
+                    maxLevel = eq[1].length;
+                }
+                if ((eq = /=(?:\x01\d+\x02+)+(=+)$/.exec(m[3])) && maxLevel < eq[1].length) {
+                    maxLevel = eq[1].length;
+                }
                 // Determine heading level (up to 6)
-                const level = Math.min(6, m[1].length, m[3].length);
-                const overflowLeft = Math.max(0, m[1].length - level);
-                const overflowRight = Math.max(0, m[3].length - level);
-                const title = '='.repeat(overflowLeft) + m[2] + '='.repeat(overflowRight);
+                const level = Math.min(maxLevel === -1 ? 6 : maxLevel, mClean[1].length, mClean[3].length);
+                const overflowLeft = Math.max(0, mClean[1].length - level);
+                const overflowRight = Math.max(0, mClean[3].length - level);
+                const title = '='.repeat(overflowLeft) + mClean[2] + '='.repeat(overflowRight);
+                // Include trailing newline if it directly follows the heading.
+                const newline = wikitext.charAt(m.index + m[0].length) === '\n' ? '\n' : '';
                 headings.push({
-                    text: m[0].trim(),
-                    title: mw.Title.clean(removeComments(title)),
+                    text: rebindComments(m[0]) + newline,
+                    title: mwbot.Title.clean(title),
                     level,
                     index: m.index
                 });
@@ -615,22 +664,30 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
             // Sort headings by index and add the top section
             headings.sort((a, b) => a.index - b.index);
             headings.unshift({ text: '', title: 'top', level: 1, index: 0 }); // Top section
-            // Parse sections from the headings
+            // Build sections from the sorted headings
             const sections = headings.map(({ text, title, level, index }, i, arr) => {
                 const boundaryIdx = i === 0
-                    ? (arr.length > 1 ? 1 : -1) // If top section, next heading or no boundary
+                    ? (arr.length > 1 ? 1 : -1) // For the top section: next heading or no boundary
                     : arr.findIndex((obj, j) => j > i && obj.level <= level); // Find the next non-subsection
-                const content = wikitext.slice(index, boundaryIdx !== -1 ? arr[boundaryIdx].index : wikitext.length);
+                const content = wikitext.slice(index + text.length, boundaryIdx !== -1 ? arr[boundaryIdx].index : wikitext.length);
                 return {
                     heading: text,
                     title,
                     level,
                     index: i,
                     startIndex: index,
-                    endIndex: index + content.length,
-                    text: content
+                    endIndex: index + text.length + content.length,
+                    content,
+                    get text() {
+                        return this.heading + this.content;
+                    },
+                    parent: null,
+                    children: new Set()
                 };
             });
+            for (const obj of sections) {
+                setKinships(obj, sections);
+            }
             return sections;
         }
         parseSections(config = {}) {
@@ -644,7 +701,27 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
         modifySections(modificationPredicate) {
             return this.modify('sections', modificationPredicate);
         }
-        identifySection(startIndex, endIndex) {
+        identifySection(startIndexOrObj, endIndex) {
+            let startIndex;
+            if (typeof startIndexOrObj === 'object') {
+                startIndex = startIndexOrObj.startIndex;
+                endIndex = startIndexOrObj.endIndex;
+            }
+            else {
+                startIndex = startIndexOrObj;
+            }
+            if (typeof startIndex !== 'number') {
+                throw new MwbotError_1.MwbotError('fatal', {
+                    code: 'typemismatch',
+                    info: `Expected a number for "startIndex", but got ${typeof startIndex}.`
+                });
+            }
+            if (typeof endIndex !== 'number') {
+                throw new MwbotError_1.MwbotError('fatal', {
+                    code: 'typemismatch',
+                    info: `Expected a number for "endIndex", but got ${typeof endIndex}.`
+                });
+            }
             const sections = this.storageManager('sections');
             let ret = null;
             for (const sect of sections) {
@@ -668,9 +745,9 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                 /**
                  * Capturing groups:
                  * * `$1`: Parameter name
-                 * * `$2`: Parameter value
+                 * * `$2`: Parameter value (possibly undefined)
                  */
-                params: /\{{3}(?!{)([^|}]*)\|?([^}]*)\}{3}/g,
+                params: /\{{3}(?!{)([^|}]*)(?:\|([^}]*))?\}{3}/g,
                 twoOrMoreLeftBreaces: /\{{2,}/g,
                 twoOrMoreRightBreaces: /\}{2,}/g,
                 startWithTwoOrMoreRightBreaces: /^\}{2,}/,
@@ -682,7 +759,7 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
             while ((match = regex.params.exec(wikitext))) {
                 // Skip parameters that don't satisfy the namePredicate
                 const paramName = match[1].trim();
-                let paramValue = match[2];
+                let paramValue = (match[2] ?? null);
                 let paramText = match[0];
                 /**
                  * Parameters can contain nested templates (e.g., `{{{1|{{{page|{{PAGENAME}}}}}}}}`).
@@ -705,7 +782,11 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                                 // If the right braces close all the left braces
                                 const lastIndex = pos + (leftBraceCnt - rightBraceCnt);
                                 paramText = wikitext.slice(match.index, lastIndex); // Get the correct parameter
-                                paramValue += paramText.slice(rightBraceStartIndex - lastIndex).replace(regex.endWithThreeRightBraces, '');
+                                if (paramValue !== null) {
+                                    paramValue += paramText
+                                        .slice(rightBraceStartIndex - lastIndex)
+                                        .replace(regex.endWithThreeRightBraces, '');
+                                }
                                 isValid = true;
                                 regex.params.lastIndex = lastIndex; // Update search position
                                 break;
@@ -721,12 +802,15 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                 if (isValid) {
                     const param = {
                         key: paramName,
-                        value: paramValue.trim(),
+                        value: paramValue,
                         text: paramText,
+                        index: params.length,
                         startIndex: match.index,
                         endIndex: regex.params.lastIndex,
                         nestLevel,
-                        skip: isInSkipRange(match.index, regex.params.lastIndex)
+                        skip: isInSkipRange(match.index, regex.params.lastIndex),
+                        parent: null,
+                        children: new Set()
                     };
                     params.push(param);
                     // Handle nested parameters
@@ -738,6 +822,9 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                         nestLevel = 0;
                     }
                 }
+            }
+            for (const obj of params) {
+                setKinships(obj, params);
             }
             return params;
         }
@@ -760,6 +847,7 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
          *
          * The mapping includes:
          * * Skip tags (e.g., `<nowiki>`, `<!-- -->`)
+         * * Gallery tags (`<gallery>`; not included by default)
          * * Parameters (`{{{parameter}}}`; not included by default)
          * * Fuzzy wikilinks (`[[wikilink]]`; not included by default)
          * * Templates (`{{tempalte}}`; not included by default)
@@ -770,7 +858,6 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
         getIndexMap(options = {}) {
             const indexMap = Object.create(null);
             // Process skipTags
-            const rSkipTags = new RegExp(`^(?:${this.skipTags.join('|')})$`);
             this.storageManager('tags', false).forEach(({ text, startIndex, name, content }) => {
                 // If this is a skip tag or a gallery tag whose content contains a pipe character
                 if (rSkipTags.test(name) || name === 'gallery' && options.gallery && content && content.includes('|')) {
@@ -863,6 +950,7 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
             let title = '';
             let rawTitle = '';
             let isLeftSealed = false;
+            const unprocessed = [];
             for (let i = 0; i < wikitext.length; i++) {
                 const wkt = wikitext.slice(i);
                 // Skip sequences of "\x01", prepended instead of the usual text
@@ -895,6 +983,11 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                 }
                 if (regex.start.test(wkt)) {
                     // Regard any occurrence of "[[" as the potential start of a wikilink
+                    if (inLink) {
+                        // If this is the start of a wikilink nested inside another, store the start index of
+                        // the parent wikilink to return to after processing this one
+                        unprocessed.unshift(startIndex);
+                    }
                     inLink = true;
                     startIndex = i;
                     title = '';
@@ -916,6 +1009,7 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                         title = title.slice(0, -1); // Remove the trailing pipe
                         rawTitle = rawTitle.slice(0, -1);
                     }
+                    const nestLevel = unprocessed.length;
                     links.push({
                         right,
                         title,
@@ -923,10 +1017,23 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                         text,
                         startIndex,
                         endIndex,
+                        nestLevel,
                         skip: isInSkipRange(startIndex, endIndex)
                     });
+                    if (nestLevel) {
+                        // If this was a nested wikilink, resume parsing from the parent wikilink's start index
+                        // Also register this nested link in the indexMap so it won't be parsed again
+                        indexMap[startIndex] = {
+                            text,
+                            type: 'wikilink_fuzzy',
+                            inner: null // If `inner` is `null`, its content won't be parsed recursively
+                        };
+                        i = unprocessed.shift() - 1; // Go back to the start of the nesting wikilink in the next iteration
+                    }
+                    else {
+                        i++;
+                    }
                     inLink = false;
-                    i++;
                 }
                 else if (inLink && !isLeftSealed) {
                     if (wkt[0] === '|') {
@@ -1056,10 +1163,13 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                             rawTitle,
                             text,
                             params,
+                            index: -1,
                             startIndex,
                             endIndex,
                             nestLevel,
-                            skip: isInSkipRange(startIndex, endIndex)
+                            skip: isInSkipRange(startIndex, endIndex),
+                            parent: null,
+                            children: new Set()
                         };
                         let temp;
                         try {
@@ -1180,24 +1290,32 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                     }
                     // Restore pipes in the newly parsed params
                     const params = components.slice(1).map(({ key, value }) => {
-                        // eslint-disable-next-line no-control-regex
                         return { key: key.replace(/\x02/g, '|'), value: value.replace(/\x02/g, '|') };
                     });
-                    // Hack: Update `params` in `_initializer` and recreate instance
-                    if (temp instanceof mw.ParserFunction) {
-                        // @ts-expect-error Modifying a private property
-                        temp._initializer.params = [temp._initializer.params[0]].concat(params);
+                    // Update `params` in `_initializer` and recreate instance
+                    if (temp instanceof mwbot.ParserFunction) {
+                        const [param1] = temp._getInitializer('params');
+                        temp._setInitializer({ params: [param1].concat(params) });
                         templates[i] = temp._clone();
                     }
                     else {
-                        // @ts-expect-error Modifying a private property
-                        temp._initializer.params = params;
+                        temp._setInitializer({ params });
                         templates[i] = temp._clone(options);
                     }
                 }
                 // eslint-disable-next-line no-constant-condition
             } while (false); // Always get out of the loop automatically
-            return templates.sort((obj1, obj2) => obj1.startIndex - obj2.startIndex);
+            templates.sort((obj1, obj2) => obj1.startIndex - obj2.startIndex);
+            for (const [index, obj] of templates.entries()) {
+                obj.index = index;
+                setKinships(obj, templates);
+                obj._setInitializer({
+                    index,
+                    parent: obj.parent,
+                    children: obj.children
+                });
+            }
+            return templates;
         }
         parseTemplates(config = {}) {
             const { hierarchies, titlePredicate, templatePredicate } = config;
@@ -1222,7 +1340,7 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
         _parseWikilinks() {
             // Call _parseWikilinksFuzzy() with an index map including templates (this avoids circular calls)
             const indexMap = this.getIndexMap({ parameters: true, templates: true });
-            return this._parseWikilinksFuzzy(indexMap).reduce((acc, obj) => {
+            const links = this._parseWikilinksFuzzy(indexMap).map((obj, index) => {
                 const { right, title, ...rest } = obj;
                 // Process `rawTitle` and identify the insertion point of `title`
                 let _rawTitle = rest.rawTitle;
@@ -1244,7 +1362,7 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                     }
                 }
                 // Verify the title, process the right part, and create an instance
-                const verifiedTitle = mw.Title.newFromText(title);
+                const verifiedTitle = mwbot.Title.newFromText(title);
                 if (verifiedTitle && verifiedTitle.getNamespaceId() === NS_FILE && !verifiedTitle.hadLeadingColon()) {
                     const params = [];
                     // This is a [[File:...]] link
@@ -1254,7 +1372,7 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                     }
                     else if (!right.includes('|')) {
                         // This file link is like [[File:...|param]]
-                        params.push(mw.Title.clean(right));
+                        params.push(mwbot.Title.clean(right));
                     }
                     else {
                         // This file link is like [[File:...|param1|param2]]
@@ -1273,7 +1391,7 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                             }
                             else if (right[i] === '|') {
                                 // Found the start of a new file link parameter
-                                params.push(mw.Title.clean(text));
+                                params.push(mwbot.Title.clean(text));
                                 text = '';
                             }
                             else {
@@ -1287,9 +1405,12 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                         params,
                         _rawTitle,
                         title: verifiedTitle,
+                        index,
+                        parent: null,
+                        children: new Set(),
                         ...rest
                     };
-                    acc.push(new ParsedFileWikilink(initializer));
+                    return new ParsedFileWikilink(initializer);
                 }
                 else if (verifiedTitle) {
                     // This is a normal [[wikilink]], including [[:File:...]]
@@ -1297,9 +1418,12 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                         display: right || undefined,
                         _rawTitle,
                         title: verifiedTitle,
+                        index,
+                        parent: null,
+                        children: new Set(),
                         ...rest
                     };
-                    acc.push(new ParsedWikilink(initializer));
+                    return new ParsedWikilink(initializer);
                 }
                 else {
                     // `title` is invalid or unparsable
@@ -1307,12 +1431,22 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
                         display: right || undefined,
                         _rawTitle,
                         title,
+                        index,
+                        parent: null,
+                        children: new Set(),
                         ...rest
                     };
-                    acc.push(new ParsedRawWikilink(initializer));
+                    return new ParsedRawWikilink(initializer);
                 }
-                return acc;
-            }, []);
+            });
+            for (const obj of links) {
+                setKinships(obj, links);
+                obj._setInitializer({
+                    parent: obj.parent,
+                    children: obj.children
+                });
+            }
+            return links;
         }
         parseWikilinks(config = {}) {
             const { titlePredicate, wikilinkPredicate } = config;
@@ -1330,6 +1464,32 @@ function WikitextFactory(mw, ParsedTemplate, RawTemplate, ParsedParserFunction, 
         }
     }
     return Wikitext;
+}
+/**
+ * Assigns the `parent` and `children` relationships for the given object by
+ * examining its position and nesting level relative to other objects in the array.
+ *
+ * @param obj The object whose relationships are to be assigned.
+ * @param arr The array of the objects.
+ */
+function setKinships(obj, arr) {
+    const getLevel = (x) => 'level' in x ? x.level : x.nestLevel;
+    let parentIndex = [-1, Infinity];
+    for (const [index, current] of arr.entries()) {
+        const { startIndex, endIndex } = current;
+        // Set parent
+        if (startIndex < obj.startIndex && obj.endIndex < endIndex &&
+            // Ensure to retrieve the immediate parent
+            parentIndex[0] < startIndex && endIndex < parentIndex[1]) {
+            obj.parent = index;
+            parentIndex = [startIndex, endIndex];
+        }
+        // Set children
+        if (getLevel(current) === getLevel(obj) + 1 &&
+            obj.startIndex < startIndex && endIndex < obj.endIndex) {
+            obj.children.add(index);
+        }
+    }
 }
 /**
  * Sanitize the tag name `--` to `!--`, or else return the input as is.
@@ -1365,7 +1525,10 @@ function createVoidTagObject(nodeName, startTag, startIndex, nestLevel, selfClos
         void: !pseudoVoid,
         unclosed: false,
         selfClosing,
-        skip
+        skip,
+        index: -1,
+        parent: null,
+        children: new Set()
     };
 }
 // Interfaces and private members for "parseSections"

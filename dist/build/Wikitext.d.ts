@@ -86,10 +86,9 @@ export interface WikitextStatic {
      * ```
      *
      * @param content A wikitext content.
-     * @param options Options for the initialization of the instance.
      * @throws If `content` is not a string.
      */
-    new (content: string, options?: WikitextOptions): Wikitext;
+    new (content: string): Wikitext;
     /**
      * Alias of the {@link WikitextStatic.constructor | constructor}.
      *
@@ -99,10 +98,9 @@ export interface WikitextStatic {
      * ```
      *
      * @param content A wikitext content.
-     * @param options Options for the initialization of the instance.
      * @throws If `content` is not a string.
      */
-    'new'(content: string, options?: WikitextOptions): Wikitext;
+    'new'(content: string): Wikitext;
     /**
      * Creates a new instance by fetching the content of the given title.
      *
@@ -118,11 +116,10 @@ export interface WikitextStatic {
      * ```
      *
      * @param title The page title, either as a string or a {@link Title} instance.
-     * @param options Options for the initialization of the instance.
      * @param requestOptions Optional HTTP request options.
      * @returns A Promise resolving to a new `Wikitext` instance.
      */
-    newFromTitle(title: string | Title, options?: WikitextOptions, requestOptions?: MwbotRequestConfig): Promise<Wikitext>;
+    newFromTitle(title: string | Title, requestOptions?: MwbotRequestConfig): Promise<Wikitext>;
     /**
      * Returns a list of valid HTML tag names that can be used in wikitext.
      *
@@ -158,8 +155,7 @@ export interface Wikitext {
      *
      * The same result can be obtained by using:
      * ```ts
-     * const len = wikitext.content.length;
-     * // (`wikitext` is an instance of the Wikitext class)
+     * wikitext.content.length;
      * ```
      */
     get length(): number;
@@ -168,8 +164,7 @@ export interface Wikitext {
      *
      * The same result can be obtained by using:
      * ```ts
-     * const byteLen = Mwbot.String.byteLength(wikitext.content);
-     * // (`wikitext` is an instance of the Wikitext class)
+     * Mwbot.String.byteLength(wikitext.content);
      * ```
      */
     get byteLength(): number;
@@ -215,11 +210,10 @@ export interface Wikitext {
      * - {@link modifyWikilinks}
      *
      * #### Important notes
-     * - This method (and its shorthand variants) modifies and updates {@link content}
-     *   and its associated expressions.
-     * - Any copies of `content` or parsed expressions made before calling this
-     *   method should **not** be reused, as properties such as `startIndex` will
-     *   change after modification.
+     * - This method (and its shorthand variants) modifies and updates {@link content} and its
+     *   associated expressions.
+     * - Any copies of `content` or parsed expressions made before calling this method should **not**
+     *   be reused, as properties such as `startIndex` will change after modification.
      *
      * @param type The type of expressions to modify.
      *
@@ -247,8 +241,7 @@ export interface Wikitext {
      * @throws {MwbotError}
      * - If `type` is invalid.
      * - If `modificationPredicate` is not a function.
-     * - If the array created from `modificationPredicate` contains values other than
-     *   strings or `null`.
+     * - If the array created from `modificationPredicate` contains values other than strings or `null`.
      */
     modify<K extends keyof ModificationMap>(type: K, modificationPredicate: ModificationPredicate<ModificationMap[K]>): string;
     /**
@@ -267,39 +260,6 @@ export interface Wikitext {
      * @returns
      */
     modifyTags(modificationPredicate: ModificationPredicate<ModificationMap['tags']>): string;
-    /**
-     * Adds tags in which elements shouldn't be parsed, if the tags are not already registered.
-     *
-     * CAUTION: This may lead to inconsistent parsing results.
-     *
-     * @param skipTags Array of tag names to add.
-     * @returns The current Wikitext instance.
-     */
-    addSkipTags(skipTags: string[]): this;
-    /**
-     * Sets tags in which elements shouldn't be parsed, overwriting any existing settings.
-     *
-     * CAUTION: This may lead to inconsistent parsing results.
-     *
-     * @param skipTags Array of tag names to set.
-     * @returns The current Wikitext instance.
-     */
-    setSkipTags(skipTags: string[]): this;
-    /**
-     * Removes tags from the list of tags in which elements shouldn't be parsed.
-     *
-     * CAUTION: This may lead to inconsistent parsing results.
-     *
-     * @param skipTags Array of tag names to remove.
-     * @returns The current Wikitext instance.
-     */
-    removeSkipTags(skipTags: string[]): this;
-    /**
-     * Gets a copy of the names of currently registered tags in which elements shouldn't be parsed.
-     *
-     * @returns An array of the current skip tag names.
-     */
-    getSkipTags(): string[];
     /**
      * Parses sections in the wikitext.
      *
@@ -330,7 +290,7 @@ export interface Wikitext {
      *
      * const wikitext = new mwbot.Wikitext(text);
      * const [main] = wikitext.parseWikilinks();
-     * console.log(wikitext.identifySection(main.startIndex, main.endIndex));
+     * console.log(wikitext.identifySection(main));
      * // Output:
      * // {
      * //   heading: '=== Bar ===',
@@ -342,6 +302,16 @@ export interface Wikitext {
      * //   text: '=== Bar ===\n[[Main page]]\n'
      * // }
      * ```
+     *
+     * @param obj Any (markup) object containing `startIndex` and `endIndex` properties.
+     * @returns The deepest {@link Section} containing the expression, or `null` if none is found.
+     */
+    identifySection(obj: {
+        startIndex: number;
+        endIndex: number;
+    } & Record<string, any>): Section | null;
+    /**
+     * Identifies the section containing an expression based on its start and end indices.
      *
      * This method is intended to be used with expressions obtained from parser methods.
      *
@@ -402,48 +372,59 @@ export interface Wikitext {
     modifyWikilinks(modificationPredicate: ModificationPredicate<ModificationMap['wikilinks']>): string;
 }
 /**
- * Options for initializing a {@link Wikitext} instance.
+ * HTML tags in which elements shouldn't be parsed.
+ *
+ * Example:
+ * ```
+ * blah blah <!-- {{Template}} --> {{Template}} blah blah
+ * ```
+ * In many cases, `{{Template}}` inside a comment tag shouldn't be parsed.
+ * This type declaration defines such tags to control parsing behavior.
  */
-export interface WikitextOptions {
-    /**
-     * HTML tags in which elements shouldn't be parsed.
-     *
-     * NOTE: This option is usually unnecessary.
-     *
-     * Example:
-     * ```
-     * blah blah <!-- {{Template}} --> {{Template}} blah blah
-     * ```
-     * In many cases, `{{Template}}` inside a comment tag shouldn't be parsed.
-     * Specify such tags to control parsing behavior.
-     *
-     * By default, elements inside the following tags (referred to as "skip tags" in this framework)
-     * are parsed with `{skip: true}`:
-     * * `!--`, `nowiki`, `pre`, `syntaxhighlight`, `source`, and `math`.
-     *
-     * The specified tags will be merged with the defaults unless {@link overwriteSkipTags} is `true`.
-     */
-    skipTags?: string[];
-    /**
-     * Whether to overwrite the default skip tags. If `true`, {@link skipTags} replaces the default list
-     * instead of merging with it.
-     *
-     * NOTE: This may lead to inconsistent parsing results.
-     */
-    overwriteSkipTags?: boolean;
-}
+export type SkipTags = '!--' | 'nowiki' | 'pre' | 'syntaxhighlight' | 'source' | 'math';
 /**
- * Type of the callback function for {@link Wikitext.modify}.
+ * Type of the callback function used by {@link Wikitext.modify} and its shorthand variants.
+ * This function is called once for each expression of the specified type and determines
+ * whether the expression should be modified.
  *
- * This is used as the predicate function for
- * {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map | Array.prototype.map}.
+ * @template T The type of markup expressions being modified. This corresponds to the values
+ * of {@link ModificationMap}, such as {@link Tag} for `"tags"` or {@link Parameter} for `"parameters"`.
  *
- * @template T The type of expressions being modified. This corresponds to the values of
- * {@link ModificationMap} (e.g., `Tag`).
+ * @param value The current expression object under consideration for modification.
  *
- * @returns A `string` to replace the current `value`, or `null` to leave it unmodified.
+ * Note: The object's `startIndex` and `endIndex` values (but not others) are **updated in-place**
+ * as modifications are applied.
+ *
+ * @param index The position of this expression in the array of parsed expressions.
+ *
+ * @param array
+ * The current array of all expressions of this type, as returned by the corresponding parsing method.
+ *
+ * Note: As with `value`, the `startIndex` and `endIndex` values of the objects in the array are dynamically
+ * updated.
+ *
+ * @param context Dynamic modification-related information.
+ *
+ * @param context.touched
+ * A boolean indicating whether this expression is a **nested child** of a previously modified expression.
+ * This typically occurs when markup structures are nested (e.g., a `<b>` inside a `<div>`), and the parent
+ * has already been replaced or modified. In such cases, the expression itself may be invalidated or contextually
+ * incorrect in the new content, and the predicate can use this flag to skip or handle it differently.
+ *
+ * @param context.content
+ * The current state of the full wikitext content. This string is updated after every successful modification
+ * (i.e., whenever the predicate returns a string). It reflects the content as it exists *at the time* this predicate
+ * is called for this expression. This is useful for context-sensitive changes, such as inspecting neighboring characters
+ * or avoiding redundant edits.
+ *
+ * @returns
+ * A `string` to replace the current expression, or `null` to leave it unchanged. Returning `null` ensures that
+ * the original text is preserved.
  */
-export type ModificationPredicate<T> = (value: T, index: number, array: T[]) => string | null;
+export type ModificationPredicate<T> = (value: T, index: number, array: T[], context: {
+    touched: boolean;
+    content: string;
+}) => string | null;
 /**
  * A mapping of a type key to its object type, used in {@link Wikitext.modify}.
  * @private
@@ -468,7 +449,7 @@ export interface Tag {
     /**
      * The outerHTML of the tag.
      */
-    readonly text: string;
+    get text(): string;
     /**
      * The start tag.
      */
@@ -485,6 +466,10 @@ export interface Tag {
      * * If this tag is unclosed even though it should be closed, this property is the expected end tag.
      */
     end: string;
+    /**
+     * The index of this Tag object within the result array returned by `parseTags`.
+     */
+    index: number;
     /**
      * The index at which this tag starts in the wikitext.
      */
@@ -515,9 +500,17 @@ export interface Tag {
      */
     selfClosing: boolean;
     /**
-     * Whether the tag appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+     * Whether the tag appears inside an HTML tag specified in {@link SkipTags}.
      */
     skip: boolean;
+    /**
+     * The index of the parent Tag object within the `parseTags` result array, or `null` if there is no parent.
+     */
+    parent: number | null;
+    /**
+     * The indices of the child Tag objects within the `parseTags` result array.
+     */
+    children: Set<number>;
 }
 /**
  * Configuration options for {@link Wikitext.parseTags}.
@@ -547,7 +540,9 @@ export interface ParseTagsConfig {
  */
 export interface Section {
     /**
-     * `==heading==` or the outerHTML of a heading element. Any leading/trailing `\s`s are trimmed.
+     * `==heading==` or the outerHTML of a heading element, as directly parsed from the wikitext.
+     * This may include comment tags and a trailing newline.
+     *
      * For the top section, the value is empty.
      */
     heading: string;
@@ -563,6 +558,8 @@ export interface Section {
     /**
      * The index number of the section. This is the same as the `section` parameter of {@link https://www.mediawiki.org/wiki/API:Edit | the edit API}.
      * For the top section, the value is `0`.
+     *
+     * This property also matches the index of this Section object within the result array returned by `parseSections`.
      */
     index: number;
     /**
@@ -574,9 +571,23 @@ export interface Section {
      */
     endIndex: number;
     /**
-     * The content of the section including the heading.
+     * The body content of the section, with leading and trailing whitespace preserved.
      */
-    text: string;
+    content: string;
+    /**
+     * The full text of the section, including the heading.
+     *
+     * This is a getter that returns the concatenation of {@link heading} and {@link content}.
+     */
+    get text(): string;
+    /**
+     * The index of the parent Section object within the `parseSections` result array, or `null` if there is no parent.
+     */
+    parent: number | null;
+    /**
+     * The indices of the child Section objects within the `parseSections` result array.
+     */
+    children: Set<number>;
 }
 /**
  * Configuration options for {@link Wikitext.parseSections}.
@@ -604,12 +615,18 @@ export interface Parameter {
     key: string;
     /**
      * The parameter value (i.e., the right operand of `{{{key|value}}}`).
+     *
+     * If the parameter is not pipe-separated, this property is `null`.
      */
-    value: string;
+    value: string | null;
     /**
      * The full wikitext representation of the parameter.
      */
     text: string;
+    /**
+     * The index of this Parameter object within the result array returned by `parseParameters`.
+     */
+    index: number;
     /**
      * The starting index of the parameter in the wikitext.
      */
@@ -625,9 +642,17 @@ export interface Parameter {
      */
     nestLevel: number;
     /**
-     * Whether the parameter appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
+     * Whether the parameter appears inside an HTML tag specified in {@link SkipTags}.
      */
     skip: boolean;
+    /**
+     * The index of the parent Parameter object within the `parseParameters` result array, or `null` if there is no parent.
+     */
+    parent: number | null;
+    /**
+     * The indices of the child Parameter objects within the `parseParameters` result array.
+     */
+    children: Set<number>;
 }
 /**
  * Configuration options for {@link Wikitext.parseParameters}.

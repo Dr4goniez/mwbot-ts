@@ -109,30 +109,10 @@ const Wikitext_1 = require("./Wikitext");
  * });
  * ```
  *
- * ### Features
- * - Supports all major MediaWiki authentication schemes: OAuth2, OAuth1.0a, BotPasswords, and
- *   anonymous access for read-only requests. See {@link Credentials}, {@link MwbotOptions}, and
- *   {@link MwbotInitOptions} for details on supported authentication types.
- * - All request methods (except {@link rawRequest}) include error handling via the {@link MwbotError}
- *   class, offering standardized and descriptive debugging. Refer to {@link MwbotErrorCodes} for all possible codes.
- * - Automatically caches site and user information, as well as tokens, after initialization.
- *   Site metadata is available via {@link Mwbot.info}, while configuration variables are exposed
- *   through {@link Mwbot.config}, providing a familiar `wg`-style interface.
- * - Manages page titles via {@link Mwbot.Title}, which replicates the behavior of the native
- *   `mediawiki.Title` class and extends it with support for interwiki prefixes.
- * - Enables powerful manipulation of wikitext via {@link Mwbot.Wikitext}, which handles MediaWiki’s
- *   edge cases and parsing rules to simplify tasks like page edits and text analysis.
- *   - See also: {@link Mwbot.Template}, {@link Mwbot.ParserFunction}, {@link Mwbot.Wikilink},
- *     {@link Mwbot.FileWikilink}, and {@link Mwbot.RawWikilink}, which parse MediaWiki markup into
- *     structured objects for convenient handling.
- * - Provides static {@link String} and {@link Util} modules:
- *   - {@link String} mirrors the `mediawiki.String` utility, offering consistent and familiar string operations.
- *   - {@link Util} exposes internal framework utilities for advanced use (not to be confused with `mediawiki.util`).
- *
- * ### See Also
- * - 📘 API Documentation: https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.html
- * - 🐙 GitHub: https://github.com/Dr4goniez/mwbot-ts
- * - 📦 npm: https://www.npmjs.com/package/mwbot-ts
+ * **See also:**
+ * - 🐙 {@link https://github.com/Dr4goniez/mwbot-ts | GitHub}
+ * - 📦 {@link https://www.npmjs.com/package/mwbot-ts | npm}
+ * - 📘 {@link https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.html | API Documentation}
  */
 class Mwbot {
     // ****************************** CLASS PROPERTIES ******************************
@@ -181,6 +161,44 @@ class Mwbot {
         };
     }
     /**
+     * User credentials.
+     */
+    credentials;
+    /**
+     * Axios instance for this intance.
+     */
+    axios;
+    /**
+     * A cookie jar that stores session and login cookies for this instance.
+     */
+    jar;
+    /**
+     * The user options for this intance.
+     */
+    userMwbotOptions;
+    /**
+     * The user-defined configurations for HTTP requests.
+     */
+    userRequestOptions;
+    /**
+     * An array of `AbortController`s used in {@link abort}.
+     */
+    abortions;
+    /**
+     * Cashed MediaWiki tokens.
+     */
+    tokens;
+    /**
+     * Object that holds UUIDs generated for each HTTP request issued by {@link _request}.
+     * The keys represent request UUIDs, and the values the number of requests made using the ID.
+     */
+    uuid;
+    /**
+     * The timestamp (in milliseconds since the UNIX epoch) of the last successful request.
+     * This is updated only for API actions specified in {@link MwbotOptions.intervalActions}.
+     */
+    lastRequestTime;
+    /**
      * See {@link MwbotOptions.intervalActions}.
      */
     static get defaultIntervalActions() {
@@ -199,11 +217,19 @@ class Mwbot {
         return mwString;
     }
     /**
+     * The site and user information fetched by {@link _init}. Exposed to the user via {@link info}.
+     */
+    _info;
+    /**
      * Returns (a deep copy of) the site and user information fetched by {@link init}.
      */
     get info() {
         return mergeDeep(this._info);
     }
+    /**
+     * Title class for this instance.
+     */
+    _Title;
     /**
      * Title class for this instance.
      */
@@ -213,9 +239,17 @@ class Mwbot {
     /**
      * Template class for this instance.
      */
+    _Template;
+    /**
+     * Template class for this instance.
+     */
     get Template() {
         return this._Template;
     }
+    /**
+     * ParserFunction class for this instance.
+     */
+    _ParserFunction;
     /**
      * ParserFunction class for this instance.
      */
@@ -225,9 +259,17 @@ class Mwbot {
     /**
      * Wikilink class for this instance.
      */
+    _Wikilink;
+    /**
+     * Wikilink class for this instance.
+     */
     get Wikilink() {
         return this._Wikilink;
     }
+    /**
+     * FileWikilink class for this instance.
+     */
+    _FileWikilink;
     /**
      * FileWikilink class for this instance.
      */
@@ -237,9 +279,17 @@ class Mwbot {
     /**
      * RawWikilink class for this instance.
      */
+    _RawWikilink;
+    /**
+     * RawWikilink class for this instance.
+     */
     get RawWikilink() {
         return this._RawWikilink;
     }
+    /**
+     * Wikitext class for this instance.
+     */
+    _Wikitext;
     /**
      * Wikitext class for this instance.
      */
@@ -257,38 +307,6 @@ class Mwbot {
      * @throws {MwbotError} If no valid API endpoint is provided or if the user credentials are malformed.
      */
     constructor(mwbotInitOptions, requestOptions) {
-        // ****************************** SITE-RELATED CONFIG ******************************
-        /**
-         * Stores configuration values for the site and user.
-         */
-        this.configData = Object.create(null);
-        /**
-         * The `wg`-keys of {@link ConfigData}, used in {@link config} to verify their existence.
-         */
-        this.configKeys = new Set([
-            'wgArticlePath',
-            'wgCaseSensitiveNamespaces',
-            'wgContentLanguage',
-            'wgContentNamespaces',
-            'wgDBname',
-            // 'wgExtraSignatureNamespaces',
-            'wgFormattedNamespaces',
-            // 'wgGlobalGroups',
-            'wgLegalTitleChars',
-            'wgNamespaceIds',
-            'wgScript',
-            'wgScriptPath',
-            'wgServer',
-            'wgServerName',
-            'wgSiteName',
-            // 'wgUserEditCount',
-            // 'wgUserGroups',
-            'wgUserId',
-            'wgUserName',
-            'wgUserRights',
-            'wgVersion',
-            'wgWikiID'
-        ]);
         const { credentials, ...options } = mergeDeep(mwbotInitOptions);
         requestOptions = mergeDeep(requestOptions);
         // Ensure that a valid URL is provided
@@ -611,6 +629,38 @@ class Mwbot {
     get apilimit() {
         return this._info.user.rights.includes('apihighlimits') ? 500 : 50;
     }
+    // ****************************** SITE-RELATED CONFIG ******************************
+    /**
+     * Stores configuration values for the site and user.
+     */
+    configData = Object.create(null);
+    /**
+     * The `wg`-keys of {@link ConfigData}, used in {@link config} to verify their existence.
+     */
+    configKeys = new Set([
+        'wgArticlePath',
+        'wgCaseSensitiveNamespaces',
+        'wgContentLanguage',
+        'wgContentNamespaces',
+        'wgDBname',
+        // 'wgExtraSignatureNamespaces',
+        'wgFormattedNamespaces',
+        // 'wgGlobalGroups',
+        'wgLegalTitleChars',
+        'wgNamespaceIds',
+        'wgScript',
+        'wgScriptPath',
+        'wgServer',
+        'wgServerName',
+        'wgSiteName',
+        // 'wgUserEditCount',
+        // 'wgUserGroups',
+        'wgUserId',
+        'wgUserName',
+        'wgUserRights',
+        'wgVersion',
+        'wgWikiID'
+    ]);
     /**
      * Provides access to site and user configuration data.
      *
@@ -857,7 +907,6 @@ class Mwbot {
      * @returns A Promise resolving to the API response or rejecting with an error.
      */
     async _request(requestOptions) {
-        var _a, _b, _c;
         if (!requestOptions._cloned) {
             requestOptions = mergeDeep(requestOptions);
             requestOptions._cloned = true;
@@ -889,7 +938,6 @@ class Mwbot {
         }
         // Make the request and process the response
         const response = await this.rawRequest(requestOptions).catch(async (error) => {
-            var _a, _b;
             const err = new MwbotError_1.MwbotError('api_mwbot', {
                 code: 'http',
                 info: 'HTTP request failed.'
@@ -897,7 +945,7 @@ class Mwbot {
             if (error && error.code === 'ERR_CANCELED') {
                 return this.error(err.setCode('aborted').setInfo('Request aborted by the user.'), requestId);
             }
-            const status = (_b = (_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.status) !== null && _b !== void 0 ? _b : error === null || error === void 0 ? void 0 : error.status;
+            const status = error?.response?.status ?? error?.status;
             if (typeof status === 'number' && status >= 400) {
                 // Articulate the error object for common errors
                 switch (status) {
@@ -925,7 +973,7 @@ class Mwbot {
         const data = response.data;
         // Show warnings only for the first request because retries use the same request body
         if (this.uuid[requestId] === 1) {
-            this.showWarnings(data === null || data === void 0 ? void 0 : data.warnings);
+            this.showWarnings(data?.warnings);
         }
         if (!data) {
             const err = new MwbotError_1.MwbotError('api_mwbot', {
@@ -956,7 +1004,7 @@ class Mwbot {
                         if (this.isAnonymous()) {
                             return this.errorAnonymous(requestId);
                         }
-                        if (requestOptions.method === 'POST' && clonedParams.action && !((_a = requestOptions.disableRetryByCode) === null || _a === void 0 ? void 0 : _a.includes(clonedParams.action))) {
+                        if (requestOptions.method === 'POST' && clonedParams.action && !requestOptions.disableRetryByCode?.includes(clonedParams.action)) {
                             const tokenType = await this.getTokenType(clonedParams.action); // Identify the required token type
                             if (!tokenType) {
                                 return this.error(err, requestId);
@@ -974,7 +1022,7 @@ class Mwbot {
                         return await this.retry(err, requestId, clonedParams, requestOptions, 3, 10);
                     case 'maxlag': {
                         console.warn(`Warning: Encountered a "${err.code}" error.`);
-                        const retryAfter = parseInt((_b = response === null || response === void 0 ? void 0 : response.headers) === null || _b === void 0 ? void 0 : _b['retry-after']) || 5;
+                        const retryAfter = parseInt(response?.headers?.['retry-after']) || 5;
                         return await this.retry(err, requestId, clonedParams, requestOptions, 4, retryAfter);
                     }
                     case 'assertbotfailed':
@@ -992,7 +1040,7 @@ class Mwbot {
                                 }
                                 console.log('Re-login successful.');
                                 if (requestOptions.method === 'POST' && clonedParams.token &&
-                                    clonedParams.action && !((_c = requestOptions.disableRetryByCode) === null || _c === void 0 ? void 0 : _c.includes(clonedParams.action))) {
+                                    clonedParams.action && !requestOptions.disableRetryByCode?.includes(clonedParams.action)) {
                                     console.log('Will retry if possible...');
                                     const tokenType = await this.getTokenType(clonedParams.action);
                                     if (!tokenType) {
@@ -1230,7 +1278,7 @@ class Mwbot {
         else {
             // Older error format (errorformat=bc)
             for (const [module, obj] of Object.entries(warnings)) {
-                const msg = (obj === null || obj === void 0 ? void 0 : obj['*']) || (obj === null || obj === void 0 ? void 0 : obj.warnings);
+                const msg = obj?.['*'] || obj?.warnings;
                 if (msg) {
                     console.log(`[Warning]: ${module}: ${msg}`);
                 }
@@ -1611,8 +1659,7 @@ class Mwbot {
             formatversion: '2'
         }, additionalParams);
         return this.get(params, requestOptions).then((res) => {
-            var _a;
-            const resToken = (_a = res.query) === null || _a === void 0 ? void 0 : _a.tokens;
+            const resToken = res.query?.tokens;
             if (resToken && isEmptyObject(resToken) === false) {
                 this.tokens = resToken; // Update cashed tokens
                 const token = resToken[tokenName];
@@ -1687,8 +1734,7 @@ class Mwbot {
         }, {
             disableRetryByCode: ['badtoken']
         }).then((res) => {
-            var _a;
-            const paramObj = (_a = res.paraminfo) === null || _a === void 0 ? void 0 : _a.modules[0].parameters.find((p) => p.name === 'token');
+            const paramObj = res.paraminfo?.modules[0].parameters.find((p) => p.name === 'token');
             return paramObj && paramObj.tokentype || null;
         }).catch(() => null);
     }
@@ -1774,7 +1820,6 @@ class Mwbot {
      * @returns
      */
     async _save(title, content, summary, internalOptions = {}, additionalParams = {}, requestOptions = {}) {
-        var _a;
         const params = Object.assign({
             action: 'edit',
             title: title.getPrefixedDb(),
@@ -1785,7 +1830,7 @@ class Mwbot {
             formatversion: '2'
         }, internalOptions, additionalParams);
         const res = await this.postWithCsrfToken(params, requestOptions);
-        if (((_a = res.edit) === null || _a === void 0 ? void 0 : _a.result) === 'Success') {
+        if (res.edit?.result === 'Success') {
             return res.edit;
         }
         throw new MwbotError_1.MwbotError('api_mwbot', {
@@ -1858,7 +1903,6 @@ class Mwbot {
         return this._save(this.prepEdit(title), content, summary, { nocreate: true }, additionalParams, requestOptions);
     }
     async read(titles, requestOptions = {}) {
-        var _a, _b, _c;
         const titlesTemp = Array.isArray(titles) ? titles : [titles];
         /**
          * The result array, initialized with the same length as `titlesTemp`.
@@ -1941,7 +1985,7 @@ class Mwbot {
                 setToAll(res, batchIndex);
                 continue;
             }
-            const resPages = (_a = res.query) === null || _a === void 0 ? void 0 : _a.pages;
+            const resPages = res.query?.pages;
             if (!resPages) {
                 const err = new MwbotError_1.MwbotError('api_mwbot', {
                     code: 'empty',
@@ -1951,7 +1995,7 @@ class Mwbot {
                 continue;
             }
             for (const pageObj of resPages) {
-                const resRevision = (_b = pageObj.revisions) === null || _b === void 0 ? void 0 : _b[0];
+                const resRevision = pageObj.revisions?.[0];
                 let value;
                 if (typeof pageObj.pageid !== 'number' || pageObj.missing) {
                     value = new MwbotError_1.MwbotError('api_mwbot', {
@@ -1965,7 +2009,7 @@ class Mwbot {
                     typeof resRevision.revid !== 'number' ||
                     typeof res.curtimestamp !== 'string' ||
                     !resRevision.timestamp ||
-                    typeof ((_c = resRevision.slots) === null || _c === void 0 ? void 0 : _c.main.content) !== 'string') {
+                    typeof resRevision.slots?.main.content !== 'string') {
                     value = new MwbotError_1.MwbotError('api_mwbot', {
                         code: 'empty',
                         info: 'OK response but empty result.'
@@ -2061,7 +2105,6 @@ class Mwbot {
     async edit(title, transform, requestOptions = {}, 
     /** @private */
     retry = 0) {
-        var _a;
         if (typeof transform !== 'function') {
             throw new MwbotError_1.MwbotError('fatal', {
                 code: 'typemismatch',
@@ -2115,7 +2158,7 @@ class Mwbot {
         if (result instanceof Error) {
             throw result;
         }
-        if (((_a = result.edit) === null || _a === void 0 ? void 0 : _a.result) === 'Success') {
+        if (result.edit?.result === 'Success') {
             return result.edit;
         }
         throw new MwbotError_1.MwbotError('api_mwbot', {

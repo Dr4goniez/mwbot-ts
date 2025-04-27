@@ -28,13 +28,21 @@ function WikilinkFactory(config, Title) {
     const namespaceIds = config.get('wgNamespaceIds');
     const NS_FILE = namespaceIds.file;
     class WikilinkBase {
+        title;
+        /**
+         * The display text of the wikilink (the part after `|`).
+         *
+         * This property is trimmed of leading and trailing whitespace.
+         * It is `null` if no display text is set.
+         */
+        _display;
         constructor(title, display) {
             this.title = title;
-            this.display = typeof display === 'string' ? Title.clean(display) : null;
+            this._display = typeof display === 'string' ? Title.clean(display) : null;
         }
         getDisplay() {
             if (this.hasDisplay()) {
-                return this.display;
+                return this._display;
             }
             else if (typeof this.title === 'string') {
                 return Title.clean(this.title);
@@ -45,11 +53,11 @@ function WikilinkFactory(config, Title) {
         }
         setDisplay(display) {
             if (typeof display === 'string' && (display = Title.clean(display))) {
-                this.display = display;
+                this._display = display;
                 return this;
             }
             else if (display === null) {
-                this.display = null;
+                this._display = null;
                 return this;
             }
             else {
@@ -57,7 +65,7 @@ function WikilinkFactory(config, Title) {
             }
         }
         hasDisplay() {
-            return !!this.display;
+            return !!this._display;
         }
         /**
          * Validates the given title as a wikilink title and returns a Title instance.
@@ -146,7 +154,7 @@ function WikilinkFactory(config, Title) {
         toFileWikilink(title, verbose = false) {
             try {
                 title = Wikilink.validateTitle(title);
-                return new FileWikilink(title, this.display ? [this.display] : []);
+                return new FileWikilink(title, this._display ? [this._display] : []);
             }
             catch (err) {
                 if (verbose) {
@@ -156,7 +164,7 @@ function WikilinkFactory(config, Title) {
             }
         }
         stringify(options = {}) {
-            const right = !options.suppressDisplay && this.display || undefined;
+            const right = !options.suppressDisplay && this._display || undefined;
             return this._stringify(this.title.getPrefixedText({ colon: true, fragment: true }), right);
         }
         toString() {
@@ -166,29 +174,50 @@ function WikilinkFactory(config, Title) {
     const _wikilinkCheckStatic = Wikilink;
     // const _wikilinkCheckInstance: Wikilink = new Wikilink('');
     class ParsedWikilink extends Wikilink {
+        rawTitle;
+        text;
+        index;
+        startIndex;
+        endIndex;
+        nestLevel;
+        skip;
+        parent;
+        children;
+        /**
+         * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
+         */
+        #rawTitle;
+        /**
+         * @hidden
+         */
+        #initializer;
         constructor(initializer) {
-            const { display, title, rawTitle, _rawTitle, text, startIndex, endIndex, skip } = initializer;
+            const { display, title, rawTitle, _rawTitle, text, index, startIndex, endIndex, nestLevel, skip, parent, children } = initializer;
             super(title, display);
-            this._initializer = initializer;
+            this.#initializer = initializer;
             this.rawTitle = rawTitle;
-            this._rawTitle = _rawTitle;
+            this.#rawTitle = _rawTitle;
             this.text = text;
+            this.index = index;
             this.startIndex = startIndex;
             this.endIndex = endIndex;
+            this.nestLevel = nestLevel;
             this.skip = skip;
+            this.parent = parent;
+            this.children = new Set([...children]);
         }
         toFileWikilink(title, verbose = false) {
             // ParsedWikilinkInitializer has a `display` property but ParsedFileWikilinkInitializer doesn't
             // and instead has an optional `params` property
             try {
                 title = Wikilink.validateTitle(title);
-                const { display: _display, ...initializer } = this._initializer;
+                const { display: _display, ...initializer } = this.#initializer;
                 initializer.title = title;
-                if (this.display) {
-                    // TODO: Should we use `this.display.split('|')`? But we must handle special wiki-markups in `display`
+                if (this._display) {
+                    // TODO: Should we use `this._display.split('|')`? But we must handle special wiki-markups in `display`
                     // e.g., if `display` is "{{{1|}}}", `params` will be `['{{{1', '}}}']`, which is obviously inaccurate
                     // For the time being, let the user decide whether they want to parse `params[0]` further to handle this
-                    initializer.params = [this.display];
+                    initializer.params = [this._display];
                 }
                 return new ParsedFileWikilink(initializer);
             }
@@ -201,10 +230,10 @@ function WikilinkFactory(config, Title) {
         }
         stringify(options = {}) {
             const { suppressDisplay, rawTitle } = options;
-            const right = !suppressDisplay && this.display || undefined;
+            const right = !suppressDisplay && this._display || undefined;
             let title = this.title.getPrefixedText({ colon: true, fragment: true });
-            if (rawTitle && this._rawTitle.includes('\x01')) {
-                title = this._rawTitle.replace('\x01', title);
+            if (rawTitle && this.#rawTitle.includes('\x01')) {
+                title = this.#rawTitle.replace('\x01', title);
             }
             return this._stringify(title, right);
         }
@@ -212,12 +241,24 @@ function WikilinkFactory(config, Title) {
             return this.stringify();
         }
         _clone() {
-            return new ParsedWikilink(this._initializer);
+            return new ParsedWikilink(this.#initializer);
+        }
+        _setInitializer(obj) {
+            for (const key in obj) {
+                if (obj[key] !== undefined) {
+                    this.#initializer[key] = obj[key];
+                }
+            }
+            return this;
         }
     }
     const _parsedWikilinkCheckStatic = ParsedWikilink;
     // const _parsedWikilinkCheckInstance: ParsedWikilink = new ParsedWikilink(Object.create(null));
     class FileWikilink extends baseClasses_1.ParamBase {
+        // Unlike Wikilink and RawWikilink, the right part of file links doesn't work as their display text
+        // but as parameters. This class hence extends ParamBase instead of WikilinkBase. validateTitle()
+        // and _stringify are neverthess the same as in WikilinkBase.
+        title;
         constructor(title, params = []) {
             title = FileWikilink.validateTitle(title);
             if (title.isExternal()) {
@@ -316,23 +357,44 @@ function WikilinkFactory(config, Title) {
     const _fileWikilinkCheckStatic = FileWikilink;
     // const _fileWikilinkCheckInstance: FileWikilink = new FileWikilink('');
     class ParsedFileWikilink extends FileWikilink {
+        rawTitle;
+        text;
+        index;
+        startIndex;
+        endIndex;
+        nestLevel;
+        skip;
+        parent;
+        children;
+        /**
+         * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
+         */
+        #rawTitle;
+        /**
+         * @hidden
+         */
+        #initializer;
         constructor(initializer) {
-            const { params, title, rawTitle, _rawTitle, text, startIndex, endIndex, skip } = initializer;
+            const { params, title, rawTitle, _rawTitle, text, index, startIndex, endIndex, nestLevel, skip, parent, children } = initializer;
             super(title, params);
-            this._initializer = initializer;
+            this.#initializer = initializer;
             this.rawTitle = rawTitle;
-            this._rawTitle = _rawTitle;
+            this.#rawTitle = _rawTitle;
             this.text = text;
+            this.index = index;
             this.startIndex = startIndex;
             this.endIndex = endIndex;
+            this.nestLevel = nestLevel;
             this.skip = skip;
+            this.parent = parent;
+            this.children = new Set([...children]);
         }
         toWikilink(title, verbose = false) {
             // ParsedFileWikilinkInitializer has a `params` property but ParsedWikilinkInitializer doesn't,
             // and has an additional `display` property (which is optional)
             try {
                 title = FileWikilink.validateTitle(title);
-                const { params: _params, ...initializer } = this._initializer;
+                const { params: _params, ...initializer } = this.#initializer;
                 initializer.title = title;
                 if (this.params.length) {
                     // Set the missing (but optional) property of `display`
@@ -357,8 +419,8 @@ function WikilinkFactory(config, Title) {
             // At this point, `title` shouldn't be interwiki and led by a colon
             // TODO: Include the fragment?
             let title = this.title.getPrefixedText({ interwiki: false });
-            if (rawTitle && this._rawTitle.includes('\x01')) {
-                title = this._rawTitle.replace('\x01', title);
+            if (rawTitle && this.#rawTitle.includes('\x01')) {
+                title = this.#rawTitle.replace('\x01', title);
             }
             return this._stringify(title, right);
         }
@@ -366,7 +428,15 @@ function WikilinkFactory(config, Title) {
             return this.stringify();
         }
         _clone() {
-            return new ParsedFileWikilink(this._initializer);
+            return new ParsedFileWikilink(this.#initializer);
+        }
+        _setInitializer(obj) {
+            for (const key in obj) {
+                if (obj[key] !== undefined) {
+                    this.#initializer[key] = obj[key];
+                }
+            }
+            return this;
         }
     }
     const _parsedFileWikilinkCheckStatic = ParsedFileWikilink;
@@ -387,7 +457,7 @@ function WikilinkFactory(config, Title) {
         }
         toWikilink(title, verbose = false) {
             try {
-                return new Wikilink(title, this.display || undefined);
+                return new Wikilink(title, this._display || undefined);
             }
             catch (err) {
                 if (verbose) {
@@ -398,7 +468,7 @@ function WikilinkFactory(config, Title) {
         }
         toFileWikilink(title, verbose = false) {
             try {
-                const params = typeof this.display === 'string' ? [this.display] : [];
+                const params = typeof this._display === 'string' ? [this._display] : [];
                 return new FileWikilink(title, params);
             }
             catch (err) {
@@ -409,7 +479,7 @@ function WikilinkFactory(config, Title) {
             }
         }
         stringify(options = {}) {
-            const right = !options.suppressDisplay && this.display || undefined;
+            const right = !options.suppressDisplay && this._display || undefined;
             return this._stringify(this.title, right);
         }
         toString() {
@@ -419,24 +489,45 @@ function WikilinkFactory(config, Title) {
     const _rawWikilinkCheckStatic = RawWikilink;
     // const _rawWikilinkCheckInstance: RawWikilink = new RawWikilink('');
     class ParsedRawWikilink extends RawWikilink {
+        rawTitle;
+        text;
+        index;
+        startIndex;
+        endIndex;
+        nestLevel;
+        skip;
+        parent;
+        children;
+        /**
+         * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
+         */
+        #rawTitle;
+        /**
+         * @hidden
+         */
+        #initializer;
         constructor(initializer) {
-            const { display, title, rawTitle, _rawTitle, text, startIndex, endIndex, skip } = initializer;
+            const { display, title, rawTitle, _rawTitle, text, index, startIndex, endIndex, nestLevel, skip, parent, children } = initializer;
             super(title, display);
-            this._initializer = initializer;
+            this.#initializer = initializer;
             this.rawTitle = rawTitle;
-            this._rawTitle = _rawTitle;
+            this.#rawTitle = _rawTitle;
             this.text = text;
+            this.index = index;
             this.startIndex = startIndex;
             this.endIndex = endIndex;
+            this.nestLevel = nestLevel;
             this.skip = skip;
+            this.parent = parent;
+            this.children = new Set([...children]);
         }
         toWikilink(title, verbose = false) {
             // `initializer.title` is a string in ParsedRawWikilinkInitializer, a Title instance in ParsedWikilinkInitializer
             try {
-                const { title: _title, ...initializerBase } = this._initializer;
+                const { title: _title, ...initializerBase } = this.#initializer;
                 const initializer = initializerBase;
                 initializer.title = ParsedWikilink.validateTitle(title); // Set the missing property
-                initializer.display = this.display || undefined; // Update the property
+                initializer.display = this._display || undefined; // Update the property
                 return new ParsedWikilink(initializer);
             }
             catch (err) {
@@ -448,12 +539,12 @@ function WikilinkFactory(config, Title) {
         }
         toFileWikilink(title, verbose = false) {
             // `initializer.title` is a string in ParsedRawWikilinkInitializer, a Title instance in ParsedWikilinkInitializer
-            // ParsedFileWikilinkInitializer doesn't have a `display` property, and instead has a `params` property
+            // ParsedFileWikilinkInitializer doesn't have a `_display` property, and instead has a `params` property
             try {
-                const { title: _title, display: _display, ...initializerBase } = this._initializer;
+                const { title: _title, display: _display, ...initializerBase } = this.#initializer;
                 const initializer = initializerBase;
                 initializer.title = ParsedWikilink.validateTitle(title); // Set the missing property
-                initializer.params = typeof this.display === 'string' ? [this.display] : []; // Set the missing property
+                initializer.params = typeof this._display === 'string' ? [this._display] : []; // Set the missing property
                 return new ParsedFileWikilink(initializer);
             }
             catch (err) {
@@ -465,10 +556,10 @@ function WikilinkFactory(config, Title) {
         }
         stringify(options = {}) {
             const { suppressDisplay, rawTitle } = options;
-            const right = !suppressDisplay && this.display || undefined;
+            const right = !suppressDisplay && this._display || undefined;
             let title = this.title;
-            if (rawTitle && this._rawTitle.includes('\x01')) {
-                title = this._rawTitle.replace('\x01', title);
+            if (rawTitle && this.#rawTitle.includes('\x01')) {
+                title = this.#rawTitle.replace('\x01', title);
             }
             return this._stringify(title, right);
         }
@@ -476,7 +567,15 @@ function WikilinkFactory(config, Title) {
             return this.stringify();
         }
         _clone() {
-            return new ParsedRawWikilink(this._initializer);
+            return new ParsedRawWikilink(this.#initializer);
+        }
+        _setInitializer(obj) {
+            for (const key in obj) {
+                if (obj[key] !== undefined) {
+                    this.#initializer[key] = obj[key];
+                }
+            }
+            return this;
         }
     }
     const _parsedRawWikilinkCheckStatic = ParsedRawWikilink;

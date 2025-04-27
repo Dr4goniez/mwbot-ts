@@ -11,6 +11,7 @@ const files = [
 	'// Value exports',
 	"export { Mwbot } from './build/Mwbot';",
 	"export { MwbotError } from './build/MwbotError';",
+	"export { MWBOT_VERSION } from './build/version';",
 	'',
 	'// Type exports'
 ];

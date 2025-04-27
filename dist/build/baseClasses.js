@@ -7,6 +7,10 @@ const Util_1 = require("./Util");
  */
 class ParamBase {
     /**
+     * Parameters of the instance. These are *not* automatically trimmed of leading and trailing whitespace.
+     */
+    params;
+    /**
      * Creates a new instance.
      *
      * @param params Parameters of the instance.

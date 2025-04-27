@@ -41,7 +41,7 @@ function mergeDeep(...objects) {
             const aVal = result[key];
             let oVal = obj[key];
             // Preserve getters/setters
-            if ((descriptor === null || descriptor === void 0 ? void 0 : descriptor.get) || (descriptor === null || descriptor === void 0 ? void 0 : descriptor.set)) {
+            if (descriptor?.get || descriptor?.set) {
                 Object.defineProperty(result, key, descriptor);
                 continue;
             }

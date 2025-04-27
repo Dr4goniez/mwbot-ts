@@ -161,9 +161,11 @@ export interface MwbotErrorData {
      */
     invalid?: unknown[];
     /**
-     * Present if the result array from a {@link ModificationPredicate} contains values other than
-     * strings or `null`. This property lists the types of those unexpected values.
+     * Present when a {@link ModificationPredicate} returns a value that is neither a string nor `null`.
+     * This property records the index and the corresponding unexpected value encountered.
      */
-    modified?: unknown[];
+    modified?: {
+        [index: string]: unknown;
+    };
 }
 //# sourceMappingURL=MwbotError.d.ts.map

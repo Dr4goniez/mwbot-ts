@@ -313,32 +313,11 @@ export interface ParsedTemplateStatic extends Omit<TemplateStatic, 'new'> {
  * The instance members of the `ParsedTemplate` class. For static members,
  * see {@link ParsedTemplateStatic} (defined separately due to TypeScript limitations).
  */
-export interface ParsedTemplate extends Template {
+export interface ParsedTemplate extends Template, ParsedTemplateProps<ParsedTemplate> {
     /**
      * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
      */
     rawTitle: string;
-    /**
-     * The original text of the template parsed from the wikitext.
-     * The value of this property is static.
-     */
-    text: string;
-    /**
-     * The starting index of this template in the wikitext.
-     */
-    startIndex: number;
-    /**
-     * The ending index of this template in the wikitext (exclusive).
-     */
-    endIndex: number;
-    /**
-     * The nesting level of this template. `0` if not nested within another double-braced expression.
-     */
-    nestLevel: number;
-    /**
-     * Whether the template appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
-     */
-    skip: boolean;
     /**
      * Converts the instance to a {@link ParsedParserFunction}.
      *
@@ -370,10 +349,54 @@ export interface ParsedTemplate extends Template {
      * @inheritdoc
      */
     toString(): string;
+}
+export interface ParsedTemplateProps<CLS> {
+    /**
+     * The original text of the double-braced markup parsed from the wikitext.
+     * The value of this property is static.
+     */
+    text: string;
+    /**
+     * The index of this object within the result array returned by {@link Wikitext.parseTemplates | parseTemplates}.
+     */
+    index: number;
+    /**
+     * The starting index of this double-braced markup in the wikitext.
+     */
+    startIndex: number;
+    /**
+     * The ending index of this double-braced markup in the wikitext (exclusive).
+     */
+    endIndex: number;
+    /**
+     * The nesting level of this double-braced markup. `0` if not nested within another double-braced expression.
+     */
+    nestLevel: number;
+    /**
+     * Whether the double-braced markup appears inside an HTML tag specified in {@link SkipTags}.
+     */
+    skip: boolean;
+    /**
+     * The index of the parent object within the {@link Wikitext.parseTemplates | parseTemplates} result array,
+     * or `null` if there is no parent.
+     */
+    parent: number | null;
+    /**
+     * The indices of the child objects within the {@link Wikitext.parseTemplates | parseTemplates} result array.
+     */
+    children: Set<number>;
     /**
      * @hidden
      */
-    _clone(options?: ParsedTemplateOptions): ParsedTemplate;
+    _clone(options?: ParsedTemplateOptions): CLS;
+    /**
+     * @hidden
+     */
+    _getInitializer<K extends keyof ParsedTemplateInitializer>(key: K): ParsedTemplateInitializer[K];
+    /**
+     * @hidden
+     */
+    _setInitializer(obj: Partial<ParsedTemplateInitializer>): CLS;
 }
 /**
  * This interface defines the static members of the `RawTemplate` class. For instance members,
@@ -412,32 +435,11 @@ export interface RawTemplateStatic extends Omit<TemplateBaseStatic<string>, 'new
  * The instance members of the `RawTemplate` class. For static members,
  * see {@link RawTemplateStatic} (defined separately due to TypeScript limitations).
  */
-export interface RawTemplate extends TemplateBase<string> {
+export interface RawTemplate extends TemplateBase<string>, ParsedTemplateProps<RawTemplate> {
     /**
      * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
      */
     rawTitle: string;
-    /**
-     * The original text of the template parsed from the wikitext.
-     * The value of this property is static.
-     */
-    text: string;
-    /**
-     * The starting index of this template in the wikitext.
-     */
-    startIndex: number;
-    /**
-     * The ending index of this template in the wikitext (exclusive).
-     */
-    endIndex: number;
-    /**
-     * The nesting level of this template. `0` if not nested within another double-braced expression.
-     */
-    nestLevel: number;
-    /**
-     * Whether the template appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
-     */
-    skip: boolean;
     /**
      * Sets a new title to the instance.
      *
@@ -493,10 +495,6 @@ export interface RawTemplate extends TemplateBase<string> {
      * @returns The template as a string.
      */
     toString(): string;
-    /**
-     * @hidden
-     */
-    _clone(options?: ParsedTemplateOptions): RawTemplate;
 }
 /**
  * This interface defines the static members of the `ParserFunction` class. For instance members,
@@ -610,32 +608,11 @@ export interface ParsedParserFunctionStatic extends Omit<ParserFunctionStatic, '
  * The instance members of the `ParsedParserFunction` class. For static members,
  * see {@link ParsedParserFunctionStatic} (defined separately due to TypeScript limitations).
  */
-export interface ParsedParserFunction extends ParserFunction {
+export interface ParsedParserFunction extends ParserFunction, ParsedTemplateProps<ParsedParserFunction> {
     /**
      * The raw parser function hook, as directly parsed from the wikitext.
      */
     rawHook: string;
-    /**
-     * The original text of the parser function parsed from the wikitext.
-     * The value of this property is static.
-     */
-    text: string;
-    /**
-     * The starting index of this parser function in the wikitext.
-     */
-    startIndex: number;
-    /**
-     * The ending index of this parser function in the wikitext (exclusive).
-     */
-    endIndex: number;
-    /**
-     * The nesting level of this parser function. `0` if not nested within another double-braced expression.
-     */
-    nestLevel: number;
-    /**
-     * Whether the parser function appears inside an HTML tag specified in {@link WikitextOptions.skipTags}.
-     */
-    skip: boolean;
     /**
      * Converts the instance to a {@link ParsedTemplate}.
      *
@@ -656,10 +633,6 @@ export interface ParsedParserFunction extends ParserFunction {
      * @inheritdoc
      */
     toString(): string;
-    /**
-     * @hidden
-     */
-    _clone(): ParsedParserFunction;
 }
 /**
  * Object that is used to initialize template parameters in {@link TemplateStatic.constructor}.
@@ -842,19 +815,6 @@ export interface RawTemplateOutputConfig extends TemplateOutputConfig<string> {
     rawTitle?: boolean;
 }
 /**
- * The initializer object for ParsedTemplate and RawTemplate constructors.
- */
-interface ParsedTemplateInitializer {
-    title: string;
-    rawTitle: string;
-    text: string;
-    params: NewTemplateParameter[];
-    startIndex: number;
-    endIndex: number;
-    nestLevel: number;
-    skip: boolean;
-}
-/**
  * The return type of {@link ParserFunctionStatic.verify}.
  */
 export interface VerifiedFunctionHook {
@@ -917,5 +877,4 @@ export interface ParsedParserFunctionOutputConfig extends ParserFunctionOutputCo
      */
     rawHook?: boolean;
 }
-export {};
 //# sourceMappingURL=Template.d.ts.map

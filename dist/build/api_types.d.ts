@@ -513,8 +513,9 @@ export interface ApiResponseQueryPagesPropInfoProtection {
  * - `list=backlinks`
  * - `list=embeddedin`
  * - `list=imageusage`
+ * @private
  */
-interface _ApiQueryBacklinks {
+export interface _ApiQueryBacklinks {
     pageid: number;
     ns: number;
     title: string;
@@ -530,11 +531,15 @@ interface _ApiQueryBacklinks {
  * The `pageid`, `ns`, and `title` properties are present by default due to default parameters,
  * but they may be omitted if explicitly disabled; for example, by using `prop=linkshere&lhprop=`,
  * which sets an empty value for the parameter.
+ * @private
  */
-type _ApiQueryBacklinksprop = Partial<Omit<_ApiQueryBacklinks, 'redirect'>> & {
+export type _ApiQueryBacklinksprop = Partial<Omit<_ApiQueryBacklinks, 'redirect'>> & {
     redirect?: boolean;
 };
-interface _ApiQueryBacklinkspropFragment {
+/**
+ * @private
+ */
+export interface _ApiQueryBacklinkspropFragment {
     fragment?: string;
 }
 export interface ApiResponseQueryPagesPropCategories {
@@ -583,33 +588,57 @@ export interface ApiResponseQueryPagesPropRevisions {
     revid?: number;
     parentid?: number;
     minor?: boolean;
+    userhidden?: true;
     user?: string;
+    temp?: true;
+    anon?: true;
     userid?: number;
     timestamp?: string;
     size?: number;
+    sha1hidden?: true;
     sha1?: string;
     roles?: string[];
+    slotsmissing?: true;
+    textmissing?: true;
     slots?: {
         main: {
             size?: number;
+            sha1hidden?: true;
             sha1?: string;
+            texthidden?: true;
+            textmissing?: true;
+            missing?: true;
+            badcontentformat?: true;
             contentmodel?: string;
             contentformat?: string;
             content?: string;
-            badcontentformat?: boolean;
         };
     };
-    /** @deprecated Specify the `rvslots` parameter. */
-    contentmodel?: string;
-    /** @deprecated Use `action=expandtemplates` or `action=parse` instead. */
-    parsetree?: string;
-    /** @deprecated Specify the `rvslots` parameter. */
-    contentformat?: string;
-    /** @deprecated Specify the `rvslots` parameter. */
-    content?: string;
+    commenthidden?: true;
     comment?: string;
     parsedcomment?: string;
     tags?: string[];
+    suppressed?: true;
+    /** @deprecated Use `action=expandtemplates` or `action=parse` instead. */
+    parsetree?: string;
+    /** @deprecated */
+    badcontentformatforparsetree?: true;
+    /** @deprecated */
+    badcontentformat?: true;
+    /** @deprecated Specify the `rvslots` parameter. */
+    contentformat?: string;
+    /** @deprecated Specify the `rvslots` parameter. */
+    contentmodel?: string;
+    /** @deprecated Specify the `rvslots` parameter. */
+    content?: string;
+    /** @deprecated */
+    diff?: {
+        badcontentformat?: true;
+        from?: number;
+        to?: number;
+        body?: string;
+        notcached?: true;
+    };
 }
 export type ApiResponseQueryPagesPropTranscludedin = _ApiQueryBacklinksprop;
 export interface ApiResponseQueryMetaAllmessages {
@@ -1154,5 +1183,4 @@ export interface ApiResponseQueryListUsers {
         local: boolean;
     };
 }
-export {};
 //# sourceMappingURL=api_types.d.ts.map
