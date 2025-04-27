@@ -93,30 +93,10 @@ import type { MwbotErrorCodes } from './MwbotError';
  * });
  * ```
  *
- * ### Features
- * - Supports all major MediaWiki authentication schemes: OAuth2, OAuth1.0a, BotPasswords, and
- *   anonymous access for read-only requests. See {@link Credentials}, {@link MwbotOptions}, and
- *   {@link MwbotInitOptions} for details on supported authentication types.
- * - All request methods (except {@link rawRequest}) include error handling via the {@link MwbotError}
- *   class, offering standardized and descriptive debugging. Refer to {@link MwbotErrorCodes} for all possible codes.
- * - Automatically caches site and user information, as well as tokens, after initialization.
- *   Site metadata is available via {@link Mwbot.info}, while configuration variables are exposed
- *   through {@link Mwbot.config}, providing a familiar `wg`-style interface.
- * - Manages page titles via {@link Mwbot.Title}, which replicates the behavior of the native
- *   `mediawiki.Title` class and extends it with support for interwiki prefixes.
- * - Enables powerful manipulation of wikitext via {@link Mwbot.Wikitext}, which handles MediaWiki’s
- *   edge cases and parsing rules to simplify tasks like page edits and text analysis.
- *   - See also: {@link Mwbot.Template}, {@link Mwbot.ParserFunction}, {@link Mwbot.Wikilink},
- *     {@link Mwbot.FileWikilink}, and {@link Mwbot.RawWikilink}, which parse MediaWiki markup into
- *     structured objects for convenient handling.
- * - Provides static {@link String} and {@link Util} modules:
- *   - {@link String} mirrors the `mediawiki.String` utility, offering consistent and familiar string operations.
- *   - {@link Util} exposes internal framework utilities for advanced use (not to be confused with `mediawiki.util`).
- *
- * ### See Also
- * - 📘 API Documentation: https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.html
- * - 🐙 GitHub: https://github.com/Dr4goniez/mwbot-ts
- * - 📦 npm: https://www.npmjs.com/package/mwbot-ts
+ * **See also:**
+ * - 🐙 {@link https://github.com/Dr4goniez/mwbot-ts | GitHub}
+ * - 📦 {@link https://www.npmjs.com/package/mwbot-ts | npm}
+ * - 📘 {@link https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.html | API Documentation}
  */
 export class Mwbot {
 
