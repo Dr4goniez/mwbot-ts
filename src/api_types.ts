@@ -1023,8 +1023,9 @@ export interface ApiResponseQueryPagesPropInfoProtection { // Fully checked (sou
  * - `list=backlinks`
  * - `list=embeddedin`
  * - `list=imageusage`
+ * @private
  */
-interface _ApiQueryBacklinks {
+export interface _ApiQueryBacklinks {
 	pageid: number;
 	ns: number;
 	title: string;
@@ -1041,14 +1042,18 @@ interface _ApiQueryBacklinks {
  * The `pageid`, `ns`, and `title` properties are present by default due to default parameters,
  * but they may be omitted if explicitly disabled; for example, by using `prop=linkshere&lhprop=`,
  * which sets an empty value for the parameter.
+ * @private
  */
-type _ApiQueryBacklinksprop = Partial<Omit<_ApiQueryBacklinks, 'redirect'>> & {
+export type _ApiQueryBacklinksprop = Partial<Omit<_ApiQueryBacklinks, 'redirect'>> & {
 	// Unlike the `list=` modules, `pageid`, `ns`, and `title` are optional, and `redirect` can be `false`
 	redirect?: boolean;
 	// fragment?: string; // Handle this separately because it's used only by "prop=redirects"
 };
 
-interface _ApiQueryBacklinkspropFragment {
+/**
+ * @private
+ */
+export interface _ApiQueryBacklinkspropFragment {
 	fragment?: string;
 }
 
