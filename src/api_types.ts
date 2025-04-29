@@ -923,8 +923,8 @@ export interface ApiResponseQuery {
 
 	// ********************** List properties **********************
 
-	// abusefilters?: ApiResponseQueryListAbusefilters;
-	// abuselog?: ApiResponseQueryListAbuselog;
+	abusefilters?: ApiResponseQueryListAbusefilters[];
+	abuselog?: ApiResponseQueryListAbuselog[];
 	// allcategories?: ApiResponseQueryListAllcategories;
 	// alldeletedrevisions?: ApiResponseQueryListAlldeletedrevisions;
 	// allfileusages?: ApiResponseQueryListAllfileusages;
@@ -1720,8 +1720,41 @@ export type ApiResponseQueryMetaUserinfoRatelimits = {
 
 // ************************************** action=query&list=something **************************************
 
-// export interface ApiResponseQueryListAbusefilters {}
-// export interface ApiResponseQueryListAbuselog {}
+export interface ApiResponseQueryListAbusefilters { // Fully checked (source code level)
+	id?: number;
+	description?: string;
+	pattern?: string;
+	actions?: string;
+	hits?: number;
+	comments?: string;
+	lasteditor?: string;
+	lastedittime?: string;
+	private?: '';
+	protected?: '';
+	enabled?: '';
+	deleted?: '';
+}
+
+export interface ApiResponseQueryListAbuselog extends Partial<_TitleInfo> { // Fully checked (source code level)
+	id?: number;
+	filter_id?: string;
+	filter?: string;
+	user?: string;
+	wiki?: string;
+	action?: string;
+	result?: string;
+	revid?: number | '';
+	timestamp?: string;
+	/**
+	 * This property is appended by `VariablesManager::exportAllVars` and `VariablesBlobStore::loadVarDump`,
+	 * referencing an entire row from the `afl_var_dump` column. This column is of BLOB type, and its internal
+	 * structure may vary. Therefore, it is not possible to assign a fixed type mapping to this property;
+	 * clients should manually type-assert the object’s properties as needed.
+	 */
+	details?: Record<string, unknown>;
+	hidden?: boolean;
+}
+
 // export interface ApiResponseQueryListAllcategories {}
 // export interface ApiResponseQueryListAlldeletedrevisions {}
 // export interface ApiResponseQueryListAllfileusages {}
