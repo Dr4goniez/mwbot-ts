@@ -566,47 +566,57 @@ function WikitextFactory(mwbot, ParsedTemplate, RawTemplate, ParsedParserFunctio
             };
             // Extract HTML-style headings (<h1>–<h6>)
             let wikitextWithPlaceholders = this.content;
-            const comments = [];
-            const headings = this.storageManager('tags', false).reduce((acc, { name, startIndex, endIndex, text, content }) => {
-                const m = regex.tag.exec(name);
-                if (m && !isInSkipRange(startIndex, endIndex)) {
+            const commentMap = new Map();
+            let offset = 0;
+            const nested = new Set();
+            const headings = this.storageManager('tags', false).reduce((acc, tag, _, arr) => {
+                // Collect HTML heading elements
+                const m = regex.tag.exec(tag.name);
+                if (m && !isInSkipRange(tag.startIndex, tag.endIndex)) {
                     acc.push({
-                        text: text,
+                        text: tag.text,
                         // TODO: Should we handle tags like <span> or [[wikilinks]] within headings?
-                        title: mwbot.Title.clean(removeComments(content)),
+                        title: mwbot.Title.clean(removeComments(tag.content)),
                         level: parseInt(m[1]),
-                        index: startIndex
+                        index: tag.startIndex
                     });
                 }
-                if (name === '!--' && comments.length < 100_000) {
-                    // If the tag is an HTML comment, replace it with a placeholder and store it.
-                    // The placeholder has the same length as the original for index stability.
-                    // Format: "\x01{n}\x02..." where {n} is the comment index in `comments`.
-                    // Handles up to 99,999 comments. (e.g. "<!---->" → 7 characters → (\x01, \x02, and a 5-digit number)
-                    const key = '\x01' + comments.length + '\x02' + '\x02'.repeat(text.length - 3);
-                    comments.push(text);
-                    wikitextWithPlaceholders = wikitextWithPlaceholders.replace(text, key);
+                // Replace comment tags in `wikitextWithPlaceholders` with placeholders
+                if (tag.name === '!--' && !nested.has(tag.index)) {
+                    // Store the indices of nested comments to skip them in subsequent iterations
+                    for (const index of tag.children) {
+                        if (arr[index].name === tag.name) {
+                            nested.add(index);
+                        }
+                    }
+                    // Replace the comment with a placeholder and store it
+                    const placeholder = '\x01' + commentMap.size + '\x02';
+                    commentMap.set(placeholder, { text: tag.text, offset });
+                    wikitextWithPlaceholders = wikitextWithPlaceholders.replace(tag.text, placeholder);
+                    offset += (placeholder.length - tag.text.length);
                 }
                 return acc;
             }, []);
             /**
              * Restores or removes comment placeholders from a string.
              *
-             * @param str     The string containing comment placeholders.
-             * @param remove  If `true`, removes placeholders instead of restoring them.
-             * @returns       The updated string.
+             * @param str The string containing comment placeholders.
+             * @param remove If `true`, removes placeholders instead of restoring them.
+             * @returns The updated string.
              */
             const rebindComments = (str, remove = false) => {
-                const rKeys = /\x01(\d+)\x02+/g;
+                const rKeys = /\x01\d+\x02/g;
                 let m;
                 while ((m = rKeys.exec(str))) {
-                    if (remove) {
-                        str = str.replace(m[0], '');
+                    const placeholder = m[0];
+                    const leadingPart = str.slice(0, m.index);
+                    let middlePart = '';
+                    const trailingPart = str.slice(m.index + placeholder.length);
+                    if (!remove) {
+                        middlePart = commentMap.get(placeholder).text;
                     }
-                    else {
-                        const index = parseInt(m[1]);
-                        str = str.replace(m[0], comments[index]);
-                    }
+                    str = leadingPart + middlePart + trailingPart;
+                    rKeys.lastIndex += (middlePart.length - placeholder.length);
                 }
                 return str;
             };
@@ -624,27 +634,38 @@ function WikitextFactory(mwbot, ParsedTemplate, RawTemplate, ParsedParserFunctio
             // the comment)
             // The exec() here first matches lines including comment placeholders and equal signs, by virtue of using
             // `regex.headingCandidate`. `regex.heading` validates the matched lines (from which comments are REMOVED)
-            // as well-formed ==heading== markups.
+            // as well-formed `==heading==` markups.
             const wikitext = this.content;
-            let m;
-            while ((m = regex.headingCandidate.exec(wikitextWithPlaceholders))) {
+            let mWithPlaceholders;
+            while ((mWithPlaceholders = regex.headingCandidate.exec(wikitextWithPlaceholders))) {
                 // Ensure the `== heading ==` markup is valid even after removing comment placeholders
-                const mClean = regex.heading.exec(rebindComments(m[0], true));
+                const mClean = regex.heading.exec(rebindComments(mWithPlaceholders[0], true));
                 if (!mClean) {
                     continue;
                 }
-                // If `$4` isn't empty or the heading is within a skip range, ignore it
-                const m4 = mClean[4].replace(regex.whitespace, '');
-                if (m4 || isInSkipRange(m.index, m.index + m[0].length)) {
+                // Check for a non-empty `$4`, which invalidates the heading
+                if (mClean[4].replace(regex.whitespace, '')) {
+                    continue;
+                }
+                // Retrieve the real index of the heading
+                let startIndex = mWithPlaceholders.index;
+                const lastPlaceholder = (wikitextWithPlaceholders.slice(0, startIndex).match(/\x01\d+\x02/g) || []).at(-1);
+                let commentObj;
+                if (lastPlaceholder && (commentObj = commentMap.get(lastPlaceholder))) {
+                    startIndex += -(commentObj.offset) + (commentObj.text.length - lastPlaceholder.length);
+                }
+                const endIndex = startIndex + rebindComments(mWithPlaceholders[0]).length;
+                // Check if the heading is within a skip range
+                if (isInSkipRange(startIndex, endIndex)) {
                     continue;
                 }
                 // If either of the left or right equals are interrupted, get the correct level for this section
                 let eq;
                 let maxLevel = -1;
-                if ((eq = /^(=+)(?:\x01\d+\x02+)+=/.exec(m[1]))) {
+                if ((eq = /^(=+)(?:\x01\d+\x02+)+=/.exec(mWithPlaceholders[1]))) {
                     maxLevel = eq[1].length;
                 }
-                if ((eq = /=(?:\x01\d+\x02+)+(=+)$/.exec(m[3])) && maxLevel < eq[1].length) {
+                if ((eq = /=(?:\x01\d+\x02+)+(=+)$/.exec(mWithPlaceholders[3])) && maxLevel < eq[1].length) {
                     maxLevel = eq[1].length;
                 }
                 // Determine heading level (up to 6)
@@ -652,13 +673,13 @@ function WikitextFactory(mwbot, ParsedTemplate, RawTemplate, ParsedParserFunctio
                 const overflowLeft = Math.max(0, mClean[1].length - level);
                 const overflowRight = Math.max(0, mClean[3].length - level);
                 const title = '='.repeat(overflowLeft) + mClean[2] + '='.repeat(overflowRight);
-                // Include trailing newline if it directly follows the heading.
-                const newline = wikitext.charAt(m.index + m[0].length) === '\n' ? '\n' : '';
+                // Include trailing newline if it directly follows the heading
+                const newline = wikitext.charAt(endIndex) === '\n' ? '\n' : '';
                 headings.push({
-                    text: rebindComments(m[0]) + newline,
+                    text: wikitext.slice(startIndex, endIndex) + newline,
                     title: mwbot.Title.clean(title),
                     level,
-                    index: m.index
+                    index: startIndex
                 });
             }
             // Sort headings by index and add the top section
