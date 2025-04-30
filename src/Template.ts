@@ -816,7 +816,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			overwrite?: boolean,
 			position?: 'start' | 'end' | {before: string} | {after: string}
 		): this {
-			return this.registerParam(key, value, {overwrite: !!overwrite, position});
+			return this.registerParam(key, value, {overwrite: overwrite ?? true, position});
 		}
 
 		updateParam(key: string, value: string): this {
