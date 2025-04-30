@@ -1260,17 +1260,19 @@ export interface ApiResponseQueryPages extends // Checked ApiQuery.php; TODO: Co
 	categoryinfo?: ApiResponseQueryPagesPropCategoryinfo;
 	contributors?: ApiResponseQueryPagesPropContributors[];
 	deletedrevisions?: ApiResponseQueryPagesPropDeletedrevisions[];
-	// duplicatefiles?: ApiResponseQueryPagesPropDuplicatefiles
+	duplicatefiles?: ApiResponseQueryPagesPropDuplicatefiles[];
 	extlinks?: ApiResponseQueryPagesPropExtlinks[];
 	extracts?: ApiResponseQueryPagesPropExtracts; // string
 	fileusage?: ApiResponseQueryPagesPropFileusage[];
-	// globalusage?: ApiResponseQueryPagesPropGlobalusage
-	// imageinfo?: ApiResponseQueryPagesPropImageinfo
-	// images?: ApiResponseQueryPagesPropImages
-	// info?: ApiResponseQueryPagesPropInfo // Extended
-	// iwlinks?: ApiResponseQueryPagesPropIwlinks
-	// langlinks?: ApiResponseQueryPagesPropLanglinks
-	// links?: ApiResponseQueryPagesPropLinks
+	globalusage?: ApiResponseQueryPagesPropGlobalusage[];
+	imageinfo?: ApiResponseQueryPagesPropImageinfo[];
+		imagerepository?: string;
+		badfile?: boolean;
+	images?: ApiResponseQueryPagesPropImages[];
+	// info?: ApiResponseQueryPagesPropInfo // Handled by interface extension
+	iwlinks?: ApiResponseQueryPagesPropIwlinks[];
+	langlinks?: ApiResponseQueryPagesPropLanglinks[];
+	links?: ApiResponseQueryPagesPropLinks[];
 	linkshere?: ApiResponseQueryPagesPropLinkshere[];
 	// mmcontent?: ApiResponseQueryPagesPropMmcontent
 	// pageimages?: ApiResponseQueryPagesPropPageimages
@@ -1309,27 +1311,14 @@ export interface ApiResponseQueryPagesPropContributors { // Fully checked (sourc
 	name: string;
 }
 
-export interface ApiResponseQueryPagesPropDeletedrevisions { // Checked (TODO: Check source code)
-	revid?: number;
-	parentid?: number;
-	minor?: boolean;
-	user?: string;
-	anon?: true;
-	userid?: number;
-	timestamp?: string;
-	size?: number;
-	sha1?: string;
-	roles?: string[];
-	contentmodel?: string;
-	parsetree?: string;
-	contentformat?: string;
-	content?: string;
-	comment?: string;
-	parsedcomment?: string;
-	tags?: string[];
-}
+export type ApiResponseQueryPagesPropDeletedrevisions = ApiResponseQueryPagesPropRevisions; // Fully checked (source code level)
 
-// export interface ApiResponseQueryPagesPropDuplicatefiles {}
+export interface ApiResponseQueryPagesPropDuplicatefiles { // Fully checked (source code level)
+	name: string;
+	timestamp: string;
+	shared: boolean;
+	user?: string;
+}
 
 export interface ApiResponseQueryPagesPropExtlinks { // Fully checked (source code level)
 	url: string;
@@ -1339,9 +1328,65 @@ export type ApiResponseQueryPagesPropExtracts = string; // Fully checked (source
 
 export type ApiResponseQueryPagesPropFileusage = _ApiQueryBacklinksprop; // Fully checked (source code level)
 
-// export interface ApiResponseQueryPagesPropGlobalusage {}
-// export interface ApiResponseQueryPagesPropImageinfo {}
-// export interface ApiResponseQueryPagesPropImages {}
+export interface ApiResponseQueryPagesPropGlobalusage { // Fully checked (source code level)
+	title: string;
+	wiki: string;
+	url?: string;
+	pageid?: string;
+	ns?: string;
+}
+
+export interface ApiResponseQueryPagesPropImageinfo { // Fully checked (source code level)
+	timestamp?: string;
+	userhidden?: true;
+	user?: string;
+	userid?: number;
+	temp?: true;
+	anon?: true;
+	size?: number;
+	width?: number;
+	height?: number;
+	pagecount?: number;
+	duration?: number;
+	commenthidden?: true;
+	parsedcomment?: string;
+	comment?: string;
+	html?: string;
+	filehidden?: true;
+	suppressed?: true;
+	canonicaltitle?: string;
+	thumburl?: string;
+	thumbwidth?: number;
+	thumbheight?: number;
+	thumbmime?: string;
+	responsiveUrls?: string;
+	thumberror?: string;
+	url?: string;
+	descriptionurl?: string;
+	descriptionshorturl?: string;
+	filemissing?: true;
+	sha1?: string;
+	metadata?: ApiResponseQueryPagesPropImageinfoMetadata[];
+	commonmetadata?: ApiResponseQueryPagesPropImageinfoMetadata[];
+	extmetadata?: ApiResponseQueryPagesPropImageinfoExtmetadata;
+	mime?: string;
+	mediatype?: string;
+	archivename?: string;
+	bitdepth?: number;
+}
+export interface ApiResponseQueryPagesPropImageinfoMetadata {
+	name: string;
+	value: unknown;
+}
+export interface ApiResponseQueryPagesPropImageinfoExtmetadata { // Fully checked (source code level), but not 100% sure
+	[key: string]: {
+		value: string | number;
+		source: string;
+		hidden?: '';
+	}
+}
+
+export type ApiResponseQueryPagesPropImages = _TitleInfo; // Fully checked (source code level)
 
 export interface ApiResponseQueryPagesPropInfo { // Fully checked (source code level)
 	associatedpage?: string;
@@ -1385,9 +1430,21 @@ export interface ApiResponseQueryPagesPropInfoProtection { // Fully checked (sou
 	cascade?: true;
 }
 
-// export interface ApiResponseQueryPagesPropIwlinks {}
-// export interface ApiResponseQueryPagesPropLanglinks {}
-// export interface ApiResponseQueryPagesPropLinks {}
+export interface ApiResponseQueryPagesPropIwlinks { // Fully checked (source code level)
+	prefix: string;
+	url?: string;
+	title: string;
+}
+
+export interface ApiResponseQueryPagesPropLanglinks { // Fully checked (source code level)
+	lang: string;
+	url?: string;
+	langname?: string;
+	autonym?: string;
+	title: string;
+}
+
+export type ApiResponseQueryPagesPropLinks = _TitleInfo; // Fully checked (source code level)
 
 export type ApiResponseQueryPagesPropLinkshere = _ApiQueryBacklinksprop; // Fully checked (source code level)
 
@@ -1400,6 +1457,10 @@ export type ApiResponseQueryPagesPropLinkshere = _ApiQueryBacklinksprop; // Full
 export type ApiResponseQueryPagesPropRedirects = // Fully checked (source code level)
 	Omit<_ApiQueryBacklinksprop, 'redirect'> & _ApiQueryBacklinkspropFragment;
 
+/**
+ * Generated by `ApiQueryRevisionsBase::extractRevisionInfo`, `ApiQueryRevisionsBase::extractAllSlotInfo`,
+ * and `ApiQueryRevisionsBase::extractSlotInfo`.
+ */
 export interface ApiResponseQueryPagesPropRevisions { // Fully checked (source code level)
 	revid?: number;
 	parentid?: number;
@@ -1414,23 +1475,24 @@ export interface ApiResponseQueryPagesPropRevisions { // Fully checked (source c
 	sha1hidden?: true;
 	sha1?: string;
 	roles?: string[];
-	slotsmissing?: true;
 	textmissing?: true;
 	slots?: {
 		main: { // [slot: string]
+			missing?: true;
+			// ApiQueryRevisionsBase::extractSlotInfo
 			size?: number;
 			sha1hidden?: true;
 			sha1?: string;
+			contentmodel?: string;
 			texthidden?: true;
 			textmissing?: true;
-			// nosuchsection?: true; // Used internally to decide whether to call dieWithError
-			missing?: true;
+			// ApiQueryRevisionsBase::extractAllSlotInfo
 			badcontentformat?: true;
-			contentmodel?: string;
 			contentformat?: string;
 			content?: string;
 		};
 	};
+	slotsmissing?: true;
 	commenthidden?: true;
 	comment?: string;
 	parsedcomment?: string;
