@@ -107,23 +107,24 @@ export class Mwbot {
 	 *
 	 * ```js
 	 * {
-	 *	  method: 'GET',
-	 *	  headers: {
-	 *	    'User-Agent': `mwbot-ts/${MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
-	 *	    'Content-Type': 'application/x-www-form-urlencoded',
-	 *	    'Accept-Encoding': 'gzip'
-	 *	  },
-	 *    httpAgent: new http.Agent({keepAlive: true}),
-	 *    httpsAgent: new https.Agent({keepAlive: true}),
-	 *	  params: {
-	 *	    action: 'query',
-	 *	    format: 'json',
-	 *	    formatversion: '2',
-	 *	    maxlag: 5
-	 *	  },
-	 *	  timeout: 60 * 1000, // 60 seconds
-	 *	  responseType: 'json',
-	 *	  responseEncoding: 'utf8'
+	 *   method: 'GET',
+	 *   headers: {
+	 *     'User-Agent': `mwbot-ts/${MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
+	 *     'Content-Type': 'application/x-www-form-urlencoded',
+	 *     'Accept-Encoding': 'gzip'
+	 *   },
+	 *   httpAgent: new http.Agent({keepAlive: true}),
+	 *   httpsAgent: new https.Agent({keepAlive: true}),
+	 *   params: {
+	 *     action: 'query',
+	 *     format: 'json',
+	 *     formatversion: '2',
+	 *     maxlag: 5
+	 *   },
+	 *   proxy: false,
+	 *   timeout: 60 * 1000, // 60 seconds
+	 *   responseType: 'json',
+	 *   responseEncoding: 'utf8'
 	 * }
 	 * ```
 	 */
@@ -141,6 +142,7 @@ export class Mwbot {
 				formatversion: '2',
 				maxlag: 5
 			},
+			proxy: false,
 			timeout: 60 * 1000, // 60 seconds
 			responseType: 'json',
 			responseEncoding: 'utf8'
