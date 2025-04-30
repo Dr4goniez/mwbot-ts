@@ -221,7 +221,8 @@ export interface MwbotErrorData {
 	 */
 	keys?: (keyof ConfigData)[];
 	/**
-	 * The complete Axios response object. Available for an `api_mwbot: http` error.
+	 * The full Axios response object. Present for `api_mwbot` errors with a code of
+	 * `http` (including specific types such as `timeout (408)`), `empty`, or `invalidjson`.
 	 */
 	axios?: Record<string, any>;
 	/**

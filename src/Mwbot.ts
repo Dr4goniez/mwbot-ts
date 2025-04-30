@@ -991,6 +991,8 @@ export class Mwbot {
 					requestId
 				);
 			}
+
+			err.data = {axios: error}; // Include the full response for debugging
 			const status = error?.response?.status ?? error?.status;
 			if (typeof status === 'number' && status >= 400) {
 				// Articulate the error object for common errors
@@ -1038,7 +1040,6 @@ export class Mwbot {
 				}
 			}
 
-			err.data = {axios: error}; // Include the full response for unknown errors
 			return this.error(err, requestId);
 
 		});
@@ -1054,7 +1055,7 @@ export class Mwbot {
 			const err = new MwbotError('api_mwbot', {
 				code: 'empty',
 				info: 'OK response but empty result (check HTTP headers?)'
-			});
+			}, {axios: response});
 			return this.error(err, requestId);
 		}
 		if (typeof data !== 'object') {
@@ -1062,7 +1063,7 @@ export class Mwbot {
 			const err = new MwbotError('api_mwbot', {
 				code: 'invalidjson',
 				info: 'No valid JSON response (check the request URL?)'
-			});
+			}, {axios: response});
 			return this.error(err, requestId);
 		}
 		if ('error' in data || 'errors' in data) {
