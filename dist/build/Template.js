@@ -142,7 +142,7 @@ function TemplateFactory(config, info, Title) {
             });
         }
         insertParam(key, value, overwrite, position) {
-            return this.registerParam(key, value, { overwrite: !!overwrite, position });
+            return this.registerParam(key, value, { overwrite: overwrite ?? true, position });
         }
         updateParam(key, value) {
             return this.registerParam(key, value, { overwrite: 'must' });

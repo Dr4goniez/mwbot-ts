@@ -945,6 +945,7 @@ class Mwbot {
             if (error && error.code === 'ERR_CANCELED') {
                 return this.error(err.setCode('aborted').setInfo('Request aborted by the user.'), requestId);
             }
+            err.data = { axios: error }; // Include the full response for debugging
             const status = error?.response?.status ?? error?.status;
             if (typeof status === 'number' && status >= 400) {
                 // Articulate the error object for common errors
@@ -967,7 +968,6 @@ class Mwbot {
                         return await this.retry(err.setCode('timeout').setInfo('Gateway timeout (504)'), requestId, clonedParams, requestOptions);
                 }
             }
-            err.data = { axios: error }; // Include the full response for unknown errors
             return this.error(err, requestId);
         });
         const data = response.data;
@@ -979,7 +979,7 @@ class Mwbot {
             const err = new MwbotError_1.MwbotError('api_mwbot', {
                 code: 'empty',
                 info: 'OK response but empty result (check HTTP headers?)'
-            });
+            }, { axios: response });
             return this.error(err, requestId);
         }
         if (typeof data !== 'object') {
@@ -987,7 +987,7 @@ class Mwbot {
             const err = new MwbotError_1.MwbotError('api_mwbot', {
                 code: 'invalidjson',
                 info: 'No valid JSON response (check the request URL?)'
-            });
+            }, { axios: response });
             return this.error(err, requestId);
         }
         if ('error' in data || 'errors' in data) {
@@ -1934,7 +1934,7 @@ class Mwbot {
                 const validatedTitle = this.prepEdit(titlesTemp[i], true);
                 // Canonicalize all titles as in the API response and remember the array index
                 const page = validatedTitle.getPrefixedText();
-                titleMap[page] = titleMap[page] || [];
+                titleMap[page] ||= [];
                 titleMap[page].push(i);
                 if (!multiValues.length || multiValues[multiValues.length - 1].length === apilimit) {
                     multiValues.push([]);
@@ -2001,11 +2001,14 @@ class Mwbot {
                     value = new MwbotError_1.MwbotError('api_mwbot', {
                         code: 'pagemissing',
                         info: 'The requested page does not exist.'
-                    }, {
-                        title: pageObj.title
                     });
+                    if (pageObj.title) {
+                        value.data = { title: pageObj.title };
+                    }
                 }
-                else if (!resRevision ||
+                else if (typeof pageObj.ns !== 'number' ||
+                    typeof pageObj.title !== 'string' ||
+                    !resRevision ||
                     typeof resRevision.revid !== 'number' ||
                     typeof res.curtimestamp !== 'string' ||
                     !resRevision.timestamp ||
@@ -2013,9 +2016,10 @@ class Mwbot {
                     value = new MwbotError_1.MwbotError('api_mwbot', {
                         code: 'empty',
                         info: 'OK response but empty result.'
-                    }, {
-                        title: pageObj.title
                     });
+                    if (pageObj.title) {
+                        value.data = { title: pageObj.title };
+                    }
                 }
                 else {
                     value = {
@@ -2029,6 +2033,8 @@ class Mwbot {
                         content: resRevision.slots.main.content
                     };
                 }
+                // We can safely assume `title` is always a string when the `pages` array exists,
+                // because we make title-based queries — not ID-based queries, which may lack associated titles
                 setToTitle(value, pageObj.title);
             }
         }
