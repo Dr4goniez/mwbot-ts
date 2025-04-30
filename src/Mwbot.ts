@@ -1789,7 +1789,7 @@ export class Mwbot {
 
 		// Check for a cached token
 		tokenType = Mwbot.mapLegacyToken(tokenType);
-		const tokenName = `${tokenType}token` as keyof ApiResponseQueryMetaTokens;
+		const tokenName = `${tokenType}token`;
 		const cashedToken = this.tokens[tokenName];
 		if (cashedToken) {
 			return cashedToken;
@@ -1863,7 +1863,7 @@ export class Mwbot {
 	 */
 	badToken(tokenType: string): this {
 		tokenType = Mwbot.mapLegacyToken(tokenType);
-		const tokenName = `${tokenType}token` as keyof ApiResponseQueryMetaTokens;
+		const tokenName = `${tokenType}token`;
 		if (this.tokens[tokenName]) {
 			delete this.tokens[tokenName];
 		}
