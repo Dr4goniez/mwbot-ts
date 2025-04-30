@@ -2149,7 +2149,7 @@ export class Mwbot {
 
 				// Canonicalize all titles as in the API response and remember the array index
 				const page = validatedTitle.getPrefixedText();
-				titleMap[page] = titleMap[page] || [];
+				titleMap[page] ||= [];
 				titleMap[page].push(i);
 				if (!multiValues.length || multiValues[multiValues.length - 1].length === apilimit) {
 					multiValues.push([]);
@@ -2220,10 +2220,13 @@ export class Mwbot {
 					value = new MwbotError('api_mwbot', {
 						code: 'pagemissing',
 						info: 'The requested page does not exist.'
-					}, {
-						title: pageObj.title
 					});
+					if (pageObj.title) {
+						value.data = {title: pageObj.title};
+					}
 				} else if (
+					typeof pageObj.ns !== 'number' ||
+					typeof pageObj.title !== 'string' ||
 					!resRevision ||
 					typeof resRevision.revid !== 'number' ||
 					typeof res.curtimestamp !== 'string' ||
@@ -2233,9 +2236,10 @@ export class Mwbot {
 					value = new MwbotError('api_mwbot', {
 						code: 'empty',
 						info: 'OK response but empty result.'
-					}, {
-						title: pageObj.title
 					});
+					if (pageObj.title) {
+						value.data = {title: pageObj.title};
+					}
 				} else {
 					value = {
 						pageid: pageObj.pageid,
@@ -2248,7 +2252,9 @@ export class Mwbot {
 						content: resRevision.slots.main.content
 					};
 				}
-				setToTitle(value, pageObj.title);
+				// We can safely assume `title` is always a string when the `pages` array exists,
+				// because we make title-based queries — not ID-based queries, which may lack associated titles
+				setToTitle(value, pageObj.title!);
 			}
 
 		}
