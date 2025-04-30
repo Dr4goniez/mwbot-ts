@@ -1048,7 +1048,7 @@ export type ApiResponseSitematrix = { // Fully checked (source code level)
 } & {
 	count: number;
 	specials?: ApiResponseSitematrixSiteSpecial[];
-}
+};
 export interface ApiResponseSitematrixSite {
 	url?: string;
 	dbname?: string;
@@ -1239,11 +1239,14 @@ export interface ApiResponseQuery { // Checked ApiQuery.php; TODO: Complete comm
 
 // ************************************** action=query (general properties) **************************************
 
-export interface ApiResponseQueryPages extends Omit<_PageSetInvalidTitlesAndRevisions, 'revid' | 'iw' | 'url'> { // Checked ApiQuery.php; TODO: Complete commented-out properties
-
+export interface ApiResponseQueryPages extends // Checked ApiQuery.php; TODO: Complete commented-out properties
+	Omit<_PageSetInvalidTitlesAndRevisions, 'revid' | 'iw' | 'url'>,
+	ApiResponseQueryPagesPropInfo
+{
 	// prop-independent properties are all handled by `_PageSetInvalidTitlesAndRevisions`
 
 	// prop-dependent properties
+	[key: string]: any; // TODO: Remove this
 	contentmodel?: string;
 	pagelanguage?: string;
 	pagelanguagehtmlcode?: string;
@@ -1258,47 +1261,13 @@ export interface ApiResponseQueryPages extends Omit<_PageSetInvalidTitlesAndRevi
 	contributors?: ApiResponseQueryPagesPropContributors[];
 	deletedrevisions?: ApiResponseQueryPagesPropDeletedrevisions[];
 	// duplicatefiles?: ApiResponseQueryPagesPropDuplicatefiles
-	// extlinks?: ApiResponseQueryPagesPropExtlinks
-	// extracts?: ApiResponseQueryPagesPropExtracts
+	extlinks?: ApiResponseQueryPagesPropExtlinks[];
+	extracts?: ApiResponseQueryPagesPropExtracts; // string
 	fileusage?: ApiResponseQueryPagesPropFileusage[];
 	// globalusage?: ApiResponseQueryPagesPropGlobalusage
 	// imageinfo?: ApiResponseQueryPagesPropImageinfo
 	// images?: ApiResponseQueryPagesPropImages
-	// info?: ApiResponseQueryPagesPropInfo // Fully checked (source code level)
-		// inprop=
-		associatedpage?: string;
-		displaytitle?: string;
-		editintro?: { [key: string]: string };
-		linkclasses?: string[];
-		notificationtimestamp?: string;
-		preloadcontent?: {
-			contentmodel: string;
-			contentformat: string;
-			content: string;
-		};
-			preloadisdefault?: boolean;
-		protection?: ApiResponseQueryPagesPropInfoProtection[];
-			restrictiontypes?: string[];
-		subjectid?: number;
-		talkid?: number;
-		fullurl?: string; // inprop=url
-		editurl?: string; // inprop=url
-		canonicalurl?: string; // inprop=url
-		varianttitles?: { [lang: string]: string };
-		visitingwatchers?: number;
-		watched?: boolean;
-			watchlistexpiry?: string;
-		watchers?: number;
-		/**
-		 * Use `preloadcontent` instead, which supports other kinds of preloaded text too.
-		 * @deprecated
-		 */
-		preload?: string | null;
-		/**
-		 * Use `intestactions=read` instead.
-		 * @deprecated
-		 */
-		readable?: boolean;
+	// info?: ApiResponseQueryPagesPropInfo // Extended
 	// iwlinks?: ApiResponseQueryPagesPropIwlinks
 	// langlinks?: ApiResponseQueryPagesPropLanglinks
 	// links?: ApiResponseQueryPagesPropLinks
@@ -1316,13 +1285,6 @@ export interface ApiResponseQueryPages extends Omit<_PageSetInvalidTitlesAndRevi
 	// transcodestatus?: ApiResponseQueryPagesPropTranscodestatus
 	// videoinfo?: ApiResponseQueryPagesPropVideoinfo
 	// wbentityusage?: ApiResponseQueryPagesPropWbentityusage
-}
-
-export interface ApiResponseQueryPagesPropInfoProtection { // Fully checked (source code level)
-	type: string;
-	level: string;
-	expiry: string;
-	cascade?: true;
 }
 
 export interface ApiResponseQueryPagesPropCategories { // Fully checked (source code level)
@@ -1368,8 +1330,12 @@ export interface ApiResponseQueryPagesPropDeletedrevisions { // Checked (TODO: C
 }
 
 // export interface ApiResponseQueryPagesPropDuplicatefiles {}
-// export interface ApiResponseQueryPagesPropExtlinks {}
-// export interface ApiResponseQueryPagesPropExtracts {}
+
+export interface ApiResponseQueryPagesPropExtlinks { // Fully checked (source code level)
+	url: string;
+}
+
+export type ApiResponseQueryPagesPropExtracts = string; // Fully checked (source code level)
 
 export type ApiResponseQueryPagesPropFileusage = _ApiQueryBacklinksprop; // Fully checked (source code level)
 
@@ -1377,7 +1343,47 @@ export type ApiResponseQueryPagesPropFileusage = _ApiQueryBacklinksprop; // Full
 // export interface ApiResponseQueryPagesPropImageinfo {}
 // export interface ApiResponseQueryPagesPropImages {}
 
-// export interface ApiResponseQueryPagesPropInfo {} // Fully checked (source code level; defined directly in ApiResponseQueryPages)
+export interface ApiResponseQueryPagesPropInfo { // Fully checked (source code level)
+	associatedpage?: string;
+	displaytitle?: string;
+	editintro?: { [key: string]: string };
+	linkclasses?: string[];
+	notificationtimestamp?: string;
+	preloadcontent?: {
+		contentmodel: string;
+		contentformat: string;
+		content: string;
+	};
+		preloadisdefault?: boolean;
+	protection?: ApiResponseQueryPagesPropInfoProtection[];
+		restrictiontypes?: string[];
+	subjectid?: number;
+	talkid?: number;
+	fullurl?: string; // inprop=url
+	editurl?: string; // inprop=url
+	canonicalurl?: string; // inprop=url
+	varianttitles?: { [lang: string]: string };
+	visitingwatchers?: number;
+	watched?: boolean;
+		watchlistexpiry?: string;
+	watchers?: number;
+	/**
+	 * Use `preloadcontent` instead, which supports other kinds of preloaded text too.
+	 * @deprecated
+	 */
+	preload?: string | null;
+	/**
+	 * Use `intestactions=read` instead.
+	 * @deprecated
+	 */
+	readable?: boolean;
+}
+export interface ApiResponseQueryPagesPropInfoProtection { // Fully checked (source code level)
+	type: string;
+	level: string;
+	expiry: string;
+	cascade?: true;
+}
 
 // export interface ApiResponseQueryPagesPropIwlinks {}
 // export interface ApiResponseQueryPagesPropLanglinks {}
@@ -1820,7 +1826,7 @@ export type ApiResponseQueryMetaTokens = { // Fully checked (source code level)
 	setglobalaccountstatustoken?: string;
 } & {
 	[tokentype: string]: string;
-}
+};
 
 // export interface ApiResponseQueryMetaUnreadnotificationpages {}
 
@@ -1935,7 +1941,7 @@ export type ApiResponseQueryMetaUserinfoRatelimits = {
 export interface ApiResponseQueryMetaUserinfoAcceptlang {
 	q: number;
 	code: string;
-};
+}
 
 // export interface ApiResponseQueryMetaWikibase {}
 
