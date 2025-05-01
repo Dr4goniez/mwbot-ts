@@ -6,13 +6,15 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "mwbot": "ts-node src/test/test_mwbot.ts",
-    "mwbot-log": "node -e \"const date = new Date().toISOString().replace(/\\.\\d+Z$/, '').replace(/[-T:]/g, ''); require('child_process').execSync(`ts-node src/test/test_mwbot.ts > logs/${date}_mwbot.txt 2>&1`);\"",
-    "Title": "ts-node src/test/test_Title.ts",
+    "mwbot-log": "node logger.mjs src/test/test_mwbot.ts _mwbot",
+
     "general": "ts-node src/test/test_general.ts",
+    "Title": "ts-node src/test/test_Title.ts",
     "Wikitext": "ts-node src/test/test_Wikitext.ts",
-    "Wikitext-log": "node -e \"const date = new Date().toISOString().replace(/\\.\\d+Z$/, '').replace(/[-T:]/g, ''); require('child_process').execSync(`ts-node src/test/test_Wikitext.ts > logs/${date}_Wikitext.txt 2>&1`);\"",
+    "Wikitext-log": "node logger.mjs src/test/test_Wikitext.ts _Wikitext",
     "readme": "ts-node src/test/test_readme.ts",
-    "readme-log": "node -e \"const date = new Date().toISOString().replace(/\\.\\d+Z$/, '').replace(/[-T:]/g, ''); require('child_process').execSync(`ts-node src/test/test_readme.ts > logs/${date}_readmet.txt 2>&1`);\"",
+    "readme-log": "node logger.mjs src/test/test_readme.ts _readme",
+
     "prebuild": "node -p \"'export const MWBOT_VERSION = ' + JSON.stringify(require('./package.json').version) + ';'\" > src/version.ts",
     "build": "npm run prebuild & tsc -p . & node dist/generate-types.js",
     "docs": "node -e \"require('fs-extra').emptyDir('docs');\" & npx typedoc --options typedoc.json"
