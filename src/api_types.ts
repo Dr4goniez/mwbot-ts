@@ -1234,28 +1234,23 @@ export interface ApiResponseQuery { // Checked ApiQuery.php; TODO: Complete comm
 	// watchlistraw?: ApiResponseQueryListWatchlistraw;
 	// wblistentityusage?: ApiResponseQueryListWblistentityusage;
 	// wikisets?: ApiResponseQueryListWikisets;
+
+	// ********************** Other properties **********************
+
+	stashimageinfo?: ApiResponseQueryPagesPropImageinfo[]; // prop=stashimageinfo
 }
 
 
 // ************************************** action=query (general properties) **************************************
 
-export interface ApiResponseQueryPages extends // Checked ApiQuery.php; TODO: Complete commented-out properties
+export interface ApiResponseQueryPages extends // Fully checked (source code level)
 	Omit<_PageSetInvalidTitlesAndRevisions, 'revid' | 'iw' | 'url'>,
-	ApiResponseQueryPagesPropInfo
+	ApiResponseQueryPagesPropInfo,
+	ApiResponseQueryPagesPropPageimages
 {
 	// prop-independent properties are all handled by `_PageSetInvalidTitlesAndRevisions`
 
 	// prop-dependent properties
-	[key: string]: any; // TODO: Remove this
-	contentmodel?: string;
-	pagelanguage?: string;
-	pagelanguagehtmlcode?: string;
-	pagelanguagedir?: string;
-	touched?: string;
-	lastrevid?: number;
-	length?: number;
-	redirect?: boolean;
-
 	categories?: ApiResponseQueryPagesPropCategories[];
 	categoryinfo?: ApiResponseQueryPagesPropCategoryinfo;
 	contributors?: ApiResponseQueryPagesPropContributors[];
@@ -1274,19 +1269,19 @@ export interface ApiResponseQueryPages extends // Checked ApiQuery.php; TODO: Co
 	langlinks?: ApiResponseQueryPagesPropLanglinks[];
 	links?: ApiResponseQueryPagesPropLinks[];
 	linkshere?: ApiResponseQueryPagesPropLinkshere[];
-	// mmcontent?: ApiResponseQueryPagesPropMmcontent
-	// pageimages?: ApiResponseQueryPagesPropPageimages
-	// pageprops?: ApiResponseQueryPagesPropPageprops
-	// pageterms?: ApiResponseQueryPagesPropPageterms
-	// pageviews?: ApiResponseQueryPagesPropPageviews
+	mmcontent?: ApiResponseQueryPagesPropMmcontent;
+	// pageimages?: ApiResponseQueryPagesPropPageimages // Handled by interface extension
+	pageprops?: ApiResponseQueryPagesPropPageprops;
+	/*page*/terms?: ApiResponseQueryPagesPropPageterms;
+	pageviews?: ApiResponseQueryPagesPropPageviews;
 	redirects?: ApiResponseQueryPagesPropRedirects[];
 	revisions?: ApiResponseQueryPagesPropRevisions[];
-	// stashimageinfo?: ApiResponseQueryPagesPropStashimageinfo
-	// templates?: ApiResponseQueryPagesPropTemplates
+	// stashimageinfo // Doesn't depend on `titles` and is appended under `query`
+	templates?: ApiResponseQueryPagesPropTemplates[];
 	transcludedin?: ApiResponseQueryPagesPropTranscludedin[];
-	// transcodestatus?: ApiResponseQueryPagesPropTranscodestatus
-	// videoinfo?: ApiResponseQueryPagesPropVideoinfo
-	// wbentityusage?: ApiResponseQueryPagesPropWbentityusage
+	transcodestatus?: Record<string, ApiResponseQueryPagesPropTranscodestatus>;
+	videoinfo?: ApiResponseQueryPagesPropVideoinfo[];
+	wbentityusage?: Record<string, ApiResponseQueryPagesPropWbentityusage>;
 }
 
 export interface ApiResponseQueryPagesPropCategories { // Fully checked (source code level)
@@ -1389,39 +1384,54 @@ export interface ApiResponseQueryPagesPropImageinfoExtmetadata { // Fully checke
 export type ApiResponseQueryPagesPropImages = _TitleInfo; // Fully checked (source code level)
 
 export interface ApiResponseQueryPagesPropInfo { // Fully checked (source code level)
-	associatedpage?: string;
-	displaytitle?: string;
-	editintro?: { [key: string]: string };
-	linkclasses?: string[];
+
+	// inprop-independent properties
+	contentmodel?: string; // Always exists for prop=info
+	pagelanguage?: string; // Always exists for prop=info
+	pagelanguagehtmlcode?: string; // Always exists for prop=info
+	pagelanguagedir?: string; // Always exists for prop=info
+	touched?: string;
+	lastrevid?: number;
+	length?: number;
+	redirect?: true;
+	new?: true;
+
+	// inprop-independent properties (sorted as in ApiQueryInfo.php)
+	protection?: ApiResponseQueryPagesPropInfoProtection[];
+		restrictiontypes?: string[];
+	watched?: boolean;
+		watchlistexpiry?: string;
+	watchers?: number;
+	visitingwatchers?: number;
 	notificationtimestamp?: string;
+	talkid?: number;
+	subjectid?: number;
+	associatedpage?: string;
+	fullurl?: string; // inprop=url
+	editurl?: string; // inprop=url
+	canonicalurl?: string; // inprop=url
+	/**
+	 * Use `intestactions=read` instead.
+	 * @deprecated
+	 */
+	readable?: boolean;
+	/**
+	 * Use `preloadcontent` instead, which supports other kinds of preloaded text too.
+	 * @deprecated
+	 */
+	preload?: string | null;
 	preloadcontent?: {
 		contentmodel: string;
 		contentformat: string;
 		content: string;
 	};
 		preloadisdefault?: boolean;
-	protection?: ApiResponseQueryPagesPropInfoProtection[];
-		restrictiontypes?: string[];
-	subjectid?: number;
-	talkid?: number;
-	fullurl?: string; // inprop=url
-	editurl?: string; // inprop=url
-	canonicalurl?: string; // inprop=url
+	editintro?: { [key: string]: string };
+	displaytitle?: string;
 	varianttitles?: { [lang: string]: string };
-	visitingwatchers?: number;
-	watched?: boolean;
-		watchlistexpiry?: string;
-	watchers?: number;
-	/**
-	 * Use `preloadcontent` instead, which supports other kinds of preloaded text too.
-	 * @deprecated
-	 */
-	preload?: string | null;
-	/**
-	 * Use `intestactions=read` instead.
-	 * @deprecated
-	 */
-	readable?: boolean;
+	linkclasses?: string[];
+	// Properties for the private inprop=testactions are omitted here
+
 }
 export interface ApiResponseQueryPagesPropInfoProtection { // Fully checked (source code level)
 	type: string;
@@ -1448,11 +1458,38 @@ export type ApiResponseQueryPagesPropLinks = _TitleInfo; // Fully checked (sourc
 
 export type ApiResponseQueryPagesPropLinkshere = _ApiQueryBacklinksprop; // Fully checked (source code level)
 
-// export interface ApiResponseQueryPagesPropMmcontent {}
-// export interface ApiResponseQueryPagesPropPageimages {}
-// export interface ApiResponseQueryPagesPropPageprops {}
-// export interface ApiResponseQueryPagesPropPageterms {}
-// export interface ApiResponseQueryPagesPropPageviews {}
+export interface ApiResponseQueryPagesPropMmcontent { // Fully checked (source code level)
+	description: string | null;
+	targets: string[];
+}
+
+export interface ApiResponseQueryPagesPropPageimages { // Fully checked (source code level)
+	thumbnail?: ApiResponseQueryPagesPropPageimagesThumbnail;
+	original?: ApiResponseQueryPagesPropPageimagesThumbnail;
+	pageimage?: string;
+}
+export interface ApiResponseQueryPagesPropPageimagesThumbnail {
+	source: string;
+	width: number;
+	height: number;
+}
+
+export interface ApiResponseQueryPagesPropPageprops { // Fully checked (source code level)
+	// According to PageProps.php, it appears that page props are always string values
+	[prop: string]: string;
+}
+
+export interface ApiResponseQueryPagesPropPageterms { // Fully checked (source code level)
+	// PageTerms::groupTermsByPageAndType creates a string array for each term, and the relevant terms
+	// are defined as constants by TermIndexEntry::$validTermTypes
+	alias?: string[];
+	label?: string[];
+	description?: string[];
+}
+
+export interface ApiResponseQueryPagesPropPageviews { // Fully checked (source code level)
+	[date: string]: number;
+}
 
 export type ApiResponseQueryPagesPropRedirects = // Fully checked (source code level)
 	Omit<_ApiQueryBacklinksprop, 'redirect'> & _ApiQueryBacklinkspropFragment;
@@ -1538,14 +1575,51 @@ export interface ApiResponseQueryPagesPropRevisions { // Fully checked (source c
 	};
 }
 
-// export interface ApiResponseQueryPagesPropStashimageinfo {}
-// export interface ApiResponseQueryPagesPropTemplates {}
+export type ApiResponseQueryPagesPropTemplates = _TitleInfo; // Fully checked (source code level)
 
 export type ApiResponseQueryPagesPropTranscludedin = _ApiQueryBacklinksprop; // Fully checked (source code level)
 
-// export interface ApiResponseQueryPagesPropTranscodestatus {}
-// export interface ApiResponseQueryPagesPropVideoinfo {}
-// export interface ApiResponseQueryPagesPropWbentityusage {}
+export interface ApiResponseQueryPagesPropTranscodestatus { // Fully checked (source code level)
+	// WebVideoTranscode::getTranscodeState fetches the entire DB fields, and ApiTranscodeStatus::execute
+	// removes leading "transcode_" from field keys and deletes "id", "image_name", and "key" properties.
+	// See https://www.mediawiki.org/wiki/Extension:TimedMediaHandler/transcode_table
+	error: string | null;
+	time_addjob: string | null;
+	time_startwork: string | null;
+	time_success: string | null;
+	time_error: string | null;
+	final_bitrate: string; // int(11) in the database but output as a string
+}
+
+export interface ApiResponseQueryPagesPropVideoinfo extends ApiResponseQueryPagesPropImageinfo { // Fully checked (source code level)
+	derivatives?: ApiResponseQueryPagesPropVideoinfoDerivatives[];
+	timedtext?: ApiResponseQueryPagesPropVideoinfoTimedtext[];
+}
+export interface ApiResponseQueryPagesPropVideoinfoDerivatives {
+	src: string;
+	title?: string;
+	type: string;
+	shorttitle?: string;
+	transcodekey?: string;
+	width: number;
+	height: number;
+	bandwidth?: number;
+}
+export interface ApiResponseQueryPagesPropVideoinfoTimedtext {
+	src: string;
+	kind: string;
+	type: string;
+	srclang: string;
+	dir: string;
+	label: string;
+}
+
+export interface ApiResponseQueryPagesPropWbentityusage { // Fully checked (source code level)
+	aspects: ApiResponseQueryPagesPropWbentityusageAspects[];
+	url?: string;
+}
+export type ApiResponseQueryPagesPropWbentityusageAspects = 'C' | 'D' | 'L' | 'O' | 'S' | 'T' | 'X';
+
 
 // ************************************** action=query&meta=something **************************************
 
