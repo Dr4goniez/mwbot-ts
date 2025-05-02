@@ -145,9 +145,9 @@ export interface WikitextStatic {
 	 *
 	 * **Example**:
 	 * ```ts
-	 * const wikitext = await mwbot.Wikitext.newFromTitle('Foo').catch((err) => err);
-	 * if (wikitext instanceof Error) {
-	 *   console.log(wikitext);
+	 * const wikitext = await mwbot.Wikitext.newFromTitle('Foo').catch((err: MwbotError) => err);
+	 * if (wikitext instanceof MwbotError) {
+	 *   console.error(wikitext);
 	 *   return;
 	 * }
 	 * // Example for parsing the sections of the page 'Foo'
@@ -219,7 +219,7 @@ export interface Wikitext {
 	 * to transform them, and updates the wikitext accordingly.
 	 *
 	 * #### Example: Closing unclosed tags
-	 * ```typescript
+	 * ```ts
 	 * const wikitext = new mwbot.Wikitext('<span>a<div><del>b</span><span>c');
 	 * const oldContent = wikitext.content;
 	 * const newContent = wikitext.modify('tags', (tag) => {
@@ -306,7 +306,7 @@ export interface Wikitext {
 		modificationPredicate: ModificationPredicate<ModificationMap['tags']>
 	): string;
 	/**
-	 * Parses sections in the wikitext.
+	 * Parses the wikitext content for sections.
 	 *
 	 * @param config Config to filter the output.
 	 * @returns An array of parsed sections.
@@ -365,14 +365,14 @@ export interface Wikitext {
 	 */
 	identifySection(startIndex: number, endIndex: number): Section | null;
 	/**
-	 * Parses `{{{parameter}}}` expressions in the wikitext.
+	 * Parses the wikitext content for `{{{parameter}}}` markups.
 	 *
 	 * @param config Config to filter the output.
 	 * @returns An array of parsed parameters.
 	 */
 	parseParameters(config?: ParseParametersConfig): Parameter[];
 	/**
-	 * Modifies `{{{parameter}}}` expressions in the wikitext content.
+	 * Modifies `{{{parameter}}}` markups in the wikitext content.
 	 *
 	 * This is a shorthand method of {@link modify} with its first argument set as `parameters`.
 	 *
@@ -383,7 +383,7 @@ export interface Wikitext {
 		modificationPredicate: ModificationPredicate<ModificationMap['parameters']>
 	): string;
 	/**
-	 * Parses `{{template}}` expressions in the wikitext.
+	 * Parses the wikitext content for `{{template}}` markups.
 	 *
 	 * This method parses any double-braced markups, including magic words and parser functions.
 	 *
@@ -392,7 +392,7 @@ export interface Wikitext {
 	 */
 	parseTemplates(config?: ParseTemplatesConfig): DoubleBracedClasses[];
 	/**
-	 * Modifies `{{template}}` expressions in the wikitext content.
+	 * Modifies `{{template}}` markups in the wikitext content.
 	 *
 	 * This is a shorthand method of {@link modify} with its first argument set as `templates`.
 	 *
@@ -403,14 +403,14 @@ export interface Wikitext {
 		modificationPredicate: ModificationPredicate<ModificationMap['templates']>
 	): string;
 	/**
-	 * Parses `[[wikilink]]` expressions in the wikitext.
+	 * Parses the wikitext content for `[[wikilink]]` markups in the wikitext.
 	 *
 	 * @param config Config to filter the output.
 	 * @returns An array of parsed wikilinks.
 	 */
 	parseWikilinks(config?: ParseWikilinksConfig): DoubleBracketedClasses[];
 	/**
-	 * Modifies `[[wikilink]]` expressions in the wikitext content.
+	 * Modifies `[[wikilink]]` markups in the wikitext content.
 	 *
 	 * This is a shorthand method of {@link modify} with its first argument set as `wikilinks`.
 	 *
@@ -565,7 +565,7 @@ export function WikitextFactory(
 		}
 
 		get content(): string {
-			return this.storageManager('content');
+			return this.storage.content;
 		}
 
 		/**
@@ -728,7 +728,7 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Parses the wikitext for HTML tags.
+		 * Parses the wikitext content for HTML tags.
 		 *
 		 * @returns
 		 */
@@ -975,7 +975,7 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Parses sections from the wikitext.
+		 * Parses the wikitext content for sections.
 		 *
 		 * @returns An array of parsed sections.
 		 */
@@ -1255,7 +1255,7 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Parses `{{{parameter}}}` expressions in the wikitext.
+		 * Parses the wikitext content for `{{{parameter}}}` markups.
 		 *
 		 * @returns An array of parsed parameters.
 		 */
@@ -1460,7 +1460,8 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Fuzzily parses `[[wikilink]]`s in the wikitext. The right operand (i.e., `[[left|right]]`) will be incomplete.
+		 * Fuzzily parses the wikitext content for `[[wikilink]]` markups. The right operand
+		 * (i.e., `[[left|right]]`) will be incomplete.
 		 *
 		 * @param indexMap Optional index map to re-use.
 		 * @param isInSkipRange A function that evaluates whether parsed wikilinks are within a skip range.
@@ -1603,7 +1604,7 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Parses `{{template}}` expressions in the wikitext.
+		 * Parses the wikitext content for `{{template}}` markups.
 		 *
 		 * @param options Parser options.
 		 * @param indexMap Optional index map to re-use.
@@ -1916,7 +1917,7 @@ export function WikitextFactory(
 		}
 
 		/**
-		 * Parses `[[wikilink]]` expressions in the wikitext.
+		 * Parses the wikitext content for `[[wikilink]]` markups.
 		 *
 		 * @returns An array of parsed wikilinks.
 		 */
