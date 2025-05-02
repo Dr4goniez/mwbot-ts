@@ -113,8 +113,6 @@ export class Mwbot {
 	 *     'Content-Type': 'application/x-www-form-urlencoded',
 	 *     'Accept-Encoding': 'gzip'
 	 *   },
-	 *   httpAgent: new http.Agent({keepAlive: true}),
-	 *   httpsAgent: new https.Agent({keepAlive: true}),
 	 *   params: {
 	 *     action: 'query',
 	 *     format: 'json',
@@ -212,7 +210,7 @@ export class Mwbot {
 	 * Returns (a deep copy of) the site and user information fetched by {@link init}.
 	 */
 	get info(): SiteAndUserInfo {
-		return mergeDeep(this._info) as SiteAndUserInfo;
+		return mergeDeep(this._info);
 	}
 	/**
 	 * Title class for this instance.
@@ -315,7 +313,7 @@ export class Mwbot {
 
 		// Set up the User-Agent header if provided
 		if (typeof options.userAgent === 'string') {
-			requestOptions.headers = requestOptions.headers || {};
+			requestOptions.headers ||= {};
 			requestOptions.headers['User-Agent'] = options.userAgent;
 		}
 
@@ -505,7 +503,7 @@ export class Mwbot {
 
 		const retryIfPossible = async (error: MwbotError, index: number): Promise<this> => {
 			if (index < 2) {
-				console.log(error);
+				console.dir(error, {depth: null});
 				console.log('Mwbot.init failed. Retrying once again in 5 seconds...');
 				await sleep(5000);
 				return this._init(index + 1);
@@ -696,7 +694,7 @@ export class Mwbot {
 	 * * `mwbot.config.set` prevents built-in `wg`-variables from being overwritten. (See {@link ConfigData}
 	 * for a list of such variables.)
 	 *
-	 * ```typescript
+	 * ```ts
 	 * get(selection?: string | string[], fallback = null): Mixed;
 	 * ```
 	 * * If `selection` is a string, returns the corresponding value.
@@ -706,7 +704,7 @@ export class Mwbot {
 	 * is an array: missing keys will be mapped to `fallback` in the returned object.
 	 * * An explicit `undefined` for `fallback` results in `null` (unlike the native `mw.config`).
 	 *
-	 * ```typescript
+	 * ```ts
 	 * set(selection?: string | object, value?: any): boolean;
 	 * ```
 	 * * If `selection` is a string, `value` must be provided. The key-value pair will be set accordingly.
@@ -715,17 +713,15 @@ export class Mwbot {
 	 * * Returns `true` if at least one property is successfully set.
 	 * * If `value` is `undefined`, the key is not set.
 	 *
-	 * ```typescript
+	 * ```ts
 	 * exists(selection: string): boolean;
 	 * ```
 	 * * Returns `true` if `selection` exists as a key with a defined value.
 	 */
 	get config(): MwConfig<ConfigData> {
-		// eslint-disable-next-line @typescript-eslint/no-this-alias
-		const _this = this;
 		return {
-			get: function<K extends keyof ConfigData, TD>(configName?: string | string[], fallback?: TD) {
-				const data = mergeDeep(_this.configData) as ConfigData; // Deep copy
+			get: <K extends keyof ConfigData, TD>(configName?: string | string[], fallback?: TD) => {
+				const data = mergeDeep(this.configData); // Deep copy
 				if (!configName) {
 					return data;
 				} else if (Array.isArray(configName)) {
@@ -920,7 +916,7 @@ export class Mwbot {
 			});
 		}
 		requestOptions.url = this.userMwbotOptions.apiUrl || requestOptions.url;
-		requestOptions.headers = requestOptions.headers || {};
+		requestOptions.headers ||= {};
 		requestOptions.headers['User-Agent'] = this.userMwbotOptions.userAgent || requestOptions.headers['User-Agent'];
 
 		// Preprocess the request method
@@ -1106,21 +1102,21 @@ export class Mwbot {
 
 					case 'maxlag': {
 						console.warn(`Warning: Encountered a "${err.code}" error.`);
-						const retryAfter = parseInt(response?.headers?.['retry-after']) || 5;
+						const retryAfter = parseInt(response?.headers?.['retry-after']) ?? 5;
 						return await this.retry(err, requestId, clonedParams, requestOptions, 4, retryAfter);
 					}
 
 					case 'assertbotfailed':
 					case 'assertuserfailed':
 						if (!this.isAnonymous()) {
-							console.warn(`Warning: Encountered a "${err.code}" error.`);
+							console.warn(`Warning: Encountered an "${err.code}" error.`);
 							let retryAfter = 10;
 							const {username, password} = this.credentials.user || {};
 							if (username && password) {
 								console.log('Re-logging in...');
 								const loggedIn = await this.login(username, password).catch((err: MwbotError) => err);
 								if (loggedIn instanceof MwbotError) {
-									console.log(loggedIn);
+									console.dir(loggedIn, {depth: null});
 									return this.error(err, requestId);
 								}
 								console.log('Re-login successful.');
@@ -1231,7 +1227,7 @@ export class Mwbot {
 
 		// Non-write API requests should be processed in the closest data center
 		/** @see https://www.mediawiki.org/wiki/API:Etiquette#Other_notes */
-		requestOptions.headers = requestOptions.headers || {};
+		requestOptions.headers ||= {};
 		if (params.action === 'query' || params.action === 'parse') {
 			requestOptions.headers['Promise-Non-Write-API-Action'] = true;
 		}
@@ -1314,9 +1310,7 @@ export class Mwbot {
 			requestOptions = mergeDeep(requestOptions);
 			requestOptions._cloned = true;
 		}
-		if (!requestOptions.headers) {
-			requestOptions.headers = {};
-		}
+		requestOptions.headers ||= {};
 		const {oauth2, oauth1} = this.credentials;
 		if (oauth2) {
 			// OAuth 2.0
@@ -1471,7 +1465,7 @@ export class Mwbot {
 
 		// Check if we should retry the request
 		if (shouldRetry) {
-			console.log(initialError);
+			console.dir(initialError, {depth: null});
 			if (sleepSeconds) {
 				console.log(`Retrying in ${sleepSeconds} seconds...`);
 			} else {
@@ -1559,7 +1553,7 @@ export class Mwbot {
 			requestOptions._cloned = true;
 		}
 		requestOptions.method = 'POST';
-		requestOptions.headers = requestOptions.headers || {};
+		requestOptions.headers ||= {};
 		requestOptions.headers['Promise-Non-Write-API-Action'] = true;
 		return this.request(parameters, requestOptions);
 	}
@@ -1601,7 +1595,7 @@ export class Mwbot {
 		};
 
 		if (rejectProof) {
-			await query(parameters, 1).catch(console.error);
+			await query(parameters, 1).catch((err: MwbotError) => console.dir(err, {depth: null}));
 		} else {
 			await query(parameters, 1);
 		}
@@ -1732,7 +1726,7 @@ export class Mwbot {
 	 * (`badtoken`), the token cache is cleared, and a retry is attempted.
 	 *
 	 * Example usage:
-	 * ```typescript
+	 * ```ts
 	 * mwbot.postWithToken('csrf', {
 	 *   action: 'options',
 	 *   optionname: 'gender',
@@ -1760,7 +1754,7 @@ export class Mwbot {
 		}
 		requestOptions.disableRetryByCode = ['badtoken'];
 		const err = await this.post(parameters, mergeDeep(requestOptions)).catch((err: MwbotError) => err);
-		if (!(err instanceof Error)) {
+		if (!(err instanceof MwbotError)) {
 			return err; // Success
 		}
 		// Error handler
@@ -1811,26 +1805,25 @@ export class Mwbot {
 			},
 			additionalParams
 		);
-		return this.get(params, requestOptions).then((res) => {
-			const resToken = res.query?.tokens;
-			if (resToken && isEmptyObject(resToken) === false) {
-				this.tokens = resToken; // Update cashed tokens
-				const token = resToken[tokenName];
-				if (token) {
-					return token;
-				} else {
-					throw new MwbotError('api_mwbot', {
-						code: 'badnamedtoken',
-						info: 'Could not find a token named "' + tokenType + '" (check for typos?)'
-					});
-				}
+		const res = await this.get(params, requestOptions);
+		const resToken = res.query?.tokens;
+		if (resToken && isEmptyObject(resToken) === false) {
+			this.tokens = resToken; // Update cashed tokens
+			const token = resToken[tokenName];
+			if (token) {
+				return token;
 			} else {
 				throw new MwbotError('api_mwbot', {
-					code: 'empty',
-					info: 'OK response but empty result.'
+					code: 'badnamedtoken',
+					info: 'Could not find a token named "' + tokenType + '" (check for typos?)'
 				});
 			}
-		});
+		} else {
+			throw new MwbotError('api_mwbot', {
+				code: 'empty',
+				info: 'OK response but empty result.'
+			});
+		}
 	}
 
 	/**
@@ -1840,6 +1833,7 @@ export class Mwbot {
 	 * @returns
 	 */
 	protected static mapLegacyToken(action: string): string {
+		action = String(action).replace(/token$/, '');
 		const csrfActions = new Set([
 			'edit',
 			'delete',
@@ -2286,6 +2280,7 @@ export class Mwbot {
 			multiValues[batchIndex].forEach((title) => {
 				titleMap[title].forEach((retIndex, i) => {
 					// Ensure pass-by-value as in JSON outputs
+					// TODO: MwbotError should have a _clone() method
 					ret[retIndex] = i === 0 ? error : deepCloneInstance(error);
 				});
 			});
@@ -2398,7 +2393,7 @@ export class Mwbot {
 			await sleep(5000);
 			return await this.edit(title, transform, mergeDeep(requestOptions, {_cloned: true}), ++retry);
 		}
-		if (result instanceof Error) {
+		if (result instanceof MwbotError) {
 			throw result;
 		}
 		if (result.edit?.result === 'Success') {
@@ -2913,7 +2908,7 @@ export interface Revision {
 	ns: number;
 	title: string;
 	baserevid: number;
-	/** This property could be missing if the editor is revdel'd. */
+	/** This property may be missing if the editor is revdel'd. */
 	user?: string;
 	basetimestamp: string;
 	starttimestamp: string;
