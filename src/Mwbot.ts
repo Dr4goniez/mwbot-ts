@@ -499,7 +499,7 @@ export class Mwbot {
 
 		const retryIfPossible = async (error: MwbotError, index: number): Promise<this> => {
 			if (index < 2) {
-				console.dir(error, {depth: null});
+				console.dir(error, {depth: 3});
 				console.log('Mwbot.init failed. Retrying once again in 5 seconds...');
 				await sleep(5000);
 				return this._init(index + 1);
@@ -1037,7 +1037,7 @@ export class Mwbot {
 									console.log('Re-logging in...');
 									const loggedIn = await this.login(username, password).catch((err: MwbotError) => err);
 									if (loggedIn instanceof MwbotError) {
-										console.dir(loggedIn, {depth: null});
+										console.dir(loggedIn, {depth: 3});
 										throw err;
 									}
 									console.log('Re-login successful.');
@@ -1409,7 +1409,7 @@ export class Mwbot {
 
 		// Check if we should retry the request
 		if (shouldRetry) {
-			console.dir(initialError, {depth: null});
+			console.dir(initialError, {depth: 3});
 			if (sleepSeconds) {
 				console.log(`Retrying in ${sleepSeconds} seconds...`);
 			} else {
@@ -1535,7 +1535,7 @@ export class Mwbot {
 		};
 
 		if (rejectProof) {
-			await query(parameters, 1).catch((err: MwbotError) => console.dir(err, {depth: null}));
+			await query(parameters, 1).catch((err: MwbotError) => console.dir(err, {depth: 3}));
 		} else {
 			await query(parameters, 1);
 		}
