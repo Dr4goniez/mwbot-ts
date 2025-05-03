@@ -25,7 +25,7 @@
  * @module
  */
 
-import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { CookieJar } from 'tough-cookie';
 import { wrapper } from 'axios-cookiejar-support';
 wrapper(axios);
@@ -963,7 +963,136 @@ export class Mwbot {
 		}
 
 		// Make the request and process the response
-		const response = await this.rawRequest(requestOptions).catch(async (error) => {
+		return this.rawRequest(requestOptions).then(async (response): Promise<ApiResponse> => {
+
+			const data: ApiResponse | undefined = response.data;
+
+			// Show warnings only for the first request because retries use the same request body
+			if (attemptCount === 1) {
+				this.showWarnings(data?.warnings);
+			}
+
+			if (!data) {
+				throw new MwbotError('api_mwbot', {
+					code: 'empty',
+					info: 'OK response but empty result (check HTTP headers?)'
+				}, {axios: response});
+			}
+			if (typeof data !== 'object') {
+				// In most cases the raw HTML of [[Main page]]
+				throw new MwbotError('api_mwbot', {
+					code: 'invalidjson',
+					info: 'No valid JSON response (check the request URL?)'
+				}, {axios: response});
+			}
+			if ('error' in data || 'errors' in data) {
+
+				const err = MwbotError.newFromResponse(data as Required<Pick<ApiResponse, "error">> | Required<Pick<ApiResponse, "errors">>);
+
+				// Handle error codes
+				if (err.code === 'missingparam' && this.isAnonymous() && err.info.includes('The "token" parameter must be set')) {
+					return this.errorAnonymous();
+				}
+
+				if (!requestOptions.disableRetryAPI) {
+					// Handle retries
+					switch (err.code) {
+						case 'badtoken':
+						case 'notoken':
+							if (this.isAnonymous()) {
+								return this.errorAnonymous();
+							}
+							if (requestOptions.method === 'POST' && clonedParams.action && !requestOptions.disableRetryByCode?.includes(clonedParams.action)) {
+								const tokenType = await this.getTokenType(clonedParams.action); // Identify the required token type
+								if (!tokenType) {
+									throw err;
+								}
+								console.warn(`Warning: Encountered a "${err.code}" error.`);
+								this.badToken(tokenType);
+								delete clonedParams.token;
+
+								return await this.retry(err, attemptCount, clonedParams, requestOptions, 2, 0, () => {
+									return this.postWithToken(tokenType, clonedParams);
+								});
+							}
+							break;
+
+						case 'readonly':
+							console.warn(`Warning: Encountered a "${err.code}" error.`);
+							return await this.retry(err, attemptCount, clonedParams, requestOptions, 3, 10);
+
+						case 'maxlag': {
+							console.warn(`Warning: Encountered a "${err.code}" error.`);
+							const retryAfter = parseInt(response?.headers?.['retry-after']) ?? 5;
+							return await this.retry(err, attemptCount, clonedParams, requestOptions, 4, retryAfter);
+						}
+
+						case 'assertbotfailed':
+						case 'assertuserfailed':
+							if (!this.isAnonymous()) {
+								console.warn(`Warning: Encountered an "${err.code}" error.`);
+								let retryAfter = 10;
+								const {username, password} = this.credentials.user || {};
+								if (username && password) {
+									console.log('Re-logging in...');
+									const loggedIn = await this.login(username, password).catch((err: MwbotError) => err);
+									if (loggedIn instanceof MwbotError) {
+										console.dir(loggedIn, {depth: null});
+										throw err;
+									}
+									console.log('Re-login successful.');
+									if (requestOptions.method === 'POST' && clonedParams.token &&
+										clonedParams.action && !requestOptions.disableRetryByCode?.includes(clonedParams.action)
+									) {
+										console.log('Will retry if possible...');
+										const tokenType = await this.getTokenType(clonedParams.action);
+										if (!tokenType) {
+											throw err;
+										}
+										const token = await this.getToken(tokenType).catch(() => null);
+										if (!token) {
+											throw err;
+										}
+										clonedParams.token = token;
+										requestOptions.params = clonedParams;
+										delete requestOptions.data;
+										const formatted = await this.handlePost(requestOptions, false).catch(() => null);
+										if (formatted === null) {
+											throw err;
+										}
+										delete requestOptions.params;
+										retryAfter = 0;
+									}
+								}
+								return await this.retry(err, attemptCount, clonedParams, requestOptions, 2, retryAfter);
+							}
+							break;
+
+						case 'mwoauth-invalid-authorization':
+							// Per https://phabricator.wikimedia.org/T106066, "Nonce already used" indicates
+							// an upstream memcached/redis failure which is transient
+							if (err.info.includes('Nonce already used')) {
+								return await this.retry(err, attemptCount, clonedParams, requestOptions, 2, 10);
+							}
+					}
+				}
+
+				throw err;
+
+			}
+
+			if (requiresInterval) {
+				// Save the current time for intervals as needed
+				this.lastRequestTime = Date.now();
+			}
+			return data;
+
+		}).catch(async (error: AxiosError | MwbotError): Promise<ApiResponse> => {
+
+			// Immediately throw an error caught in the then() block
+			if (!isAxiosError(error)) {
+				throw error;
+			}
 
 			const err = new MwbotError('api_mwbot', {
 				code: 'http',
@@ -1019,128 +1148,6 @@ export class Mwbot {
 			throw err;
 
 		});
-
-		const data: ApiResponse | undefined = response.data;
-
-		// Show warnings only for the first request because retries use the same request body
-		if (attemptCount === 1) {
-			this.showWarnings(data?.warnings);
-		}
-
-		if (!data) {
-			throw new MwbotError('api_mwbot', {
-				code: 'empty',
-				info: 'OK response but empty result (check HTTP headers?)'
-			}, {axios: response});
-		}
-		if (typeof data !== 'object') {
-			// In most cases the raw HTML of [[Main page]]
-			throw new MwbotError('api_mwbot', {
-				code: 'invalidjson',
-				info: 'No valid JSON response (check the request URL?)'
-			}, {axios: response});
-		}
-		if ('error' in data || 'errors' in data) {
-
-			const err = MwbotError.newFromResponse(data as Required<Pick<ApiResponse, "error">> | Required<Pick<ApiResponse, "errors">>);
-
-			// Handle error codes
-			if (err.code === 'missingparam' && this.isAnonymous() && err.info.includes('The "token" parameter must be set')) {
-				return this.errorAnonymous();
-			}
-
-			if (!requestOptions.disableRetryAPI) {
-				// Handle retries
-				switch (err.code) {
-					case 'badtoken':
-					case 'notoken':
-						if (this.isAnonymous()) {
-							return this.errorAnonymous();
-						}
-						if (requestOptions.method === 'POST' && clonedParams.action && !requestOptions.disableRetryByCode?.includes(clonedParams.action)) {
-							const tokenType = await this.getTokenType(clonedParams.action); // Identify the required token type
-							if (!tokenType) {
-								throw err;
-							}
-							console.warn(`Warning: Encountered a "${err.code}" error.`);
-							this.badToken(tokenType);
-							delete clonedParams.token;
-
-							return await this.retry(err, attemptCount, clonedParams, requestOptions, 2, 0, () => {
-								return this.postWithToken(tokenType, clonedParams);
-							});
-						}
-						break;
-
-					case 'readonly':
-						console.warn(`Warning: Encountered a "${err.code}" error.`);
-						return await this.retry(err, attemptCount, clonedParams, requestOptions, 3, 10);
-
-					case 'maxlag': {
-						console.warn(`Warning: Encountered a "${err.code}" error.`);
-						const retryAfter = parseInt(response?.headers?.['retry-after']) ?? 5;
-						return await this.retry(err, attemptCount, clonedParams, requestOptions, 4, retryAfter);
-					}
-
-					case 'assertbotfailed':
-					case 'assertuserfailed':
-						if (!this.isAnonymous()) {
-							console.warn(`Warning: Encountered an "${err.code}" error.`);
-							let retryAfter = 10;
-							const {username, password} = this.credentials.user || {};
-							if (username && password) {
-								console.log('Re-logging in...');
-								const loggedIn = await this.login(username, password).catch((err: MwbotError) => err);
-								if (loggedIn instanceof MwbotError) {
-									console.dir(loggedIn, {depth: null});
-									throw err;
-								}
-								console.log('Re-login successful.');
-								if (requestOptions.method === 'POST' && clonedParams.token &&
-									clonedParams.action && !requestOptions.disableRetryByCode?.includes(clonedParams.action)
-								) {
-									console.log('Will retry if possible...');
-									const tokenType = await this.getTokenType(clonedParams.action);
-									if (!tokenType) {
-										throw err;
-									}
-									const token = await this.getToken(tokenType).catch(() => null);
-									if (!token) {
-										throw err;
-									}
-									clonedParams.token = token;
-									requestOptions.params = clonedParams;
-									delete requestOptions.data;
-									const formatted = await this.handlePost(requestOptions, false).catch(() => null);
-									if (formatted === null) {
-										throw err;
-									}
-									delete requestOptions.params;
-									retryAfter = 0;
-								}
-							}
-							return await this.retry(err, attemptCount, clonedParams, requestOptions, 2, retryAfter);
-						}
-						break;
-
-					case 'mwoauth-invalid-authorization':
-						// Per https://phabricator.wikimedia.org/T106066, "Nonce already used" indicates
-						// an upstream memcached/redis failure which is transient
-						if (err.info.includes('Nonce already used')) {
-							return await this.retry(err, attemptCount, clonedParams, requestOptions, 2, 10);
-						}
-				}
-			}
-
-			throw err;
-
-		}
-
-		if (requiresInterval) {
-			// Save the current time for intervals as needed
-			this.lastRequestTime = Date.now();
-		}
-		return data;
 
 	}
 
@@ -2811,6 +2818,10 @@ export type PrototypeOf<T> = { prototype: T };
  * @template T A class definition (with a `prototype` property).
  */
 export type InstanceOf<T> = T extends { prototype: infer R } ? R : never;
+
+function isAxiosError(err: any): err is AxiosError {
+	return err?.isAxiosError === true;
+}
 
 // The following type definitions are substantial copies from the npm package `types-mediawiki`.
 
