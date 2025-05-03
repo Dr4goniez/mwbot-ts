@@ -72,7 +72,6 @@ const oauth_1_0a_1 = __importDefault(require("oauth-1.0a"));
 const crypto_1 = __importDefault(require("crypto"));
 const http = __importStar(require("http"));
 const https = __importStar(require("https"));
-const uuid_1 = require("uuid");
 const version_1 = require("./version");
 const MwbotError_1 = require("./MwbotError");
 const Util = __importStar(require("./Util"));
@@ -121,23 +120,22 @@ class Mwbot {
      *
      * ```js
      * {
-     *	  method: 'GET',
-     *	  headers: {
-     *	    'User-Agent': `mwbot-ts/${MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
-     *	    'Content-Type': 'application/x-www-form-urlencoded',
-     *	    'Accept-Encoding': 'gzip'
-     *	  },
-     *    httpAgent: new http.Agent({keepAlive: true}),
-     *    httpsAgent: new https.Agent({keepAlive: true}),
-     *	  params: {
-     *	    action: 'query',
-     *	    format: 'json',
-     *	    formatversion: '2',
-     *	    maxlag: 5
-     *	  },
-     *	  timeout: 60 * 1000, // 60 seconds
-     *	  responseType: 'json',
-     *	  responseEncoding: 'utf8'
+     *   method: 'GET',
+     *   headers: {
+     *     'User-Agent': `mwbot-ts/${MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
+     *     'Content-Type': 'application/x-www-form-urlencoded',
+     *     'Accept-Encoding': 'gzip'
+     *   },
+     *   params: {
+     *     action: 'query',
+     *     format: 'json',
+     *     formatversion: '2',
+     *     maxlag: 5
+     *   },
+     *   proxy: false,
+     *   timeout: 60 * 1000, // 60 seconds
+     *   responseType: 'json',
+     *   responseEncoding: 'utf8'
      * }
      * ```
      */
@@ -155,6 +153,7 @@ class Mwbot {
                 formatversion: '2',
                 maxlag: 5
             },
+            proxy: false,
             timeout: 60 * 1000, // 60 seconds
             responseType: 'json',
             responseEncoding: 'utf8'
@@ -188,11 +187,6 @@ class Mwbot {
      * Cashed MediaWiki tokens.
      */
     tokens;
-    /**
-     * Object that holds UUIDs generated for each HTTP request issued by {@link _request}.
-     * The keys represent request UUIDs, and the values the number of requests made using the ID.
-     */
-    uuid;
     /**
      * The timestamp (in milliseconds since the UNIX epoch) of the last successful request.
      * This is updated only for API actions specified in {@link MwbotOptions.intervalActions}.
@@ -321,7 +315,7 @@ class Mwbot {
         this.credentials = Mwbot.validateCredentials(credentials);
         // Set up the User-Agent header if provided
         if (typeof options.userAgent === 'string') {
-            requestOptions.headers = requestOptions.headers || {};
+            requestOptions.headers ||= {};
             requestOptions.headers['User-Agent'] = options.userAgent;
         }
         // Initialize other class properties
@@ -338,7 +332,6 @@ class Mwbot {
         this.userRequestOptions = requestOptions;
         this.abortions = [];
         this.tokens = {};
-        this.uuid = {};
         this.lastRequestTime = null;
         this._info = Object.create(null);
         this._Title = Object.create(null);
@@ -495,7 +488,7 @@ class Mwbot {
     async _init(attemptIndex) {
         const retryIfPossible = async (error, index) => {
             if (index < 2) {
-                console.log(error);
+                console.dir(error, { depth: null });
                 console.log('Mwbot.init failed. Retrying once again in 5 seconds...');
                 await sleep(5000);
                 return this._init(index + 1);
@@ -672,7 +665,7 @@ class Mwbot {
      * * `mwbot.config.set` prevents built-in `wg`-variables from being overwritten. (See {@link ConfigData}
      * for a list of such variables.)
      *
-     * ```typescript
+     * ```ts
      * get(selection?: string | string[], fallback = null): Mixed;
      * ```
      * * If `selection` is a string, returns the corresponding value.
@@ -682,7 +675,7 @@ class Mwbot {
      * is an array: missing keys will be mapped to `fallback` in the returned object.
      * * An explicit `undefined` for `fallback` results in `null` (unlike the native `mw.config`).
      *
-     * ```typescript
+     * ```ts
      * set(selection?: string | object, value?: any): boolean;
      * ```
      * * If `selection` is a string, `value` must be provided. The key-value pair will be set accordingly.
@@ -691,17 +684,15 @@ class Mwbot {
      * * Returns `true` if at least one property is successfully set.
      * * If `value` is `undefined`, the key is not set.
      *
-     * ```typescript
+     * ```ts
      * exists(selection: string): boolean;
      * ```
      * * Returns `true` if `selection` exists as a key with a defined value.
      */
     get config() {
-        // eslint-disable-next-line @typescript-eslint/no-this-alias
-        const _this = this;
         return {
-            get: function (configName, fallback) {
-                const data = mergeDeep(_this.configData); // Deep copy
+            get: (configName, fallback) => {
+                const data = mergeDeep(this.configData); // Deep copy
                 if (!configName) {
                     return data;
                 }
@@ -884,7 +875,7 @@ class Mwbot {
             });
         }
         requestOptions.url = this.userMwbotOptions.apiUrl || requestOptions.url;
-        requestOptions.headers = requestOptions.headers || {};
+        requestOptions.headers ||= {};
         requestOptions.headers['User-Agent'] = this.userMwbotOptions.userAgent || requestOptions.headers['User-Agent'];
         // Preprocess the request method
         const method = String(requestOptions.method).toUpperCase();
@@ -904,9 +895,11 @@ class Mwbot {
      * validated, and encoded as required by the API.
      *
      * @param requestOptions The finalized HTTP request options, ready for transmission.
+     * @param attemptCount The number of attemps that have been made so far.
      * @returns A Promise resolving to the API response or rejecting with an error.
      */
-    async _request(requestOptions) {
+    async _request(requestOptions, attemptCount) {
+        attemptCount = (attemptCount ?? 0) + 1;
         if (!requestOptions._cloned) {
             requestOptions = mergeDeep(requestOptions);
             requestOptions._cloned = true;
@@ -917,17 +910,6 @@ class Mwbot {
             // The API throws a "mustpostparams" error if it finds certain parameters in "params", even when "data"
             // in the request body is well-formed
             delete requestOptions.params;
-        }
-        // Track the request using a UUID
-        const xReq = 'X-Request-ID';
-        let requestId = requestOptions.headers[xReq];
-        if (typeof requestId === 'string') {
-            this.uuid[requestId]++;
-        }
-        else {
-            requestId = (0, uuid_1.v4)();
-            requestOptions.headers[xReq] = requestId;
-            this.uuid[requestId] = 1;
         }
         // Enforce an interval if necessary
         const { interval, intervalActions = Mwbot.defaultIntervalActions } = this.userMwbotOptions;
@@ -943,7 +925,7 @@ class Mwbot {
                 info: 'HTTP request failed.'
             });
             if (error && error.code === 'ERR_CANCELED') {
-                return this.error(err.setCode('aborted').setInfo('Request aborted by the user.'), requestId);
+                throw err.setCode('aborted').setInfo('Request aborted by the user.');
             }
             err.data = { axios: error }; // Include the full response for debugging
             const status = error?.response?.status ?? error?.status;
@@ -951,50 +933,48 @@ class Mwbot {
                 // Articulate the error object for common errors
                 switch (status) {
                     case 404:
-                        return this.error(err.setCode('notfound').setInfo(`Page not found (404): ${requestOptions.url}.`), requestId);
+                        throw err.setCode('notfound').setInfo(`Page not found (404): ${requestOptions.url}.`);
                     case 408:
-                        return await this.retry(err.setCode('timeout').setInfo('Request timeout (408).'), requestId, clonedParams, requestOptions);
+                        return await this.retry(err.setCode('timeout').setInfo('Request timeout (408).'), attemptCount, clonedParams, requestOptions);
                     case 414:
-                        return this.error(err.setCode('baduri').setInfo('URI too long (414): Consider using a POST request.'), requestId);
+                        throw err.setCode('baduri').setInfo('URI too long (414): Consider using a POST request.');
                     case 429:
-                        return await this.retry(err.setCode('ratelimited').setInfo('Too many requests (429).'), requestId, clonedParams, requestOptions);
+                        return await this.retry(err.setCode('ratelimited').setInfo('Too many requests (429).'), attemptCount, clonedParams, requestOptions);
                     case 500:
-                        return await this.retry(err.setCode('servererror').setInfo('Internal server error (500).'), requestId, clonedParams, requestOptions);
+                        return await this.retry(err.setCode('servererror').setInfo('Internal server error (500).'), attemptCount, clonedParams, requestOptions);
                     case 502:
-                        return await this.retry(err.setCode('badgateway').setInfo('Bad gateway (502): Perhaps the server is down?'), requestId, clonedParams, requestOptions);
+                        return await this.retry(err.setCode('badgateway').setInfo('Bad gateway (502): Perhaps the server is down?'), attemptCount, clonedParams, requestOptions);
                     case 503:
-                        return await this.retry(err.setCode('serviceunavailable').setInfo('Service Unavailable (503): Perhaps the server is down?'), requestId, clonedParams, requestOptions);
+                        return await this.retry(err.setCode('serviceunavailable').setInfo('Service Unavailable (503): Perhaps the server is down?'), attemptCount, clonedParams, requestOptions);
                     case 504:
-                        return await this.retry(err.setCode('timeout').setInfo('Gateway timeout (504)'), requestId, clonedParams, requestOptions);
+                        return await this.retry(err.setCode('timeout').setInfo('Gateway timeout (504)'), attemptCount, clonedParams, requestOptions);
                 }
             }
-            return this.error(err, requestId);
+            throw err;
         });
         const data = response.data;
         // Show warnings only for the first request because retries use the same request body
-        if (this.uuid[requestId] === 1) {
+        if (attemptCount === 1) {
             this.showWarnings(data?.warnings);
         }
         if (!data) {
-            const err = new MwbotError_1.MwbotError('api_mwbot', {
+            throw new MwbotError_1.MwbotError('api_mwbot', {
                 code: 'empty',
                 info: 'OK response but empty result (check HTTP headers?)'
             }, { axios: response });
-            return this.error(err, requestId);
         }
         if (typeof data !== 'object') {
             // In most cases the raw HTML of [[Main page]]
-            const err = new MwbotError_1.MwbotError('api_mwbot', {
+            throw new MwbotError_1.MwbotError('api_mwbot', {
                 code: 'invalidjson',
                 info: 'No valid JSON response (check the request URL?)'
             }, { axios: response });
-            return this.error(err, requestId);
         }
         if ('error' in data || 'errors' in data) {
             const err = MwbotError_1.MwbotError.newFromResponse(data);
             // Handle error codes
             if (err.code === 'missingparam' && this.isAnonymous() && err.info.includes('The "token" parameter must be set')) {
-                return this.errorAnonymous(requestId);
+                return this.errorAnonymous();
             }
             if (!requestOptions.disableRetryAPI) {
                 // Handle retries
@@ -1002,41 +982,41 @@ class Mwbot {
                     case 'badtoken':
                     case 'notoken':
                         if (this.isAnonymous()) {
-                            return this.errorAnonymous(requestId);
+                            return this.errorAnonymous();
                         }
                         if (requestOptions.method === 'POST' && clonedParams.action && !requestOptions.disableRetryByCode?.includes(clonedParams.action)) {
                             const tokenType = await this.getTokenType(clonedParams.action); // Identify the required token type
                             if (!tokenType) {
-                                return this.error(err, requestId);
+                                throw err;
                             }
                             console.warn(`Warning: Encountered a "${err.code}" error.`);
                             this.badToken(tokenType);
                             delete clonedParams.token;
-                            return await this.retry(err, requestId, clonedParams, requestOptions, 2, 0, () => {
+                            return await this.retry(err, attemptCount, clonedParams, requestOptions, 2, 0, () => {
                                 return this.postWithToken(tokenType, clonedParams);
                             });
                         }
                         break;
                     case 'readonly':
                         console.warn(`Warning: Encountered a "${err.code}" error.`);
-                        return await this.retry(err, requestId, clonedParams, requestOptions, 3, 10);
+                        return await this.retry(err, attemptCount, clonedParams, requestOptions, 3, 10);
                     case 'maxlag': {
                         console.warn(`Warning: Encountered a "${err.code}" error.`);
-                        const retryAfter = parseInt(response?.headers?.['retry-after']) || 5;
-                        return await this.retry(err, requestId, clonedParams, requestOptions, 4, retryAfter);
+                        const retryAfter = parseInt(response?.headers?.['retry-after']) ?? 5;
+                        return await this.retry(err, attemptCount, clonedParams, requestOptions, 4, retryAfter);
                     }
                     case 'assertbotfailed':
                     case 'assertuserfailed':
                         if (!this.isAnonymous()) {
-                            console.warn(`Warning: Encountered a "${err.code}" error.`);
+                            console.warn(`Warning: Encountered an "${err.code}" error.`);
                             let retryAfter = 10;
                             const { username, password } = this.credentials.user || {};
                             if (username && password) {
                                 console.log('Re-logging in...');
                                 const loggedIn = await this.login(username, password).catch((err) => err);
                                 if (loggedIn instanceof MwbotError_1.MwbotError) {
-                                    console.log(loggedIn);
-                                    return this.error(err, requestId);
+                                    console.dir(loggedIn, { depth: null });
+                                    throw err;
                                 }
                                 console.log('Re-login successful.');
                                 if (requestOptions.method === 'POST' && clonedParams.token &&
@@ -1044,41 +1024,40 @@ class Mwbot {
                                     console.log('Will retry if possible...');
                                     const tokenType = await this.getTokenType(clonedParams.action);
                                     if (!tokenType) {
-                                        return this.error(err, requestId);
+                                        throw err;
                                     }
                                     const token = await this.getToken(tokenType).catch(() => null);
                                     if (!token) {
-                                        return this.error(err, requestId);
+                                        throw err;
                                     }
                                     clonedParams.token = token;
                                     requestOptions.params = clonedParams;
                                     delete requestOptions.data;
                                     const formatted = await this.handlePost(requestOptions, false).catch(() => null);
                                     if (formatted === null) {
-                                        return this.error(err, requestId);
+                                        throw err;
                                     }
                                     delete requestOptions.params;
                                     retryAfter = 0;
                                 }
                             }
-                            return await this.retry(err, requestId, clonedParams, requestOptions, 2, retryAfter);
+                            return await this.retry(err, attemptCount, clonedParams, requestOptions, 2, retryAfter);
                         }
                         break;
                     case 'mwoauth-invalid-authorization':
                         // Per https://phabricator.wikimedia.org/T106066, "Nonce already used" indicates
                         // an upstream memcached/redis failure which is transient
                         if (err.info.includes('Nonce already used')) {
-                            return await this.retry(err, requestId, clonedParams, requestOptions, 2, 10);
+                            return await this.retry(err, attemptCount, clonedParams, requestOptions, 2, 10);
                         }
                 }
             }
-            return this.error(err, requestId);
+            throw err;
         }
         if (requiresInterval) {
             // Save the current time for intervals as needed
             this.lastRequestTime = Date.now();
         }
-        delete this.uuid[requestId];
         return data;
     }
     /**
@@ -1140,7 +1119,7 @@ class Mwbot {
         }
         // Non-write API requests should be processed in the closest data center
         /** @see https://www.mediawiki.org/wiki/API:Etiquette#Other_notes */
-        requestOptions.headers = requestOptions.headers || {};
+        requestOptions.headers ||= {};
         if (params.action === 'query' || params.action === 'parse') {
             requestOptions.headers['Promise-Non-Write-API-Action'] = true;
         }
@@ -1219,9 +1198,7 @@ class Mwbot {
             requestOptions = mergeDeep(requestOptions);
             requestOptions._cloned = true;
         }
-        if (!requestOptions.headers) {
-            requestOptions.headers = {};
-        }
+        requestOptions.headers ||= {};
         const { oauth2, oauth1 } = this.credentials;
         if (oauth2) {
             // OAuth 2.0
@@ -1286,45 +1263,11 @@ class Mwbot {
         }
     }
     /**
-     * Throws a {@link MwbotError} by normalizing various error objects.
-     *
-     * If `base` is an API response containing an error, it is converted into
-     * an {@link MwbotError} instance.
-     *
-     * If `base` is already an instance of {@link MwbotError}, it is thrown as is.
-     *
-     * If a request UUID is provided, its entry in {@link uuid} is cleared.
-     *
-     * @param base An error object, which can be:
-     * - An API response containing an `error` or `errors` property.
-     * - An existing {@link MwbotError} instance, in which case it is thrown as is.
-     *
-     * @param requestId The UUID of the request to be removed from {@link uuid}.
-     * If provided, the corresponding entry is deleted before processing `base`.
-     *
-     * @throws
-     */
-    error(base, requestId) {
-        if (requestId) {
-            delete this.uuid[requestId];
-        }
-        if (base instanceof MwbotError_1.MwbotError) {
-            throw base;
-        }
-        else {
-            throw MwbotError_1.MwbotError.newFromResponse(base);
-        }
-    }
-    /**
      * Throws a `mwbot_api_anonymous` error.
      *
-     * @param requestId If provided, the relevant entry in {@link uuid} is cleared.
      * @throws
      */
-    errorAnonymous(requestId) {
-        if (requestId) {
-            delete this.uuid[requestId];
-        }
+    errorAnonymous() {
         throw new MwbotError_1.MwbotError('api_mwbot', {
             code: 'anonymous',
             info: 'Anonymous users are limited to non-write requests.'
@@ -1332,14 +1275,14 @@ class Mwbot {
     }
     /**
      * Attempts to retry a failed request under the following conditions:
-     * - The number of requests issued so far (tracked with {@link uuid}) is less than the allowed maximum (`maxAttempts`).
+     * - The number of requests issued so far is less than the allowed maximum (`maxAttempts`).
      * - {@link MwbotRequestConfig.disableRetry} is not set to `true`.
      * - {@link MwbotRequestConfig.disableRetryByCode} is either unset or does not contain the error code from `initialError`.
      *
      * Note: {@link MwbotRequestConfig.disableRetryAPI} must be evaluated in the `then` block of {@link request}, rather than here.
      *
      * @param initialError The error that triggered the retry attempt.
-     * @param requestId The UUID of the request being retried.
+     * @param attemptCount The number of attemps that have been made so far.
      * @param params Request parameters. Since {@link _request} might have deleted them, they are re-injected as needed.
      * @param requestOptions The original request options, using which we make another request.
      * @param maxAttempts The maximum number of attempts (including the first request). Default is 2 (one retry after failure).
@@ -1347,15 +1290,14 @@ class Mwbot {
      * @param retryCallback A function to execute when attempting the retry. If not provided, {@link _request} is called on `requestOptions`.
      * @returns A Promise of the retry request, or rejecting with an error.
      */
-    async retry(initialError, requestId, params, requestOptions, maxAttempts = 2, sleepSeconds = 10, retryCallback) {
-        const attemptedCount = this.uuid[requestId] || 0; // Should never fall back to 0 but just in case
+    async retry(initialError, attemptCount, params, requestOptions, maxAttempts = 2, sleepSeconds = 10, retryCallback) {
         const { disableRetry, disableRetryByCode } = requestOptions;
-        const shouldRetry = attemptedCount < maxAttempts &&
+        const shouldRetry = attemptCount < maxAttempts &&
             !disableRetry &&
             (!disableRetryByCode || !disableRetryByCode.includes(initialError.code));
         // Check if we should retry the request
         if (shouldRetry) {
-            console.log(initialError);
+            console.dir(initialError, { depth: null });
             if (sleepSeconds) {
                 console.log(`Retrying in ${sleepSeconds} seconds...`);
             }
@@ -1364,21 +1306,17 @@ class Mwbot {
             }
             await sleep(sleepSeconds * 1000);
             if (typeof retryCallback === 'function') {
-                if (requestId) {
-                    // Clear the request ID because retryCallback should issue a new one
-                    delete this.uuid[requestId];
-                }
                 delete requestOptions._cloned;
                 delete requestOptions.signal;
                 return retryCallback();
             }
             else {
                 requestOptions.params = params;
-                return this._request(requestOptions);
+                return this._request(requestOptions, attemptCount);
             }
         }
         // If retry conditions aren't met, reject with the error
-        return this.error(initialError, requestId);
+        throw initialError;
     }
     /**
      * Aborts all unfinished HTTP requests issued by this instance.
@@ -1439,7 +1377,7 @@ class Mwbot {
             requestOptions._cloned = true;
         }
         requestOptions.method = 'POST';
-        requestOptions.headers = requestOptions.headers || {};
+        requestOptions.headers ||= {};
         requestOptions.headers['Promise-Non-Write-API-Action'] = true;
         return this.request(parameters, requestOptions);
     }
@@ -1473,7 +1411,7 @@ class Mwbot {
             });
         };
         if (rejectProof) {
-            await query(parameters, 1).catch(console.error);
+            await query(parameters, 1).catch((err) => console.dir(err, { depth: null }));
         }
         else {
             await query(parameters, 1);
@@ -1589,7 +1527,7 @@ class Mwbot {
      * (`badtoken`), the token cache is cleared, and a retry is attempted.
      *
      * Example usage:
-     * ```typescript
+     * ```ts
      * mwbot.postWithToken('csrf', {
      *   action: 'options',
      *   optionname: 'gender',
@@ -1617,7 +1555,7 @@ class Mwbot {
         }
         requestOptions.disableRetryByCode = ['badtoken'];
         const err = await this.post(parameters, mergeDeep(requestOptions)).catch((err) => err);
-        if (!(err instanceof Error)) {
+        if (!(err instanceof MwbotError_1.MwbotError)) {
             return err; // Success
         }
         // Error handler
@@ -1658,28 +1596,27 @@ class Mwbot {
             format: 'json',
             formatversion: '2'
         }, additionalParams);
-        return this.get(params, requestOptions).then((res) => {
-            const resToken = res.query?.tokens;
-            if (resToken && isEmptyObject(resToken) === false) {
-                this.tokens = resToken; // Update cashed tokens
-                const token = resToken[tokenName];
-                if (token) {
-                    return token;
-                }
-                else {
-                    throw new MwbotError_1.MwbotError('api_mwbot', {
-                        code: 'badnamedtoken',
-                        info: 'Could not find a token named "' + tokenType + '" (check for typos?)'
-                    });
-                }
+        const res = await this.get(params, requestOptions);
+        const resToken = res.query?.tokens;
+        if (resToken && isEmptyObject(resToken) === false) {
+            this.tokens = resToken; // Update cashed tokens
+            const token = resToken[tokenName];
+            if (token) {
+                return token;
             }
             else {
                 throw new MwbotError_1.MwbotError('api_mwbot', {
-                    code: 'empty',
-                    info: 'OK response but empty result.'
+                    code: 'badnamedtoken',
+                    info: 'Could not find a token named "' + tokenType + '" (check for typos?)'
                 });
             }
-        });
+        }
+        else {
+            throw new MwbotError_1.MwbotError('api_mwbot', {
+                code: 'empty',
+                info: 'OK response but empty result.'
+            });
+        }
     }
     /**
      * Converts legacy token types to `csrf`.
@@ -1688,6 +1625,7 @@ class Mwbot {
      * @returns
      */
     static mapLegacyToken(action) {
+        action = String(action).replace(/token$/, '');
         const csrfActions = new Set([
             'edit',
             'delete',
@@ -2063,6 +2001,7 @@ class Mwbot {
             multiValues[batchIndex].forEach((title) => {
                 titleMap[title].forEach((retIndex, i) => {
                     // Ensure pass-by-value as in JSON outputs
+                    // TODO: MwbotError should have a _clone() method
                     ret[retIndex] = i === 0 ? error : deepCloneInstance(error);
                 });
             });
@@ -2161,7 +2100,7 @@ class Mwbot {
             await sleep(5000);
             return await this.edit(title, transform, mergeDeep(requestOptions, { _cloned: true }), ++retry);
         }
-        if (result instanceof Error) {
+        if (result instanceof MwbotError_1.MwbotError) {
             throw result;
         }
         if (result.edit?.result === 'Success') {
@@ -2291,6 +2230,72 @@ class Mwbot {
             format: 'json',
             formatversion: '2'
         }, additionalParams), requestOptions);
+    }
+    /**
+     * Performs an `action=parse` API request.
+     *
+     * This method enforces the `action=parse` parameter and returns a Promise that resolves to the `response.parse`
+     * object from the API response. If this property is missing, the Promise is rejected with an `mwbot_api: empty` error.
+     *
+     * The following parameters are enforced:
+     * ```
+     * {
+     *   action: 'parse',
+     *   format: 'json',
+     *   formatversion: '2'
+     * }
+     * ```
+     *
+     * @param params {@link https://www.mediawiki.org/wiki/API:Parsing_wikitext | Parameters} to the API.
+     * @param requestOptions Optional HTTP request options.
+     * @returns A Promise resolving to the `response.parse` object from the API response, or rejecting with an error.
+     * @throws If:
+     * - `response.parse` is missing (causing an `mwbot_api: empty` error).
+     * - the HTTP request fails.
+     */
+    async parse(params, requestOptions = {}) {
+        params = mergeDeep(params, {
+            action: 'parse',
+            format: 'json',
+            formatversion: '2'
+        });
+        // Calculate the length of the query parameters to determine the request method
+        let len = 0;
+        for (const [key, value] of Object.entries(params)) {
+            if (len !== 0 && value !== false && value !== undefined) {
+                len++; // For "&"
+            }
+            if (Array.isArray(value)) {
+                if (value.join('').includes('|')) {
+                    len++; // For the leading '\x1f'
+                }
+                len += key.length + 1 + value.join('|').length; // key + "=" + value
+            }
+            else if (value === true) {
+                len += key.length + 1 + 1; // preprocessParameters converts `true` to `'1'`
+            }
+            else if (value instanceof Date) {
+                len += key.length + 1 + 24; // Length of an ISO timestamp
+            }
+            else if (value !== false && value !== undefined) {
+                len += key.length + 1 + String(value).length;
+            }
+        }
+        let res;
+        if (len > 1900) {
+            // Technically, the condition should be "2024 characters or more", but leaving some room
+            res = await this.nonwritePost(params, requestOptions);
+        }
+        else {
+            res = await this.get(params, requestOptions);
+        }
+        if (res.parse) {
+            return res.parse;
+        }
+        throw new MwbotError_1.MwbotError('api_mwbot', {
+            code: 'empty',
+            info: 'OK response but empty result ("response.parse" is missing).'
+        }, { response: res });
     }
 }
 exports.Mwbot = Mwbot;

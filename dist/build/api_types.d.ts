@@ -53,6 +53,14 @@ export type OnlyOneRecord<K extends string, V = any> = {
  */
 export type PartiallyRequired<T extends Record<string, any>, K extends keyof T> = Required<Pick<T, K>> & Omit<T, K>;
 /**
+ * Represents a value that can be either a single item of type `T` or an array of `T`.
+ *
+ * Useful for API inputs or configurations that accept both a single value and multiple values.
+ *
+ * @template T The base type.
+ */
+export type MultiValue<T> = T | T[];
+/**
  * The API query parameters.
  * @see https://www.mediawiki.org/wiki/API:Main_page
  */
@@ -81,7 +89,7 @@ export interface ApiParams {
     [param: string]: string | number | boolean | (string | number)[] | undefined | Date;
 }
 export type ApiParamsAction = 'abusefiltercheckmatch' | 'abusefilterchecksyntax' | 'abusefilterevalexpression' | 'abusefilterunblockautopromote' | 'abuselogprivatedetails' | 'acquiretempusername' | 'aggregategroups' | 'antispoof' | 'block' | 'centralauthtoken' | 'centralnoticecdncacheupdatebanner' | 'centralnoticechoicedata' | 'centralnoticequerycampaign' | 'changeauthenticationdata' | 'changecontentmodel' | 'checktoken' | 'cirrus-config-dump' | 'cirrus-mapping-dump' | 'cirrus-profiles-dump' | 'cirrus-settings-dump' | 'clearhasmsg' | 'clientlogin' | 'communityconfigurationedit' | 'compare' | 'createaccount' | 'createlocalaccount' | 'delete' | 'deleteglobalaccount' | 'discussiontoolsedit' | 'discussiontoolsfindcomment' | 'discussiontoolsgetsubscriptions' | 'discussiontoolssubscribe' | 'discussiontoolsthank' | 'echocreateevent' | 'echomarkread' | 'echomarkseen' | 'echomute' | 'edit' | 'editmassmessagelist' | 'emailuser' | 'expandtemplates' | 'featuredfeed' | 'feedcontributions' | 'feedrecentchanges' | 'feedthreads' | 'feedwatchlist' | 'filerevert' | 'flow-parsoid-utils' | 'flow' | 'flowthank' | 'globalblock' | 'globalpreferenceoverrides' | 'globalpreferences' | 'globaluserrights' | 'groupreview' | 'help' | 'imagerotate' | 'import' | 'jsonconfig' | 'languagesearch' | 'linkaccount' | 'login' | 'logout' | 'managetags' | 'markfortranslation' | 'massmessage' | 'mergehistory' | 'move' | 'newslettersubscribe' | 'opensearch' | 'options' | 'paraminfo' | 'parse' | 'patrol' | 'protect' | 'purge' | 'query' | 'removeauthenticationdata' | 'resetpassword' | 'revisiondelete' | 'rollback' | 'rsd' | 'searchtranslations' | 'setglobalaccountstatus' | 'setnotificationtimestamp' | 'setpagelanguage' | 'shortenurl' | 'sitematrix' | 'spamblacklist' | 'streamconfigs' | 'strikevote' | 'tag' | 'templatedata' | 'thank' | 'threadaction' | 'titleblacklist' | 'torblock' | 'transcodereset' | 'translationaids' | 'translationreview' | 'translationstats' | 'ttmserver' | 'unblock' | 'undelete' | 'unlinkaccount' | 'upload' | 'userrights' | 'validatepassword' | 'watch' | 'webapp-manifest' | 'webauthn' | 'wikilove';
-export interface ApiEditPageParams extends ApiParams {
+export interface ApiParamsActionEdit extends ApiParams {
     title?: string;
     pageid?: number;
     section?: number | string;
@@ -116,6 +124,42 @@ export interface ApiEditPageParams extends ApiParams {
     returntoanchor?: string;
     captchaword?: string;
     captchaid?: string;
+}
+export interface ApiParamsActionParse extends ApiParams {
+    title?: string;
+    text?: string;
+    revid?: number;
+    summary?: string;
+    page?: string;
+    pageid?: number;
+    redirects?: boolean;
+    oldid?: number;
+    prop?: MultiValue<"categories" | "categorieshtml" | "displaytitle" | "encodedjsconfigvars" | "externallinks" | "headhtml" | "images" | "indicators" | "iwlinks" | "jsconfigvars" | "langlinks" | "limitreportdata" | "limitreporthtml" | "links" | "modules" | "parsetree" | "parsewarnings" | "parsewarningshtml" | "properties" | "revid" | "sections" | "subtitle" | "templates" | "text" | "wikitext" | "headitems">;
+    wrapoutputclass?: string;
+    parsoid?: boolean;
+    pst?: boolean;
+    onlypst?: boolean;
+    effectivelanglinks?: boolean;
+    section?: string;
+    sectiontitle?: string;
+    disablepp?: boolean;
+    disablelimitreport?: boolean;
+    disableeditsection?: boolean;
+    disablestylededuplication?: boolean;
+    showstrategykeys?: boolean;
+    generatexml?: boolean;
+    preview?: boolean;
+    sectionpreview?: boolean;
+    disabletoc?: boolean;
+    useskin?: "apioutput" | "cologneblue" | "contenttranslation" | "fallback" | "minerva" | "modern" | "monobook" | "timeless" | "vector" | "vector-2022";
+    contentformat?: "application/json" | "application/octet-stream" | "application/unknown" | "application/x-binary" | "text/css" | "text/javascript" | "text/plain" | "text/unknown" | "text/x-wiki" | "unknown/unknown";
+    contentmodel?: "GadgetDefinition" | "JsonSchema" | "MassMessageListContent" | "Scribunto" | "SecurePoll" | "css" | "javascript" | "json" | "sanitized-css" | "text" | "unknown" | "wikitext";
+    mobileformat?: boolean;
+    templatesandboxprefix?: string | string[];
+    templatesandboxtitle?: string;
+    templatesandboxtext?: string;
+    templatesandboxcontentmodel?: "GadgetDefinition" | "JsonSchema" | "MassMessageListContent" | "Scribunto" | "SecurePoll" | "css" | "javascript" | "json" | "sanitized-css" | "text" | "unknown" | "wikitext";
+    templatesandboxcontentformat?: "application/json" | "application/octet-stream" | "application/unknown" | "application/x-binary" | "text/css" | "text/javascript" | "text/plain" | "text/unknown" | "text/x-wiki" | "unknown/unknown";
 }
 export interface ApiResponse {
     [key: string]: any;
@@ -734,29 +778,38 @@ export interface ApiResponseQuery {
     interwikisearchinfo?: ApiResponseQueryListSearchInfoInterwiki;
     usercontribs?: ApiResponseQueryListUsercontribs[];
     users?: ApiResponseQueryListUsers[];
+    stashimageinfo?: ApiResponseQueryPagesPropImageinfo[];
 }
-export interface ApiResponseQueryPages extends // Checked ApiQuery.php; TODO: Complete commented-out properties
-Omit<_PageSetInvalidTitlesAndRevisions, 'revid' | 'iw' | 'url'>, ApiResponseQueryPagesPropInfo {
-    [key: string]: any;
-    contentmodel?: string;
-    pagelanguage?: string;
-    pagelanguagehtmlcode?: string;
-    pagelanguagedir?: string;
-    touched?: string;
-    lastrevid?: number;
-    length?: number;
-    redirect?: boolean;
+export interface ApiResponseQueryPages extends // Fully checked (source code level)
+Omit<_PageSetInvalidTitlesAndRevisions, 'revid' | 'iw' | 'url'>, ApiResponseQueryPagesPropInfo, ApiResponseQueryPagesPropPageimages {
     categories?: ApiResponseQueryPagesPropCategories[];
     categoryinfo?: ApiResponseQueryPagesPropCategoryinfo;
     contributors?: ApiResponseQueryPagesPropContributors[];
     deletedrevisions?: ApiResponseQueryPagesPropDeletedrevisions[];
+    duplicatefiles?: ApiResponseQueryPagesPropDuplicatefiles[];
     extlinks?: ApiResponseQueryPagesPropExtlinks[];
     extracts?: ApiResponseQueryPagesPropExtracts;
     fileusage?: ApiResponseQueryPagesPropFileusage[];
+    globalusage?: ApiResponseQueryPagesPropGlobalusage[];
+    imageinfo?: ApiResponseQueryPagesPropImageinfo[];
+    imagerepository?: string;
+    badfile?: boolean;
+    images?: ApiResponseQueryPagesPropImages[];
+    iwlinks?: ApiResponseQueryPagesPropIwlinks[];
+    langlinks?: ApiResponseQueryPagesPropLanglinks[];
+    links?: ApiResponseQueryPagesPropLinks[];
     linkshere?: ApiResponseQueryPagesPropLinkshere[];
+    mmcontent?: ApiResponseQueryPagesPropMmcontent;
+    pageprops?: ApiResponseQueryPagesPropPageprops;
+    terms?: ApiResponseQueryPagesPropPageterms;
+    pageviews?: ApiResponseQueryPagesPropPageviews;
     redirects?: ApiResponseQueryPagesPropRedirects[];
     revisions?: ApiResponseQueryPagesPropRevisions[];
+    templates?: ApiResponseQueryPagesPropTemplates[];
     transcludedin?: ApiResponseQueryPagesPropTranscludedin[];
+    transcodestatus?: Record<string, ApiResponseQueryPagesPropTranscodestatus>;
+    videoinfo?: ApiResponseQueryPagesPropVideoinfo[];
+    wbentityusage?: Record<string, ApiResponseQueryPagesPropWbentityusage>;
 }
 export interface ApiResponseQueryPagesPropCategories {
     ns: number;
@@ -777,68 +830,122 @@ export interface ApiResponseQueryPagesPropContributors {
     userid: number;
     name: string;
 }
-export interface ApiResponseQueryPagesPropDeletedrevisions {
-    revid?: number;
-    parentid?: number;
-    minor?: boolean;
+export type ApiResponseQueryPagesPropDeletedrevisions = ApiResponseQueryPagesPropRevisions;
+export interface ApiResponseQueryPagesPropDuplicatefiles {
+    name: string;
+    timestamp: string;
+    shared: boolean;
     user?: string;
-    anon?: true;
-    userid?: number;
-    timestamp?: string;
-    size?: number;
-    sha1?: string;
-    roles?: string[];
-    contentmodel?: string;
-    parsetree?: string;
-    contentformat?: string;
-    content?: string;
-    comment?: string;
-    parsedcomment?: string;
-    tags?: string[];
 }
 export interface ApiResponseQueryPagesPropExtlinks {
     url: string;
 }
 export type ApiResponseQueryPagesPropExtracts = string;
 export type ApiResponseQueryPagesPropFileusage = _ApiQueryBacklinksprop;
-export interface ApiResponseQueryPagesPropInfo {
-    associatedpage?: string;
-    displaytitle?: string;
-    editintro?: {
-        [key: string]: string;
+export interface ApiResponseQueryPagesPropGlobalusage {
+    title: string;
+    wiki: string;
+    url?: string;
+    pageid?: string;
+    ns?: string;
+}
+export interface ApiResponseQueryPagesPropImageinfo {
+    timestamp?: string;
+    userhidden?: true;
+    user?: string;
+    userid?: number;
+    temp?: true;
+    anon?: true;
+    size?: number;
+    width?: number;
+    height?: number;
+    pagecount?: number;
+    duration?: number;
+    commenthidden?: true;
+    parsedcomment?: string;
+    comment?: string;
+    html?: string;
+    filehidden?: true;
+    suppressed?: true;
+    canonicaltitle?: string;
+    thumburl?: string;
+    thumbwidth?: number;
+    thumbheight?: number;
+    thumbmime?: string;
+    responsiveUrls?: string;
+    thumberror?: string;
+    url?: string;
+    descriptionurl?: string;
+    descriptionshorturl?: string;
+    filemissing?: true;
+    sha1?: string;
+    metadata?: ApiResponseQueryPagesPropImageinfoMetadata[];
+    commonmetadata?: ApiResponseQueryPagesPropImageinfoMetadata[];
+    extmetadata?: ApiResponseQueryPagesPropImageinfoExtmetadata;
+    mime?: string;
+    mediatype?: string;
+    archivename?: string;
+    bitdepth?: number;
+}
+export interface ApiResponseQueryPagesPropImageinfoMetadata {
+    name: string;
+    value: unknown;
+}
+export interface ApiResponseQueryPagesPropImageinfoExtmetadata {
+    [key: string]: {
+        value: string | number;
+        source: string;
+        hidden?: '';
     };
-    linkclasses?: string[];
+}
+export type ApiResponseQueryPagesPropImages = _TitleInfo;
+export interface ApiResponseQueryPagesPropInfo {
+    contentmodel?: string;
+    pagelanguage?: string;
+    pagelanguagehtmlcode?: string;
+    pagelanguagedir?: string;
+    touched?: string;
+    lastrevid?: number;
+    length?: number;
+    redirect?: true;
+    new?: true;
+    protection?: ApiResponseQueryPagesPropInfoProtection[];
+    restrictiontypes?: string[];
+    watched?: boolean;
+    watchlistexpiry?: string;
+    watchers?: number;
+    visitingwatchers?: number;
     notificationtimestamp?: string;
+    talkid?: number;
+    subjectid?: number;
+    associatedpage?: string;
+    fullurl?: string;
+    editurl?: string;
+    canonicalurl?: string;
+    /**
+     * Use `intestactions=read` instead.
+     * @deprecated
+     */
+    readable?: boolean;
+    /**
+     * Use `preloadcontent` instead, which supports other kinds of preloaded text too.
+     * @deprecated
+     */
+    preload?: string | null;
     preloadcontent?: {
         contentmodel: string;
         contentformat: string;
         content: string;
     };
     preloadisdefault?: boolean;
-    protection?: ApiResponseQueryPagesPropInfoProtection[];
-    restrictiontypes?: string[];
-    subjectid?: number;
-    talkid?: number;
-    fullurl?: string;
-    editurl?: string;
-    canonicalurl?: string;
+    editintro?: {
+        [key: string]: string;
+    };
+    displaytitle?: string;
     varianttitles?: {
         [lang: string]: string;
     };
-    visitingwatchers?: number;
-    watched?: boolean;
-    watchlistexpiry?: string;
-    watchers?: number;
-    /**
-     * Use `preloadcontent` instead, which supports other kinds of preloaded text too.
-     * @deprecated
-     */
-    preload?: string | null;
-    /**
-     * Use `intestactions=read` instead.
-     * @deprecated
-     */
-    readable?: boolean;
+    linkclasses?: string[];
 }
 export interface ApiResponseQueryPagesPropInfoProtection {
     type: string;
@@ -846,9 +953,51 @@ export interface ApiResponseQueryPagesPropInfoProtection {
     expiry: string;
     cascade?: true;
 }
+export interface ApiResponseQueryPagesPropIwlinks {
+    prefix: string;
+    url?: string;
+    title: string;
+}
+export interface ApiResponseQueryPagesPropLanglinks {
+    lang: string;
+    url?: string;
+    langname?: string;
+    autonym?: string;
+    title: string;
+}
+export type ApiResponseQueryPagesPropLinks = _TitleInfo;
 export type ApiResponseQueryPagesPropLinkshere = _ApiQueryBacklinksprop;
+export interface ApiResponseQueryPagesPropMmcontent {
+    description: string | null;
+    targets: string[];
+}
+export interface ApiResponseQueryPagesPropPageimages {
+    thumbnail?: ApiResponseQueryPagesPropPageimagesThumbnail;
+    original?: ApiResponseQueryPagesPropPageimagesThumbnail;
+    pageimage?: string;
+}
+export interface ApiResponseQueryPagesPropPageimagesThumbnail {
+    source: string;
+    width: number;
+    height: number;
+}
+export interface ApiResponseQueryPagesPropPageprops {
+    [prop: string]: string;
+}
+export interface ApiResponseQueryPagesPropPageterms {
+    alias?: string[];
+    label?: string[];
+    description?: string[];
+}
+export interface ApiResponseQueryPagesPropPageviews {
+    [date: string]: number;
+}
 export type ApiResponseQueryPagesPropRedirects = // Fully checked (source code level)
 Omit<_ApiQueryBacklinksprop, 'redirect'> & _ApiQueryBacklinkspropFragment;
+/**
+ * Generated by `ApiQueryRevisionsBase::extractRevisionInfo`, `ApiQueryRevisionsBase::extractAllSlotInfo`,
+ * and `ApiQueryRevisionsBase::extractSlotInfo`.
+ */
 export interface ApiResponseQueryPagesPropRevisions {
     revid?: number;
     parentid?: number;
@@ -863,22 +1012,22 @@ export interface ApiResponseQueryPagesPropRevisions {
     sha1hidden?: true;
     sha1?: string;
     roles?: string[];
-    slotsmissing?: true;
     textmissing?: true;
     slots?: {
         main: {
+            missing?: true;
             size?: number;
             sha1hidden?: true;
             sha1?: string;
+            contentmodel?: string;
             texthidden?: true;
             textmissing?: true;
-            missing?: true;
             badcontentformat?: true;
-            contentmodel?: string;
             contentformat?: string;
             content?: string;
         };
     };
+    slotsmissing?: true;
     commenthidden?: true;
     comment?: string;
     parsedcomment?: string;
@@ -923,7 +1072,43 @@ export interface ApiResponseQueryPagesPropRevisions {
         notcached?: true;
     };
 }
+export type ApiResponseQueryPagesPropTemplates = _TitleInfo;
 export type ApiResponseQueryPagesPropTranscludedin = _ApiQueryBacklinksprop;
+export interface ApiResponseQueryPagesPropTranscodestatus {
+    error: string | null;
+    time_addjob: string | null;
+    time_startwork: string | null;
+    time_success: string | null;
+    time_error: string | null;
+    final_bitrate: string;
+}
+export interface ApiResponseQueryPagesPropVideoinfo extends ApiResponseQueryPagesPropImageinfo {
+    derivatives?: ApiResponseQueryPagesPropVideoinfoDerivatives[];
+    timedtext?: ApiResponseQueryPagesPropVideoinfoTimedtext[];
+}
+export interface ApiResponseQueryPagesPropVideoinfoDerivatives {
+    src: string;
+    title?: string;
+    type: string;
+    shorttitle?: string;
+    transcodekey?: string;
+    width: number;
+    height: number;
+    bandwidth?: number;
+}
+export interface ApiResponseQueryPagesPropVideoinfoTimedtext {
+    src: string;
+    kind: string;
+    type: string;
+    srclang: string;
+    dir: string;
+    label: string;
+}
+export interface ApiResponseQueryPagesPropWbentityusage {
+    aspects: ApiResponseQueryPagesPropWbentityusageAspects[];
+    url?: string;
+}
+export type ApiResponseQueryPagesPropWbentityusageAspects = 'C' | 'D' | 'L' | 'O' | 'S' | 'T' | 'X';
 export interface ApiResponseQueryMetaAllmessages {
     name: string;
     normalizedname: string;

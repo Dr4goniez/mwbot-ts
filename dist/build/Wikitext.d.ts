@@ -106,9 +106,9 @@ export interface WikitextStatic {
      *
      * **Example**:
      * ```ts
-     * const wikitext = await mwbot.Wikitext.newFromTitle('Foo').catch((err) => err);
-     * if (wikitext instanceof Error) {
-     *   console.log(wikitext);
+     * const wikitext = await mwbot.Wikitext.newFromTitle('Foo').catch((err: MwbotError) => err);
+     * if (wikitext instanceof MwbotError) {
+     *   console.error(wikitext);
      *   return;
      * }
      * // Example for parsing the sections of the page 'Foo'
@@ -179,7 +179,7 @@ export interface Wikitext {
      * to transform them, and updates the wikitext accordingly.
      *
      * #### Example: Closing unclosed tags
-     * ```typescript
+     * ```ts
      * const wikitext = new mwbot.Wikitext('<span>a<div><del>b</span><span>c');
      * const oldContent = wikitext.content;
      * const newContent = wikitext.modify('tags', (tag) => {
@@ -261,7 +261,7 @@ export interface Wikitext {
      */
     modifyTags(modificationPredicate: ModificationPredicate<ModificationMap['tags']>): string;
     /**
-     * Parses sections in the wikitext.
+     * Parses the wikitext content for sections.
      *
      * @param config Config to filter the output.
      * @returns An array of parsed sections.
@@ -321,14 +321,14 @@ export interface Wikitext {
      */
     identifySection(startIndex: number, endIndex: number): Section | null;
     /**
-     * Parses `{{{parameter}}}` expressions in the wikitext.
+     * Parses the wikitext content for `{{{parameter}}}` markups.
      *
      * @param config Config to filter the output.
      * @returns An array of parsed parameters.
      */
     parseParameters(config?: ParseParametersConfig): Parameter[];
     /**
-     * Modifies `{{{parameter}}}` expressions in the wikitext content.
+     * Modifies `{{{parameter}}}` markups in the wikitext content.
      *
      * This is a shorthand method of {@link modify} with its first argument set as `parameters`.
      *
@@ -337,7 +337,7 @@ export interface Wikitext {
      */
     modifyParameters(modificationPredicate: ModificationPredicate<ModificationMap['parameters']>): string;
     /**
-     * Parses `{{template}}` expressions in the wikitext.
+     * Parses the wikitext content for `{{template}}` markups.
      *
      * This method parses any double-braced markups, including magic words and parser functions.
      *
@@ -346,7 +346,7 @@ export interface Wikitext {
      */
     parseTemplates(config?: ParseTemplatesConfig): DoubleBracedClasses[];
     /**
-     * Modifies `{{template}}` expressions in the wikitext content.
+     * Modifies `{{template}}` markups in the wikitext content.
      *
      * This is a shorthand method of {@link modify} with its first argument set as `templates`.
      *
@@ -355,14 +355,14 @@ export interface Wikitext {
      */
     modifyTemplates(modificationPredicate: ModificationPredicate<ModificationMap['templates']>): string;
     /**
-     * Parses `[[wikilink]]` expressions in the wikitext.
+     * Parses the wikitext content for `[[wikilink]]` markups in the wikitext.
      *
      * @param config Config to filter the output.
      * @returns An array of parsed wikilinks.
      */
     parseWikilinks(config?: ParseWikilinksConfig): DoubleBracketedClasses[];
     /**
-     * Modifies `[[wikilink]]` expressions in the wikitext content.
+     * Modifies `[[wikilink]]` markups in the wikitext content.
      *
      * This is a shorthand method of {@link modify} with its first argument set as `wikilinks`.
      *

@@ -28,7 +28,7 @@ import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { CookieJar } from 'tough-cookie';
 import { XOR } from 'ts-xor';
 import OAuth from 'oauth-1.0a';
-import { ApiParams, ApiParamsAction, ApiEditPageParams, ApiResponse, ApiResponseQueryMetaSiteinfoGeneral, ApiResponseQueryMetaSiteinfoNamespaces, ApiResponseQueryMetaSiteinfoNamespacealiases, ApiResponseQueryMetaTokens, ApiResponseQueryMetaUserinfo, ApiResponseQueryMetaSiteinfoInterwikimap, ApiResponseQueryMetaSiteinfoMagicwords, ApiResponseQueryMetaSiteinfoFunctionhooks, ApiResponseEdit } from './api_types';
+import { MultiValue, ApiParams, ApiParamsAction, ApiParamsActionEdit, ApiParamsActionParse, ApiResponse, ApiResponseQueryMetaSiteinfoGeneral, ApiResponseQueryMetaSiteinfoNamespaces, ApiResponseQueryMetaSiteinfoNamespacealiases, ApiResponseQueryMetaTokens, ApiResponseQueryMetaUserinfo, ApiResponseQueryMetaSiteinfoInterwikimap, ApiResponseQueryMetaSiteinfoMagicwords, ApiResponseQueryMetaSiteinfoFunctionhooks, ApiResponseEdit, ApiResponseParse } from './api_types';
 import { MwbotError } from './MwbotError';
 import * as Util from './Util';
 import * as mwString from './String';
@@ -74,23 +74,22 @@ export declare class Mwbot {
      *
      * ```js
      * {
-     *	  method: 'GET',
-     *	  headers: {
-     *	    'User-Agent': `mwbot-ts/${MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
-     *	    'Content-Type': 'application/x-www-form-urlencoded',
-     *	    'Accept-Encoding': 'gzip'
-     *	  },
-     *    httpAgent: new http.Agent({keepAlive: true}),
-     *    httpsAgent: new https.Agent({keepAlive: true}),
-     *	  params: {
-     *	    action: 'query',
-     *	    format: 'json',
-     *	    formatversion: '2',
-     *	    maxlag: 5
-     *	  },
-     *	  timeout: 60 * 1000, // 60 seconds
-     *	  responseType: 'json',
-     *	  responseEncoding: 'utf8'
+     *   method: 'GET',
+     *   headers: {
+     *     'User-Agent': `mwbot-ts/${MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
+     *     'Content-Type': 'application/x-www-form-urlencoded',
+     *     'Accept-Encoding': 'gzip'
+     *   },
+     *   params: {
+     *     action: 'query',
+     *     format: 'json',
+     *     formatversion: '2',
+     *     maxlag: 5
+     *   },
+     *   proxy: false,
+     *   timeout: 60 * 1000, // 60 seconds
+     *   responseType: 'json',
+     *   responseEncoding: 'utf8'
      * }
      * ```
      */
@@ -107,6 +106,7 @@ export declare class Mwbot {
             formatversion: string;
             maxlag: number;
         };
+        proxy: boolean;
         timeout: number;
         responseType: string;
         responseEncoding: string;
@@ -139,13 +139,6 @@ export declare class Mwbot {
      * Cashed MediaWiki tokens.
      */
     protected tokens: ApiResponseQueryMetaTokens;
-    /**
-     * Object that holds UUIDs generated for each HTTP request issued by {@link _request}.
-     * The keys represent request UUIDs, and the values the number of requests made using the ID.
-     */
-    protected uuid: {
-        [id: string]: number;
-    };
     /**
      * The timestamp (in milliseconds since the UNIX epoch) of the last successful request.
      * This is updated only for API actions specified in {@link MwbotOptions.intervalActions}.
@@ -357,7 +350,7 @@ export declare class Mwbot {
      * * `mwbot.config.set` prevents built-in `wg`-variables from being overwritten. (See {@link ConfigData}
      * for a list of such variables.)
      *
-     * ```typescript
+     * ```ts
      * get(selection?: string | string[], fallback = null): Mixed;
      * ```
      * * If `selection` is a string, returns the corresponding value.
@@ -367,7 +360,7 @@ export declare class Mwbot {
      * is an array: missing keys will be mapped to `fallback` in the returned object.
      * * An explicit `undefined` for `fallback` results in `null` (unlike the native `mw.config`).
      *
-     * ```typescript
+     * ```ts
      * set(selection?: string | object, value?: any): boolean;
      * ```
      * * If `selection` is a string, `value` must be provided. The key-value pair will be set accordingly.
@@ -376,7 +369,7 @@ export declare class Mwbot {
      * * Returns `true` if at least one property is successfully set.
      * * If `value` is `undefined`, the key is not set.
      *
-     * ```typescript
+     * ```ts
      * exists(selection: string): boolean;
      * ```
      * * Returns `true` if `selection` exists as a key with a defined value.
@@ -416,9 +409,10 @@ export declare class Mwbot {
      * validated, and encoded as required by the API.
      *
      * @param requestOptions The finalized HTTP request options, ready for transmission.
+     * @param attemptCount The number of attemps that have been made so far.
      * @returns A Promise resolving to the API response or rejecting with an error.
      */
-    protected _request(requestOptions: MwbotRequestConfig): Promise<ApiResponse>;
+    protected _request(requestOptions: MwbotRequestConfig, attemptCount?: number): Promise<ApiResponse>;
     /**
      * Massages parameters from the nice format we accept into a format suitable for the API.
      *
@@ -467,42 +461,21 @@ export declare class Mwbot {
      */
     protected showWarnings(warnings: ApiResponse['warnings']): void;
     /**
-     * Throws a {@link MwbotError} by normalizing various error objects.
-     *
-     * If `base` is an API response containing an error, it is converted into
-     * an {@link MwbotError} instance.
-     *
-     * If `base` is already an instance of {@link MwbotError}, it is thrown as is.
-     *
-     * If a request UUID is provided, its entry in {@link uuid} is cleared.
-     *
-     * @param base An error object, which can be:
-     * - An API response containing an `error` or `errors` property.
-     * - An existing {@link MwbotError} instance, in which case it is thrown as is.
-     *
-     * @param requestId The UUID of the request to be removed from {@link uuid}.
-     * If provided, the corresponding entry is deleted before processing `base`.
-     *
-     * @throws
-     */
-    protected error(base: Required<Pick<ApiResponse, 'error'>> | Required<Pick<ApiResponse, 'errors'>> | MwbotError, requestId?: string): never;
-    /**
      * Throws a `mwbot_api_anonymous` error.
      *
-     * @param requestId If provided, the relevant entry in {@link uuid} is cleared.
      * @throws
      */
-    protected errorAnonymous(requestId?: string): never;
+    protected errorAnonymous(): never;
     /**
      * Attempts to retry a failed request under the following conditions:
-     * - The number of requests issued so far (tracked with {@link uuid}) is less than the allowed maximum (`maxAttempts`).
+     * - The number of requests issued so far is less than the allowed maximum (`maxAttempts`).
      * - {@link MwbotRequestConfig.disableRetry} is not set to `true`.
      * - {@link MwbotRequestConfig.disableRetryByCode} is either unset or does not contain the error code from `initialError`.
      *
      * Note: {@link MwbotRequestConfig.disableRetryAPI} must be evaluated in the `then` block of {@link request}, rather than here.
      *
      * @param initialError The error that triggered the retry attempt.
-     * @param requestId The UUID of the request being retried.
+     * @param attemptCount The number of attemps that have been made so far.
      * @param params Request parameters. Since {@link _request} might have deleted them, they are re-injected as needed.
      * @param requestOptions The original request options, using which we make another request.
      * @param maxAttempts The maximum number of attempts (including the first request). Default is 2 (one retry after failure).
@@ -510,7 +483,7 @@ export declare class Mwbot {
      * @param retryCallback A function to execute when attempting the retry. If not provided, {@link _request} is called on `requestOptions`.
      * @returns A Promise of the retry request, or rejecting with an error.
      */
-    protected retry(initialError: MwbotError, requestId: string, params: ApiParams, requestOptions: MwbotRequestConfig, maxAttempts?: number, sleepSeconds?: number, retryCallback?: () => Promise<ApiResponse>): Promise<ApiResponse>;
+    protected retry(initialError: MwbotError, attemptCount: number, params: ApiParams, requestOptions: MwbotRequestConfig, maxAttempts?: number, sleepSeconds?: number, retryCallback?: () => Promise<ApiResponse>): Promise<ApiResponse>;
     /**
      * Aborts all unfinished HTTP requests issued by this instance.
      */
@@ -597,7 +570,7 @@ export declare class Mwbot {
      * (`badtoken`), the token cache is cleared, and a retry is attempted.
      *
      * Example usage:
-     * ```typescript
+     * ```ts
      * mwbot.postWithToken('csrf', {
      *   action: 'options',
      *   optionname: 'gender',
@@ -688,7 +661,7 @@ export declare class Mwbot {
      * @param requestOptions
      * @returns
      */
-    protected _save(title: Title, content: string, summary?: string, internalOptions?: ApiEditPageParams, additionalParams?: ApiEditPageParams, requestOptions?: MwbotRequestConfig): Promise<ApiResponseEditSuccess>;
+    protected _save(title: Title, content: string, summary?: string, internalOptions?: ApiParamsActionEdit, additionalParams?: ApiParamsActionEdit, requestOptions?: MwbotRequestConfig): Promise<ApiResponseEditSuccess>;
     /**
      * Creates a new page with the given content.
      *
@@ -718,7 +691,7 @@ export declare class Mwbot {
      * @param requestOptions Optional HTTP request options.
      * @returns A Promise resolving to {@link ApiResponseEditSuccess} or rejecting with {@link MwbotError}.
      */
-    create(title: string | Title, content: string, summary?: string, additionalParams?: ApiEditPageParams, requestOptions?: MwbotRequestConfig): Promise<ApiResponseEditSuccess>;
+    create(title: string | Title, content: string, summary?: string, additionalParams?: ApiParamsActionEdit, requestOptions?: MwbotRequestConfig): Promise<ApiResponseEditSuccess>;
     /**
      * Saves the given content to a page.
      *
@@ -748,7 +721,7 @@ export declare class Mwbot {
      * @param requestOptions Optional HTTP request options.
      * @returns A Promise resolving to the API response or rejecting with {@link MwbotError}.
      */
-    save(title: string | Title, content: string, summary?: string, additionalParams?: ApiEditPageParams, requestOptions?: MwbotRequestConfig): Promise<ApiResponse>;
+    save(title: string | Title, content: string, summary?: string, additionalParams?: ApiParamsActionEdit, requestOptions?: MwbotRequestConfig): Promise<ApiResponse>;
     /**
      * Retrieves the latest revision content of a given title from the API.
      *
@@ -832,7 +805,7 @@ export declare class Mwbot {
      * @param requestOptions Optional HTTP request options.
      * @return A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
      */
-    newSection(title: string | Title, sectiontitle: string, content: string, summary?: string, additionalParams?: ApiEditPageParams, requestOptions?: MwbotRequestConfig): Promise<ApiResponse>;
+    newSection(title: string | Title, sectiontitle: string, content: string, summary?: string, additionalParams?: ApiParamsActionEdit, requestOptions?: MwbotRequestConfig): Promise<ApiResponse>;
     /**
      * Logs in to the wiki for which this instance has been initialized.
      *
@@ -864,6 +837,29 @@ export declare class Mwbot {
      * @throws If `titles` contains non-strings or non-Titles.
      */
     purge(titles: (string | Title)[], additionalParams?: ApiParams, requestOptions?: MwbotRequestConfig): Promise<ApiResponse>;
+    /**
+     * Performs an `action=parse` API request.
+     *
+     * This method enforces the `action=parse` parameter and returns a Promise that resolves to the `response.parse`
+     * object from the API response. If this property is missing, the Promise is rejected with an `mwbot_api: empty` error.
+     *
+     * The following parameters are enforced:
+     * ```
+     * {
+     *   action: 'parse',
+     *   format: 'json',
+     *   formatversion: '2'
+     * }
+     * ```
+     *
+     * @param params {@link https://www.mediawiki.org/wiki/API:Parsing_wikitext | Parameters} to the API.
+     * @param requestOptions Optional HTTP request options.
+     * @returns A Promise resolving to the `response.parse` object from the API response, or rejecting with an error.
+     * @throws If:
+     * - `response.parse` is missing (causing an `mwbot_api: empty` error).
+     * - the HTTP request fails.
+     */
+    parse(params: ApiParamsActionParse, requestOptions?: MwbotRequestConfig): Promise<ApiResponseParse>;
 }
 /**
  * Options to be passed as the first argument of {@link Mwbot.init}.
@@ -1113,17 +1109,12 @@ export type InstanceOf<T> = T extends {
  * Type used to define {@link MwConfig}.
  * @private
  */
-export type TypeOrArray<T> = T | T[];
-/**
- * Type used to define {@link MwConfig}.
- * @private
- */
 export type GetOrDefault<V, K extends PropertyKey, TD, TX = unknown> = K extends keyof V ? V extends Required<Pick<V, K>> ? V[K] : Required<V>[K] | TD : TX | TD;
 /**
  * Type used to define {@link MwConfig}.
  * @private
  */
-export type PickOrDefault<V, S extends TypeOrArray<PropertyKey>, TD, TX = unknown> = S extends Array<infer K> ? {
+export type PickOrDefault<V, S extends MultiValue<PropertyKey>, TD, TX = unknown> = S extends Array<infer K> ? {
     [P in K & PropertyKey]-?: GetOrDefault<V, P, TD, TX>;
 } : GetOrDefault<V, S & PropertyKey, TD, TX>;
 /**
@@ -1148,10 +1139,10 @@ export interface MwConfig<V extends Record<string, any>, TX = unknown> {
      * an object of key/values. If no `selection` is passed, a new object with all key/values is returned.
      * Any type of the return value is a deep copy of the original stored in the instance.
      */
-    get<S extends TypeOrArray<keyof V>, TD>(selection: S, fallback: TD): PickOrDefault<V, S, TD, TX>;
-    get<S extends TypeOrArray<string>, TD>(selection: S, fallback: TD): PickOrDefault<V, S, TD, TX>;
-    get<S extends TypeOrArray<keyof V>>(selection: S): PickOrDefault<V, S, null, TX>;
-    get<S extends TypeOrArray<string>>(selection: S): PickOrDefault<V, S, null, TX>;
+    get<S extends MultiValue<keyof V>, TD>(selection: S, fallback: TD): PickOrDefault<V, S, TD, TX>;
+    get<S extends MultiValue<string>, TD>(selection: S, fallback: TD): PickOrDefault<V, S, TD, TX>;
+    get<S extends MultiValue<keyof V>>(selection: S): PickOrDefault<V, S, null, TX>;
+    get<S extends MultiValue<string>>(selection: S): PickOrDefault<V, S, null, TX>;
     get(): V & Record<string, TX>;
     /**
      * Set the value of one or more keys.
@@ -1185,7 +1176,7 @@ export interface Revision {
     ns: number;
     title: string;
     baserevid: number;
-    /** This property could be missing if the editor is revdel'd. */
+    /** This property may be missing if the editor is revdel'd. */
     user?: string;
     basetimestamp: string;
     starttimestamp: string;
@@ -1204,7 +1195,7 @@ export interface Revision {
  * If the return value is (or resolves to) `null`, the method rejects with a {@link MwbotError}
  * using the `api_mwbot: aborted` error code.
  */
-export type TransformationPredicate = (wikitext: Wikitext, revision: Revision) => ApiEditPageParams | null | Promise<ApiEditPageParams | null>;
+export type TransformationPredicate = (wikitext: Wikitext, revision: Revision) => ApiParamsActionEdit | null | Promise<ApiParamsActionEdit | null>;
 /**
  * A variant of {@link ApiResponseEdit} where the `result` property is guaranteed to be `'Success'`.
  * Used in {@link Mwbot.create}, {@link Mwbot.save}, and {@link Mwbot.edit}.

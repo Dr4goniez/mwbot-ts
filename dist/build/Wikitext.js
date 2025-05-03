@@ -179,7 +179,7 @@ function WikitextFactory(mwbot, ParsedTemplate, RawTemplate, ParsedParserFunctio
             return (0, String_1.byteLength)(this.storage.content);
         }
         get content() {
-            return this.storageManager('content');
+            return this.storage.content;
         }
         storageManager(key, valueOrClone, args) {
             // If retrieving a value
@@ -297,7 +297,7 @@ function WikitextFactory(mwbot, ParsedTemplate, RawTemplate, ParsedParserFunctio
             return this.storageManager('content', newContent).content;
         }
         /**
-         * Parses the wikitext for HTML tags.
+         * Parses the wikitext content for HTML tags.
          *
          * @returns
          */
@@ -511,7 +511,7 @@ function WikitextFactory(mwbot, ParsedTemplate, RawTemplate, ParsedParserFunctio
             };
         }
         /**
-         * Parses sections from the wikitext.
+         * Parses the wikitext content for sections.
          *
          * @returns An array of parsed sections.
          */
@@ -755,7 +755,7 @@ function WikitextFactory(mwbot, ParsedTemplate, RawTemplate, ParsedParserFunctio
             return ret;
         }
         /**
-         * Parses `{{{parameter}}}` expressions in the wikitext.
+         * Parses the wikitext content for `{{{parameter}}}` markups.
          *
          * @returns An array of parsed parameters.
          */
@@ -936,7 +936,8 @@ function WikitextFactory(mwbot, ParsedTemplate, RawTemplate, ParsedParserFunctio
             return indexMap;
         }
         /**
-         * Fuzzily parses `[[wikilink]]`s in the wikitext. The right operand (i.e., `[[left|right]]`) will be incomplete.
+         * Fuzzily parses the wikitext content for `[[wikilink]]` markups. The right operand
+         * (i.e., `[[left|right]]`) will be incomplete.
          *
          * @param indexMap Optional index map to re-use.
          * @param isInSkipRange A function that evaluates whether parsed wikilinks are within a skip range.
@@ -1067,7 +1068,7 @@ function WikitextFactory(mwbot, ParsedTemplate, RawTemplate, ParsedParserFunctio
             return links.sort((obj1, obj2) => obj1.startIndex - obj2.startIndex);
         }
         /**
-         * Parses `{{template}}` expressions in the wikitext.
+         * Parses the wikitext content for `{{template}}` markups.
          *
          * @param options Parser options.
          * @param indexMap Optional index map to re-use.
@@ -1354,7 +1355,7 @@ function WikitextFactory(mwbot, ParsedTemplate, RawTemplate, ParsedParserFunctio
             return this.modify('templates', modificationPredicate);
         }
         /**
-         * Parses `[[wikilink]]` expressions in the wikitext.
+         * Parses the wikitext content for `[[wikilink]]` markups.
          *
          * @returns An array of parsed wikilinks.
          */
