@@ -60,6 +60,15 @@ export type OnlyOneRecord<K extends string, V = any> = {
  */
 export type PartiallyRequired<T extends Record<string, any>, K extends keyof T> = Required<Pick<T, K>> & Omit<T, K>;
 
+/**
+ * Represents a value that can be either a single item of type `T` or an array of `T`.
+ *
+ * Useful for API inputs or configurations that accept both a single value and multiple values.
+ *
+ * @template T The base type.
+ */
+export type MultiValue<T> = T | T[];
+
 // ************************************** Parameter types **************************************
 
 /**
@@ -220,7 +229,7 @@ export type ApiParamsAction =
 	| 'webauthn'
 	| 'wikilove';
 
-export interface ApiEditPageParams extends ApiParams {
+export interface ApiParamsActionEdit extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki/blob/main/api_params/index.d.ts
 	title?: string;
 	pageid?: number;
@@ -278,6 +287,125 @@ export interface ApiEditPageParams extends ApiParams {
 	returntoanchor?: string;
 	captchaword?: string;
 	captchaid?: string;
+}
+
+export interface ApiParamsActionParse extends ApiParams {
+	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
+	title?: string;
+    text?: string;
+    revid?: number;
+    summary?: string;
+    page?: string;
+    pageid?: number;
+    redirects?: boolean;
+    oldid?: number;
+    prop?: MultiValue<
+        | "categories"
+        | "categorieshtml"
+        | "displaytitle"
+        | "encodedjsconfigvars"
+        | "externallinks"
+        | "headhtml"
+        | "images"
+        | "indicators"
+        | "iwlinks"
+        | "jsconfigvars"
+        | "langlinks"
+        | "limitreportdata"
+        | "limitreporthtml"
+        | "links"
+        | "modules"
+        | "parsetree"
+        | "parsewarnings"
+        | "parsewarningshtml"
+        | "properties"
+        | "revid"
+        | "sections"
+        | "subtitle"
+        | "templates"
+        | "text"
+        | "wikitext"
+        | "headitems"
+    >;
+    wrapoutputclass?: string;
+    parsoid?: boolean;
+    pst?: boolean;
+    onlypst?: boolean;
+    effectivelanglinks?: boolean;
+    section?: string;
+    sectiontitle?: string;
+    disablepp?: boolean;
+    disablelimitreport?: boolean;
+    disableeditsection?: boolean;
+    disablestylededuplication?: boolean;
+    showstrategykeys?: boolean;
+    generatexml?: boolean;
+    preview?: boolean;
+    sectionpreview?: boolean;
+    disabletoc?: boolean;
+    useskin?:
+        | "apioutput"
+        | "cologneblue"
+        | "contenttranslation"
+        | "fallback"
+        | "minerva"
+        | "modern"
+        | "monobook"
+        | "timeless"
+        | "vector"
+        | "vector-2022";
+    contentformat?:
+        | "application/json"
+        | "application/octet-stream"
+        | "application/unknown"
+        | "application/x-binary"
+        | "text/css"
+        | "text/javascript"
+        | "text/plain"
+        | "text/unknown"
+        | "text/x-wiki"
+        | "unknown/unknown";
+    contentmodel?:
+        | "GadgetDefinition"
+        | "JsonSchema"
+        | "MassMessageListContent"
+        | "Scribunto"
+        | "SecurePoll"
+        | "css"
+        | "javascript"
+        | "json"
+        | "sanitized-css"
+        | "text"
+        | "unknown"
+        | "wikitext";
+    mobileformat?: boolean;
+    templatesandboxprefix?: string | string[];
+    templatesandboxtitle?: string;
+    templatesandboxtext?: string;
+    templatesandboxcontentmodel?:
+        | "GadgetDefinition"
+        | "JsonSchema"
+        | "MassMessageListContent"
+        | "Scribunto"
+        | "SecurePoll"
+        | "css"
+        | "javascript"
+        | "json"
+        | "sanitized-css"
+        | "text"
+        | "unknown"
+        | "wikitext";
+    templatesandboxcontentformat?:
+        | "application/json"
+        | "application/octet-stream"
+        | "application/unknown"
+        | "application/x-binary"
+        | "text/css"
+        | "text/javascript"
+        | "text/plain"
+        | "text/unknown"
+        | "text/x-wiki"
+        | "unknown/unknown";
 }
 
 // ************************************** Response types **************************************

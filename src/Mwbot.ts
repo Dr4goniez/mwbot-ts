@@ -38,9 +38,11 @@ import * as https from 'https';
 
 import { MWBOT_VERSION } from './version';
 import {
+	MultiValue,
 	ApiParams,
 	ApiParamsAction,
-	ApiEditPageParams,
+	ApiParamsActionEdit,
+	ApiParamsActionParse,
 	ApiResponse,
 	ApiResponseQueryMetaSiteinfoGeneral,
 	ApiResponseQueryMetaSiteinfoNamespaces,
@@ -50,7 +52,8 @@ import {
 	ApiResponseQueryMetaSiteinfoInterwikimap,
 	ApiResponseQueryMetaSiteinfoMagicwords,
 	ApiResponseQueryMetaSiteinfoFunctionhooks,
-	ApiResponseEdit
+	ApiResponseEdit,
+	ApiResponseParse
 } from './api_types';
 import { MwbotError } from './MwbotError';
 import * as Util from './Util';
@@ -1906,11 +1909,11 @@ export class Mwbot {
 		title: Title,
 		content: string,
 		summary?: string,
-		internalOptions: ApiEditPageParams = {},
-		additionalParams: ApiEditPageParams = {},
+		internalOptions: ApiParamsActionEdit = {},
+		additionalParams: ApiParamsActionEdit = {},
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponseEditSuccess> {
-		const params: ApiEditPageParams = Object.assign(
+		const params: ApiParamsActionEdit = Object.assign(
 			{
 				action: 'edit',
 				title: title.getPrefixedDb(),
@@ -1966,7 +1969,7 @@ export class Mwbot {
 		title: string | Title,
 		content: string,
 		summary?: string,
-		additionalParams: ApiEditPageParams = {},
+		additionalParams: ApiParamsActionEdit = {},
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponseEditSuccess> {
 		return this._save(this.prepEdit(title), content, summary, {createonly: true}, additionalParams, requestOptions);
@@ -2005,7 +2008,7 @@ export class Mwbot {
 		title: string | Title,
 		content: string,
 		summary?: string,
-		additionalParams: ApiEditPageParams = {},
+		additionalParams: ApiParamsActionEdit = {},
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponse> {
 		return this._save(this.prepEdit(title), content, summary, {nocreate: true}, additionalParams, requestOptions);
@@ -2290,7 +2293,7 @@ export class Mwbot {
 				info: 'The transformation predicate must resolve to a plain object.'
 			}, {transformed: params});
 		}
-		const defaultParams: ApiEditPageParams = {
+		const defaultParams: ApiParamsActionEdit = {
 			action: 'edit',
 			title: revision.title,
 			bot: true,
@@ -2368,7 +2371,7 @@ export class Mwbot {
 		sectiontitle: string,
 		content: string,
 		summary?: string,
-		additionalParams: ApiEditPageParams = {},
+		additionalParams: ApiParamsActionEdit = {},
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponse> {
 		return this._save(this.prepEdit(title), content, summary, {section: 'new', sectiontitle}, additionalParams, requestOptions);
@@ -2465,6 +2468,71 @@ export class Mwbot {
 			format: 'json',
 			formatversion: '2'
 		}, additionalParams), requestOptions);
+	}
+
+	/**
+	 * Performs an `action=parse` API request.
+	 *
+	 * This method enforces the `action=parse` parameter and returns a Promise that resolves to the `response.parse`
+	 * object from the API response. If this property is missing, the Promise is rejected with an `mwbot_api: empty` error.
+	 *
+	 * The following parameters are enforced:
+	 * ```
+	 * {
+	 *   action: 'parse',
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param params {@link https://www.mediawiki.org/wiki/API:Parsing_wikitext | Parameters} to the API.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the `response.parse` object from the API response, or rejecting with an error.
+	 * @throws If:
+	 * - `response.parse` is missing (causing an `mwbot_api: empty` error).
+	 * - the HTTP request fails.
+	 */
+	async parse(params: ApiParamsActionParse, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponseParse> {
+		params = mergeDeep(params, {
+			action: 'parse',
+			format: 'json',
+			formatversion: '2'
+		});
+
+		// Calculate the length of the query parameters to determine the request method
+		let len = 0;
+		for (const [key, value] of Object.entries(params)) {
+			if (len !== 0 && value !== false && value !== undefined) {
+				len++; // For "&"
+			}
+			if (Array.isArray(value)) {
+				if (value.join('').includes('|')) {
+					len++; // For the leading '\x1f'
+				}
+				len += key.length + 1 + value.join('|').length; // key + "=" + value
+			} else if (value === true) {
+				len += key.length + 1 + 1; // preprocessParameters converts `true` to `'1'`
+			} else if (value instanceof Date) {
+				len += key.length + 1 + 24; // Length of an ISO timestamp
+			} else if (value !== false && value !== undefined) {
+				len += key.length + 1 + String(value).length;
+			}
+		}
+
+		let res: ApiResponse;
+		if (len > 1900) {
+			// Technically, the condition should be "2024 characters or more", but leaving some room
+			res = await this.nonwritePost(params, requestOptions);
+		} else {
+			res = await this.get(params, requestOptions);
+		}
+		if (res.parse) {
+			return res.parse;
+		}
+		throw new MwbotError('api_mwbot', {
+			code: 'empty',
+			info: 'OK response but empty result ("response.parse" is missing).'
+		}, {response: res});
 	}
 
 }
@@ -2746,12 +2814,6 @@ export type InstanceOf<T> = T extends { prototype: infer R } ? R : never;
 
 // The following type definitions are substantial copies from the npm package `types-mediawiki`.
 
-/**
- * Type used to define {@link MwConfig}.
- * @private
- */
-export type TypeOrArray<T> = T | T[];
-
 // Get/PickOrDefault<V, S, TD, TX> extracts values from V using key selection S
 // - TD is the value type of missing properties
 // - TX is the value type of unknown properties
@@ -2770,7 +2832,7 @@ export type GetOrDefault<V, K extends PropertyKey, TD, TX = unknown> = K extends
  * Type used to define {@link MwConfig}.
  * @private
  */
-export type PickOrDefault<V, S extends TypeOrArray<PropertyKey>, TD, TX = unknown> = S extends Array<
+export type PickOrDefault<V, S extends MultiValue<PropertyKey>, TD, TX = unknown> = S extends Array<
 	infer K
 >
 	? { [P in K & PropertyKey]-?: GetOrDefault<V, P, TD, TX> }
@@ -2798,10 +2860,10 @@ export interface MwConfig<V extends Record<string, any>, TX = unknown> {
 	 * an object of key/values. If no `selection` is passed, a new object with all key/values is returned.
 	 * Any type of the return value is a deep copy of the original stored in the instance.
 	 */
-	get<S extends TypeOrArray<keyof V>, TD>(selection: S, fallback: TD): PickOrDefault<V, S, TD, TX>;
-	get<S extends TypeOrArray<string>, TD>(selection: S, fallback: TD): PickOrDefault<V, S, TD, TX>;
-	get<S extends TypeOrArray<keyof V>>(selection: S): PickOrDefault<V, S, null, TX>;
-	get<S extends TypeOrArray<string>>(selection: S): PickOrDefault<V, S, null, TX>;
+	get<S extends MultiValue<keyof V>, TD>(selection: S, fallback: TD): PickOrDefault<V, S, TD, TX>;
+	get<S extends MultiValue<string>, TD>(selection: S, fallback: TD): PickOrDefault<V, S, TD, TX>;
+	get<S extends MultiValue<keyof V>>(selection: S): PickOrDefault<V, S, null, TX>;
+	get<S extends MultiValue<string>>(selection: S): PickOrDefault<V, S, null, TX>;
 	get(): V & Record<string, TX>;
 	/**
 	 * Set the value of one or more keys.
@@ -2859,7 +2921,7 @@ export interface Revision {
  * using the `api_mwbot: aborted` error code.
  */
 export type TransformationPredicate =
-	(wikitext: Wikitext, revision: Revision) => ApiEditPageParams | null | Promise<ApiEditPageParams | null>;
+	(wikitext: Wikitext, revision: Revision) => ApiParamsActionEdit | null | Promise<ApiParamsActionEdit | null>;
 
 /**
  * A variant of {@link ApiResponseEdit} where the `result` property is guaranteed to be `'Success'`.
