@@ -121,7 +121,6 @@ export class Mwbot {
 	 *     formatversion: '2',
 	 *     maxlag: 5
 	 *   },
-	 *   proxy: false,
 	 *   timeout: 60 * 1000, // 60 seconds
 	 *   responseType: 'json',
 	 *   responseEncoding: 'utf8'
@@ -142,7 +141,6 @@ export class Mwbot {
 				formatversion: '2',
 				maxlag: 5
 			},
-			proxy: false,
 			timeout: 60 * 1000, // 60 seconds
 			responseType: 'json',
 			responseEncoding: 'utf8'
@@ -160,6 +158,16 @@ export class Mwbot {
 	 * A cookie jar that stores session and login cookies for this instance.
 	 */
 	protected readonly jar: CookieJar;
+	/**
+	 * Custom agents that manage keep-alive connections for HTTP requests.
+	 * These are injected into the request options when using OAuth.
+	 *
+	 * See: https://www.mediawiki.org/wiki/Manual:Creating_a_bot#Bot_best_practices
+	 */
+	protected readonly agents: {
+		http: http.Agent;
+		https: https.Agent;
+	};
 	/**
 	 * The user options for this intance.
 	 */
@@ -315,15 +323,12 @@ export class Mwbot {
 		}
 
 		// Initialize other class properties
-		this.axios = axios.create({
-			/**
-			 * Manages keep-alive connections for HTTP requests.
-			 * See https://www.mediawiki.org/wiki/Manual:Creating_a_bot#Bot_best_practices
-			 */
-			httpAgent: new http.Agent({keepAlive: true}),
-			httpsAgent: new https.Agent({keepAlive: true})
-		});
+		this.axios = axios.create();
 		this.jar = new CookieJar();
+		this.agents = {
+			http: new http.Agent({keepAlive: true}),
+			https: new https.Agent({keepAlive: true})
+		};
 		this.userMwbotOptions = options;
 		this.userRequestOptions = requestOptions;
 		this.abortions = [];
@@ -864,16 +869,35 @@ export class Mwbot {
 	/**
 	 * Performs a raw HTTP request.
 	 *
-	 * **NOTE**: This method does ***not*** reference any instance-specific settings.
+	 * **NOTE**: This method does ***not*** inject most instance-specific settings
+	 * into the request config — except for session/cookie handling and cancellation.
 	 *
-	 * @param requestOptions The complete user-defined HTTP request options.
-	 * @returns The raw Axios response of the HTTP request.
+	 * @param requestOptions The complete user-defined Axios request config.
+	 * @returns A Promise that resolves to the raw Axios response.
 	 */
 	rawRequest(requestOptions: MwbotRequestConfig): Promise<AxiosResponse> {
 
+		// If `_cloned` is not set, assume this method is being called externally
+		// Clone the config and inject necessary instance-specific settings
 		if (!requestOptions._cloned) {
 			requestOptions = mergeDeep(requestOptions);
 			requestOptions._cloned = true;
+
+			// Inject httpAgent/httpsAgent to handle TCP connections
+			if (this.usingOAuth()) {
+				requestOptions.httpAgent = this.agents.http;
+				requestOptions.httpsAgent = this.agents.https;
+
+				// Per Axios's guidance on request configuration, proxy should be disabled when supplying
+				// a custom httpAgent/httpsAgent; otherwise, environment variables may affect proxy handling,
+				// leading Axios to return a confusing `503 Service Unavailable` error.
+				// See https://axios-http.com/docs/req_config and https://github.com/axios/axios/issues/5214
+				requestOptions.proxy = false;
+			} else {
+				// axios-cookiejar-support uses its own agents
+				requestOptions.jar = this.jar;
+				requestOptions.withCredentials = true;
+			}
 		}
 
 		// Setup AbortController
@@ -886,6 +910,16 @@ export class Mwbot {
 		// Make the request
 		return this.axios(requestOptions);
 
+	}
+
+	/**
+	 * Checks whether the client is configured to use OAuth (v1 or v2).
+	 *
+	 * @returns `true` if either `oauth1` or `oauth2` credentials are set; otherwise, `false`.
+	 */
+	protected usingOAuth(): boolean {
+		const {oauth2, oauth1} = this.credentials;
+		return !!(oauth2 || oauth1);
 	}
 
 	/**
@@ -1294,13 +1328,19 @@ export class Mwbot {
 		}
 		requestOptions.headers ||= {};
 		const {oauth2, oauth1} = this.credentials;
+		const configureKeepAliveAgents = (): void => {
+			requestOptions.httpAgent = this.agents.http;
+			requestOptions.httpsAgent = this.agents.https;
+			requestOptions.proxy = false;
+		};
 		if (oauth2) {
 			// OAuth 2.0
 			requestOptions.headers.Authorization = `Bearer ${oauth2}`;
+			configureKeepAliveAgents();
 		} else if (oauth1) {
 			// OAuth 1.0a
 			if (!requestOptions.url || !requestOptions.method) {
-				throw new TypeError('[Internal] "url" and "method" must be set before applying authentication.');
+				throw new TypeError('[Internal] OAuth 1.0 requires both "url" and "method" to be set before authentication.');
 			}
 			Object.assign(
 				requestOptions.headers,
@@ -1315,6 +1355,7 @@ export class Mwbot {
 					})
 				)
 			);
+			configureKeepAliveAgents();
 		} else {
 			// Cookie-based authentication
 			requestOptions.jar = this.jar;

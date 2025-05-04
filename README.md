@@ -18,7 +18,7 @@
 * Uses [Axios](https://axios-http.com/) to perform HTTP requests, with responses automatically normalized to a consistent JSON format (`{"formatversion": "2"}` is enabled by default). For full control, the <code>[rawRequest](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#rawrequest)</code> method is also available.
 * Automatically handles common MediaWiki API complexities, such as converting boolean values into a PHP-compatible format, optimizing request headers to reduce bandwidth usage, managing the `maxlag` parameter for server load (default: 5 seconds), and retrying failed HTTP requests under appropriate conditions. See also [mw:API:Data formats](https://www.mediawiki.org/wiki/API:Data_formats) and [mw:API:Etiquette](https://www.mediawiki.org/wiki/API:Etiquette).
 * Fetches and caches edit tokens automatically. POST requests for database *write* operations can be made via <code>[postWithToken](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#postwithtoken)</code> or <code>[postWithCsrfToken](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#postwithcsrftoken)</code>, which closely mirror the functionality of MediaWiki’s built-in `mediawiki.Api` module.
-* Manages intervals between write requests automatically. By default, the framework enforces at least a 5-second gap between successful `{"action": "edit"}`, `{"action": "move"}`, and `{"action": "upload"}` requests, relieving clients of manual throttling.
+* Manages intervals between write requests automatically. By default, the framework enforces at least a 5-second gap between successful `action=edit`, `action=move`, and `action=upload` requests, relieving clients of manual throttling.
 * Built around an extensible core class, `Mwbot`, which is designed to be subclassed — making it easy to implement shared logic, custom workflows, or application-specific behavior.
 * Handles HTTP request errors in a unified manner via the [MwbotError](#error-handling) class, with [all internal error codes documented](https://dr4goniez.github.io/mwbot-ts/interfaces/MwbotError.MwbotErrorCodes.html) for easy debugging.
 * Provides an intuitive wikitext parser for common bot operations, such as modifying template parameters and replacing wikilink targets. This functionality is centralized in the [Wikitext](#wikitext-parser) class.
@@ -149,7 +149,6 @@ In general, there is no need to set custom request configurations. The following
 * `headers['Accept-Encoding']` - Handles data compression to [optimize bandwidth usage](https://www.mediawiki.org/wiki/API:Etiquette#Request_limit).
 * `params.format` - Should always be `'json'`, as [all other formats have been deprecated or removed](https://www.mediawiki.org/wiki/API:Data_formats#Output). `mwbot-ts` enforces this by throwing an error if the specification is missing.
 * `params.formatversion` - The framework assumes `{"formatversion": "2"}` to define types and interfaces. Changing this breaks type expectations and offers no benefit.
-* `proxy` - Set to `false` (i.e., disabled) by default, as `mwbot-ts` supplies a custom `httpAgent`/`httpsAgent` to enable [HTTP persistent connections](https://www.mediawiki.org/wiki/Manual:Creating_a_bot#Bot_best_practices). This follows [Axios's guidance on request configuration](https://axios-http.com/docs/req_config). Otherwise, environment variables may affect proxy handling, and Axios may return a confusing `503 Service Unavailable` error (see also [issue #5214](https://github.com/axios/axios/issues/5214)).
 * `responseType` - Should be left unchanged, as with `params.format`; otherwise, it may cause an `invalidjson` error.
 * `responseEncoding` - Modifying this may cause garbled text unless handled carefully.
 
@@ -214,28 +213,18 @@ mwbot.nonwritePost({
 <summary>rawRequest</summary>
 
 ```ts
-// Use for full control over the Axios request object
-mwbot.rawRequest({
+// Performs a raw HTTP GET request to an arbitrary external API
+const res = await mwbot.rawRequest({
   method: 'GET',
-  url: 'https://en.wikipedia.org/w/api.php',
+  url: 'https://api.github.com/repos/nodejs/node',
   headers: {
-    'User-Agent': `mwbot-ts/${MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'Accept-Encoding': 'gzip'
+    'User-Agent': `mwbot-ts/${MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`
   },
-  params: {
-    action: 'query',
-    meta: 'userinfo',
-    format: 'json',
-    formatversion: '2',
-    maxlag: 5
-  },
-  proxy: false,
-  timeout: 60 * 1000,
-  responseType: 'json',
-  responseEncoding: 'utf8'
-})
-.then(console.log);
+  timeout: 10000,
+  responseType: 'json'
+});
+
+console.log(res.data.full_name); // "nodejs/node"
 ```
 
 </details>
