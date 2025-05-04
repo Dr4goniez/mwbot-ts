@@ -14,7 +14,7 @@
     "readme": "ts-node src/test/test_readme.ts",
     "readme-log": "node logger.mjs src/test/test_readme.ts _readme",
     "prebuild": "node -p \"'export const MWBOT_VERSION = ' + JSON.stringify(require('./package.json').version) + ';'\" > src/version.ts",
-    "build": "npm run prebuild & tsc -p . & node dist/generate-types.js",
+    "build": "npm run prebuild & tsc -p . & node generate-types.mjs",
     "docs": "node -e \"require('fs-extra').emptyDir('docs');\" & npx typedoc --options typedoc.json"
   },
   "engines": {
