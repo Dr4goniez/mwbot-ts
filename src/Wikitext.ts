@@ -1195,7 +1195,7 @@ export function WikitextFactory(
 				};
 			});
 			for (const obj of sections) {
-				setKinships(obj, sections);
+				setKinships(obj, sections, true);
 			}
 
 			return sections;
@@ -2080,19 +2080,21 @@ export type SkipTags =
  *
  * @param obj The object whose relationships are to be assigned.
  * @param arr The array of the objects.
+ * @param inclusive Whether to use inclusive comparison (`<=`) instead of strict comparison (`<`).
  */
 function setKinships<
 	T extends Tag | Section | Parameter | DoubleBracedClasses | DoubleBracketedClasses
->(obj: T, arr: T[]): void {
+>(obj: T, arr: T[], inclusive = false): void {
 	const getLevel = (x: T): number => 'level' in x ? x.level : x.nestLevel;
+	const precedes = (a: number, b: number) => inclusive ? a <= b : a < b;
 	let parentIndex: [number, number] = [-1, Infinity];
 	for (const [index, current] of arr.entries()) {
 		const {startIndex, endIndex} = current;
 		// Set parent
 		if (
-			startIndex < obj.startIndex && obj.endIndex < endIndex &&
+			startIndex < obj.startIndex && precedes(obj.endIndex, endIndex) &&
 			// Ensure to retrieve the immediate parent
-			parentIndex[0] < startIndex && endIndex < parentIndex[1]
+			parentIndex[0] < startIndex && precedes(endIndex, parentIndex[1])
 		) {
 			obj.parent = index;
 			parentIndex = [startIndex, endIndex];
@@ -2100,7 +2102,7 @@ function setKinships<
 		// Set children
 		if (
 			getLevel(current) === getLevel(obj) + 1 &&
-			obj.startIndex < startIndex && endIndex < obj.endIndex
+			obj.startIndex < startIndex && precedes(endIndex, obj.endIndex)
 		) {
 			obj.children.add(index);
 		}
