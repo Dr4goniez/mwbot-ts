@@ -461,7 +461,7 @@ mwbot.purge(['Wikipedia:Sandbox', 'Wikipedia_talk:Sandbox']);
 <summary>read</summary>
 
 ```ts
-// Reads the content of a single page☺
+// Reads the content of a single page
 mwbot.read('Wikipedia:Sandbox');
 ```
 ```ts
@@ -768,7 +768,7 @@ console.log(wikitext.parseSections());
     content: '=== Bar ===\n[[Main page]]\n',
     text: [Getter],
     parent: null,
-    children: Set(0) {}
+    children: Set(1) { 2 }
   },
   [Object: null prototype] {
     heading: '=== Bar ===\n',
@@ -779,7 +779,7 @@ console.log(wikitext.parseSections());
     endIndex: 36,
     content: '[[Main page]]\n',
     text: [Getter],
-    parent: null,
+    parent: 1,
     children: Set(0) {}
   },
   [Object: null prototype] {
@@ -1320,7 +1320,7 @@ console.log(newContent); // Output: {{Foo|1=My name is Foo.}}
 </details>
 
 ## Other classes and accessors
-### mwbot.Title  
+### mwbot.Title
 A class that parses MediaWiki page titles into an object structure, adapted and expanded from the native [`mediawiki.Title`](https://doc.wikimedia.org/mediawiki-core/master/js/mw.Title.html) module.
 
 This extended class is accessible via [mwbot.Title](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#title) (an instance member), and provides support for parsing interwiki titles — a feature exclusive to `mwbot-ts`.
@@ -1341,20 +1341,20 @@ console.log(config.get('wgUserRights')); // This key is exclusive to mwbot-ts
 
 See [ConfigData](https://dr4goniez.github.io/mwbot-ts/interfaces/Mwbot.ConfigData.html) for available keys.
 
-### Mwbot.Util  
+### Mwbot.Util
 A class that exports the framework's internal utility functions for use by the client, accessible via [`Mwbot.Util`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#util) (a static member).
 
 This class should not be confused with the native [`mediawiki.util`](https://doc.wikimedia.org/mediawiki-core/master/js/module-mediawiki.util.html) module. Note that `mwbot-ts` uses the npm package [`ip-wiki`](https://www.npmjs.com/package/ip-wiki?activeTab=readme) for IP string normalization. `Mwbot.Util` does not handle this on its own. Since the package is registered as a dependency, you do not need to install it separately; you can directly require or import `ip-wiki` for manipulating IP and CIDR addresses.
 
-### Mwbot.String  
+### Mwbot.String
 A class that provides functions for string manipulation, accessible via [`Mwbot.String`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#string) (a static member). It is a copy of the native [`mediawiki.String`](https://doc.wikimedia.org/mediawiki-core/master/js/module-mediawiki.String.html) module, included to support the functionality of `mwbot.Title`.
 
-### Template-related classes  
-`{{double-braced}}` wiki markups can be constructed as objects using [`mwbot.Template`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#template) and [`mwbot.ParserFunction`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#parserfunction), which are lazy-loaded instance members.  
-* `mwbot.Template`: Parses `{{template}}` markups into an object structure.  
+### Template-related classes
+`{{double-braced}}` wiki markups can be constructed as objects using [`mwbot.Template`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#template) and [`mwbot.ParserFunction`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#parserfunction), which are lazy-loaded instance members.
+* `mwbot.Template`: Parses `{{template}}` markups into an object structure.
 * `mwbot.ParserFunction`: Parses `{{#function}}` markups into an object structure.
 
-### Wikilink-related classes  
-`[[double-bracketed]]` wiki markups can be constructed as objects using [`mwbot.Wikilink`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#wikilink) and [`mwbot.FileWikilink`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#filewikilink), which are lazy-loaded instance members.  
-* `mwbot.Wikilink`: Parses non-file `[[wikilink]]` markups into an object structure.  
+### Wikilink-related classes
+`[[double-bracketed]]` wiki markups can be constructed as objects using [`mwbot.Wikilink`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#wikilink) and [`mwbot.FileWikilink`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#filewikilink), which are lazy-loaded instance members.
+* `mwbot.Wikilink`: Parses non-file `[[wikilink]]` markups into an object structure.
 * `mwbot.FileWikilink`: Parses file `[[wikilink]]` markups into an object structure.
