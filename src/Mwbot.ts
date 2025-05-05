@@ -1193,6 +1193,9 @@ export class Mwbot {
 	 */
 	protected preprocessParameters(parameters: ApiParams): boolean {
 		let hasLongFields = false;
+		const markIfLongField = (value: string): void => {
+			hasLongFields ||= value.length > 8000;
+		};
 		if (!this.isAnonymous()) {
 			// Enforce {assert: 'user'} for logged-in users
 			parameters.assert = 'user';
@@ -1205,6 +1208,7 @@ export class Mwbot {
 				} else {
 					parameters[key] = '\x1f' + val.join('\x1f');
 				}
+				markIfLongField(parameters[key]);
 			} else if (val === false || val === undefined) {
 				// Boolean values are only false when not given at all
 				delete parameters[key];
@@ -1213,8 +1217,8 @@ export class Mwbot {
 				parameters[key] = '1';
 			} else if (val instanceof Date) {
 				parameters[key] = val.toISOString();
-			} else if (String(val).length > 8000) {
-				hasLongFields = true;
+			} else {
+				markIfLongField(String(val));
 			}
 		});
 		return hasLongFields;
