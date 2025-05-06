@@ -1203,12 +1203,14 @@ export class Mwbot {
 		Object.entries(parameters).forEach(([key, val]) => {
 			if (Array.isArray(val)) {
 				// Multi-value fields must be stringified
+				let str: string;
 				if (!val.join('').includes('|')) {
-					parameters[key] = val.join('|');
+					str = val.join('|');
 				} else {
-					parameters[key] = '\x1f' + val.join('\x1f');
+					str = '\x1f' + val.join('\x1f');
 				}
-				markIfLongField(parameters[key]);
+				parameters[key] = str;
+				markIfLongField(str);
 			} else if (val === false || val === undefined) {
 				// Boolean values are only false when not given at all
 				delete parameters[key];
