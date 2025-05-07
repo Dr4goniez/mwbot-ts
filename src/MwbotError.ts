@@ -187,6 +187,7 @@ export interface MwbotErrorCodes {
 		invalidtitle: 'The given title cannot be processed because it is invalid.';
 		emptytitle: 'The given title cannot be processed because it is empty.';
 		interwikititle: 'The given title cannot be processed because it is interwiki.';
+		specialtitle: 'The given title cannot be processed because it is in the Special or Media namespace.';
 		pagemissing: 'The requested page does not exist.';
 		editfailed: 'The edit attempt failed with a `result: "Failure"` code.';
 	};

@@ -1912,6 +1912,7 @@ export class Mwbot {
 	 * - The title is neither a string nor a {@link Title} instance.
 	 * - The title is empty.
 	 * - The title is interwiki.
+	 * - The title is in the Special or Media namespace.
 	 */
 	protected prepEdit(title: string | Title, allowAnonymous = false): Title {
 		if (this.isAnonymous() && !allowAnonymous) {
@@ -1943,6 +1944,12 @@ export class Mwbot {
 			throw new MwbotError('api_mwbot', {
 				code: 'interwikititle',
 				info: `"${title.getPrefixedText()}" is an interwiki title.`
+			});
+		}
+		if (title.getNamespaceId() < 0) {
+			throw new MwbotError('api_mwbot', {
+				code: 'specialtitle',
+				info: `"${title.getPrefixedText()}" is a special-namespace title.`
 			});
 		}
 		return title;
