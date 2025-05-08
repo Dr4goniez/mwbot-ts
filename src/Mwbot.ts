@@ -1622,6 +1622,12 @@ export class Mwbot {
 	 * @returns
 	 * A Promise resolving to an array of API responses or {@link MwbotError} objects for failed requests.
 	 * The array will be empty if the multi-value field is empty.
+	 * @throws On fatal errors:
+	 * - `batchSize`, if provided, is not a positive integer.
+	 * - `keys` is empty or contains non-string values.
+	 * - `parameters[keys]` is not an array.
+	 * - If `keys` is an array, the corresponding multi-value arrays are not identical.
+	 * - No multi-value fields are provided.
 	 */
 	async massRequest(
 		parameters: ApiParams,
@@ -1630,8 +1636,8 @@ export class Mwbot {
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<(ApiResponse | MwbotError)[]> {
 
+		// Validadate the batch size
 		const apilimit = this.apilimit;
-
 		if (batchSize !== undefined) {
 			if (!Number.isInteger(batchSize) || batchSize > apilimit || batchSize <= 0) {
 				throw new MwbotError('fatal', {
@@ -1643,18 +1649,24 @@ export class Mwbot {
 			batchSize = apilimit;
 		}
 
-		// Ensure "keys" is an array
+		// Cast `keys` to an array
 		keys = Array.isArray(keys) ? keys : [keys];
-		if (!keys.length) {
+		if (!keys.length || !keys[0]) {
 			throw new MwbotError('fatal', {
 				code: 'emptykeys',
-				info: '"keys" cannot be an empty array.'
+				info: '"keys" cannot be empty.'
 			});
 		}
 
 		// Extract multi-value field
 		let batchValues: string[] | null = null;
 		for (const key of keys) {
+			if (typeof key !== 'string') {
+				throw new MwbotError('fatal', {
+					code: 'typemismatch',
+					info: `Expected a string (element) for "keys", but got ${typeof key}.`
+				});
+			}
 			const value = parameters[key];
 			if (value !== undefined) {
 				if (!Array.isArray(value)) {
