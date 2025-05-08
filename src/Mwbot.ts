@@ -2179,7 +2179,6 @@ export class Mwbot {
 			prop: 'revisions',
 			rvprop: 'ids|timestamp|user|content',
 			rvslots: 'main',
-			rvlimit: 1, // No need to reference old revisions
 			curtimestamp: true,
 			formatversion: '2'
 		}, 'titles', apilimit, requestOptions);
