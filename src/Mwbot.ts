@@ -57,7 +57,7 @@ import {
 	ApiResponseQueryPages,
 	PartiallyRequired
 } from './api_types';
-import { MwbotError } from './MwbotError';
+import { MwbotError, MwbotErrorData } from './MwbotError';
 import * as Util from './Util';
 const { mergeDeep, isPlainObject, isObject, sleep, isEmptyObject, arraysEqual, deepCloneInstance } = Util;
 import * as mwString from './String';
@@ -538,28 +538,31 @@ export class Mwbot {
 			!res || !res.query ||
 			!userinfo || !functionhooks || !general || !magicwords || !namespaces || !namespacealiases
 		) {
-			const error = new MwbotError('api_mwbot', {
-				code: 'empty',
-				info: 'OK response but empty result (check HTTP headers?)'
-			});
-			return retryIfPossible(error, attemptIndex);
+			return retryIfPossible(
+				this.errorEmpty(false, '(check HTTP headers?)'),
+				attemptIndex
+			);
 		} else if (userinfo.anon && !this.isAnonymous()) {
-			const error = new MwbotError('api_mwbot', {
-				code: 'badauth',
-				info: 'Failed to authenticate the client as a registered user.'
-			});
-			return retryIfPossible(error, attemptIndex);
+			return retryIfPossible(
+				new MwbotError('api_mwbot', {
+					code: 'badauth',
+					info: 'Failed to authenticate the client as a registered user.'
+				}),
+				attemptIndex
+			);
 		}
 
 		// Initialize mwbot.config
 		const failedKeys = this.initConfigData(userinfo, general, namespaces, namespacealiases);
 		if (failedKeys.length) {
 			// Ensure that all the dependent config values are fetched successfully
-			const error = new MwbotError('api_mwbot', {
-				code: 'badvars',
-				info: 'Failed to initialize wg-variables.'
-			}, {keys: failedKeys});
-			return retryIfPossible(error, attemptIndex);
+			return retryIfPossible(
+				new MwbotError('api_mwbot', {
+					code: 'badvars',
+					info: 'Failed to initialize wg-variables.'
+				}, {keys: failedKeys}),
+				attemptIndex
+			);
 		}
 
 		// Set up instance properties
@@ -1009,10 +1012,7 @@ export class Mwbot {
 			}
 
 			if (!data) {
-				throw new MwbotError('api_mwbot', {
-					code: 'empty',
-					info: 'OK response but empty result (check HTTP headers?)'
-				}, {axios: response});
+				return this.errorEmpty(true, '(check HTTP headers?)', {axios: response});
 			}
 			if (typeof data !== 'object') {
 				// In most cases the raw HTML of [[Main page]]
@@ -1412,7 +1412,7 @@ export class Mwbot {
 	}
 
 	/**
-	 * Throws a `mwbot_api_anonymous` error.
+	 * Throws an `api_mwbot: anonymous` error.
 	 *
 	 * @throws
 	 */
@@ -1421,6 +1421,40 @@ export class Mwbot {
 			code: 'anonymous',
 			info: 'Anonymous users are limited to non-write requests.'
 		});
+	}
+
+	/**
+	 * Throws an `api_mwbot: empty` error.
+	 *
+	 * @param die Whether to throw the error (default: `true`).
+	 * @param additionalInfo Optional text to append after `'OK response but empty result'`.
+	 * A space is automatically prepended if provided; otherwise, a period is appended.
+	 * @param data Optional data object to set to the error.
+	 * @throws
+	 */
+	protected errorEmpty(die?: true, additionalInfo?: string, data?: MwbotErrorData): never;
+	/**
+	 * Returns an `api_mwbot: empty` error.
+	 *
+	 * @param die Must be `false` to return instead of throwing.
+	 * @param additionalInfo Optional text to append after `'OK response but empty result'`.
+	 * A space is automatically prepended if provided; otherwise, a period is appended.
+	 * @param data Optional data object to set to the error.
+	 * @returns
+	 */
+	protected errorEmpty(die: false, addtionalInfo?: string, data?: MwbotErrorData): MwbotError<'api_mwbot'>;
+	protected errorEmpty(die = true, addtionalInfo?: string, data?: MwbotErrorData): never | MwbotError<'api_mwbot'> {
+		die ??= true;
+		const info = 'OK response but empty result' + (addtionalInfo ? ' ' + addtionalInfo : '.');
+		const error = new MwbotError('api_mwbot', {
+			code: 'empty',
+			info
+		}, data);
+		if (die) {
+			throw error;
+		} else {
+			return error;
+		}
 	}
 
 	/**
@@ -1820,10 +1854,7 @@ export class Mwbot {
 				});
 			}
 		} else {
-			throw new MwbotError('api_mwbot', {
-				code: 'empty',
-				info: 'OK response but empty result.'
-			});
+			return this.errorEmpty();
 		}
 	}
 
@@ -2152,6 +2183,40 @@ export class Mwbot {
 			formatversion: '2'
 		};
 
+		const processSinglePage = (
+			page: PartiallyRequired<ApiResponseQueryPages, 'title'>,
+			curtimestamp?: string
+		): Revision | MwbotError => {
+			const rev = page.revisions?.[0];
+			if (page.missing || typeof page.pageid !== 'number') {
+				return new MwbotError('api_mwbot', {
+					code: 'pagemissing',
+					info: 'The requested page does not exist.'
+				}, {title: page.title});
+			} else if (
+				typeof page.ns !== 'number' ||
+				typeof page.title !== 'string' || // Just in case
+				!rev ||
+				typeof rev.revid !== 'number' ||
+				typeof curtimestamp !== 'string' ||
+				!rev.timestamp ||
+				typeof rev.slots?.main.content !== 'string'
+			) {
+				return this.errorEmpty(false, void 0, {title: page.title});
+			} else {
+				return {
+					pageid: page.pageid,
+					ns: page.ns,
+					title: page.title,
+					baserevid: rev.revid,
+					user: rev.user,
+					basetimestamp: rev.timestamp,
+					starttimestamp: curtimestamp,
+					content: rev.slots.main.content
+				};
+			}
+		};
+
 		// If `titles` isn't an array, return a response for the single page
 		if (singleTitle) {
 			const t = singleTitle.getPrefixedText();
@@ -2159,10 +2224,7 @@ export class Mwbot {
 			const res = await this.get(params, requestOptions);
 			const pages = res.query?.pages;
 			if (!pages || !pages[0]) {
-				throw new MwbotError('api_mwbot', {
-					code: 'empty',
-					info: 'OK response but empty result.'
-				}, {title: t});
+				return this.errorEmpty(true, void 0, {title: t});
 			}
 			pages[0].title ??= t;
 			const processed = processSinglePage(
@@ -2240,11 +2302,7 @@ export class Mwbot {
 
 			const pages = res.query?.pages;
 			if (!pages) {
-				const err = new MwbotError('api_mwbot', {
-					code: 'empty',
-					info: 'OK response but empty result.'
-				});
-				setToAll(err, batchIndex);
+				setToAll(this.errorEmpty(false), batchIndex);
 				continue;
 			}
 
@@ -2272,43 +2330,6 @@ export class Mwbot {
 		}
 
 		return ret as (Revision | MwbotError)[];
-
-		function processSinglePage(
-			page: PartiallyRequired<ApiResponseQueryPages, 'title'>,
-			curtimestamp?: string
-		): Revision | MwbotError {
-			const rev = page.revisions?.[0];
-			if (page.missing || typeof page.pageid !== 'number') {
-				return new MwbotError('api_mwbot', {
-					code: 'pagemissing',
-					info: 'The requested page does not exist.'
-				}, {title: page.title});
-			} else if (
-				typeof page.ns !== 'number' ||
-				typeof page.title !== 'string' || // Just in case
-				!rev ||
-				typeof rev.revid !== 'number' ||
-				typeof curtimestamp !== 'string' ||
-				!rev.timestamp ||
-				typeof rev.slots?.main.content !== 'string'
-			) {
-				return new MwbotError('api_mwbot', {
-					code: 'empty',
-					info: 'OK response but empty result.'
-				}, {title: page.title});
-			} else {
-				return {
-					pageid: page.pageid,
-					ns: page.ns,
-					title: page.title,
-					baserevid: rev.revid,
-					user: rev.user,
-					basetimestamp: rev.timestamp,
-					starttimestamp: curtimestamp,
-					content: rev.slots.main.content
-				};
-			}
-		}
 
 		function setToAll(error: MwbotError, batchIndex: number): void {
 			multiValues[batchIndex].forEach((title) => {
@@ -2505,10 +2526,7 @@ export class Mwbot {
 		}, disableRetryAPI);
 
 		if (!resLogin.login) {
-			throw new MwbotError('api_mwbot', {
-				code: 'empty',
-				info: 'OK response but empty result.'
-			}, {response: resLogin});
+			return this.errorEmpty(true, void 0, {response: resLogin});
 		} else if (resLogin.login.result !== 'Success') {
 			throw new MwbotError('api_mwbot', {
 				code: 'loginfailed',
@@ -2630,10 +2648,7 @@ export class Mwbot {
 		if (res.parse) {
 			return res.parse;
 		}
-		throw new MwbotError('api_mwbot', {
-			code: 'empty',
-			info: 'OK response but empty result ("response.parse" is missing).'
-		}, {response: res});
+		return this.errorEmpty(true, '("response.parse" is missing).', {response: res});
 	}
 
 }
