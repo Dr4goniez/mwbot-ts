@@ -420,45 +420,13 @@ if (response instanceof MwbotError) {
 </details>
 
 #### Other utility methods
-`mwbot-ts` also provides helper methods for common tasks, while intentionally keeping the core API minimal. Versatile utility methods may be added on request, and such requests are always welcome.😊
+`mwbot-ts` also provides helper methods for common tasks, while intentionally keeping the core API as minimal as possible. Versatile utility methods may be added on request, and such requests are always welcome.😊
 
-<details>
-<summary>parse</summary>
-
-```ts
-// Run the parser via the API
-mwbot.parse({
-  page: 'WP:SAND',
-  redirects: true,
-  prop: 'sections'
-});
-```
-
-</details>
-
-<details>
-<summary>purge</summary>
-
-```ts
-// Purges the server-side cache for the specified page(s)
-mwbot.purge(['Wikipedia:Sandbox', 'Wikipedia_talk:Sandbox']);
-```
-
-</details>
-
-<details>
-<summary>read</summary>
-
-```ts
-// Reads the content of a single page
-mwbot.read('Wikipedia:Sandbox');
-```
-```ts
-// Reads the contents of multiple pages
-mwbot.read(['Wikipedia:Sandbox', 'Wikipedia_talk:Sandbox']);
-```
-
-</details>
+The framework includes utility methods such as:
+- [getExistencePredicate](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getexistencepredicate): Returns a function that checks whether pages exist.
+- [parse](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#parse): Runs the MediaWiki parser via the API.
+- [purge](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#purge): Purges the cache for the specified titles.
+- [read](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#read): Reads the latest revision content of one or more pages.
 
 ### Extend the class
 Different bot operators have different needs, and it's common to define custom functions using native framework methods. For example, a quick way to check whether a page exists might look like this:
@@ -520,7 +488,8 @@ Mwbot2.init(initOptions).then(async (mwbot) => {
 });
 ```
 
-> **Note**: The `exists()` method above is intended as **a simple example**. In production, it should also account for false positives. For instance, if the input title is invalid, the response may lack a `missing` property, leading this method to incorrectly return `true` (see [this example](https://en.wikipedia.org/w/api.php?action=query&formatversion=2&&titles={)).
+> **Note**: The `exists()` method above is intended as **a simple example**. In production, it should also account for false positives. For instance, if the input title is invalid, the response may lack a `missing` property, leading this method to incorrectly return `true` (see [this example](https://en.wikipedia.org/w/api.php?action=query&formatversion=2&&titles={)).<br>
+> In fact, **`mwbot-ts` already provides a built-in method, [getExistencePredicate](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getexistencepredicate), which fully covers this functionality**. In most cases, you don’t need to implement a custom existence checker.
 
 </details>
 
