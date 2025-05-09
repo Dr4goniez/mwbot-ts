@@ -2140,7 +2140,7 @@ export class Mwbot {
 	 *
 	 * This method returns a Promise resolving to an array of API responses, whose length is exactly the same
 	 * as the input `titles` array. This ensures that each title at a specific index in `titles` will have its
-	 * corresponding response at the same index in the returned array, preserving a strict mapping between inputs
+	 * corresponding response at the same index in the returned array, preserving a loose mapping between inputs
 	 * and outputs.
 	 *
 	 * @param titles An array of the page titles, either as strings or {@link Title} instances, or mixed.
@@ -2651,6 +2651,98 @@ export class Mwbot {
 		return this.errorEmpty(true, '("response.parse" is missing).', {response: res});
 	}
 
+	/**
+	 * Gets a function to check whether pages exist.
+	 *
+	 * **Example**:
+	 * ```ts
+	 * // Suppose 'Foo' exists but 'Bar' does not
+	 * const exists = await mwbot.getExistencePredicate(['Foo', 'Bar']);
+	 * exists('Foo'); // true
+	 * exists('Bar'); // false
+	 * exists('Baz'); // null
+	 * ```
+	 *
+	 * See {@link ExistencePredicate} for details on the returned function.
+	 *
+	 * @param titles The titles to check for existence.
+	 * @param options
+	 * @param options.loose Whether to apply loose validation to the `titles` input.
+	 *
+	 * - If `false` (default), the method throws if `titles` contains:
+	 *   - a value that is neither a string nor a {@link Title} instance,
+	 *   - an empty title,
+	 *   - an interwiki title,
+	 *   - or a title in the Special or Media namespaces.
+	 * - If `true`, such titles are skipped (and `exists()` will return `null` for them).
+	 *
+	 * @param options.rejectProof Whether to suppress request errors (default: `false`).
+	 * If set to `true`, the method always resolves to a function, though that function
+	 * may return `null` frequently due to missing data.
+	 *
+	 * @returns A Promise that resolves to an `exists()` function, or rejects with
+	 * an error (unless `rejectProof` is `true`).
+	 */
+	async getExistencePredicate(
+		titles: (string | Title)[],
+		options: {loose?: boolean; rejectProof?: boolean} = {}
+	): Promise<ExistencePredicate> {
+
+		const loose = !!options.loose;
+		const rejectProof = !!options.rejectProof;
+
+		// Collect valid target titles
+		const targets = titles.reduce((acc, title) => {
+			try {
+				const validatedTitle = this.prepEdit(title, true);
+				acc.add(validatedTitle.getPrefixedText());
+			} catch (err) {
+				if (!loose) throw err;
+			}
+			return acc;
+		}, new Set<string>());
+
+		// Query the API for title existence
+		const responses = await this.massRequest({
+			action: 'query',
+			titles: Array.from(targets),
+			format: 'json',
+			formatversion: '2'
+		}, 'titles');
+
+		// Process responses and populate existence map
+		const list = new Map<string, boolean>();
+		for (const res of responses) {
+			if (res instanceof MwbotError) {
+				if (rejectProof) continue;
+				throw res;
+			}
+			const pages = res.query?.pages;
+			if (!pages) {
+				if (rejectProof) continue;
+				return this.errorEmpty();
+			}
+			for (const {ns, title, missing} of pages) {
+				if (title && typeof ns === 'number') {
+					list.set(title, !missing);
+				}
+			}
+		}
+
+		// Return an `exists()` function
+		return (title: string | Title): boolean | null => {
+			if (!(title instanceof this.Title)) {
+				const t = this.Title.normalize(title);
+				if (!t) return null;
+				title = t;
+			} else {
+				title = title.getPrefixedText();
+			}
+			return list.get(title) ?? null;
+		};
+
+	}
+
 }
 
 // ****************************** HELPER TYPES AND INTERFACES ******************************
@@ -3048,3 +3140,25 @@ export type TransformationPredicate =
  * Used in {@link Mwbot.create}, {@link Mwbot.save}, and {@link Mwbot.edit}.
  */
 export type ApiResponseEditSuccess = Omit<ApiResponseEdit, 'result'> & {result: 'Success'};
+
+/**
+ * A function that checks whether a given title exists.
+ *
+ * This function is returned by {@link Mwbot.getExistencePredicate}. It returns:
+ * - `true` if the title is known to exist,
+ * - `false` if the title is known to be missing,
+ * - `null` if the existence of the title is unknown.
+ *
+ * A `null` return value indicates one of the following:
+ * - The title was not included in the original `getExistencePredicate()` input.
+ * - The title is empty.
+ * - The title is interwiki.
+ * - The title is in the Special or Media namespaces.
+ *
+ * The `title` parameter is automatically normalized; the caller does not need to
+ * normalize it manually.
+ *
+ * @param title The title to check.
+ * @returns `true`, `false`, or `null` depending on the known existence status.
+ */
+export type ExistencePredicate = (title: string | Title) => boolean | null;
