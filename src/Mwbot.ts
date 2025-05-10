@@ -2140,7 +2140,7 @@ export class Mwbot {
 	 *
 	 * This method returns a Promise resolving to an array of API responses, whose length is exactly the same
 	 * as the input `titles` array. This ensures that each title at a specific index in `titles` will have its
-	 * corresponding response at the same index in the returned array, preserving a loose mapping between inputs
+	 * corresponding response at the same index in the returned array, preserving a strict mapping between inputs
 	 * and outputs.
 	 *
 	 * @param titles An array of the page titles, either as strings or {@link Title} instances, or mixed.
