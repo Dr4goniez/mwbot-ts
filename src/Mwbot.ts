@@ -1012,7 +1012,7 @@ export class Mwbot {
 			}
 
 			if (!data) {
-				return this.errorEmpty(true, '(check HTTP headers?)', {axios: response});
+				this.errorEmpty(true, '(check HTTP headers?)', {axios: response});
 			}
 			if (typeof data !== 'object') {
 				// In most cases the raw HTML of [[Main page]]
@@ -1027,7 +1027,7 @@ export class Mwbot {
 
 				// Handle error codes
 				if (err.code === 'missingparam' && this.isAnonymous() && err.info.includes('The "token" parameter must be set')) {
-					return this.errorAnonymous();
+					this.errorAnonymous();
 				}
 
 				if (!requestOptions.disableRetryAPI) {
@@ -1036,7 +1036,7 @@ export class Mwbot {
 						case 'badtoken':
 						case 'notoken':
 							if (this.isAnonymous()) {
-								return this.errorAnonymous();
+								this.errorAnonymous();
 							}
 							if (requestOptions.method === 'POST' && clonedParams.action && !requestOptions.disableRetryByCode?.includes(clonedParams.action)) {
 								const tokenType = await this.getTokenType(clonedParams.action); // Identify the required token type
@@ -1776,7 +1776,7 @@ export class Mwbot {
 	 */
 	async postWithToken(tokenType: string, parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 		if (this.isAnonymous()) {
-			return this.errorAnonymous();
+			this.errorAnonymous();
 		}
 		const assertParams = {
 			assert: parameters.assert,
@@ -1854,7 +1854,7 @@ export class Mwbot {
 				});
 			}
 		} else {
-			return this.errorEmpty();
+			this.errorEmpty();
 		}
 	}
 
@@ -1963,7 +1963,7 @@ export class Mwbot {
 	 */
 	protected validateTitle(title: string | Title, allowAnonymous = false): Title {
 		if (this.isAnonymous() && !allowAnonymous) {
-			return this.errorAnonymous();
+			this.errorAnonymous();
 		}
 		if (typeof title !== 'string' && !(title instanceof this.Title)) {
 			throw new MwbotError('fatal', {
@@ -2225,7 +2225,7 @@ export class Mwbot {
 			const res = await this.get(params, requestOptions);
 			const pages = res.query?.pages;
 			if (!pages || !pages[0]) {
-				return this.errorEmpty(true, void 0, {title: t});
+				this.errorEmpty(true, void 0, {title: t});
 			}
 			pages[0].title ??= t;
 			const processed = processSinglePage(
@@ -2525,7 +2525,7 @@ export class Mwbot {
 		}, disableRetryAPI);
 
 		if (!resLogin.login) {
-			return this.errorEmpty(true, void 0, {response: resLogin});
+			this.errorEmpty(true, void 0, {response: resLogin});
 		} else if (resLogin.login.result !== 'Success') {
 			throw new MwbotError('api_mwbot', {
 				code: 'loginfailed',
@@ -2647,7 +2647,7 @@ export class Mwbot {
 		if (res.parse) {
 			return res.parse;
 		}
-		return this.errorEmpty(true, '("response.parse" is missing).', {response: res});
+		this.errorEmpty(true, '("response.parse" is missing).', {response: res});
 	}
 
 	/**
@@ -2718,7 +2718,7 @@ export class Mwbot {
 			const pages = res.query?.pages;
 			if (!pages) {
 				if (rejectProof) continue;
-				return this.errorEmpty();
+				this.errorEmpty();
 			}
 			for (const {ns, title, missing} of pages) {
 				if (title && typeof ns === 'number') {
