@@ -1947,12 +1947,13 @@ export class Mwbot {
 	// ****************************** EDIT-RELATED REQUEST METHODS ******************************
 
 	/**
-	 * Validates and processes a title before editing, and returns a {@link Title} instance.
-	 * If any validation fails, this method throws an {@link MwbotError}.
+	 * Validates and processes a title before use, and returns a {@link Title} instance.
+	 * This method is used to normalize user input and ensure the title is valid for API access.
+	 * If any validation fails, it throws an {@link MwbotError}.
 	 *
 	 * @param title The page title, either as a string or a {@link Title} instance.
 	 * @param allowAnonymous Whether to allow anonymous users to proceed. Defaults to `false`.
-	 * @returns A {@link Title} instance.
+	 * @returns A validated {@link Title} instance.
 	 * @throws If:
 	 * - The user is anonymous while `allowAnonymous` is `false`.
 	 * - The title is neither a string nor a {@link Title} instance.
@@ -1960,7 +1961,7 @@ export class Mwbot {
 	 * - The title is interwiki.
 	 * - The title is in the Special or Media namespace.
 	 */
-	protected prepEdit(title: string | Title, allowAnonymous = false): Title {
+	protected validateTitle(title: string | Title, allowAnonymous = false): Title {
 		if (this.isAnonymous() && !allowAnonymous) {
 			return this.errorAnonymous();
 		}
@@ -2079,7 +2080,7 @@ export class Mwbot {
 		additionalParams: ApiParamsActionEdit = {},
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponseEditSuccess> {
-		return this._save(this.prepEdit(title), content, summary, {createonly: true}, additionalParams, requestOptions);
+		return this._save(this.validateTitle(title), content, summary, {createonly: true}, additionalParams, requestOptions);
 	}
 
 	/**
@@ -2118,7 +2119,7 @@ export class Mwbot {
 		additionalParams: ApiParamsActionEdit = {},
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponse> {
-		return this._save(this.prepEdit(title), content, summary, {nocreate: true}, additionalParams, requestOptions);
+		return this._save(this.validateTitle(title), content, summary, {nocreate: true}, additionalParams, requestOptions);
 	}
 
 	/**
@@ -2153,8 +2154,8 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<Revision | (Revision | MwbotError)[]> {
 
-		// If `titles` isn't an array, verify it (prepEdit throws an error if the title is invalid)
-		const singleTitle = !Array.isArray(titles) && this.prepEdit(titles, true);
+		// If `titles` isn't an array, verify it (validateTitle throws an error if the title is invalid)
+		const singleTitle = !Array.isArray(titles) && this.validateTitle(titles, true);
 
 		// `pageids` and `revids` shouldn't be set because we use the `titles` parameter
 		if (!requestOptions) {
@@ -2265,10 +2266,8 @@ export class Mwbot {
 		let errCount = 0;
 		for (let i = 0; i < titlesArray.length; i++) {
 			try {
-				const validatedTitle = this.prepEdit(titlesArray[i], true);
-
 				// Normalize all titles as in the API response and remember the array index
-				const page = validatedTitle.getPrefixedText();
+				const page = this.validateTitle(titlesArray[i], true).getPrefixedText();
 				titleMap[page] ||= [];
 				titleMap[page].push(i);
 				if (!multiValues.length || multiValues[multiValues.length - 1].length === apilimit) {
@@ -2496,7 +2495,7 @@ export class Mwbot {
 		additionalParams: ApiParamsActionEdit = {},
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponse> {
-		return this._save(this.prepEdit(title), content, summary, {section: 'new', sectiontitle}, additionalParams, requestOptions);
+		return this._save(this.validateTitle(title), content, summary, {section: 'new', sectiontitle}, additionalParams, requestOptions);
 	}
 
 	// ****************************** SPECIFIC REQUEST METHODS ******************************
@@ -2694,8 +2693,7 @@ export class Mwbot {
 		// Collect valid target titles
 		const targets = titles.reduce((acc, title) => {
 			try {
-				const validatedTitle = this.prepEdit(title, true);
-				acc.add(validatedTitle.getPrefixedText());
+				acc.add(this.validateTitle(title, true).getPrefixedText());
 			} catch (err) {
 				if (!loose) throw err;
 			}
