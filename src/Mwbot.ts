@@ -1629,44 +1629,53 @@ export class Mwbot {
 	 * @param parameters Parameters to the API.
 	 * @param limit The maximum number of continuation. (Default: `10`)
 	 * @param rejectProof
-	 * By default, this method rejects the Promise if any internal API request fails, discarding all previously
-	 * retrieved responses. When set to `true`, it instead resolves with the incomplete responses merged into
-	 * one object, while logging the error to the console.
-	 *
-	 * NOTE: If the first request fails, the returned response object may be empty.
+	 * By default, the Promise is rejected if any internal request fails, discarding all previous results.
+	 * When set to `true`, it instead resolves to an array containing the responses and the error as the last element.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to a merged API response, or rejecting with an error.
+	 * @returns A Promise resolving to an array of API responses, or an error in the last element if `rejectProof` is `true`.
 	 */
+	continuedRequest(
+		parameters: ApiParams,
+		limit?: number,
+		rejectProof?: false,
+		requestOptions?: MwbotRequestConfig
+	): Promise<ApiResponse[]>;
+	continuedRequest(
+		parameters: ApiParams,
+		limit: number | undefined,
+		rejectProof: true,
+		requestOptions?: MwbotRequestConfig
+	): Promise<(ApiResponse | MwbotError)[]>;
 	async continuedRequest(
 		parameters: ApiParams,
 		limit = 10,
 		rejectProof = false,
 		requestOptions: MwbotRequestConfig = {}
-	): Promise<ApiResponse> {
+	): Promise<(ApiResponse | MwbotError)[]> {
 
-		const ret: ApiResponse[] = [];
-		const query = (params: ApiParams, count: number): Promise<void> => {
-			return this.fetch(params, requestOptions).then((res) => {
+		const ret: (ApiResponse | MwbotError)[] = [];
+
+		try {
+			let count = 0;
+			let params = {...parameters};
+
+			while (count < limit) {
+				const res = await this.fetch(params, requestOptions);
 				ret.push(res);
-				if (res.continue && count < limit) {
-					return query(Object.assign({}, res.continue, params), ++count);
-				}
-			});
-		};
+				count++;
 
-		if (rejectProof) {
-			await query(parameters, 1).catch((err: MwbotError) => console.dir(err, {depth: 3}));
-		} else {
-			await query(parameters, 1);
+				if (!res.continue) break;
+				params = {...params, ...res.continue};
+			}
+			return ret;
+
+		} catch (err) {
+			if (rejectProof) {
+				ret.push(err as MwbotError);
+				return ret;
+			}
+			throw err;
 		}
-
-		const flattened = ret.reduce((acc: ApiResponse, obj) => mergeDeep(acc, obj), Object.create(null));
-		if (ret[ret.length - 1] && !ret[ret.length - 1].continue) {
-			// Delete the continue property if the last response doesn't have it
-			delete flattened.continue;
-		}
-		return flattened;
-
 	}
 
 	/**
