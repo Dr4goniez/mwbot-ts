@@ -1733,7 +1733,7 @@ export class Mwbot {
 		keys = Array.isArray(keys) ? keys : [keys];
 		if (!keys.length || !keys[0]) {
 			throw new MwbotError('fatal', {
-				code: 'emptykeys',
+				code: 'emptyinput',
 				info: '"keys" cannot be empty.'
 			});
 		}
@@ -2758,6 +2758,117 @@ export class Mwbot {
 			return list.get(title) ?? null;
 		};
 
+	}
+
+	/**
+	 * Retrieves the categories that the given title(s) belong to.
+	 *
+	 * @param titles A single title or an array of titles to enumerate categories for.
+	 * @param hidden A specification to enumerate hidden categories. This manipulates the `clshow` parameter:
+	 * - If not provided, enumerates both hidden and unhidden categories.
+	 * - If `true`, only enumerates hidden categories (`clshow=hidden`).
+	 * - If `false`, only enumerates unhidden categories (`clshow=!hidden`).
+	 * @returns A Promise that resolves to:
+	 * - An array of category titles (without the namespace prefix) if a single title is provided.
+	 * - An object mapping each normalized title (as returned by {@link TitleStatic.normalize} in `'api'` format)
+	 *   to an array of category titles (without the namespace prefix) if multiple titles are provided.
+	 *
+	 * Throws immediately if any input title fails validation via {@link validateTitle}.
+	 */
+	getCategories(title: string | Title, hidden?: boolean): Promise<string[]>;
+	getCategories(titles: (string | Title)[], hidden?: boolean): Promise<Record<string, string[]>>;
+	async getCategories(
+		titles: string | Title | (string | Title)[],
+		hidden?: boolean
+	): Promise<string[] | Record<string, string[]>> {
+
+		// Determine input shape and normalize titles
+		const isArrayInput = Array.isArray(titles);
+		const titleSet = new Set<string>();
+		const titleBatch: string[][] = [];
+		const apilimit = this.apilimit;
+
+		const inputTitles = isArrayInput ? titles : [titles];
+		for (const t of inputTitles) {
+			const title = this.validateTitle(t, true).getPrefixedText();
+			if (!titleSet.has(title)) {
+				titleSet.add(title);
+				if (!titleBatch.length || titleBatch.at(-1)!.length >= apilimit) {
+					titleBatch.push([]);
+				}
+				titleBatch.at(-1)!.push(title);
+			}
+		}
+		if (!titleSet.size) {
+			throw new MwbotError('fatal', {
+				code: 'emptyinput',
+				info: '"titles" cannot be empty.'
+			});
+		}
+
+		// Construct API request
+		const params: ApiParams = {
+			action: 'query',
+			prop: 'categories',
+			clshow: hidden ? 'hidden' : hidden === false ? '!hidden' : undefined,
+			cllimit: 'max',
+			format: 'json',
+			formatversion: '2'
+		};
+
+		// Fetch all batches
+		const responses = (await Promise.all(
+			titleBatch.map(titlesArr =>
+				this.continuedRequest({titles: titlesArr.join('|'), ...params}, Infinity)
+			)
+		)).flat();
+
+		// Format categories
+		const config = this.config;
+		const NS_CATEGORY = config.get('wgNamespaceIds').category;
+		const CATEGORY_PREFIX = config.get('wgFormattedNamespaces')[NS_CATEGORY] + ':';
+
+		const result: Record<string, string[]> = Object.create(null);
+		for (const res of responses) {
+			const pages = res.query?.pages;
+			if (!pages) this.errorEmpty();
+			pages.forEach(({title, categories}) => {
+				if (!title || !categories) return;
+				const stripped = categories.map(c => c.title.replace(CATEGORY_PREFIX, ''));
+				result[title] ||= [];
+				result[title].push(...stripped);
+			});
+		}
+
+		if (isArrayInput) {
+			return result;
+		} else {
+			return result[titleBatch[0][0]] || [];
+		}
+	}
+
+	/**
+	 * Gets a list of categories that match a certain prefix.
+	 *
+	 * @param prefix The prefix to match.
+	 * @returns A Promise that resolves with an array of matched category titles without
+	 * the namespace prefix.
+	 */
+	async getCategoriesByPrefix(prefix: string): Promise<string[]> {
+		const config = this.config;
+		const NS_CATEGORY = config.get('wgNamespaceIds').category;
+		const CATEGORY_PREFIX = config.get('wgFormattedNamespaces')[NS_CATEGORY] + ':';
+		const res = await this.get({
+			action: 'query',
+			list: 'allpages',
+			apprefix: prefix,
+			apnamespace: NS_CATEGORY,
+			format: 'json',
+			formatversion: '2'
+		});
+		const allpages = res.query?.allpages;
+		if (!allpages) this.errorEmpty();
+		return allpages.map(({title}) => title.replace(CATEGORY_PREFIX, ''));
 	}
 
 }

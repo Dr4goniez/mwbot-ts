@@ -199,9 +199,9 @@ export interface MwbotErrorCodes {
 		typemismatch: 'There is an issue with the type of a variable.';
 		nourl: 'No valid API endpoint is provided.';
 		invalidcreds: 'There is an issue with the credential information passed to Mwbot.';
+		emptyinput: 'An input array is empty.';
 		// Used in Mwbot.massRequest
 		invalidsize: 'The "batchSize" argument for Mwbot.massRequest is invalid.';
-		emptykeys: 'The "keys" argument for Mwbot.massRequest is an empty array.';
 		fieldmismatch: 'API parameters passed to Mwbot.massRequest involve unmatching multi-value fields.';
 		nofields: 'No multi-value fields are provided for Mwbot.massRequest.';
 		// Used in Wikitext.modify
