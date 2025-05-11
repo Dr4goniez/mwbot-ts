@@ -1646,7 +1646,7 @@ export class Mwbot {
 
 		const ret: ApiResponse[] = [];
 		const query = (params: ApiParams, count: number): Promise<void> => {
-			return this.get(params, requestOptions).then((res) => {
+			return this.fetch(params, requestOptions).then((res) => {
 				ret.push(res);
 				if (res.continue && count < limit) {
 					return query(Object.assign({}, res.continue, params), ++count);
@@ -1779,7 +1779,7 @@ export class Mwbot {
 		const results: (ApiResponse | MwbotError)[] = [];
 		for (let i = 0; i < batchParams.length; i += 100) {
 			const batch = batchParams.slice(i, i + 100).map((params) =>
-				this.nonwritePost(params, requestOptions).catch((err: MwbotError) => err)
+				this.fetch(params, requestOptions).catch((err: MwbotError) => err)
 			);
 			const batchResults = await Promise.all(batch);
 			results.push(...batchResults);
@@ -2653,34 +2653,7 @@ export class Mwbot {
 			format: 'json',
 			formatversion: '2'
 		});
-
-		// Calculate the length of the query parameters to determine the request method
-		let len = 0;
-		for (const [key, value] of Object.entries(params)) {
-			if (len !== 0 && value !== false && value !== undefined) {
-				len++; // For "&"
-			}
-			if (Array.isArray(value)) {
-				if (value.join('').includes('|')) {
-					len++; // For the leading '\x1f'
-				}
-				len += key.length + 1 + value.join('|').length; // key + "=" + value
-			} else if (value === true) {
-				len += key.length + 1 + 1; // preprocessParameters converts `true` to `'1'`
-			} else if (value instanceof Date) {
-				len += key.length + 1 + 24; // Length of an ISO timestamp
-			} else if (value !== false && value !== undefined) {
-				len += key.length + 1 + String(value).length;
-			}
-		}
-
-		let res: ApiResponse;
-		if (len > 1900) {
-			// Technically, the condition should be "2024 characters or more", but leaving some room
-			res = await this.nonwritePost(params, requestOptions);
-		} else {
-			res = await this.get(params, requestOptions);
-		}
+		const res = await this.fetch(params, requestOptions);
 		if (res.parse) {
 			return res.parse;
 		}
