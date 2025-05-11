@@ -19,7 +19,7 @@
  *   logSuffix   - Optional suffix to append to the log filename (e.g., '_test')
  *
  * Output:
- *   A file will be created in ./logs/, such as: logs/20250501163045_test.txt
+ *   A file will be created in ./logs/, such as: logs/2025-05-01T16_30_45_000Z_test.txt
  *
  * Requirements:
  *   - For `.ts` files, `ts-node` must be available in the current environment.
@@ -43,19 +43,15 @@ const __dirname = dirname(__filename);
 const [,, scriptPath, logSuffix = ''] = process.argv;
 
 if (!scriptPath) {
-	console.error('Usage: node logger.js <scriptPath> [logSuffix]');
+	console.error('Usage: node logger.mjs <scriptPath> [logSuffix]');
 	process.exit(1);
 }
-
-// Create timestamp like YYYYMMDDHHMMSS
-const date = new Date().toISOString()
-	.replace(/\.\d+Z$/, '')
-	.replace(/[-T:]/g, '');
 
 const logDir = resolve(__dirname, './logs');
 if (!existsSync(logDir)) mkdirSync(logDir);
 
-const logFile = join(logDir, `${date}${logSuffix}.txt`);
+const timestamp = new Date().toISOString().replace(/[:.]/g, '_');
+const logFile = join(logDir, `${timestamp}${logSuffix}.txt`);
 const ext = extname(scriptPath);
 
 // Choose ts-node or node
