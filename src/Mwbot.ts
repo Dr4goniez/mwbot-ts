@@ -1441,24 +1441,15 @@ export class Mwbot {
 	}
 
 	/**
-	 * Throws an `api_mwbot: empty` error.
+	 * Throws or returns an `api_mwbot: empty` error.
 	 *
-	 * @param die Whether to throw the error (default: `true`).
+	 * @param die Whether to throw the error (default: `true`). If `false`, the error object
+	 * is returned instead of being thrown.
 	 * @param additionalInfo Optional text to append after `'OK response but empty result'`.
 	 * A space is automatically prepended if provided; otherwise, a period is appended.
 	 * @param data Optional data object to set to the error.
-	 * @throws
 	 */
 	protected errorEmpty(die?: true, additionalInfo?: string, data?: MwbotErrorData): never;
-	/**
-	 * Returns an `api_mwbot: empty` error.
-	 *
-	 * @param die Must be `false` to return instead of throwing.
-	 * @param additionalInfo Optional text to append after `'OK response but empty result'`.
-	 * A space is automatically prepended if provided; otherwise, a period is appended.
-	 * @param data Optional data object to set to the error.
-	 * @returns
-	 */
 	protected errorEmpty(die: false, addtionalInfo?: string, data?: MwbotErrorData): MwbotError<'api_mwbot'>;
 	protected errorEmpty(die = true, addtionalInfo?: string, data?: MwbotErrorData): never | MwbotError<'api_mwbot'> {
 		die ??= true;
@@ -3204,7 +3195,7 @@ export type PickOrDefault<V, S extends MultiValue<PropertyKey>, TD, TX = unknown
  */
 export interface MwConfig<V extends Record<string, any>, TX = unknown> {
 	/**
-	 * Get the value of one or more keys.
+	 * Gets the value of one or more keys.
 	 *
 	 * If called with no arguments, all values are returned.
 	 *
@@ -3220,7 +3211,7 @@ export interface MwConfig<V extends Record<string, any>, TX = unknown> {
 	get<S extends MultiValue<string>>(selection: S): PickOrDefault<V, S, null, TX>;
 	get(): V & Record<string, TX>;
 	/**
-	 * Set the value of one or more keys.
+	 * Sets the value of one or more keys.
 	 *
 	 * @param selection Key to set value for, or object mapping keys to values.
 	 * @param value Value to set (optional, only in use when key is a string).
@@ -3233,7 +3224,7 @@ export interface MwConfig<V extends Record<string, any>, TX = unknown> {
 	set<S extends string>(selection: S, value: TX): boolean;
 	set<S extends Partial<V> & Record<string, TX>>(selection: S): boolean;
 	/**
-	 * Check if a given configuration key exists.
+	 * Checks if a given configuration key exists.
 	 *
 	 * @param selection Key to check.
 	 * @returns `true` if the key exists.
