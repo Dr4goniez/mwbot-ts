@@ -934,7 +934,10 @@ export class Mwbot {
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the API response or rejecting with an error.
 	 */
-	async request(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
+	async request(
+		parameters: ApiParams,
+		requestOptions: MwbotRequestConfig & ReadRequestConfig = {}
+	): Promise<ApiResponse> {
 
 		// Preprocess the request options
 		if (!requestOptions._cloned) {
@@ -943,7 +946,7 @@ export class Mwbot {
 		}
 		requestOptions = mergeDeep(Mwbot.defaultRequestOptions, this.userRequestOptions, requestOptions);
 		requestOptions.params = mergeDeep(requestOptions.params, parameters);
-		const hasLongFields = this.preprocessParameters(requestOptions.params);
+		const {length, hasLongFields} = this.preprocessParameters(requestOptions.params);
 		if (requestOptions.params.format !== 'json') {
 			throw new MwbotError('api_mwbot', {
 				code: 'invalidformat',
@@ -955,7 +958,14 @@ export class Mwbot {
 		requestOptions.headers['User-Agent'] = this.userMwbotOptions.userAgent || requestOptions.headers['User-Agent'];
 
 		// Preprocess the request method
-		const method = String(requestOptions.method).toUpperCase();
+		let method = String(requestOptions.method).toUpperCase();
+		const autoMethod = requestOptions.method !== 'POST' && !!requestOptions.autoMethod;
+		delete requestOptions.autoMethod;
+		const baseUrl = this.config.get('wgScriptPath') + '/api.php?';
+		const baseUrlLength = new TextEncoder().encode(baseUrl).length;
+		if (autoMethod && length + baseUrlLength > 2084) {
+			method = 'POST';
+		}
 		if (method === 'POST') {
 			await this.handlePost(requestOptions, hasLongFields); // Encode params to data
 		} else if (method !== 'GET') {
@@ -1191,9 +1201,11 @@ export class Mwbot {
 	 * Massages parameters from the nice format we accept into a format suitable for the API.
 	 *
 	 * @param parameters (modified in-place)
-	 * @returns A boolean indicating whether the parameters have a long field.
+	 * @returns An object containing:
+	 * - `length`: The UTF-8 byte length of the encoded query string.
+	 * - `hasLongFields`: Whether any field value exceeds 8000 characters.
 	 */
-	protected preprocessParameters(parameters: ApiParams): boolean {
+	protected preprocessParameters(parameters: ApiParams): {length: number; hasLongFields: boolean} {
 		let hasLongFields = false;
 		const markIfLongField = (value: string): void => {
 			hasLongFields ||= value.length > 8000;
@@ -1225,7 +1237,12 @@ export class Mwbot {
 				markIfLongField(String(val));
 			}
 		});
-		return hasLongFields;
+
+		// Calculate the actual UTF-8 byte length of the encoded query string
+		const query = new URLSearchParams(parameters as Record<string, string>).toString();
+		const length = new TextEncoder().encode(query).length;
+
+		return {length, hasLongFields};
 	}
 
 	/**
@@ -1578,6 +1595,26 @@ export class Mwbot {
 		requestOptions.method = 'POST';
 		requestOptions.headers ||= {};
 		requestOptions.headers['Promise-Non-Write-API-Action'] = true;
+		return this.request(parameters, requestOptions);
+	}
+
+	/**
+	 * Performs an HTTP request to fetch data, defaulting to the `'GET'` method,
+	 * but automatically switches to `'POST'` if the request parameters are too long.
+	 *
+	 * This is a shorthand for calling `request(params, { autoMethod: true })`.
+	 *
+	 * @param parameters Parameters to the API.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the API response or rejecting with an error.
+	 */
+	fetch(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
+		if (!requestOptions._cloned) {
+			requestOptions = mergeDeep(requestOptions);
+			requestOptions._cloned = true;
+		}
+		requestOptions.method = 'GET';
+		(requestOptions as MwbotRequestConfig & ReadRequestConfig).autoMethod = true;
 		return this.request(parameters, requestOptions);
 	}
 
@@ -2945,6 +2982,20 @@ export interface MwbotRequestConfig extends AxiosRequestConfig {
 	 * If a request fails due to one of these error codes, it will not be retried.
 	 */
 	disableRetryByCode?: string[];
+}
+
+/**
+ * Additional options for read-only requests passed to {@link Mwbot.request}.
+ */
+export interface ReadRequestConfig {
+	/**
+	 * If `true`, {@link Mwbot.request} chooses `'POST'` over the default `'GET'` if the request
+	 * would otherwise result in a `414 URI Too Long` error.
+	 *
+	 * This option should not be used for requests that require `POST`, as the method will
+	 * fall back to `'GET'` unless `'POST'` is explicitly specified.
+	 */
+	autoMethod?: boolean;
 }
 
 /**

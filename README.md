@@ -195,12 +195,29 @@ mwbot.post({
 <summary>nonwritePost</summary>
 
 ```ts
-// Use when GET would exceed URL limits
+// Use when a GET request may exceed URL length limits
 mwbot.nonwritePost({
   action: 'query',
   list: 'blocks',
   bkusers: [/* very long field */], // Note: `mwbot-ts` accepts array inputs
   bklimit: 'max',
+  format: 'json',
+  formatversion: '2'
+})
+.then(console.log);
+```
+
+</details>
+
+<details>
+<summary>fetch</summary>
+
+```ts
+// Performs a read-only API request, letting mwbot-ts decide the appropriate HTTP method
+// Automatically switches from GET to POST if the query is too long to fit in the URL
+mwbot.fetch({
+  action: 'query',
+  titles: [/* A field that can be either short or long */],
   format: 'json',
   formatversion: '2'
 })
