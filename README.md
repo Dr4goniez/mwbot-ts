@@ -257,14 +257,14 @@ mwbot.abort();
 </details>
 
 #### Utility request methods
-The [continuedRequest](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#continuedrequest) method simplifies handling [API continuation](https://www.mediawiki.org/wiki/API:Continue). It returns a `Promise` that resolves to a single merged API response instead of an array, allowing you to process the result as if you had made just one request:
+The [continuedRequest](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#continuedrequest) method simplifies handling [API continuation](https://www.mediawiki.org/wiki/API:Continue). It returns a `Promise` that resolves to an array of continued API responses:
 
 <details>
 <summary>continuedRequest</summary>
 
 ```ts
 // Performs an API request with automatic continuation
-// By default, the maximum number of continuations is 10
+// By default, continues up to 10 times (or until complete)
 mwbot.continuedRequest({
   action: 'query',
   list: 'logevents',
@@ -274,7 +274,7 @@ mwbot.continuedRequest({
   format: 'json',
   formatversion: '2'
 })
-.then(console.log); // Merged object response
+.then(console.log);
 ```
 
 </details>
@@ -296,7 +296,7 @@ mwbot.massRequest({
   format: 'json',
   formatversion: '2'
 }, 'bkusers')
-.then(console.log); // Array response
+.then(console.log);
 ```
 
 </details>
@@ -436,46 +436,15 @@ if (response instanceof MwbotError) {
 
 </details>
 
-#### Other utility methods
-`mwbot-ts` also provides helper methods for common tasks, while intentionally keeping the core API minimal. Versatile utility methods may be added on request, and such requests are always welcome.😊
+#### Other Utility Methods
+`mwbot-ts` also provides helper methods for common tasks, while intentionally keeping the core API minimal. Versatile utility methods may be added upon request, and such requests are always welcome! 😊
 
-<details>
-<summary>parse</summary>
-
-```ts
-// Run the parser via the API
-mwbot.parse({
-  page: 'WP:SAND',
-  redirects: true,
-  prop: 'sections'
-});
-```
-
-</details>
-
-<details>
-<summary>purge</summary>
-
-```ts
-// Purges the server-side cache for the specified page(s)
-mwbot.purge(['Wikipedia:Sandbox', 'Wikipedia_talk:Sandbox']);
-```
-
-</details>
-
-<details>
-<summary>read</summary>
-
-```ts
-// Reads the content of a single page
-mwbot.read('Wikipedia:Sandbox');
-```
-```ts
-// Reads the contents of multiple pages
-mwbot.read(['Wikipedia:Sandbox', 'Wikipedia_talk:Sandbox']);
-```
-
-</details>
+- [`getExistencePredicate`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getexistencepredicate): Returns an `exists()` function that checks whether given pages exist.
+- [`getCategories`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getcategories): Retrieves the categories to which the specified titles belong.
+- [`getCategoriesByPrefix`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getcategoriesbyprefix): Returns a list of categories that match a given prefix.
+- [`parse`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#parse): Runs the parser via the API.
+- [`purge`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#purge): Clears the server-side cache for the specified pages.
+- [`read`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#read): Retrieves the latest revision content of the specified page(s).
 
 ### Extend the class
 Different bot operators have different needs, and it's common to define custom functions using native framework methods. For example, a quick way to check whether a page exists might look like this:
