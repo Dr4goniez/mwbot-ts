@@ -303,7 +303,7 @@ export class Mwbot {
 	 */
 	protected constructor(mwbotInitOptions: MwbotInitOptions, requestOptions: MwbotRequestConfig) {
 
-		const {credentials, ...options} = mergeDeep(mwbotInitOptions);
+		const { credentials, ...options } = mergeDeep(mwbotInitOptions);
 		requestOptions = mergeDeep(requestOptions);
 
 		// Ensure that a valid URL is provided
@@ -328,8 +328,8 @@ export class Mwbot {
 		this.axios = axios.create();
 		this.jar = new CookieJar();
 		this.agents = {
-			http: new http.Agent({keepAlive: true}),
-			https: new https.Agent({keepAlive: true})
+			http: new http.Agent({ keepAlive: true }),
+			https: new https.Agent({ keepAlive: true })
 		};
 		this.userMwbotOptions = options;
 		this.userRequestOptions = requestOptions;
@@ -365,7 +365,7 @@ export class Mwbot {
 		const keys = Object.keys(credentials);
 		switch (keys.length) {
 			case 1: {
-				const {anonymous, oAuth2AccessToken} = credentials;
+				const { anonymous, oAuth2AccessToken } = credentials;
 				if (anonymous === true) {
 					return {
 						anonymous: true
@@ -382,7 +382,7 @@ export class Mwbot {
 				});
 			}
 			case 2: {
-				const {username, password} = credentials;
+				const { username, password } = credentials;
 				if (typeof username === 'string' && typeof password === 'string') {
 					return {
 						user: {
@@ -397,7 +397,7 @@ export class Mwbot {
 				});
 			}
 			case 4: {
-				const {consumerToken, consumerSecret, accessToken, accessSecret} = credentials;
+				const { consumerToken, consumerSecret, accessToken, accessSecret } = credentials;
 				if (
 					typeof consumerToken === 'string' &&
 					typeof consumerSecret === 'string' &&
@@ -405,7 +405,7 @@ export class Mwbot {
 					typeof accessSecret === 'string'
 				) {
 					const instance = new OAuth({
-						consumer: {key: consumerToken, secret: consumerSecret},
+						consumer: { key: consumerToken, secret: consumerSecret },
 						signature_method: 'HMAC-SHA1', // TODO: Make it compatible with the RSA-SHA1 authentication method?
 						hash_function(baseString: crypto.BinaryLike, key: crypto.BinaryLike | crypto.KeyObject) {
 							return crypto.createHmac('sha1', key).update(baseString).digest('base64');
@@ -506,7 +506,7 @@ export class Mwbot {
 
 		const retryIfPossible = async (error: MwbotError, index: number): Promise<this> => {
 			if (index < 2) {
-				console.dir(error, {depth: 3});
+				console.dir(error, { depth: 3 });
 				console.log('Mwbot.init failed. Retrying once again in 5 seconds...');
 				await sleep(5000);
 				return this._init(index + 1);
@@ -517,7 +517,7 @@ export class Mwbot {
 
 		// Log in if necessary
 		if (this.credentials.user) {
-			const {username, password} = this.credentials.user;
+			const { username, password } = this.credentials.user;
 			await this.login(username, password);
 		}
 
@@ -533,7 +533,7 @@ export class Mwbot {
 		});
 
 		// NOTE: interwikimap is built-in since MW v1.44 but was initially an extension
-		const {userinfo, functionhooks, general, magicwords, interwikimap = [], namespaces, namespacealiases} = res.query || {};
+		const { userinfo, functionhooks, general, magicwords, interwikimap = [], namespaces, namespacealiases } = res.query || {};
 		if (
 			!res || !res.query ||
 			!userinfo || !functionhooks || !general || !magicwords || !namespaces || !namespacealiases
@@ -560,7 +560,7 @@ export class Mwbot {
 				new MwbotError('api_mwbot', {
 					code: 'badvars',
 					info: 'Failed to initialize wg-variables.'
-				}, {keys: failedKeys}),
+				}, { keys: failedKeys }),
 				attemptIndex
 			);
 		}
@@ -582,10 +582,10 @@ export class Mwbot {
 			config,
 			this._info
 		);
-		const {Template, ParsedTemplate, RawTemplate, ParserFunction, ParsedParserFunction} = TemplateFactory(config, this._info, this._Title);
+		const { Template, ParsedTemplate, RawTemplate, ParserFunction, ParsedParserFunction } = TemplateFactory(config, this._info, this._Title);
 		this._ParserFunction = ParserFunction;
 		this._Template = Template;
-		const {Wikilink, ParsedWikilink, FileWikilink, ParsedFileWikilink, RawWikilink, ParsedRawWikilink} = WikilinkFactory(config, this._Title);
+		const { Wikilink, ParsedWikilink, FileWikilink, ParsedFileWikilink, RawWikilink, ParsedRawWikilink } = WikilinkFactory(config, this._Title);
 		this._Wikilink = Wikilink;
 		this._FileWikilink = FileWikilink;
 		this._RawWikilink = RawWikilink;
@@ -614,8 +614,8 @@ export class Mwbot {
 		if (merge) {
 			this.userMwbotOptions = mergeDeep(this.userMwbotOptions, options);
 		} else {
-			const {apiUrl} = this.userMwbotOptions;
-			this.userMwbotOptions = mergeDeep({apiUrl}, options);
+			const { apiUrl } = this.userMwbotOptions;
+			this.userMwbotOptions = mergeDeep({ apiUrl }, options);
 		}
 		if (!this.userMwbotOptions.apiUrl) {
 			throw new MwbotError('fatal', {
@@ -815,7 +815,7 @@ export class Mwbot {
 		const wgCaseSensitiveNamespaces: number[] = [];
 		const wgContentNamespaces: number[] = [];
 		const wgFormattedNamespaces: Record<string, string> = {};
-		const wgNamespaceIds = namespacealiases.reduce((acc: Record<string, number>, {id, alias}) => {
+		const wgNamespaceIds = namespacealiases.reduce((acc: Record<string, number>, { id, alias }) => {
 			acc[alias.toLowerCase().replace(/ /g, '_')] = id;
 			return acc;
 		}, {});
@@ -923,7 +923,7 @@ export class Mwbot {
 	 * @returns `true` if either `oauth1` or `oauth2` credentials are set; otherwise, `false`.
 	 */
 	protected usingOAuth(): boolean {
-		const {oauth2, oauth1} = this.credentials;
+		const { oauth2, oauth1 } = this.credentials;
 		return !!(oauth2 || oauth1);
 	}
 
@@ -946,7 +946,7 @@ export class Mwbot {
 		}
 		requestOptions = mergeDeep(Mwbot.defaultRequestOptions, this.userRequestOptions, requestOptions);
 		requestOptions.params = mergeDeep(requestOptions.params, parameters);
-		const {length, hasLongFields} = this.preprocessParameters(requestOptions.params);
+		const { length, hasLongFields } = this.preprocessParameters(requestOptions.params);
 		if (requestOptions.params.format !== 'json') {
 			throw new MwbotError('api_mwbot', {
 				code: 'invalidformat',
@@ -996,7 +996,7 @@ export class Mwbot {
 		}
 
 		// Clone params early since POST requests will delete them from `requestOptions`
-		const clonedParams: ApiParams = {...requestOptions.params};
+		const clonedParams: ApiParams = { ...requestOptions.params };
 		if (requestOptions.method === 'POST') {
 			// The API throws a "mustpostparams" error if it finds certain parameters in "params", even when "data"
 			// in the request body is well-formed
@@ -1004,7 +1004,7 @@ export class Mwbot {
 		}
 
 		// Enforce an interval if necessary
-		const {interval, intervalActions = Mwbot.defaultIntervalActions} = this.userMwbotOptions;
+		const { interval, intervalActions = Mwbot.defaultIntervalActions } = this.userMwbotOptions;
 		const requiresInterval = (intervalActions as (ApiParamsAction | '')[]).includes(clonedParams.action || '');
 		if (requiresInterval && this.lastRequestTime && (interval === void 0 || +interval > 0)) {
 			const sleepDuration = (typeof interval === 'number' ? interval : 4800) - (Date.now() - this.lastRequestTime);
@@ -1022,14 +1022,14 @@ export class Mwbot {
 			}
 
 			if (!data) {
-				this.errorEmpty(true, '(check HTTP headers?)', {axios: response});
+				this.errorEmpty(true, '(check HTTP headers?)', { axios: response });
 			}
 			if (typeof data !== 'object') {
 				// In most cases the raw HTML of [[Main page]]
 				throw new MwbotError('api_mwbot', {
 					code: 'invalidjson',
 					info: 'No valid JSON response (check the request URL?)'
-				}, {axios: response});
+				}, { axios: response });
 			}
 			if ('error' in data || 'errors' in data) {
 
@@ -1078,12 +1078,12 @@ export class Mwbot {
 							if (!this.isAnonymous()) {
 								console.warn(`Warning: Encountered an "${err.code}" error.`);
 								let retryAfter = 10;
-								const {username, password} = this.credentials.user || {};
+								const { username, password } = this.credentials.user || {};
 								if (username && password) {
 									console.log('Re-logging in...');
 									const loggedIn = await this.login(username, password).catch((err: MwbotError) => err);
 									if (loggedIn instanceof MwbotError) {
-										console.dir(loggedIn, {depth: 3});
+										console.dir(loggedIn, { depth: 3 });
 										throw err;
 									}
 									console.log('Re-login successful.');
@@ -1149,7 +1149,7 @@ export class Mwbot {
 				throw err.setCode('aborted').setInfo('Request aborted by the user.');
 			}
 
-			err.data = {axios: error}; // Include the full response for debugging
+			err.data = { axios: error }; // Include the full response for debugging
 			const status = error?.response?.status ?? error?.status;
 			if (typeof status === 'number' && status >= 400) {
 				// Articulate the error object for common errors
@@ -1205,13 +1205,13 @@ export class Mwbot {
 	 * - `length`: The UTF-8 byte length of the encoded query string.
 	 * - `hasLongFields`: Whether any field value exceeds 8000 characters.
 	 */
-	protected preprocessParameters(parameters: ApiParams): {length: number; hasLongFields: boolean} {
+	protected preprocessParameters(parameters: ApiParams): { length: number; hasLongFields: boolean } {
 		let hasLongFields = false;
 		const markIfLongField = (value: string): void => {
 			hasLongFields ||= value.length > 8000;
 		};
 		if (!this.isAnonymous()) {
-			// Enforce {assert: 'user'} for logged-in users
+			// Enforce { assert: 'user' } for logged-in users
 			parameters.assert = 'user';
 		}
 		Object.entries(parameters).forEach(([key, val]) => {
@@ -1242,7 +1242,7 @@ export class Mwbot {
 		const query = new URLSearchParams(parameters as Record<string, string>).toString();
 		const length = new TextEncoder().encode(query).length;
 
-		return {length, hasLongFields};
+		return { length, hasLongFields };
 	}
 
 	/**
@@ -1260,7 +1260,7 @@ export class Mwbot {
 
 		// Ensure the token parameter is last (per [[mw:API:Edit#Token]])
 		// The token will be kept away if the user is anonymous
-		const {params} = requestOptions;
+		const { params } = requestOptions;
 		const token = params.token as string | undefined;
 		if (token) {
 			delete params.token;
@@ -1305,7 +1305,7 @@ export class Mwbot {
 			requestOptions = mergeDeep(requestOptions);
 			requestOptions._cloned = true;
 		}
-		const {params} = requestOptions;
+		const { params } = requestOptions;
 		const form = new FormData();
 
 		for (const [key, val] of Object.entries(params)) {
@@ -1352,7 +1352,7 @@ export class Mwbot {
 			requestOptions._cloned = true;
 		}
 		requestOptions.headers ||= {};
-		const {oauth2, oauth1} = this.credentials;
+		const { oauth2, oauth1 } = this.credentials;
 		const configureKeepAliveAgents = (): void => {
 			requestOptions.httpAgent = this.agents.http;
 			requestOptions.httpsAgent = this.agents.https;
@@ -1408,7 +1408,7 @@ export class Mwbot {
 		}
 		if (Array.isArray(warnings)) {
 			// Newer error formats
-			for (const {module, ...obj} of warnings) {
+			for (const { module, ...obj } of warnings) {
 				const msg =
 					obj['*'] || // formatversion=1
 					obj.html || // errorformat=html
@@ -1492,7 +1492,7 @@ export class Mwbot {
 		retryCallback?: () => Promise<ApiResponse>
 	): Promise<ApiResponse> {
 
-		const {disableRetry, disableRetryByCode} = requestOptions;
+		const { disableRetry, disableRetryByCode } = requestOptions;
 		const shouldRetry =
 			attemptCount < maxAttempts &&
 			!disableRetry &&
@@ -1500,7 +1500,7 @@ export class Mwbot {
 
 		// Check if we should retry the request
 		if (shouldRetry) {
-			console.dir(initialError, {depth: 3});
+			console.dir(initialError, { depth: 3 });
 			if (sleepSeconds) {
 				console.log(`Retrying in ${sleepSeconds} seconds...`);
 			} else {
@@ -1657,7 +1657,7 @@ export class Mwbot {
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<(ApiResponse | MwbotError)[]> {
 
-		const {rejectProof = false, limit = 10, multiValues} = options;
+		const { rejectProof = false, limit = 10, multiValues } = options;
 
 		// Validate limit
 		if ((!Number.isInteger(limit) && limit !== Infinity) || limit <= 0) {
@@ -1680,13 +1680,13 @@ export class Mwbot {
 			const ret: (ApiResponse | MwbotError)[] = [];
 			try {
 				let count = 0;
-				let currentParams = {...params};
+				let currentParams = { ...params };
 				while (count < limit) {
 					const res = await this.fetch(currentParams, requestOptions);
 					ret.push(res);
 					count++;
 					if (!res.continue) break;
-					currentParams = {...currentParams, ...res.continue};
+					currentParams = { ...currentParams, ...res.continue };
 				}
 				return ret;
 			} catch (err) {
@@ -1945,7 +1945,7 @@ export class Mwbot {
 
 		// Send an API request
 		if (typeof additionalParams === 'string') {
-			additionalParams = {assert: additionalParams};
+			additionalParams = { assert: additionalParams };
 		}
 		const params = Object.assign(
 			{
@@ -2158,7 +2158,7 @@ export class Mwbot {
 		throw new MwbotError('api_mwbot', {
 			code: 'editfailed',
 			info: 'Edit failed.'
-		}, {response: res});
+		}, { response: res });
 	}
 
 	/**
@@ -2197,7 +2197,7 @@ export class Mwbot {
 		additionalParams: ApiParamsActionEdit = {},
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponseEditSuccess> {
-		return this._save(this.validateTitle(title), content, summary, {createonly: true}, additionalParams, requestOptions);
+		return this._save(this.validateTitle(title), content, summary, { createonly: true }, additionalParams, requestOptions);
 	}
 
 	/**
@@ -2236,7 +2236,7 @@ export class Mwbot {
 		additionalParams: ApiParamsActionEdit = {},
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponse> {
-		return this._save(this.validateTitle(title), content, summary, {nocreate: true}, additionalParams, requestOptions);
+		return this._save(this.validateTitle(title), content, summary, { nocreate: true }, additionalParams, requestOptions);
 	}
 
 	/**
@@ -2276,7 +2276,7 @@ export class Mwbot {
 
 		// `pageids` and `revids` shouldn't be set because we use the `titles` parameter
 		if (!requestOptions) {
-			requestOptions = {_cloned: true};
+			requestOptions = { _cloned: true };
 		} else if (!requestOptions._cloned) {
 			requestOptions = mergeDeep(requestOptions);
 			requestOptions._cloned = true;
@@ -2310,7 +2310,7 @@ export class Mwbot {
 				return new MwbotError('api_mwbot', {
 					code: 'pagemissing',
 					info: 'The requested page does not exist.'
-				}, {title: page.title});
+				}, { title: page.title });
 			} else if (
 				typeof page.ns !== 'number' ||
 				typeof page.title !== 'string' || // Just in case
@@ -2320,7 +2320,7 @@ export class Mwbot {
 				!rev.timestamp ||
 				typeof rev.slots?.main.content !== 'string'
 			) {
-				return this.errorEmpty(false, void 0, {title: page.title});
+				return this.errorEmpty(false, void 0, { title: page.title });
 			} else {
 				return {
 					pageid: page.pageid,
@@ -2342,7 +2342,7 @@ export class Mwbot {
 			const res = await this.get(params, requestOptions);
 			const pages = res.query?.pages;
 			if (!pages || !pages[0]) {
-				this.errorEmpty(true, void 0, {title: t});
+				this.errorEmpty(true, void 0, { title: t });
 			}
 			pages[0].title ??= t;
 			const processed = processSinglePage(
@@ -2363,7 +2363,7 @@ export class Mwbot {
 		 * The result array, initialized with the same length as `titlesArray`.
 		 * Each index in this array corresponds to an index in `titlesArray` to maintain order.
 		 */
-		const ret: (Revision | MwbotError | undefined)[] = Array.from({length: titlesArray.length});
+		const ret: (Revision | MwbotError | undefined)[] = Array.from({ length: titlesArray.length });
 		/**
 		 * Maps canonicalized page titles to their corresponding indexes in `ret`.
 		 * This ensures correct mapping even if duplicate titles exist in `titlesArray`.
@@ -2513,9 +2513,9 @@ export class Mwbot {
 			});
 		}
 
-		const revision = await this.read(title, mergeDeep(requestOptions, {_cloned: true}));
+		const revision = await this.read(title, mergeDeep(requestOptions, { _cloned: true }));
 
-		const unresolvedParams = transform(new this.Wikitext(revision.content), {...revision});
+		const unresolvedParams = transform(new this.Wikitext(revision.content), { ...revision });
 		let params = unresolvedParams instanceof Promise
 			? await unresolvedParams
 			: unresolvedParams;
@@ -2529,7 +2529,7 @@ export class Mwbot {
 			throw new MwbotError('fatal', {
 				code: 'typemismatch',
 				info: 'The transformation predicate must resolve to a plain object.'
-			}, {transformed: params});
+			}, { transformed: params });
 		}
 		const defaultParams: ApiParamsActionEdit = {
 			action: 'edit',
@@ -2550,9 +2550,9 @@ export class Mwbot {
 		// Not using _save() here because it's complicated to destructure the user-defined params
 		const result = await this.postWithCsrfToken(
 			params as ApiParams,
-			mergeDeep(requestOptions, {_cloned: true})
+			mergeDeep(requestOptions, { _cloned: true })
 		).catch((err: MwbotError) => err);
-		const {disableRetry, disableRetryAPI, disableRetryByCode = []} = requestOptions;
+		const { disableRetry, disableRetryAPI, disableRetryByCode = [] } = requestOptions;
 		if (
 			result instanceof MwbotError && result.code === 'editconflict' &&
 			typeof retry === 'number' && retry < 3 &&
@@ -2562,7 +2562,7 @@ export class Mwbot {
 			console.warn('Warning: Encountered an edit conflict.');
 			console.log('Retrying in 5 seconds...');
 			await sleep(5000);
-			return await this.edit(title, transform, mergeDeep(requestOptions, {_cloned: true}), ++retry);
+			return await this.edit(title, transform, mergeDeep(requestOptions, { _cloned: true }), ++retry);
 		}
 		if (result instanceof MwbotError) {
 			throw result;
@@ -2573,7 +2573,7 @@ export class Mwbot {
 		throw new MwbotError('api_mwbot', {
 			code: 'editfailed',
 			info: 'Edit failed.'
-		}, {response: result});
+		}, { response: result });
 
 	}
 
@@ -2612,7 +2612,7 @@ export class Mwbot {
 		additionalParams: ApiParamsActionEdit = {},
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponse> {
-		return this._save(this.validateTitle(title), content, summary, {section: 'new', sectiontitle}, additionalParams, requestOptions);
+		return this._save(this.validateTitle(title), content, summary, { section: 'new', sectiontitle }, additionalParams, requestOptions);
 	}
 
 	// ****************************** SPECIFIC REQUEST METHODS ******************************
@@ -2627,8 +2627,8 @@ export class Mwbot {
 	protected async login(username: string, password: string): Promise<ApiResponse> { // TODO: Make this method public?
 
 		// Fetch a login token
-		const disableRetryAPI = {disableRetryAPI: true};
-		const token = await this.getToken('login', {maxlag: void 0}, disableRetryAPI);
+		const disableRetryAPI = { disableRetryAPI: true };
+		const token = await this.getToken('login', { maxlag: void 0 }, disableRetryAPI);
 
 		// Login
 		const resLogin = await this.post({
@@ -2642,12 +2642,12 @@ export class Mwbot {
 		}, disableRetryAPI);
 
 		if (!resLogin.login) {
-			this.errorEmpty(true, void 0, {response: resLogin});
+			this.errorEmpty(true, void 0, { response: resLogin });
 		} else if (resLogin.login.result !== 'Success') {
 			throw new MwbotError('api_mwbot', {
 				code: 'loginfailed',
 				info: resLogin.login.reason || 'Failed to log in.'
-			}, {response: resLogin});
+			}, { response: resLogin });
 		} else {
 			this.tokens = {}; // Clear cashed tokens because these can't be used for the newly logged-in user
 			return resLogin;
@@ -2693,7 +2693,7 @@ export class Mwbot {
 			const err = new MwbotError('fatal', {
 				code: 'typemismatch',
 				info: 'The array passed as the first argument of purge() must only contain strings or Title instances.'
-			}, {invalid});
+			}, { invalid });
 			throw err;
 		}
 		return this.post(Object.assign({
@@ -2737,7 +2737,7 @@ export class Mwbot {
 		if (res.parse) {
 			return res.parse;
 		}
-		this.errorEmpty(true, '("response.parse" is missing).', {response: res});
+		this.errorEmpty(true, '("response.parse" is missing).', { response: res });
 	}
 
 	/**
@@ -2774,7 +2774,7 @@ export class Mwbot {
 	 */
 	async getExistencePredicate(
 		titles: (string | Title)[],
-		options: {loose?: boolean; rejectProof?: boolean} = {}
+		options: { loose?: boolean; rejectProof?: boolean } = {}
 	): Promise<ExistencePredicate> {
 
 		const loose = !!options.loose;
@@ -2810,7 +2810,7 @@ export class Mwbot {
 				if (rejectProof) continue;
 				this.errorEmpty();
 			}
-			for (const {ns, title, missing} of pages) {
+			for (const { ns, title, missing } of pages) {
 				if (title && typeof ns === 'number') {
 					list.set(title, !missing);
 				}
@@ -2890,7 +2890,7 @@ export class Mwbot {
 		for (const res of responses) {
 			const pages = res.query?.pages;
 			if (!pages) this.errorEmpty();
-			pages.forEach(({title, categories}) => {
+			pages.forEach(({ title, categories }) => {
 				if (!title || !categories) return;
 				const stripped = categories.map(c => c.title.replace(CATEGORY_PREFIX, ''));
 				result[title] ||= [];
@@ -2927,7 +2927,7 @@ export class Mwbot {
 		});
 		const allpages = res.query?.allpages;
 		if (!allpages) this.errorEmpty();
-		return allpages.map(({title}) => title.replace(CATEGORY_PREFIX, ''));
+		return allpages.map(({ title }) => title.replace(CATEGORY_PREFIX, ''));
 	}
 
 }
@@ -2937,7 +2937,7 @@ export class Mwbot {
 /**
  * Options to be passed as the first argument of {@link Mwbot.init}.
  */
-export type MwbotInitOptions = MwbotOptions & {credentials: Credentials};
+export type MwbotInitOptions = MwbotOptions & { credentials: Credentials };
 
 /**
  * Configuration options for {@link Mwbot.init}. These options can also be updated later
@@ -3340,7 +3340,7 @@ export type TransformationPredicate =
  * A variant of {@link ApiResponseEdit} where the `result` property is guaranteed to be `'Success'`.
  * Used in {@link Mwbot.create}, {@link Mwbot.save}, and {@link Mwbot.edit}.
  */
-export type ApiResponseEditSuccess = Omit<ApiResponseEdit, 'result'> & {result: 'Success'};
+export type ApiResponseEditSuccess = Omit<ApiResponseEdit, 'result'> & { result: 'Success' };
 
 /**
  * A function that checks whether a given title exists.

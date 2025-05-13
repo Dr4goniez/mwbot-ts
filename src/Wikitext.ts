@@ -677,13 +677,13 @@ export function WikitextFactory(
 			(this.storageManager(type, false) as ModificationMap[K][]).forEach((expr, i, markups) => {
 
 				// Expose the cloned objects to the user to prevent mutation
-				const mod = modificationPredicate(clonedMarkups[i], i, clonedMarkups, {touched: touched.has(i), content: newContent});
+				const mod = modificationPredicate(clonedMarkups[i], i, clonedMarkups, { touched: touched.has(i), content: newContent });
 
 				if (typeof mod !== 'string' && mod !== null) {
 					throw new MwbotError('fatal', {
 						code: 'typemismatch',
 						info: 'modificationPredicate must return either a string or null.'
-					}, {modified: {[i]: mod}});
+					}, { modified: { [i]: mod } });
 				}
 				if (typeof mod === 'string') {
 					const initialEndIndex = expr.endIndex;
@@ -713,7 +713,7 @@ export function WikitextFactory(
 
 					// If the modification touched a nested markup, remember its index
 					for (const index of expr.children) {
-						const {startIndex, text} = markups[index];
+						const { startIndex, text } = markups[index];
 						if (!newContent.slice(startIndex).startsWith(text)) {
 							touched.add(index);
 						}
@@ -829,7 +829,7 @@ export function WikitextFactory(
 						} else {
 							// Do nothing
 						}
-					} else if (startTags.find(({name}) => name === nodeName)) {
+					} else if (startTags.find(({ name }) => name === nodeName)) {
 						// Ensure there's a matching start tag stored; otherwise, skip this end tag
 
 						let closedTagCnt = 0;
@@ -887,7 +887,7 @@ export function WikitextFactory(
 			}
 
 			// Handle any unclosed tags left in the stack
-			startTags.forEach(({name, startIndex, endIndex, selfClosing}, i, arr) => {
+			startTags.forEach(({ name, startIndex, endIndex, selfClosing }, i, arr) => {
 				const startTagName = sanitizeNodeName(name);
 				parsed.push({
 					name: startTagName,
@@ -926,10 +926,10 @@ export function WikitextFactory(
 		}
 
 		parseTags(config: ParseTagsConfig = {}): Tag[] {
-			const {namePredicate, tagPredicate} = config;
+			const { namePredicate, tagPredicate } = config;
 			let tags = this.storageManager('tags');
 			if (typeof namePredicate === 'function') {
-				tags = tags.filter(({name}) => namePredicate(name));
+				tags = tags.filter(({ name }) => namePredicate(name));
 			}
 			if (typeof tagPredicate === 'function') {
 				tags = tags.filter((obj) => tagPredicate(obj));
@@ -1033,7 +1033,7 @@ export function WikitextFactory(
 
 			// Extract HTML-style headings (<h1>–<h6>)
 			let wikitextWithPlaceholders = this.content;
-			const commentMap = new Map<string, {text: string; offset: number}>();
+			const commentMap = new Map<string, { text: string; offset: number }>();
 			let offset = 0;
 			const nested = new Set<number>();
 			const headings = this.storageManager('tags', false).reduce((acc: Heading[], tag, _, arr) => {
@@ -1061,7 +1061,7 @@ export function WikitextFactory(
 
 					// Replace the comment with a placeholder and store it
 					const placeholder = '\x01' + commentMap.size + '\x02';
-					commentMap.set(placeholder, {text: tag.text, offset});
+					commentMap.set(placeholder, { text: tag.text, offset });
 					wikitextWithPlaceholders = wikitextWithPlaceholders.replace(tag.text, placeholder);
 					offset += (placeholder.length - tag.text.length);
 				}
@@ -1166,10 +1166,10 @@ export function WikitextFactory(
 
 			// Sort headings by index and add the top section
 			headings.sort((a, b) => a.index - b.index);
-			headings.unshift({text: '', title: 'top', level: 1, index: 0}); // Top section
+			headings.unshift({ text: '', title: 'top', level: 1, index: 0 }); // Top section
 
 			// Build sections from the sorted headings
-			const sections: Section[] = headings.map(({text, title, level, index}, i, arr) => {
+			const sections: Section[] = headings.map(({ text, title, level, index }, i, arr) => {
 				const boundaryIdx = i === 0
 					? (arr.length > 1 ? 1 : -1) // For the top section: next heading or no boundary
 					: arr.findIndex((obj, j) => j > i && obj.level <= level); // Find the next non-subsection
@@ -1203,7 +1203,7 @@ export function WikitextFactory(
 		}
 
 		parseSections(config: ParseSectionsConfig = {}): Section[] {
-			const {sectionPredicate} = config;
+			const { sectionPredicate } = config;
 			let sections = this.storageManager('sections');
 			if (typeof sectionPredicate === 'function') {
 				sections = sections.filter((sec) => sectionPredicate(sec));
@@ -1360,10 +1360,10 @@ export function WikitextFactory(
 		}
 
 		parseParameters(config: ParseParametersConfig = {}): Parameter[] {
-			const {keyPredicate, parameterPredicate} = config;
+			const { keyPredicate, parameterPredicate } = config;
 			let parameters = this.storageManager('parameters');
 			if (typeof keyPredicate === 'function') {
-				parameters = parameters.filter(({key}) => keyPredicate(key));
+				parameters = parameters.filter(({ key }) => keyPredicate(key));
 			}
 			if (typeof parameterPredicate === 'function') {
 				parameters = parameters.filter((param) => parameterPredicate(param));
@@ -1391,13 +1391,13 @@ export function WikitextFactory(
 		 * @returns An object mapping start indices to their corresponding text content and type.
 		 */
 		private getIndexMap(
-			options: {gallery?: boolean; parameters?: boolean; wikilinks_fuzzy?: boolean, templates?: boolean} = {}
+			options: { gallery?: boolean; parameters?: boolean; wikilinks_fuzzy?: boolean, templates?: boolean } = {}
 		): IndexMap {
 
 			const indexMap: IndexMap = Object.create(null);
 
 			// Process skipTags
-			this.storageManager('tags', false).forEach(({text, startIndex, name, content}) => {
+			this.storageManager('tags', false).forEach(({ text, startIndex, name, content }) => {
 				// If this is a skip tag or a gallery tag whose content contains a pipe character
 				if (rSkipTags.test(name) || name === 'gallery' && options.gallery && content && content.includes('|')) {
 					// `inner` is the innerHTML of the tag
@@ -1406,7 +1406,7 @@ export function WikitextFactory(
 							return null;
 						}
 						const innerStartIndex = startIndex + text.indexOf(content);
-						return {start: innerStartIndex, end: innerStartIndex + content.length};
+						return { start: innerStartIndex, end: innerStartIndex + content.length };
 					})();
 					indexMap[startIndex] = {
 						text,
@@ -1418,7 +1418,7 @@ export function WikitextFactory(
 
 			// Process {{{parameter}}}s
 			if (options.parameters) {
-				this.storageManager('parameters', false).forEach(({text, startIndex}) => {
+				this.storageManager('parameters', false).forEach(({ text, startIndex }) => {
 					const m = /^(\{{3}[^|}]*\|)(.+)\}{3}$/.exec(text);
 					// `inner` is the right operand of the parameter
 					const inner = m && {
@@ -1435,12 +1435,12 @@ export function WikitextFactory(
 
 			// Process fuzzy [[wikilink]]s
 			if (options.wikilinks_fuzzy) {
-				this.storageManager('wikilinks_fuzzy', false).forEach(({text, startIndex, endIndex}) => {
+				this.storageManager('wikilinks_fuzzy', false).forEach(({ text, startIndex, endIndex }) => {
 					// `inner` is the inner text of the wikilink (the text without "[[" and "]]")
 					const inner = (() => {
 						const start = startIndex + 2;
 						const end = endIndex - 2;
-						return end - start > 1 ? {start, end} : null;
+						return end - start > 1 ? { start, end } : null;
 					})();
 					indexMap[startIndex] = {
 						text,
@@ -1472,9 +1472,9 @@ export function WikitextFactory(
 		 * @returns An array of fuzzily parsed wikilinks.
 		 */
 		private _parseWikilinksFuzzy(
-			// Must not include `{templates: true}` because `parseTemplates` uses the index map of `wikilinks_fuzzy`
+			// Must not include `{ templates: true }` because `parseTemplates` uses the index map of `wikilinks_fuzzy`
 			// If included, that will be circular
-			indexMap = this.getIndexMap({parameters: true}),
+			indexMap = this.getIndexMap({ parameters: true }),
 			isInSkipRange = this.getSkipPredicate(),
 			wikitext = this.content
 		): FuzzyWikilink[] {
@@ -1516,9 +1516,9 @@ export function WikitextFactory(
 
 				// Skip or deep-parse certain expressions
 				if (indexMap[i]) {
-					const {inner} = indexMap[i];
+					const { inner } = indexMap[i];
 					if (inner && inner.end <= wikitext.length) {
-						const {start, end} = inner;
+						const { start, end } = inner;
 						// innerHTML of a skip tag or the right operand of a parameter
 						// TODO: This can cause a bug if the left operand of the parameter contains a nested wikilink,
 						// but could there be any occurrence of `{{{ [[wikilink]] | right }}}`?
@@ -1619,7 +1619,7 @@ export function WikitextFactory(
 		 */
 		private _parseTemplates(
 			options: ParsedTemplateOptions = {},
-			indexMap = this.getIndexMap({gallery: true, parameters: true, wikilinks_fuzzy: true}),
+			indexMap = this.getIndexMap({ gallery: true, parameters: true, wikilinks_fuzzy: true }),
 			isInSkipRange = this.getSkipPredicate(),
 			nestLevel = 0,
 			wikitext = this.content,
@@ -1651,7 +1651,7 @@ export function WikitextFactory(
 					if (numUnclosed !== 0) {
 						// TODO: Should this `nonNameComponent` include all the indexMap expressions?
 						// Maybe we should limit it to the skip tags only.
-						processTemplateFragment(components, indexMap[i].text, {nonNameComponent: true});
+						processTemplateFragment(components, indexMap[i].text, { nonNameComponent: true });
 					}
 					/**
 					 * Parse the inner content of this expression only if `nestLevel` is 0.
@@ -1665,7 +1665,7 @@ export function WikitextFactory(
 					 */
 					let inner;
 					if (nestLevel === 0 && (inner = indexMap[i].inner) && inner.end <= wikitext.length) {
-						const {start, end} = inner;
+						const { start, end } = inner;
 						const text = wikitext.slice(start, end);
 						if (text.includes('{{') && text.includes('}}')) {
 							templates.push(
@@ -1766,7 +1766,7 @@ export function WikitextFactory(
 						i++;
 					} else {
 						// Just part of the template
-						processTemplateFragment(components, wkt[0], wkt[0] === '|' ? {isNew: true} : {});
+						processTemplateFragment(components, wkt[0], wkt[0] === '|' ? { isNew: true } : {});
 					}
 				} else {
 					// We are in a nested template
@@ -1833,7 +1833,7 @@ export function WikitextFactory(
 
 					// Get the param part of the template
 					// This always works because we updated indexMap for the parsed templates
-					const {inner} = indexMap[temp.startIndex];
+					const { inner } = indexMap[temp.startIndex];
 					if (inner === null) {
 						continue;
 					}
@@ -1842,21 +1842,21 @@ export function WikitextFactory(
 					const paramText = wikitext.slice(inner.start, inner.end).replace(/\|/g, '\x02');
 
 					// `components[0]` represents the title part but this isn't what we're looking at here
-					const components: Required<NewTemplateParameter>[] = [{key: '', value: ''}, {key: '', value: ''}];
+					const components: Required<NewTemplateParameter>[] = [{ key: '', value: '' }, { key: '', value: '' }];
 					for (let j = 0; j < paramText.length; j++) {
 						const realIndex = j + inner.start;
 						if (indexMap[realIndex] && indexMap[realIndex].type !== 'gallery') {
 							// Skip over skip tags, parameters, wikilinks, and templates
 							// No need to handle nested templates here because they're already in `templates`
 							// The outer `for` with `i` handles them recursively
-							processTemplateFragment(components, indexMap[realIndex].text, {nonNameComponent: true});
+							processTemplateFragment(components, indexMap[realIndex].text, { nonNameComponent: true });
 							j += indexMap[realIndex].text.length - 1;
 						} else if (inGallery(realIndex)) {
 							// If we're in a gallery tag, register this character without restoring pipes
 							processTemplateFragment(components, paramText[j]);
 						} else if (paramText[j] === '\x02') {
 							// If we're NOT in a gallery tag and this is '\x02', restore the pipe
-							processTemplateFragment(components, '|', {isNew: true});
+							processTemplateFragment(components, '|', { isNew: true });
 						} else {
 							// Just part of the parameter
 							processTemplateFragment(components, paramText[j]);
@@ -1864,17 +1864,17 @@ export function WikitextFactory(
 					}
 
 					// Restore pipes in the newly parsed params
-					const params = components.slice(1).map(({key, value}) => {
-						return {key: key.replace(/\x02/g, '|'), value: value.replace(/\x02/g, '|')};
+					const params = components.slice(1).map(({ key, value }) => {
+						return { key: key.replace(/\x02/g, '|'), value: value.replace(/\x02/g, '|') };
 					});
 
 					// Update `params` in `_initializer` and recreate instance
 					if (temp instanceof mwbot.ParserFunction) {
 						const [param1] = temp._getInitializer('params');
-						temp._setInitializer({params: [param1].concat(params)});
+						temp._setInitializer({ params: [param1].concat(params) });
 						templates[i] = temp._clone();
 					} else {
-						temp._setInitializer({params});
+						temp._setInitializer({ params });
 						templates[i] = temp._clone(options);
 					}
 				}
@@ -1898,8 +1898,8 @@ export function WikitextFactory(
 		}
 
 		parseTemplates(config: ParseTemplatesConfig = {}): DoubleBracedClasses[] {
-			const {hierarchies, titlePredicate, templatePredicate} = config;
-			const options = {hierarchies};
+			const { hierarchies, titlePredicate, templatePredicate } = config;
+			const options = { hierarchies };
 			let templates = this.storageManager('templates', true, options);
 			if (typeof titlePredicate === 'function') {
 				templates = templates.filter((template) => titlePredicate('title' in template ? template.title : template.canonicalHook));
@@ -1923,10 +1923,10 @@ export function WikitextFactory(
 		 */
 		private _parseWikilinks(): DoubleBracketedClasses[] {
 			// Call _parseWikilinksFuzzy() with an index map including templates (this avoids circular calls)
-			const indexMap = this.getIndexMap({parameters: true, templates: true});
+			const indexMap = this.getIndexMap({ parameters: true, templates: true });
 			const links = this._parseWikilinksFuzzy(indexMap).map((obj, index) => {
 
-				const {right, title, ...rest} = obj;
+				const { right, title, ...rest } = obj;
 
 				// Process `rawTitle` and identify the insertion point of `title`
 				let _rawTitle = rest.rawTitle;
@@ -2031,10 +2031,10 @@ export function WikitextFactory(
 		}
 
 		parseWikilinks(config: ParseWikilinksConfig = {}): DoubleBracketedClasses[] {
-			const {titlePredicate, wikilinkPredicate} = config;
+			const { titlePredicate, wikilinkPredicate } = config;
 			let wikilinks = this.storageManager('wikilinks');
 			if (typeof titlePredicate === 'function') {
-				wikilinks = wikilinks.filter(({title}) => titlePredicate(title));
+				wikilinks = wikilinks.filter(({ title }) => titlePredicate(title));
 			}
 			if (typeof wikilinkPredicate === 'function') {
 				wikilinks = wikilinks.filter((link) => wikilinkPredicate(link));
@@ -2089,7 +2089,7 @@ function setKinships<
 	const precedes = (a: number, b: number) => inclusive ? a <= b : a < b;
 	let parentIndex: [number, number] = [-1, Infinity];
 	for (const [index, current] of arr.entries()) {
-		const {startIndex, endIndex} = current;
+		const { startIndex, endIndex } = current;
 		// Set parent
 		if (
 			startIndex < obj.startIndex && precedes(obj.endIndex, endIndex) &&
@@ -2290,7 +2290,7 @@ function sanitizeNodeName(name: string): string {
  * @param startIndex The start index of the void tag in the wikitext.
  * @param nestLevel The nesting level of the void tag.
  * @param selfClosing Whether the void tag closes itself.
- * @param pseudoVoid Whether this is a pseudo-void tag. Such tags are marked `{void: false}`.
+ * @param pseudoVoid Whether this is a pseudo-void tag. Such tags are marked `{ void: false }`.
  * @returns
  */
 function createVoidTagObject(
@@ -2590,7 +2590,7 @@ type IndexMap = {
 	[startIndex: number]: {
 		text: string;
 		type: 'tag' | 'gallery' | 'parameter' | 'wikilink_fuzzy' | 'template';
-		inner: {start: number; end: number} | null;
+		inner: { start: number; end: number } | null;
 	};
 };
 
@@ -2601,7 +2601,7 @@ type IndexMap = {
  * @param obj The template instance.
  */
 function createTemplateIndexMap(indexMap: IndexMap, obj: DoubleBracedClasses): void {
-	const {text, startIndex, endIndex} = obj;
+	const { text, startIndex, endIndex } = obj;
 	let rawTitle;
 	let isTemplate = true;
 	if ('rawTitle' in obj) {
@@ -2614,7 +2614,7 @@ function createTemplateIndexMap(indexMap: IndexMap, obj: DoubleBracedClasses): v
 	const inner = (() => {
 		const start = startIndex + 2 + rawTitle.length + (isTemplate ? 1 : 0);
 		const end = endIndex - 2;
-		return end - start > 1 ? {start, end} : null;
+		return end - start > 1 ? { start, end } : null;
 	})();
 	indexMap[startIndex] = {
 		text,
@@ -2702,12 +2702,12 @@ interface FragmentOptions {
 function processTemplateFragment(components: Required<NewTemplateParameter>[], fragment: string, options: FragmentOptions = {}): void {
 
 	// Determine which element to modify: either a new element for a new parameter or an existing one
-	const {nonNameComponent, isNew} = options;
+	const { nonNameComponent, isNew } = options;
 	const i = isNew ? components.length : Math.max(components.length - 1, 0);
 
 	// Initialize the element if it does not exist
 	if (!(i in components)) {
-		components[i] = {key: '', value: ''};
+		components[i] = { key: '', value: '' };
 	}
 
 	// Process the fragment and update the `components` array

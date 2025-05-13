@@ -168,7 +168,7 @@ export interface TemplateBase<T extends string | Title> {
 		key: string,
 		value: string,
 		overwrite?: boolean,
-		position?: 'start' | 'end' | {before: string} | {after: string}
+		position?: 'start' | 'end' | { before: string } | { after: string }
 	): this;
 	/**
 	 * Updates the value of an existing parameter without changing its position.
@@ -804,8 +804,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			this._hierarchies = Array.isArray(hierarchies) ? hierarchies.map((arr) => [...arr]) : [];
 
 			// Register parameters
-			params.forEach(({key, value}) => {
-				this.registerParam(key || '', value, {overwrite: true, position: 'end', listDuplicates: true});
+			params.forEach(({ key, value }) => {
+				this.registerParam(key || '', value, { overwrite: true, position: 'end', listDuplicates: true });
 			});
 
 		}
@@ -814,13 +814,13 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			key: string,
 			value: string,
 			overwrite?: boolean,
-			position?: 'start' | 'end' | {before: string} | {after: string}
+			position?: 'start' | 'end' | { before: string } | { after: string }
 		): this {
-			return this.registerParam(key, value, {overwrite: overwrite ?? true, position});
+			return this.registerParam(key, value, { overwrite: overwrite ?? true, position });
 		}
 
 		updateParam(key: string, value: string): this {
-			return this.registerParam(key, value, {overwrite: 'must'});
+			return this.registerParam(key, value, { overwrite: 'must' });
 		}
 
 		getParam(key: string, resolveHierarchy = false): TemplateParameter | null {
@@ -915,7 +915,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			const hook = ParserFunction.verify(
 				typeof title === 'string'
 				? title
-				: title.getPrefixedDb({colon: true, fragment: true})
+				: title.getPrefixedDb({ colon: true, fragment: true })
 			);
 			if (hook && asHook) {
 				return hook;
@@ -926,7 +926,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				const namespace = title[0] === ':' ? NS_MAIN : NS_TEMPLATE; // TODO: Handle "/" (subpage) and "#" (in-page section)?
 				title = new Title(title, namespace);
 			} else {
-				title = new Title(title.getPrefixedDb({colon: true, fragment: true}));
+				title = new Title(title.getPrefixedDb({ colon: true, fragment: true }));
 			}
 			if (!title.getMain()) {
 				throw new Error('The empty title cannot be transcluded.');
@@ -960,13 +960,13 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 *
 		 * @param key The parameter key to check.
 		 * @returns An object describing the override relationship:
-		 * - `{overrides: string}` if the input key overrides an existing key.
-		 * - `{overridden: string}` if the input key is overridden by an existing key.
+		 * - `{ overrides: string }` if the input key overrides an existing key.
+		 * - `{ overridden: string }` if the input key is overridden by an existing key.
 		 * - `null` if no override relationship exists.
 		 *
 		 * The returned key will always be different from the input key.
 		 */
-		protected checkKeyOverride(key: string): XOR<{overrides: string}, {overridden: string}> | null {
+		protected checkKeyOverride(key: string): XOR<{ overrides: string }, { overridden: string }> | null {
 			if (!this._hierarchies.length) {
 				return null;
 			}
@@ -985,8 +985,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 			// Compare their positions in the hierarchy to determine precedence
 			return hier.indexOf(key) > hier.indexOf(registeredKey)
-				? {overrides: registeredKey} // Input key overrides an existing key
-				: {overridden: registeredKey}; // Input key is overridden by an existing key
+				? { overrides: registeredKey } // Input key overrides an existing key
+				: { overridden: registeredKey }; // Input key is overridden by an existing key
 		}
 
 		/**
@@ -1051,10 +1051,10 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				 * Where to insert the parameter in the internal ordering. Can be:
 				 * - `'start'`: insert at the beginning,
 				 * - `'end'`: insert at the end (default),
-				 * - `{before: string}`: insert before the parameter with the given key,
-				 * - `{after: string}`: insert after the parameter with the given key.
+				 * - `{ before: string }`: insert before the parameter with the given key,
+				 * - `{ after: string }`: insert after the parameter with the given key.
 				 */
-				position?: 'start' | 'end' | {before: string} | {after: string};
+				position?: 'start' | 'end' | { before: string } | { after: string };
 				/**
 				 * Whether to list duplicate parameters. This applies to overwrites and
 				 * will store previous values in the `duplicates` array.
@@ -1071,7 +1071,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				value = value.trim(); // Trim value only if the key is named
 			}
 
-			const {overwrite, position, listDuplicates = false} = options;
+			const { overwrite, position, listDuplicates = false } = options;
 			const overrideStatus = this.checkKeyOverride(key);
 			const existing = overrideStatus !== null || key in this.params;
 
@@ -1103,7 +1103,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				if (overrideStatus?.overrides || key in this.params) {
 
 					const targetKey = overrideStatus?.overrides ?? key;
-					const {duplicates, ...previousParam} = this.params[targetKey];
+					const { duplicates, ...previousParam } = this.params[targetKey];
 					if (listDuplicates) {
 						// If duplicate tracking is enabled, save the previous param state
 						duplicates.push(previousParam);
@@ -1209,7 +1209,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				brPredicateParam = () => false
 			} = options;
 			const suppressKeys = (options.suppressKeys || []).filter((key) => /^[1-9]\d*$/.test(key));
-			let {prepend} = options;
+			let { prepend } = options;
 			const ret = ['{{'];
 
 			// Process the title part
@@ -1230,7 +1230,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 			// Process params
 			for (const param of Object.values(this.params).sort(sortPredicate)) {
-				const {key, value, unnamed} = param;
+				const { key, value, unnamed } = param;
 				const noKey =
 					value.includes('=') ? false : // Always show key if value contains '='
 					suppressKeys.includes(key) ? true : // Suppress key if it's in the list
@@ -1307,7 +1307,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		stringify(options: TemplateOutputConfig<Title> = {}): string {
 			const title = this.title.getNamespaceId() === NS_TEMPLATE
 				? this.title.getMain()
-				: this.title.getPrefixedText({colon: true});
+				: this.title.getPrefixedText({ colon: true });
 			return this._stringify(title, options);
 		}
 
@@ -1343,7 +1343,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		#initializer: ParsedTemplateInitializer;
 
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
-			const {title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children} = initializer;
+			const { title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children } = initializer;
 			const t = Template.validateTitle(title);
 			const titleStr = t.getPrefixedDb();
 			super(t, params, options.hierarchies?.[titleStr]);
@@ -1361,7 +1361,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		toParserFunction(title: string | Title, verbose = false): ParsedParserFunction | null {
-			title = typeof title === 'string' ? title : title.getPrefixedDb({colon: true, fragment: true});
+			title = typeof title === 'string' ? title : title.getPrefixedDb({ colon: true, fragment: true });
 			try {
 				Template.validateTitle(title, true);
 			} catch (err) {
@@ -1376,10 +1376,10 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		override stringify(options: ParsedTemplateOutputConfig = {}): string {
-			const {rawTitle: optRawTitle, ...rawOptions} = options;
+			const { rawTitle: optRawTitle, ...rawOptions } = options;
 			let title = this.title.getNamespaceId() === NS_TEMPLATE
 				? this.title.getMain()
-				: this.title.getPrefixedText({colon: true});
+				: this.title.getPrefixedText({ colon: true });
 			if (optRawTitle && this.#rawTitle.includes('\x01')) {
 				title = this.#rawTitle.replace('\x01', title);
 			}
@@ -1437,7 +1437,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		#initializer: ParsedTemplateInitializer;
 
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
-			const {title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children} = initializer;
+			const { title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children } = initializer;
 			super(title, params, options.hierarchies?.[title]);
 			this.#initializer = initializer;
 			this.rawTitle = rawTitle.replace('\x01', title);
@@ -1459,7 +1459,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		toTemplate(title: string | Title, verbose = false): ParsedTemplate | null {
-			title = typeof title === 'string' ? title : title.getPrefixedDb({colon: true, fragment: true});
+			title = typeof title === 'string' ? title : title.getPrefixedDb({ colon: true, fragment: true });
 			try {
 				Template.validateTitle(title);
 			} catch (err) {
@@ -1474,7 +1474,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		toParserFunction(title: string | Title, verbose = false): ParsedParserFunction | null {
-			title = typeof title === 'string' ? title : title.getPrefixedDb({colon: true, fragment: true});
+			title = typeof title === 'string' ? title : title.getPrefixedDb({ colon: true, fragment: true });
 			try {
 				Template.validateTitle(title, true);
 			} catch (err) {
@@ -1489,7 +1489,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		stringify(options: RawTemplateOutputConfig = {}): string {
-			const {rawTitle: optRawTitle, ...rawOptions} = options;
+			const { rawTitle: optRawTitle, ...rawOptions } = options;
 			let title = this.title;
 			if (optRawTitle && this.#rawTitle.includes('\x01')) {
 				title = this.#rawTitle.replace('\x01', title);
@@ -1581,7 +1581,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 * @returns
 		 */
 		protected _stringify(hook: string, options: ParserFunctionOutputConfig): string {
-			const {prepend = '', sortPredicate, brPredicate} = options;
+			const { prepend = '', sortPredicate, brPredicate } = options;
 			const ret = [
 				'{{',
 				prepend,
@@ -1643,7 +1643,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		constructor(initializer: ParsedTemplateInitializer) {
 
-			const {title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children} = initializer;
+			const { title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children } = initializer;
 			const verified = ParserFunction.verify(title);
 			if (!verified) {
 				throw new Error(`"${title}" is not a valid function hook.`);
@@ -1696,7 +1696,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			}
 
 			const initParams = [paramPart];
-			params.forEach(({key, value}) => {
+			params.forEach(({ key, value }) => {
 				initParams.push((key ? key + '=' : '') + value);
 			});
 			super(title, initParams);
@@ -1716,7 +1716,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		toTemplate(title: string | Title, verbose = false): ParsedTemplate | null {
-			title = typeof title === 'string' ? title : title.getPrefixedDb({colon: true, fragment: true});
+			title = typeof title === 'string' ? title : title.getPrefixedDb({ colon: true, fragment: true });
 			try {
 				// @ts-expect-error Calling a protected method
 				Template.validateTitle(title);
@@ -1732,7 +1732,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		override stringify(options: ParsedParserFunctionOutputConfig = {}): string {
-			const {rawHook: optRawHook, useCanonical, ...rawOptions} = options;
+			const { rawHook: optRawHook, useCanonical, ...rawOptions } = options;
 			let hook = useCanonical ? this.canonicalHook : this.hook;
 			if (optRawHook && this.#rawHook.includes('\x01')) {
 				hook = this.#rawHook.replace('\x01', hook);

@@ -21,13 +21,13 @@ export type PartialRecord<K extends keyof any, T> = {
  * Constructs a type in which only one key in `K` can have the value in `V`.
  * ```
  * // Error
- * const ex1: OnlyOneRecord<'a' | 'b', {1: 1}> = {
- *   a: {1: 1},
- *   b: {1: 1}
+ * const ex1: OnlyOneRecord<'a' | 'b', { 1: 1 }> = {
+ *   a: { 1: 1 },
+ *   b: { 1: 1 }
  * };
  * // Ok
- * const ex2: OnlyOneRecord<'a' | 'b', {1: 1}> = {
- *   b: {1: 1}
+ * const ex2: OnlyOneRecord<'a' | 'b', { 1: 1 }> = {
+ *   b: { 1: 1 }
  * };
  * ```
  */

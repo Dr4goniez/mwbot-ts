@@ -75,7 +75,7 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 		}
 
 		super();
-		const {code, info, ...rest} = config;
+		const { code, info, ...rest } = config;
 		this.name = 'MwbotError';
 		this.type = type;
 		this.code = code;
@@ -84,7 +84,7 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 			this.data = Object.assign({}, data);
 		}
 		if (isEmptyObject(rest) === false) {
-			this.data = Object.assign(this.data || {}, {error: rest});
+			this.data = Object.assign(this.data || {}, { error: rest });
 		}
 
 		// Ensure proper stack trace capture
@@ -111,8 +111,8 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 				response.errors[0].text || // errorformat=wikitext, errorformat=plaintext
 				response.errors[0].key || // errorformat=raw
 				'Unknown error.';
-			const {errors, ...rest} = response;
-			error = Object.assign({info}, errors[0], rest);
+			const { errors, ...rest } = response;
+			error = Object.assign({ info }, errors[0], rest);
 		} else {
 			error = response.error;
 		}
