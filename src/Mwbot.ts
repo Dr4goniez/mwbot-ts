@@ -1610,63 +1610,110 @@ export class Mwbot {
 	}
 
 	/**
-	 * Performs an API request that automatically continues until the limit is reached.
+	 * Performs API requests that automatically continue until the limit is reached.
 	 *
-	 * This method is designed for API calls that include a `continue` property in the response.
+	 * This method is designed for API modules that support continuation using a `continue`
+	 * property in the response.
 	 *
-	 * **Usage Note:** If applicable, ensure the API parameters include a `**limit` value set to `'max'`
-	 * to retrieve the maximum number of results per request.
+	 * **Usage Note**: If applicable, ensure the API parameters include a `**limit` value set
+	 * to `'max'` to retrieve the maximum number of results per request.
 	 *
-	 * @param parameters Parameters to the API.
-	 * @param limit The maximum number of continuation. (Default: `10`)
-	 * @param rejectProof
-	 * By default, the Promise is rejected if any internal request fails, discarding all previous results.
-	 * When set to `true`, it instead resolves to an array containing the responses and the error as the last element.
+	 * @param parameters Parameters to send to the API.
+	 * @param options Optional continuation and batching settings.
+	 * @param options.rejectProof
+	 * * If `false` (default), rejects the Promise if any internal API request fails, discarding
+	 *   all previously retrieved responses.
+	 * * If `true`, failed requests are caught and appended as {@link MwbotError} into the result
+	 *   array.
+	 * @param options.limit
+	 * The maximum number of continuation cycles (default: `10`). Must be a positive integer or
+	 * `Infinity`.
+	 * @param options.multiValues
+	 * The key or keys of multi-value fields that must be split into batches of up to {@link apilimit}.
+	 * Specifying this option incorporates the function of {@link massRequest}. See the throw conditions
+	 * of {@link createBatchArray} for the validation of these fields.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to an array of API responses, or an error in the last element if `rejectProof` is `true`.
+	 * @returns
+	 * * If `rejectProof` is `false`, resolves to an array of API responses.
+	 * * If `rejectProof` is `true`, resolves to the same, but can include error objects.
+	 *
+	 * NOTE: If `multiValues` is set and the relevant fields are empty arrays, returns an empty array.
+	 * @throws
+	 * On error unless `rejectProof` is enabled. Also throws if `multiValues` fields are invalid.
 	 */
 	continuedRequest(
 		parameters: ApiParams,
-		limit?: number,
-		rejectProof?: false,
+		options?: { rejectProof?: false; limit?: number; multiValues?: string | string[] },
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponse[]>;
 	continuedRequest(
 		parameters: ApiParams,
-		limit: number | undefined,
-		rejectProof: true,
+		options: { rejectProof: true; limit?: number; multiValues?: string | string[] },
 		requestOptions?: MwbotRequestConfig
 	): Promise<(ApiResponse | MwbotError)[]>;
 	async continuedRequest(
 		parameters: ApiParams,
-		limit = 10,
-		rejectProof = false,
+		options: { rejectProof?: boolean; limit?: number; multiValues?: string | string[] } = {},
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<(ApiResponse | MwbotError)[]> {
 
-		const ret: (ApiResponse | MwbotError)[] = [];
+		const {rejectProof = false, limit = 10, multiValues} = options;
 
-		try {
-			let count = 0;
-			let params = {...parameters};
-
-			while (count < limit) {
-				const res = await this.fetch(params, requestOptions);
-				ret.push(res);
-				count++;
-
-				if (!res.continue) break;
-				params = {...params, ...res.continue};
-			}
-			return ret;
-
-		} catch (err) {
-			if (rejectProof) {
-				ret.push(err as MwbotError);
-				return ret;
-			}
-			throw err;
+		// Validate limit
+		if ((!Number.isInteger(limit) && limit !== Infinity) || limit <= 0) {
+			throw new MwbotError('fatal', {
+				code: 'invalidlimit',
+				info: '"limit" must be a positive integer.'
+			});
 		}
+
+		// If `multiValues` is provided, split multi-value fields
+		let batchArray: string[][] | null = null;
+		let multiKeys: string[] = [];
+		if (multiValues) {
+			multiKeys = Array.isArray(multiValues) ? multiValues : [multiValues];
+			batchArray = this.createBatchArray(parameters, multiKeys);
+			if (!batchArray.length) return [];
+		}
+
+		const request = async (params: ApiParams): Promise<(ApiResponse | MwbotError)[]> => {
+			const ret: (ApiResponse | MwbotError)[] = [];
+			try {
+				let count = 0;
+				let currentParams = {...params};
+				while (count < limit) {
+					const res = await this.fetch(currentParams, requestOptions);
+					ret.push(res);
+					count++;
+					if (!res.continue) break;
+					currentParams = {...currentParams, ...res.continue};
+				}
+				return ret;
+			} catch (err) {
+				if (rejectProof) {
+					ret.push(err as MwbotError);
+					return ret;
+				}
+				throw err;
+			}
+		};
+
+		// Send API requests
+		const promise: Promise<(ApiResponse | MwbotError)[]>[] = [];
+		if (batchArray) {
+			for (const multiValues of batchArray) {
+				const batchString = multiValues.join('|');
+				const batchParams: ApiParams = {
+					...parameters,
+					...Object.fromEntries(multiKeys.map(k => [k, batchString]))
+				};
+				promise.push(request(batchParams));
+			}
+		} else {
+			promise.push(request(parameters));
+		}
+		return (await Promise.all(promise)).flat();
+
 	}
 
 	/**
@@ -1687,18 +1734,13 @@ export class Mwbot {
 	 *
 	 * @param parameters Parameters to the API, including multi-value fields.
 	 * @param keys The key(s) of the multi-value field(s) to split (e.g., `titles`).
-	 * @param batchSize
-	 * The number of elements of the multi-value field to query per request. Defaults to `500` for bots and `50` for others.
+	 * @param batchSize Optional batch size (defaults to the {@link apilimit}`). Must be a positive integer
+	 * less than or equal to `apilimit`.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns
 	 * A Promise resolving to an array of API responses or {@link MwbotError} objects for failed requests.
-	 * The array will be empty if the multi-value field is empty.
-	 * @throws On fatal errors:
-	 * - `batchSize`, if provided, is not a positive integer.
-	 * - `keys` is empty or contains non-string values.
-	 * - `parameters[keys]` is not an array.
-	 * - If `keys` is an array, the corresponding multi-value arrays are not identical.
-	 * - No multi-value fields are provided.
+	 * The array will be empty if no values are provided to batch.
+	 * @throws See the throw conditions of {@link createBatchArray}.
 	 */
 	async massRequest(
 		parameters: ApiParams,
@@ -1707,68 +1749,17 @@ export class Mwbot {
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<(ApiResponse | MwbotError)[]> {
 
-		// Validadate the batch size
-		const apilimit = this.apilimit;
-		if (batchSize !== undefined) {
-			if (!Number.isInteger(batchSize) || batchSize > apilimit || batchSize <= 0) {
-				throw new MwbotError('fatal', {
-					code: 'invalidsize',
-					info: `"batchSize" must be a positive integer less than or equal to ${apilimit}.`
-				});
-			}
-		} else {
-			batchSize = apilimit;
-		}
-
-		// Cast `keys` to an array
+		// Create batch array
 		keys = Array.isArray(keys) ? keys : [keys];
-		if (!keys.length || !keys[0]) {
-			throw new MwbotError('fatal', {
-				code: 'emptyinput',
-				info: '"keys" cannot be empty.'
-			});
-		}
-
-		// Extract multi-value field
-		let batchValues: string[] | null = null;
-		for (const key of keys) {
-			if (typeof key !== 'string') {
-				throw new MwbotError('fatal', {
-					code: 'typemismatch',
-					info: `Expected a string (element) for "keys", but got ${typeof key}.`
-				});
-			}
-			const value = parameters[key];
-			if (value !== undefined) {
-				if (!Array.isArray(value)) {
-					throw new MwbotError('fatal', {
-						code: 'typemismatch',
-						info: `The multi-value fields (${keys.join(', ')}) must be arrays.`
-					});
-				}
-				if (batchValues === null) {
-					batchValues = [...value] as string[]; // Copy the array
-				} else if (!arraysEqual(batchValues, value, true)) {
-					throw new MwbotError('fatal', {
-						code: 'fieldmismatch',
-						info: 'All multi-value fields must be identical.'
-					});
-				}
-			}
-		}
-		if (!batchValues) {
-			throw new MwbotError('fatal', {
-				code: 'nofields',
-				info: 'No multi-value fields have been found.'
-			});
-		} else if (!batchValues.length) {
+		const batchArray = this.createBatchArray(parameters, keys, batchSize);
+		if (!batchArray.length) {
 			return [];
 		}
 
 		// Prepare API batches
 		const batchParams: ApiParams[] = [];
-		for (let i = 0; i < batchValues.length; i += batchSize) {
-			const batchArrayStr = batchValues.slice(i, i + batchSize).join('|');
+		for (const multiValues of batchArray) {
+			const batchArrayStr = multiValues.join('|');
 			batchParams.push({
 				...parameters,
 				...Object.fromEntries(keys.map((key) => [key, batchArrayStr]))
@@ -1785,6 +1776,95 @@ export class Mwbot {
 			results.push(...batchResults);
 		}
 		return results;
+
+	}
+
+	/**
+	 * Creates a batch array for an API request involving multi-value fields.
+	 *
+	 * Each batch will contain up to `batchSize` values (or {@link apilimit} if not provided),
+	 * and all specified keys must refer to identical arrays of strings. This ensures
+	 * consistent batching across all multi-value fields.
+	 *
+	 * @param parameters The API parameters object.
+	 * @param keys An array of parameter names that are expected to hold multiple values.
+	 * @param batchSize
+	 * Optional maximum number of items per batch. Must be a positive integer less than or
+	 * equal to `apilimit` (defaults to `apilimit`).
+	 * @returns An array of string arrays, each representing a single API batch.
+	 *
+	 * @throws {MwbotError} If:
+	 * - `keys` is an empty array. (`emptyinput`)
+	 * - Any element in `keys` is not a string. (`typemismatch`)
+	 * - The corresponding `parameters[key]` is not an array. (`typemismatch`)
+	 * - The arrays for multiple fields are not identical. (`fieldmismatch`)
+	 * - No valid multi-value fields are found. (`nofields`)
+	 * - `batchSize` is invalid. (`invalidsize`)
+	 */
+	protected createBatchArray(
+		parameters: ApiParams,
+		keys: string[],
+		batchSize?: number
+	): string[][] {
+
+		// Validadate the batch size
+		const apilimit = 1;//this.apilimit;
+		if (typeof batchSize === 'number') {
+			if (!Number.isInteger(batchSize) || batchSize > apilimit || batchSize <= 0) {
+				throw new MwbotError('fatal', {
+					code: 'invalidsize',
+					info: `"batchSize" must be a positive integer less than or equal to ${apilimit}.`
+				});
+			}
+		} else {
+			batchSize = apilimit;
+		}
+
+		if (!keys.length) {
+			throw new MwbotError('fatal', {
+				code: 'emptyinput',
+				info: '"keys" cannot be empty.'
+			});
+		}
+
+		// Extract multi-value field
+		let batchValues: string[] | null = null;
+		for (const key of keys) {
+			if (typeof key !== 'string') {
+				throw new MwbotError('fatal', {
+					code: 'typemismatch',
+					info: `Expected a string (element) for "keys", but got ${typeof key}.`
+				});
+			}
+			const value = parameters[key];
+			if (!Array.isArray(value)) {
+				throw new MwbotError('fatal', {
+					code: 'typemismatch',
+					info: `Expected an array for the "${key}" parameter, but got ${typeof value}.`
+				});
+			}
+			if (batchValues === null) {
+				batchValues = [...value] as string[]; // Copy the array
+			} else if (!arraysEqual(batchValues, value, true)) {
+				throw new MwbotError('fatal', {
+					code: 'fieldmismatch',
+					info: 'All multi-value fields must be identical.'
+				});
+			}
+		}
+
+		if (!batchValues) {
+			throw new MwbotError('fatal', {
+				code: 'nofields',
+				info: 'No multi-value fields were found.'
+			});
+		}
+
+		const batchArray: string[][] = [];
+		for (let i = 0; i < batchValues.length; i += batchSize) {
+			batchArray.push(batchValues.slice(i, i + batchSize));
+		}
+		return batchArray;
 
 	}
 
@@ -2773,22 +2853,11 @@ export class Mwbot {
 		hidden?: boolean
 	): Promise<string[] | Record<string, string[]>> {
 
-		// Determine input shape and normalize titles
+		// Normalize titles
 		const isArrayInput = Array.isArray(titles);
 		const titleSet = new Set<string>();
-		const titleBatch: string[][] = [];
-		const apilimit = this.apilimit;
-
-		const inputTitles = isArrayInput ? titles : [titles];
-		for (const t of inputTitles) {
-			const title = this.validateTitle(t, true).getPrefixedText();
-			if (!titleSet.has(title)) {
-				titleSet.add(title);
-				if (!titleBatch.length || titleBatch.at(-1)!.length >= apilimit) {
-					titleBatch.push([]);
-				}
-				titleBatch.at(-1)!.push(title);
-			}
+		for (const t of (isArrayInput ? titles : [titles])) {
+			titleSet.add(this.validateTitle(t, true).getPrefixedText());
 		}
 		if (!titleSet.size) {
 			throw new MwbotError('fatal', {
@@ -2797,24 +2866,22 @@ export class Mwbot {
 			});
 		}
 
-		// Construct API request
-		const params: ApiParams = {
+		// Send API requests
+		const validatedTitles = [...titleSet];
+		const responses = await this.continuedRequest({
 			action: 'query',
+			titles: validatedTitles,
 			prop: 'categories',
 			clshow: hidden ? 'hidden' : hidden === false ? '!hidden' : undefined,
 			cllimit: 'max',
 			format: 'json',
 			formatversion: '2'
-		};
+		}, {
+			limit: Infinity,
+			multiValues: 'titles'
+		});
 
-		// Fetch all batches
-		const responses = (await Promise.all(
-			titleBatch.map(titlesArr =>
-				this.continuedRequest({titles: titlesArr.join('|'), ...params}, Infinity)
-			)
-		)).flat();
-
-		// Format categories
+		// Process the responses and format categories
 		const config = this.config;
 		const NS_CATEGORY = config.get('wgNamespaceIds').category;
 		const CATEGORY_PREFIX = config.get('wgFormattedNamespaces')[NS_CATEGORY] + ':';
@@ -2834,8 +2901,9 @@ export class Mwbot {
 		if (isArrayInput) {
 			return result;
 		} else {
-			return result[titleBatch[0][0]] || [];
+			return result[validatedTitles[0]] || [];
 		}
+
 	}
 
 	/**
