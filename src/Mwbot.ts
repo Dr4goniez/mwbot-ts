@@ -60,7 +60,9 @@ import {
 	ApiResponseQueryMetaSiteinfoMagicwords,
 	ApiResponseQueryMetaSiteinfoFunctionhooks,
 	ApiResponseQueryListCategorymembers,
-	ApiResponseQueryListPrefixsearch
+	ApiResponseQueryListPrefixsearch,
+	ApiParamsActionMove,
+	ApiResponseMove
 } from './api_types';
 import { MwbotError, MwbotErrorData } from './MwbotError';
 import * as Util from './Util';
@@ -937,7 +939,7 @@ export class Mwbot {
 	 *
 	 * @param parameters Parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the API response or rejecting with an error.
+	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
 	async request(
 		parameters: ApiParams,
@@ -990,7 +992,7 @@ export class Mwbot {
 	 *
 	 * @param requestOptions The finalized HTTP request options, ready for transmission.
 	 * @param attemptCount The number of attemps that have been made so far.
-	 * @returns A Promise resolving to the API response or rejecting with an error.
+	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
 	protected async _request(requestOptions: MwbotRequestConfig, attemptCount?: number): Promise<ApiResponse> {
 
@@ -1545,7 +1547,7 @@ export class Mwbot {
 	 *
 	 * @param parameters Parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the API response or rejecting with an error.
+	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
 	get(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 		if (!requestOptions._cloned) {
@@ -1561,7 +1563,7 @@ export class Mwbot {
 	 *
 	 * @param parameters Parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the API response or rejecting with an error.
+	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
 	post(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 		if (!requestOptions._cloned) {
@@ -1581,7 +1583,7 @@ export class Mwbot {
 	 *
 	 * @param parameters Parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the API response or rejecting with an error.
+	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
 	nonwritePost(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 		if (!requestOptions._cloned) {
@@ -1602,7 +1604,7 @@ export class Mwbot {
 	 *
 	 * @param parameters Parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the API response or rejecting with an error.
+	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
 	fetch(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 		if (!requestOptions._cloned) {
@@ -1894,7 +1896,7 @@ export class Mwbot {
 	 * @param tokenType The type of token to use (e.g., `csrf`).
 	 * @param parameters Parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the API response or rejecting with an error.
+	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
 	async postWithToken(tokenType: string, parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 		if (this.isAnonymous()) {
@@ -2048,7 +2050,7 @@ export class Mwbot {
 	 *
 	 * @param parameters Parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the API response or rejecting with an error.
+	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
 	postWithCsrfToken(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
 		return this.postWithToken('csrf', parameters, requestOptions);
@@ -2060,7 +2062,7 @@ export class Mwbot {
 	 * This is a shorthand method of {@link getToken}.
 	 *
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to a CSRF token or rejecting with an error.
+	 * @returns A Promise resolving to a CSRF token, or rejecting with an error.
 	 */
 	getCsrfToken(requestOptions: MwbotRequestConfig = {}): Promise<string> {
 		return this.getToken('csrf', void 0, requestOptions);
@@ -2196,7 +2198,7 @@ export class Mwbot {
 	 * @param additionalParams Additional parameters for the API request. These can be used to
 	 * overwrite the default parameters.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to {@link ApiResponseEditSuccess} or rejecting with {@link MwbotError}.
+	 * @returns A Promise resolving to {@link ApiResponseEditSuccess}, or rejecting with {@link MwbotError}.
 	 */
 	async create(
 		title: string | Title,
@@ -2235,7 +2237,7 @@ export class Mwbot {
 	 * @param additionalParams Additional parameters for the API request. These can be used to
 	 * overwrite the default parameters.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the API response or rejecting with {@link MwbotError}.
+	 * @returns A Promise resolving to the API response, or rejecting with {@link MwbotError}.
 	 */
 	async save(
 		title: string | Title,
@@ -2504,7 +2506,7 @@ export class Mwbot {
 	 * @param title The page title, either as a string or a {@link Title} instance.
 	 * @param transform See {@link TransformationPredicate} for details.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
+	 * @returns A Promise resolving to an {@link ApiResponse}, or rejecting with an error object.
 	 */
 	async edit(
 		title: string | Title,
@@ -2610,7 +2612,7 @@ export class Mwbot {
 	 * @param summary An optional edit summary. If not provided, the API generates one automatically.
 	 * @param additionalParams Additional parameters for the API request. These can be used to overwrite the default parameters.
 	 * @param requestOptions Optional HTTP request options.
-	 * @return A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
+	 * @return A Promise resolving to an {@link ApiResponse}, or rejecting with an error object.
 	 */
 	async newSection(
 		title: string | Title,
@@ -2630,7 +2632,7 @@ export class Mwbot {
 	 *
 	 * @param username
 	 * @param password
-	 * @returns A Promise resolving to the API response or rejecting with an error.
+	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
 	protected async login(username: string, password: string): Promise<ApiResponse> { // TODO: Make this method public?
 
@@ -2660,6 +2662,84 @@ export class Mwbot {
 			this.tokens = {}; // Clear cashed tokens because these can't be used for the newly logged-in user
 			return resLogin;
 		}
+
+	}
+
+	/**
+	 * Moves a page.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'move',
+	 *   from: from, // If a string or a Title instance
+	 *   fromid: from, // If a number
+	 *   to: to,
+	 *   reason: reason,
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param from The title or ID of the page to move.
+	 * @param to The destination title.
+	 * @param reason The reason for the move.
+	 * @param additionalParams Additional parameters for
+	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=move | `action=move`}.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the `response.move` object, or rejecting with an error.
+	 * @throws If:
+	 * - The client is anonymous.
+	 * - The client lacks the `move` user right.
+	 * - `from` is not a number and fails title validation via {@link validateTitle}.
+	 * - `to` fails title validation via {@link validateTitle}.
+	 */
+	async move(
+		from: string | Title | number,
+		to: string | Title,
+		reason: string,
+		additionalParams: Partial<ApiParamsActionMove> = {},
+		requestOptions: MwbotRequestConfig = {}
+	): Promise<ApiResponseMove> {
+
+		// Loosely validate rights to move pages
+		if (this.isAnonymous()) {
+			this.errorAnonymous();
+		}
+		if (!this.config.get('wgUserRights').includes('move')) {
+			throw new MwbotError('api_mwbot', {
+				code: 'nopermission',
+				info: 'You do not have permission to move pages.'
+			});
+		}
+
+		// Validate `from` and `to`
+		let fromId: number | false = false;
+		let fromTitle: string | false = false;
+		if (typeof from === 'number') {
+			fromId = from;
+		} else {
+			fromTitle = this.validateTitle(from).getPrefixedText();
+		}
+		const toTitle = this.validateTitle(to).getPrefixedText();
+
+		// Move the page
+		const response = await this.postWithCsrfToken({
+			...additionalParams,
+			action: 'move',
+			from: fromTitle,
+			fromid: fromId,
+			to: toTitle,
+			reason,
+			format: 'json',
+			formatversion: '2'
+		}, requestOptions);
+
+		if (response.move) {
+			return response.move;
+		}
+		this.errorEmpty(true, '("response.move") is missing.');
 
 	}
 
@@ -2715,7 +2795,7 @@ export class Mwbot {
 	 * The maximum number of values is 50 or 500 (see also {@link apilimit}).
 	 * @param additionalParams Additional parameters for the API request. These can be used to overwrite the default parameters.
 	 * @param requestOptions Optional HTTP request options.
-	 * @return A Promise resolving to an {@link ApiResponse} or rejecting with an error object.
+	 * @return A Promise resolving to an {@link ApiResponse}, or rejecting with an error object.
 	 * @throws If `titles` contains non-strings or non-Titles.
 	 */
 	async purge(titles: (string | Title)[], additionalParams: ApiParams = {}, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
@@ -2977,7 +3057,7 @@ export class Mwbot {
 	 * @param additionalParams Additional parameters for
 	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Bcategorymembers | `list=categorymembers`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
-	 * @returns A Promise resolving to the result array in `response.query.categorymembers` or rejecting with an error.
+	 * @returns A Promise resolving to the result array in `response.query.categorymembers`, or rejecting with an error.
 	 * @throws If:
 	 * - `titleOrId`, if not a number, fails title validation via {@link validateTitle}.
 	 * - `titleOrId`, if not a number, is not a category title. (`invalidtitle`)
@@ -3291,7 +3371,7 @@ export class Mwbot {
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @param limit The maximum number of continuation cycles to perform (default: `Infinity`).
 	 * Specify this if the `target` is very generic and may produce too many results.
-	 * @returns A Promise resolving to the result array in `response.query.prefixsearch` or rejecting with an error.
+	 * @returns A Promise resolving to the result array in `response.query.prefixsearch`, or rejecting with an error.
 	 * @throws If:
 	 * - `target` is not a string. (`typemismatch`)
 	 * - `target` is empty. (`emptyinput`)

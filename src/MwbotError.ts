@@ -165,6 +165,7 @@ export interface MwbotErrorCodes {
 		invalidformat: 'Not using "format=json" in request parameters.';
 		anonymous: 'Anonymous users are limited to non-write requests.';
 		loginfailed: 'Failed to log in.';
+		nopermission: 'You do not have permission to perform this action.';
 		// Used in the catch block of Mwbot._init
 		badauth: 'Failed to authenticate the client as a registered user in Mwbot.init.';
 		badvars: 'Failed to initialize wg-variables in Mwbot.init.';

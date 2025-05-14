@@ -289,6 +289,22 @@ export interface ApiParamsActionEdit extends ApiParams {
 	captchaid?: string;
 }
 
+export interface ApiParamsActionMove extends ApiParams {
+	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
+    from?: string;
+    fromid?: number;
+    to: string;
+    reason?: string;
+    movetalk?: boolean;
+    movesubpages?: boolean;
+    noredirect?: boolean;
+    watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+    watchlistexpiry?: string;
+    ignorewarnings?: boolean;
+    tags?: string | string[];
+    token?: string;
+}
+
 export interface ApiParamsActionParse extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
 	title?: string;
@@ -503,7 +519,7 @@ export interface ApiResponse {
 	// markfortranslation?: ApiResponseMarkfortranslation;
 	// massmessage?: ApiResponseMassmessage;
 	// mergehistory?: ApiResponseMergehistory;
-	// move?: ApiResponseMove;
+	move?: ApiResponseMove;
 	// newslettersubscribe?: ApiResponseNewslettersubscribe;
 	// opensearch?: ApiResponseOpensearch;
 	// options?: ApiResponseOptions;
@@ -915,7 +931,26 @@ export type ApiResponseLogin = XOR< // Fully checked (source code level)
 // export interface ApiResponseManagetags {}
 // export interface ApiResponseMassmessage {}
 // export interface ApiResponseMergehistory {}
-// export interface ApiResponseMove {}
+
+export interface ApiResponseMove { // Fully checked (source code level)
+	from: string;
+	to: string;
+	reason: string;
+	redirectcreated: boolean;
+	moveoverredirect: boolean;
+	talkfrom?: string;
+	talkto?: string;
+	talkmoveoverredirect?: boolean;
+	'talkmove-errors'?: Record<string, unknown>; // Probably the same as ApiResponseErrors
+	subpages?: ApiResponseMoveSubpages[];
+	'subpages-talk'?: ApiResponseMoveSubpages[];
+}
+export interface ApiResponseMoveSubpages {
+	from: string;
+	to?: string;
+	errors?: Record<string, unknown>;
+}
+
 // export interface ApiResponseNewslettersubscribe {}
 // export interface ApiResponseOpensearch {}
 // export interface ApiResponseOptions {}
