@@ -58,7 +58,8 @@ import {
 	PartiallyRequired,
 	ApiResponseQueryListCategorymembers,
 	ApiResponseQueryListBacklinks,
-	ApiResponseQueryPagesPropTranscludedin
+	ApiResponseQueryPagesPropTranscludedin,
+	ApiResponseQuery
 } from './api_types';
 import { MwbotError, MwbotErrorData } from './MwbotError';
 import * as Util from './Util';
@@ -3148,6 +3149,84 @@ export class Mwbot {
 		} else {
 			return result[validatedTitles[0]] || [];
 		}
+
+	}
+
+	/**
+	 * Performs a full text search.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'query',
+	 *   list: 'search',
+	 *   srsearch: target,
+	 *   srlimit: 'max',
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param target The search query string to look for in page titles or content.
+	 * @param additionalParams Additional parameters for
+	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Bsearch | `list=search`}.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @returns A Promise that resolves to the `response.query` object (not the `response.query.search`
+	 * array, as `list=search` may return additional properties in the `query` object, such as `searchinfo`).
+	 * @throws {MwbotError} If:
+	 * - `target` is not a string. (`typemismatch`)
+	 * - `target` is empty. (`emptyinput`)
+	 * - `response.query` or `response.query.search` is missing in the request response. (`empty`)
+	 */
+	async search(target: string, additionalParams: ApiParams = {}): Promise<PartiallyRequired<ApiResponseQuery, 'search'>> {
+
+		// Validate `target`
+		if (typeof target !== 'string') {
+			throw new MwbotError('fatal', {
+				code: 'typemismatch',
+				info: `Expected a string for "target", but got ${typeof target}.`
+			});
+		}
+		if (!target.trim()) {
+			throw new MwbotError('fatal', {
+				code: 'emptyinput',
+				info: '"target" cannot be empty.'
+			});
+		}
+
+		// Send an API request
+		const responses = await this.continuedRequest({
+			...additionalParams,
+			action: 'query',
+			list: 'search',
+			srsearch: target,
+			srlimit: 'max',
+			format: 'json',
+			formatversion: '2'
+		}, {
+			limit: Infinity
+		});
+		if (!responses.length) {
+			// `responses` is never expected to be an empty array but just in case
+			this.errorEmpty();
+		}
+
+		// Merge the response arrays into a single object and return it
+		let ret: PartiallyRequired<ApiResponseQuery, 'search'> = Object.create(null);
+		for (const { query } of responses) {
+			if (!query) {
+				this.errorEmpty(true, '("response.query" is missing).');
+			}
+			if (!query.search) {
+				this.errorEmpty(true, '("response.query.search" is missing).');
+			}
+			const q = query as PartiallyRequired<ApiResponseQuery, 'search'>;
+			if (responses.length === 1) {
+				return q;
+			}
+			ret = mergeDeep(ret, q);
+		}
+		return ret;
 
 	}
 
