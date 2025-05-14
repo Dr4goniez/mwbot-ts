@@ -1808,7 +1808,7 @@ export class Mwbot {
 	): string[][] {
 
 		// Validadate the batch size
-		const apilimit = 1;//this.apilimit;
+		const apilimit = this.apilimit;
 		if (typeof batchSize === 'number') {
 			if (!Number.isInteger(batchSize) || batchSize > apilimit || batchSize <= 0) {
 				throw new MwbotError('fatal', {
