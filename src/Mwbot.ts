@@ -57,7 +57,8 @@ import {
 	ApiResponseQueryPages,
 	PartiallyRequired,
 	ApiResponseQueryListCategorymembers,
-	ApiResponseQueryListBacklinks
+	ApiResponseQueryListBacklinks,
+	ApiResponseQueryPagesPropTranscludedin
 } from './api_types';
 import { MwbotError, MwbotErrorData } from './MwbotError';
 import * as Util from './Util';
@@ -2071,16 +2072,19 @@ export class Mwbot {
 	 * If any validation fails, it throws an {@link MwbotError}.
 	 *
 	 * @param title The page title, either as a string or a {@link Title} instance.
-	 * @param allowAnonymous Whether to allow anonymous users to proceed. Defaults to `false`.
+	 * @param options
+	 * @param options.allowAnonymous Whether to allow anonymous users to proceed. Defaults to `false`.
+	 * @param options.allowSpecial Whether to allow special page inputs. Defaults to `false`.
 	 * @returns A validated {@link Title} instance.
 	 * @throws If:
 	 * - The user is anonymous while `allowAnonymous` is `false`.
 	 * - The title is neither a string nor a {@link Title} instance.
 	 * - The title is empty.
 	 * - The title is interwiki.
-	 * - The title is in the Special or Media namespace.
+	 * - The title is in the Special or Media namespace while `allowSpecial` is `false`.
 	 */
-	protected validateTitle(title: string | Title, allowAnonymous = false): Title {
+	protected validateTitle(title: string | Title, options: { allowAnonymous?: boolean; allowSpecial?: boolean } = {}): Title {
+		const { allowAnonymous = false, allowSpecial = false } = options;
 		if (this.isAnonymous() && !allowAnonymous) {
 			this.errorAnonymous();
 		}
@@ -2112,7 +2116,7 @@ export class Mwbot {
 				info: `"${title.getPrefixedText()}" is an interwiki title.`
 			});
 		}
-		if (title.getNamespaceId() < 0) {
+		if (!allowSpecial && title.getNamespaceId() < 0) {
 			throw new MwbotError('api_mwbot', {
 				code: 'specialtitle',
 				info: `"${title.getPrefixedText()}" is a special-namespace title.`
@@ -2274,7 +2278,7 @@ export class Mwbot {
 	): Promise<Revision | (Revision | MwbotError)[]> {
 
 		// If `titles` isn't an array, verify it (validateTitle throws an error if the title is invalid)
-		const singleTitle = !Array.isArray(titles) && this.validateTitle(titles, true);
+		const singleTitle = !Array.isArray(titles) && this.validateTitle(titles, { allowAnonymous: true });
 
 		// `pageids` and `revids` shouldn't be set because we use the `titles` parameter
 		if (!requestOptions) {
@@ -2386,7 +2390,7 @@ export class Mwbot {
 		for (let i = 0; i < titlesArray.length; i++) {
 			try {
 				// Normalize all titles as in the API response and remember the array index
-				const page = this.validateTitle(titlesArray[i], true).getPrefixedText();
+				const page = this.validateTitle(titlesArray[i], { allowAnonymous: true }).getPrefixedText();
 				titleMap[page] ||= [];
 				titleMap[page].push(i);
 				if (!multiValues.length || multiValues[multiValues.length - 1].length === apilimit) {
@@ -2785,7 +2789,7 @@ export class Mwbot {
 		// Collect valid target titles
 		const targets = titles.reduce((acc, title) => {
 			try {
-				acc.add(this.validateTitle(title, true).getPrefixedText());
+				acc.add(this.validateTitle(title, { allowAnonymous: true }).getPrefixedText());
 			} catch (err) {
 				if (!loose) throw err;
 			}
@@ -2859,7 +2863,7 @@ export class Mwbot {
 		const isArrayInput = Array.isArray(titles);
 		const titleSet = new Set<string>();
 		for (const t of (isArrayInput ? titles : [titles])) {
-			titleSet.add(this.validateTitle(t, true).getPrefixedText());
+			titleSet.add(this.validateTitle(t, { allowAnonymous: true }).getPrefixedText());
 		}
 		if (!titleSet.size) {
 			throw new MwbotError('fatal', {
@@ -2968,7 +2972,7 @@ export class Mwbot {
 		if (typeof titleOrId === 'number') {
 			pageId = titleOrId;
 		} else {
-			title = this.validateTitle(titleOrId, true);
+			title = this.validateTitle(titleOrId, { allowAnonymous: true });
 			const NS_CATEGORY = this.config.get('wgNamespaceIds').category;
 			if (title.getNamespaceId() !== NS_CATEGORY) {
 				throw new MwbotError('api_mwbot', {
@@ -3038,7 +3042,7 @@ export class Mwbot {
 		if (typeof titleOrId === 'number') {
 			pageId = titleOrId;
 		} else {
-			title = this.validateTitle(titleOrId, true);
+			title = this.validateTitle(titleOrId, { allowAnonymous: true });
 		}
 
 		// Query the API
@@ -3063,6 +3067,87 @@ export class Mwbot {
 			ret = ret.concat(links);
 		});
 		return ret;
+
+	}
+
+	/**
+	 * Retrieves a list of pages that transclude the given page(s).
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'query',
+	 *   titles: titles,
+	 *   prop: 'transcludedin',
+	 *   tilimit: 'max',
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param titles A single title or an array of titles to enumerate transclusions for.
+	 * @param additionalParams Additional parameters for
+	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Btranscludedin | `prop=transcludedin`}.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @returns A Promise that resolves to:
+	 * - An array of `transcludedin` objects if a single title is provided.
+	 * - An object mapping each normalized title (as returned by {@link TitleStatic.normalize} in `'api'` format)
+	 *   to an array of `transcludedin` objects if multiple titles are provided.
+	 * @throws {MwbotError}
+	 * If any input title fails validation via {@link validateTitle} (with `allowSpecial` set to `true`).
+	 */
+	getTransclusions(title: string | Title, additionalParams?: ApiParams): Promise<ApiResponseQueryPagesPropTranscludedin[]>;
+	getTransclusions(titles: (string | Title)[], additionalParams?: ApiParams): Promise<Record<string, ApiResponseQueryPagesPropTranscludedin[]>>;
+	async getTransclusions(
+		titles: string | Title | (string | Title)[],
+		additionalParams: ApiParams = {}
+	): Promise<ApiResponseQueryPagesPropTranscludedin[] | Record<string, ApiResponseQueryPagesPropTranscludedin[]>> {
+
+		// Normalize titles
+		const isArrayInput = Array.isArray(titles);
+		const titleSet = new Set<string>();
+		for (const t of (isArrayInput ? titles : [titles])) {
+			titleSet.add(this.validateTitle(t, { allowAnonymous: true, allowSpecial: true }).getPrefixedText());
+		}
+		if (!titleSet.size) {
+			throw new MwbotError('fatal', {
+				code: 'emptyinput',
+				info: '"titles" cannot be empty.'
+			});
+		}
+
+		// Send API requests
+		const validatedTitles = [...titleSet];
+		const responses = await this.continuedRequest({
+			...additionalParams,
+			action: 'query',
+			titles: validatedTitles,
+			prop: 'transcludedin',
+			tilimit: 'max',
+			format: 'json',
+			formatversion: '2'
+		}, {
+			limit: Infinity,
+			multiValues: 'titles'
+		});
+
+		// Process the responses and return them
+		const result: Record<string, ApiResponseQueryPagesPropTranscludedin[]> = Object.create(null);
+		for (const res of responses) {
+			const pages = res.query?.pages;
+			if (!pages) this.errorEmpty();
+			pages.forEach(({ title, transcludedin }) => {
+				if (!title || !transcludedin) return;
+				result[title] ||= [];
+				result[title].push(...transcludedin);
+			});
+		}
+
+		if (isArrayInput) {
+			return result;
+		} else {
+			return result[validatedTitles[0]] || [];
+		}
 
 	}
 
