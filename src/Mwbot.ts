@@ -879,6 +879,26 @@ export class Mwbot {
 	// ****************************** CORE REQUEST METHODS ******************************
 
 	/**
+	 * Returns a deep-cloned version of the given request options,
+	 * ensuring that the returned object is safe to mutate without affecting the original.
+	 *
+	 * If the `_cloned` flag is already present and truthy, the original object is returned as-is.
+	 * Otherwise, the object is deeply cloned via `mergeDeep()`, and `_cloned` is set to `true`
+	 * on the resulting object to prevent redundant cloning on future calls.
+	 *
+	 * @param requestOptions The request options to check and clone if needed.
+	 * @returns A safely cloneable `MwbotRequestConfig` object with `_cloned` set to `true`.
+	 */
+	protected static unrefRequestOptions(requestOptions: MwbotRequestConfig): MwbotRequestConfig {
+		if (requestOptions._cloned) {
+			return requestOptions;
+		}
+		requestOptions = mergeDeep(requestOptions);
+		requestOptions._cloned = true;
+		return requestOptions;
+	}
+
+	/**
 	 * Performs a raw HTTP request.
 	 *
 	 * **NOTE**: This method does ***not*** inject most instance-specific settings
@@ -947,10 +967,7 @@ export class Mwbot {
 	): Promise<ApiResponse> {
 
 		// Preprocess the request options
-		if (!requestOptions._cloned) {
-			requestOptions = mergeDeep(requestOptions);
-			requestOptions._cloned = true;
-		}
+		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		requestOptions = mergeDeep(Mwbot.defaultRequestOptions, this.userRequestOptions, requestOptions);
 		requestOptions.params = mergeDeep(requestOptions.params, parameters);
 		const { length, hasLongFields } = this.preprocessParameters(requestOptions.params);
@@ -997,10 +1014,7 @@ export class Mwbot {
 	protected async _request(requestOptions: MwbotRequestConfig, attemptCount?: number): Promise<ApiResponse> {
 
 		attemptCount = (attemptCount ?? 0) + 1;
-		if (!requestOptions._cloned) {
-			requestOptions = mergeDeep(requestOptions);
-			requestOptions._cloned = true;
-		}
+		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 
 		// Clone params early since POST requests will delete them from `requestOptions`
 		const clonedParams: ApiParams = { ...requestOptions.params };
@@ -1260,10 +1274,7 @@ export class Mwbot {
 	 */
 	protected async handlePost(requestOptions: MwbotRequestConfig, hasLongFields: boolean): Promise<void> {
 
-		if (!requestOptions._cloned) {
-			requestOptions = mergeDeep(requestOptions);
-			requestOptions._cloned = true;
-		}
+		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 
 		// Ensure the token parameter is last (per [[mw:API:Edit#Token]])
 		// The token will be kept away if the user is anonymous
@@ -1308,10 +1319,7 @@ export class Mwbot {
 	 * @param token Optional token for authentication.
 	 */
 	protected async handlePostMultipartFormData(requestOptions: MwbotRequestConfig, token?: string): Promise<void> {
-		if (!requestOptions._cloned) {
-			requestOptions = mergeDeep(requestOptions);
-			requestOptions._cloned = true;
-		}
+		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		const { params } = requestOptions;
 		const form = new FormData();
 
@@ -1354,10 +1362,7 @@ export class Mwbot {
 	 * @param requestOptions
 	 */
 	protected applyAuthentication(requestOptions: MwbotRequestConfig): void {
-		if (!requestOptions._cloned) {
-			requestOptions = mergeDeep(requestOptions);
-			requestOptions._cloned = true;
-		}
+		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		requestOptions.headers ||= {};
 		const { oauth2, oauth1 } = this.credentials;
 		const configureKeepAliveAgents = (): void => {
@@ -1550,10 +1555,7 @@ export class Mwbot {
 	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
 	get(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
-		if (!requestOptions._cloned) {
-			requestOptions = mergeDeep(requestOptions);
-			requestOptions._cloned = true;
-		}
+		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		requestOptions.method = 'GET';
 		return this.request(parameters, requestOptions);
 	}
@@ -1566,10 +1568,7 @@ export class Mwbot {
 	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
 	post(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
-		if (!requestOptions._cloned) {
-			requestOptions = mergeDeep(requestOptions);
-			requestOptions._cloned = true;
-		}
+		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		requestOptions.method = 'POST';
 		return this.request(parameters, requestOptions);
 	}
@@ -1586,10 +1585,7 @@ export class Mwbot {
 	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
 	nonwritePost(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
-		if (!requestOptions._cloned) {
-			requestOptions = mergeDeep(requestOptions);
-			requestOptions._cloned = true;
-		}
+		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		requestOptions.method = 'POST';
 		requestOptions.headers ||= {};
 		requestOptions.headers['Promise-Non-Write-API-Action'] = true;
@@ -1607,10 +1603,7 @@ export class Mwbot {
 	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
 	fetch(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
-		if (!requestOptions._cloned) {
-			requestOptions = mergeDeep(requestOptions);
-			requestOptions._cloned = true;
-		}
+		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		requestOptions.method = 'GET';
 		(requestOptions as MwbotRequestConfig & ReadRequestConfig).autoMethod = true;
 		return this.request(parameters, requestOptions);
@@ -1907,10 +1900,7 @@ export class Mwbot {
 			assertuser: parameters.assertuser
 		};
 		parameters.token = await this.getToken(tokenType, assertParams);
-		if (!requestOptions._cloned) {
-			requestOptions = mergeDeep(requestOptions);
-			requestOptions._cloned = true;
-		}
+		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		requestOptions.disableRetryByCode = ['badtoken'];
 		const err = await this.post(parameters, mergeDeep(requestOptions)).catch((err: MwbotError) => err);
 		if (!(err instanceof MwbotError)) {
@@ -2278,19 +2268,14 @@ export class Mwbot {
 	async read(titles: (string | Title)[], requestOptions?: MwbotRequestConfig): Promise<(Revision | MwbotError)[]>;
 	async read(
 		titles: string | Title | (string | Title)[],
-		requestOptions?: MwbotRequestConfig
+		requestOptions: MwbotRequestConfig = {}
 	): Promise<Revision | (Revision | MwbotError)[]> {
 
 		// If `titles` isn't an array, verify it (validateTitle throws an error if the title is invalid)
 		const singleTitle = !Array.isArray(titles) && this.validateTitle(titles, { allowAnonymous: true });
 
 		// `pageids` and `revids` shouldn't be set because we use the `titles` parameter
-		if (!requestOptions) {
-			requestOptions = { _cloned: true };
-		} else if (!requestOptions._cloned) {
-			requestOptions = mergeDeep(requestOptions);
-			requestOptions._cloned = true;
-		}
+		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		if (isObject(requestOptions.params)) {
 			delete requestOptions.params.pageids;
 			delete requestOptions.params.revids;
@@ -2523,7 +2508,7 @@ export class Mwbot {
 			});
 		}
 
-		const revision = await this.read(title, mergeDeep(requestOptions, { _cloned: true }));
+		const revision = await this.read(title, Mwbot.unrefRequestOptions(requestOptions));
 
 		const unresolvedParams = transform(new this.Wikitext(revision.content), { ...revision });
 		let params = unresolvedParams instanceof Promise
@@ -2560,7 +2545,7 @@ export class Mwbot {
 		// Not using _save() here because it's complicated to destructure the user-defined params
 		const result = await this.postWithCsrfToken(
 			params as ApiParams,
-			mergeDeep(requestOptions, { _cloned: true })
+			Mwbot.unrefRequestOptions(requestOptions)
 		).catch((err: MwbotError) => err);
 		const { disableRetry, disableRetryAPI, disableRetryByCode = [] } = requestOptions;
 		if (
@@ -2572,7 +2557,7 @@ export class Mwbot {
 			console.warn('Warning: Encountered an edit conflict.');
 			console.log('Retrying in 5 seconds...');
 			await sleep(5000);
-			return await this.edit(title, transform, mergeDeep(requestOptions, { _cloned: true }), ++retry);
+			return await this.edit(title, transform, Mwbot.unrefRequestOptions(requestOptions), ++retry);
 		}
 		if (result instanceof MwbotError) {
 			throw result;
@@ -2764,12 +2749,13 @@ export class Mwbot {
 	 * @throws If `response.parse` is missing. (`empty`)
 	 */
 	async parse(params: ApiParamsActionParse, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponseParse> {
-		params = mergeDeep(params, {
+		const parameters: ApiParams = {
+			...params,
 			action: 'parse',
 			format: 'json',
 			formatversion: '2'
-		});
-		const res = await this.fetch(params, requestOptions);
+		};
+		const res = await this.fetch(parameters, requestOptions);
 		if (res.parse) {
 			return res.parse;
 		}
