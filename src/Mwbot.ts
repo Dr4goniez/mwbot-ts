@@ -2914,27 +2914,48 @@ export class Mwbot {
 	}
 
 	/**
-	 * Gets a list of categories that match a certain prefix.
+	 * Retrieves a list of categories whose titles match the specified prefix.
 	 *
 	 * @param prefix The prefix to match.
-	 * @returns A Promise that resolves with an array of matched category titles without
-	 * the namespace prefix.
+	 * @param limit The maximum number of continuation cycles to perform (default: `Infinity`).
+	 * Specify this if the `prefix` is very generic and may produce too many results.
+	 * @returns A Promise that resolves to an array of matched category titles, excluding the namespace prefix.
+	 * @throws If `limit` is provided and is not a positive integer or `Infinity`. (`invalidlimit`)
 	 */
-	async getCategoriesByPrefix(prefix: string): Promise<string[]> {
+	async getCategoriesByPrefix(prefix: string, limit = Infinity): Promise<string[]> {
+
+		// Validate limit
+		if ((!Number.isInteger(limit) && limit !== Infinity) || limit <= 0) {
+			throw new MwbotError('fatal', {
+				code: 'invalidlimit',
+				info: '"limit" must be a positive integer.'
+			});
+		}
+
 		const config = this.config;
 		const NS_CATEGORY = config.get('wgNamespaceIds').category;
 		const CATEGORY_PREFIX = config.get('wgFormattedNamespaces')[NS_CATEGORY] + ':';
-		const res = await this.get({
+
+		const responses = await this.continuedRequest({
 			action: 'query',
 			list: 'allpages',
 			apprefix: prefix,
 			apnamespace: NS_CATEGORY,
+			aplimit: 'max',
 			format: 'json',
 			formatversion: '2'
-		});
-		const allpages = res.query?.allpages;
-		if (!allpages) this.errorEmpty();
-		return allpages.map(({ title }) => title.replace(CATEGORY_PREFIX, ''));
+		}, { limit });
+
+		const retSet = new Set<string>();
+		for (const res of responses) {
+			const allpages = res.query?.allpages;
+			if (!allpages) this.errorEmpty();
+			allpages.forEach(({ title }) => {
+				retSet.add(title.replace(CATEGORY_PREFIX, ''));
+			});
+		}
+		return Array.from(retSet);
+
 	}
 
 	/**
