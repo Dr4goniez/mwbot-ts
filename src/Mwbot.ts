@@ -2623,7 +2623,7 @@ export class Mwbot {
 		return this._save(this.validateTitle(title), content, summary, { section: 'new', sectiontitle }, additionalParams, requestOptions);
 	}
 
-	// ****************************** SPECIFIC REQUEST METHODS ******************************
+	// ****************************** ACTION-RELATED UTILITY REQUEST METHODS ******************************
 
 	/**
 	 * Logs in to the wiki for which this instance has been initialized.
@@ -2661,6 +2661,39 @@ export class Mwbot {
 			return resLogin;
 		}
 
+	}
+
+	/**
+	 * Performs an `action=parse` API request.
+	 *
+	 * This method enforces the `action=parse` parameter and returns a Promise that resolves to the `response.parse`
+	 * object from the API response. If this property is missing, the Promise is rejected with an `mwbot_api: empty` error.
+	 *
+	 * The following parameters are enforced:
+	 * ```
+	 * {
+	 *   action: 'parse',
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param params {@link https://www.mediawiki.org/wiki/API:Parsing_wikitext | Parameters} to the API.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the `response.parse` object from the API response, or rejecting with an error.
+	 * @throws If `response.parse` is missing. (`empty`)
+	 */
+	async parse(params: ApiParamsActionParse, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponseParse> {
+		params = mergeDeep(params, {
+			action: 'parse',
+			format: 'json',
+			formatversion: '2'
+		});
+		const res = await this.fetch(params, requestOptions);
+		if (res.parse) {
+			return res.parse;
+		}
+		this.errorEmpty(true, '("response.parse" is missing).', { response: res });
 	}
 
 	/**
@@ -2713,38 +2746,7 @@ export class Mwbot {
 		}, additionalParams), requestOptions);
 	}
 
-	/**
-	 * Performs an `action=parse` API request.
-	 *
-	 * This method enforces the `action=parse` parameter and returns a Promise that resolves to the `response.parse`
-	 * object from the API response. If this property is missing, the Promise is rejected with an `mwbot_api: empty` error.
-	 *
-	 * The following parameters are enforced:
-	 * ```
-	 * {
-	 *   action: 'parse',
-	 *   format: 'json',
-	 *   formatversion: '2'
-	 * }
-	 * ```
-	 *
-	 * @param params {@link https://www.mediawiki.org/wiki/API:Parsing_wikitext | Parameters} to the API.
-	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the `response.parse` object from the API response, or rejecting with an error.
-	 * @throws If `response.parse` is missing. (`empty`)
-	 */
-	async parse(params: ApiParamsActionParse, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponseParse> {
-		params = mergeDeep(params, {
-			action: 'parse',
-			format: 'json',
-			formatversion: '2'
-		});
-		const res = await this.fetch(params, requestOptions);
-		if (res.parse) {
-			return res.parse;
-		}
-		this.errorEmpty(true, '("response.parse" is missing).', { response: res });
-	}
+	// ****************************** QUERY-RELATED UTILITY REQUEST METHODS ******************************
 
 	/**
 	 * Gets a function to check whether pages exist.
