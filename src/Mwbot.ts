@@ -59,7 +59,8 @@ import {
 	ApiResponseQueryListCategorymembers,
 	ApiResponseQueryListBacklinks,
 	ApiResponseQueryPagesPropTranscludedin,
-	ApiResponseQuery
+	ApiResponseQuery,
+	ApiResponseQueryListPrefixsearch
 } from './api_types';
 import { MwbotError, MwbotErrorData } from './MwbotError';
 import * as Util from './Util';
@@ -3247,6 +3248,84 @@ export class Mwbot {
 			}
 			ret = mergeDeep(ret, q);
 		}
+		return ret;
+
+	}
+
+	/**
+	 * Performs a prefix search for page titles.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'query',
+	 *   list: 'prefixsearch',
+	 *   pssearch: target,
+	 *   pslimit: 'max',
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param target The search string.
+	 * @param additionalParams Additional parameters for
+	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Bprefixsearch | `list=prefixsearch`}.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param limit The maximum number of continuation cycles to perform (default: `Infinity`).
+	 * Specify this if the `target` is very generic and may produce too many results.
+	 * @returns A Promise resolving to the result array in `response.query.prefixsearch` or rejecting with an error.
+	 * @throws {MwbotError} If:
+	 * - `target` is not a string. (`typemismatch`)
+	 * - `target` is empty. (`emptyinput`)
+	 * - `limit` is provided and is not a positive integer or `Infinity`. (`invalidlimit`)
+	 * - `response.query` or `response.query.prefixsearch` is missing in the request response. (`empty`)
+	 */
+	async prefixSearch(target: string, additionalParams: ApiParams = {}, limit = Infinity): Promise<ApiResponseQueryListPrefixsearch[]> {
+
+		// Validate `target`
+		if (typeof target !== 'string') {
+			throw new MwbotError('fatal', {
+				code: 'typemismatch',
+				info: `Expected a string for "target", but got ${typeof target}.`
+			});
+		}
+		if (!target.trim()) {
+			throw new MwbotError('fatal', {
+				code: 'emptyinput',
+				info: '"target" cannot be empty.'
+			});
+		}
+
+		// Validate limit
+		if ((!Number.isInteger(limit) && limit !== Infinity) || limit <= 0) {
+			throw new MwbotError('fatal', {
+				code: 'invalidlimit',
+				info: '"limit" must be a positive integer.'
+			});
+		}
+
+		// Send an API request
+		const responses = await this.continuedRequest({
+			...additionalParams,
+			action: 'query',
+			list: 'prefixsearch',
+			pssearch: target,
+			pslimit: 'max',
+			format: 'json',
+			formatversion: '2'
+		}, { limit });
+		if (!responses.length) {
+			// `responses` is never expected to be an empty array but just in case
+			this.errorEmpty();
+		}
+
+		// Format the responses and return them as an array
+		let ret: ApiResponseQueryListPrefixsearch[] = [];
+		responses.forEach((res) => {
+			const prefixsearch = res.query?.prefixsearch;
+			if (!prefixsearch) this.errorEmpty();
+			ret = ret.concat(prefixsearch);
+		});
 		return ret;
 
 	}
