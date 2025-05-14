@@ -55,7 +55,8 @@ import {
 	ApiResponseEdit,
 	ApiResponseParse,
 	ApiResponseQueryPages,
-	PartiallyRequired
+	PartiallyRequired,
+	ApiResponseQueryListCategorymembers
 } from './api_types';
 import { MwbotError, MwbotErrorData } from './MwbotError';
 import * as Util from './Util';
@@ -1450,10 +1451,10 @@ export class Mwbot {
 	 * @param data Optional data object to set to the error.
 	 */
 	protected errorEmpty(die?: true, additionalInfo?: string, data?: MwbotErrorData): never;
-	protected errorEmpty(die: false, addtionalInfo?: string, data?: MwbotErrorData): MwbotError<'api_mwbot'>;
-	protected errorEmpty(die = true, addtionalInfo?: string, data?: MwbotErrorData): never | MwbotError<'api_mwbot'> {
+	protected errorEmpty(die: false, additionalInfo?: string, data?: MwbotErrorData): MwbotError<'api_mwbot'>;
+	protected errorEmpty(die = true, additionalInfo?: string, data?: MwbotErrorData): never | MwbotError<'api_mwbot'> {
 		die ??= true;
-		const info = 'OK response but empty result' + (addtionalInfo ? ' ' + addtionalInfo : '.');
+		const info = 'OK response but empty result' + (additionalInfo ? ' ' + additionalInfo : '.');
 		const error = new MwbotError('api_mwbot', {
 			code: 'empty',
 			info
@@ -2928,6 +2929,77 @@ export class Mwbot {
 		const allpages = res.query?.allpages;
 		if (!allpages) this.errorEmpty();
 		return allpages.map(({ title }) => title.replace(CATEGORY_PREFIX, ''));
+	}
+
+	/**
+	 * Retrieves a list of pages that belong to the given category.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'query',
+	 *   list: 'categorymembers',
+	 *   cmtitle: titleOrId, // If a string or a Title instance
+	 *   cmpageid: titleOrId, // If a number
+	 *   cmlimit: 'max',
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param titleOrId The **prefixed** title or the page ID of the category to enumerate.
+	 * @param additionalParams Additional parameters for
+	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Bcategorymembers | `list=categorymembers`}.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @returns A Promise resolving to the result array in `response.query.categorymembers` or rejecting with an error.
+	 * @throws {MwbotError} If:
+	 * - `titleOrId`, if not a number, fails title validation via {@link validateTitle}.
+	 * - `titleOrId`, if not a number, is not a category title. (`invalidtitle`)
+	 */
+	async getCategoryMembers(
+		titleOrId: string | Title | number,
+		additionalParams: ApiParams = {}
+	): Promise<ApiResponseQueryListCategorymembers[]> {
+
+		// Validate title
+		let pageId: number | false = false;
+		let title: Title | false = false;
+		if (typeof titleOrId === 'number') {
+			pageId = titleOrId;
+		} else {
+			title = this.validateTitle(titleOrId, true);
+			const NS_CATEGORY = this.config.get('wgNamespaceIds').category;
+			if (title.getNamespaceId() !== NS_CATEGORY) {
+				throw new MwbotError('api_mwbot', {
+					code: 'invalidtitle',
+					info: `"${titleOrId}" is not a category title.`
+				});
+			}
+		}
+
+		// Query the API
+		const responses = await this.continuedRequest({
+			...additionalParams,
+			action: 'query',
+			list: 'categorymembers',
+			cmtitle: title && title.getPrefixedText(),
+			cmpageid: pageId,
+			cmlimit: 'max',
+			format: 'json',
+			formatversion: '2'
+		}, {
+			limit: Infinity
+		});
+
+		// Format the responses and return them as an array
+		let ret: ApiResponseQueryListCategorymembers[] = [];
+		responses.forEach((res) => {
+			const members = res.query?.categorymembers;
+			if (!members) this.errorEmpty();
+			ret = ret.concat(members);
+		});
+		return ret;
+
 	}
 
 }
