@@ -2839,13 +2839,14 @@ export class Mwbot {
 	 * @param options.rejectProof Whether to suppress request errors (default: `false`).
 	 * If set to `true`, the method always resolves to a function, though that function
 	 * may return `null` frequently due to missing data.
-	 *
+	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise that resolves to an `exists()` function, or rejects with
 	 * an error (unless `rejectProof` is `true`).
 	 */
 	async getExistencePredicate(
 		titles: (string | Title)[],
-		options: { loose?: boolean; rejectProof?: boolean } = {}
+		options: { loose?: boolean; rejectProof?: boolean } = {},
+		requestOptions: MwbotRequestConfig = {}
 	): Promise<ExistencePredicate> {
 
 		const loose = !!options.loose;
@@ -2867,7 +2868,7 @@ export class Mwbot {
 			titles: Array.from(targets),
 			format: 'json',
 			formatversion: '2'
-		}, 'titles');
+		}, 'titles', void 0, requestOptions);
 
 		// Process responses and populate existence map
 		const list = new Map<string, boolean>();
@@ -2910,6 +2911,7 @@ export class Mwbot {
 	 * - If not provided, enumerates both hidden and unhidden categories.
 	 * - If `true`, only enumerates hidden categories (`clshow=hidden`).
 	 * - If `false`, only enumerates unhidden categories (`clshow=!hidden`).
+	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise that resolves to:
 	 * - An array of category titles (without the namespace prefix) if a single title is provided.
 	 * - An object mapping each normalized title (as returned by {@link TitleStatic.normalize} in `'api'` format)
@@ -2918,11 +2920,20 @@ export class Mwbot {
 	 * - Any input title fails validation via {@link validateTitle}.
 	 * - `titles` is an empty array. (`emptyinput`)
 	 */
-	getCategories(title: string | Title, hidden?: boolean): Promise<string[]>;
-	getCategories(titles: (string | Title)[], hidden?: boolean): Promise<Record<string, string[]>>;
+	getCategories(
+		title: string | Title,
+		hidden?: boolean,
+		requestOptions?: MwbotRequestConfig
+	): Promise<string[]>;
+	getCategories(
+		titles: (string | Title)[],
+		hidden?: boolean,
+		requestOptions?: MwbotRequestConfig
+	): Promise<Record<string, string[]>>;
 	async getCategories(
 		titles: string | Title | (string | Title)[],
-		hidden?: boolean
+		hidden?: boolean,
+		requestOptions: MwbotRequestConfig = {}
 	): Promise<string[] | Record<string, string[]>> {
 
 		// Normalize titles
@@ -2951,7 +2962,7 @@ export class Mwbot {
 		}, {
 			limit: Infinity,
 			multiValues: 'titles'
-		});
+		}, requestOptions);
 
 		// Process the responses and format categories
 		const config = this.config;
@@ -2984,10 +2995,15 @@ export class Mwbot {
 	 * @param prefix The prefix to match.
 	 * @param limit The maximum number of continuation cycles to perform (default: `Infinity`).
 	 * Specify this if the `prefix` is very generic and may produce too many results.
+	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise that resolves to an array of matched category titles, excluding the namespace prefix.
 	 * @throws If `limit` is provided and is not a positive integer or `Infinity`. (`invalidlimit`)
 	 */
-	async getCategoriesByPrefix(prefix: string, limit = Infinity): Promise<string[]> {
+	async getCategoriesByPrefix(
+		prefix: string,
+		limit = Infinity,
+		requestOptions: MwbotRequestConfig = {}
+	): Promise<string[]> {
 
 		// Validate limit
 		if ((!Number.isInteger(limit) && limit !== Infinity) || limit <= 0) {
@@ -3009,7 +3025,7 @@ export class Mwbot {
 			aplimit: 'max',
 			format: 'json',
 			formatversion: '2'
-		}, { limit });
+		}, { limit }, requestOptions);
 
 		const retSet = new Set<string>();
 		for (const res of responses) {
@@ -3043,6 +3059,7 @@ export class Mwbot {
 	 * @param additionalParams Additional parameters for
 	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Bcategorymembers | `list=categorymembers`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the result array in `response.query.categorymembers`, or rejecting with an error.
 	 * @throws If:
 	 * - `titleOrId`, if not a number, fails title validation via {@link validateTitle}.
@@ -3050,7 +3067,8 @@ export class Mwbot {
 	 */
 	async getCategoryMembers(
 		titleOrId: string | Title | number,
-		additionalParams: ApiParams = {}
+		additionalParams: ApiParams = {},
+		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponseQueryListCategorymembers[]> {
 
 		// Validate title
@@ -3079,9 +3097,7 @@ export class Mwbot {
 			cmlimit: 'max',
 			format: 'json',
 			formatversion: '2'
-		}, {
-			limit: Infinity
-		});
+		}, { limit: Infinity }, requestOptions);
 
 		// Format the responses and return them as an array
 		let ret: ApiResponseQueryListCategorymembers[] = [];
@@ -3113,6 +3129,7 @@ export class Mwbot {
 	 * @param additionalParams Additional parameters for
 	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Blinkshere | `prop=linkshere`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise that resolves to:
 	 * - An array of `linkshere` objects if a single title is provided.
 	 * - An object mapping each normalized title (as returned by {@link TitleStatic.normalize} in `'api'` format)
@@ -3121,11 +3138,20 @@ export class Mwbot {
 	 * - Any input title fails validation via {@link validateTitle} (with `allowSpecial` set to `true`).
 	 * - `titles` is an empty array. (`emptyinput`)
 	 */
-	getBacklinks(title: string | Title, additionalParams?: ApiParams): Promise<ApiResponseQueryPagesPropLinkshere[]>;
-	getBacklinks(titles: (string | Title)[], additionalParams?: ApiParams): Promise<Record<string, ApiResponseQueryPagesPropLinkshere[]>>;
+	getBacklinks(
+		title: string | Title,
+		additionalParams?: ApiParams,
+		requestOptions?: MwbotRequestConfig
+	): Promise<ApiResponseQueryPagesPropLinkshere[]>;
+	getBacklinks(
+		titles: (string | Title)[],
+		additionalParams?: ApiParams,
+		requestOptions?: MwbotRequestConfig
+	): Promise<Record<string, ApiResponseQueryPagesPropLinkshere[]>>;
 	async getBacklinks(
 		titles: string | Title | (string | Title)[],
-		additionalParams: ApiParams = {}
+		additionalParams: ApiParams = {},
+		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponseQueryPagesPropLinkshere[] | Record<string, ApiResponseQueryPagesPropLinkshere[]>> {
 
 		// Normalize titles
@@ -3154,7 +3180,7 @@ export class Mwbot {
 		}, {
 			limit: Infinity,
 			multiValues: 'titles'
-		});
+		}, requestOptions);
 
 		// Process the responses and return them
 		const result: Record<string, ApiResponseQueryPagesPropLinkshere[]> = Object.create(null);
@@ -3195,6 +3221,7 @@ export class Mwbot {
 	 * @param additionalParams Additional parameters for
 	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Btranscludedin | `prop=transcludedin`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise that resolves to:
 	 * - An array of `transcludedin` objects if a single title is provided.
 	 * - An object mapping each normalized title (as returned by {@link TitleStatic.normalize} in `'api'` format)
@@ -3203,11 +3230,20 @@ export class Mwbot {
 	 * - Any input title fails validation via {@link validateTitle} (with `allowSpecial` set to `true`).
 	 * - `titles` is an empty array. (`emptyinput`)
 	 */
-	getTransclusions(title: string | Title, additionalParams?: ApiParams): Promise<ApiResponseQueryPagesPropTranscludedin[]>;
-	getTransclusions(titles: (string | Title)[], additionalParams?: ApiParams): Promise<Record<string, ApiResponseQueryPagesPropTranscludedin[]>>;
+	getTransclusions(
+		title: string | Title,
+		additionalParams?: ApiParams,
+		requestOptions?: MwbotRequestConfig
+	): Promise<ApiResponseQueryPagesPropTranscludedin[]>;
+	getTransclusions(
+		titles: (string | Title)[],
+		additionalParams?: ApiParams,
+		requestOptions?: MwbotRequestConfig
+	): Promise<Record<string, ApiResponseQueryPagesPropTranscludedin[]>>;
 	async getTransclusions(
 		titles: string | Title | (string | Title)[],
-		additionalParams: ApiParams = {}
+		additionalParams: ApiParams = {},
+		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponseQueryPagesPropTranscludedin[] | Record<string, ApiResponseQueryPagesPropTranscludedin[]>> {
 
 		// Normalize titles
@@ -3236,7 +3272,7 @@ export class Mwbot {
 		}, {
 			limit: Infinity,
 			multiValues: 'titles'
-		});
+		}, requestOptions);
 
 		// Process the responses and return them
 		const result: Record<string, ApiResponseQueryPagesPropTranscludedin[]> = Object.create(null);
@@ -3277,6 +3313,7 @@ export class Mwbot {
 	 * @param additionalParams Additional parameters for
 	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Bsearch | `list=search`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise that resolves to the `response.query` object (not the `response.query.search`
 	 * array, as `list=search` may return additional properties in the `query` object, such as `searchinfo`).
 	 * @throws If:
@@ -3284,7 +3321,11 @@ export class Mwbot {
 	 * - `target` is empty. (`emptyinput`)
 	 * - `response.query` or `response.query.search` is missing in the request response. (`empty`)
 	 */
-	async search(target: string, additionalParams: ApiParams = {}): Promise<PartiallyRequired<ApiResponseQuery, 'search'>> {
+	async search(
+		target: string,
+		additionalParams: ApiParams = {},
+		requestOptions: MwbotRequestConfig = {}
+	): Promise<PartiallyRequired<ApiResponseQuery, 'search'>> {
 
 		// Validate `target`
 		if (typeof target !== 'string') {
@@ -3309,9 +3350,7 @@ export class Mwbot {
 			srlimit: 'max',
 			format: 'json',
 			formatversion: '2'
-		}, {
-			limit: Infinity
-		});
+		}, { limit: Infinity }, requestOptions);
 		if (!responses.length) {
 			// `responses` is never expected to be an empty array but just in case
 			this.errorEmpty();
@@ -3357,6 +3396,7 @@ export class Mwbot {
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @param limit The maximum number of continuation cycles to perform (default: `Infinity`).
 	 * Specify this if the `target` is very generic and may produce too many results.
+	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the result array in `response.query.prefixsearch`, or rejecting with an error.
 	 * @throws If:
 	 * - `target` is not a string. (`typemismatch`)
@@ -3364,7 +3404,12 @@ export class Mwbot {
 	 * - `limit` is provided and is not a positive integer or `Infinity`. (`invalidlimit`)
 	 * - `response.query` or `response.query.prefixsearch` is missing in the request response. (`empty`)
 	 */
-	async prefixSearch(target: string, additionalParams: ApiParams = {}, limit = Infinity): Promise<ApiResponseQueryListPrefixsearch[]> {
+	async prefixSearch(
+		target: string,
+		additionalParams: ApiParams = {},
+		limit = Infinity,
+		requestOptions: MwbotRequestConfig = {}
+	): Promise<ApiResponseQueryListPrefixsearch[]> {
 
 		// Validate `target`
 		if (typeof target !== 'string') {
@@ -3397,7 +3442,7 @@ export class Mwbot {
 			pslimit: 'max',
 			format: 'json',
 			formatversion: '2'
-		}, { limit });
+		}, { limit }, requestOptions);
 		if (!responses.length) {
 			// `responses` is never expected to be an empty array but just in case
 			this.errorEmpty();
