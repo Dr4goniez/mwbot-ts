@@ -56,7 +56,8 @@ import {
 	ApiResponseParse,
 	ApiResponseQueryPages,
 	PartiallyRequired,
-	ApiResponseQueryListCategorymembers
+	ApiResponseQueryListCategorymembers,
+	ApiResponseQueryListBacklinks
 } from './api_types';
 import { MwbotError, MwbotErrorData } from './MwbotError';
 import * as Util from './Util';
@@ -2997,6 +2998,69 @@ export class Mwbot {
 			const members = res.query?.categorymembers;
 			if (!members) this.errorEmpty();
 			ret = ret.concat(members);
+		});
+		return ret;
+
+	}
+
+	/**
+	 * Retrieves a list of pages that link to the given page.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'query',
+	 *   list: 'backlinks',
+	 *   bltitle: titleOrId, // If a string or a Title instance
+	 *   blpageid: titleOrId, // If a number
+	 *   bllimit: 'max',
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param titleOrId The title or the ID of the page to search.
+	 * @param additionalParams Additional parameters for
+	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Bbacklinks | `list=backlinks`}.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @returns A Promise resolving to the result array in `response.query.backlinks` or rejecting with an error.
+	 * @throws {MwbotError} If:
+	 * - `titleOrId`, if not a number, fails title validation via {@link validateTitle}.
+	 */
+	async getBacklinks(
+		titleOrId: string | Title | number,
+		additionalParams: ApiParams = {}
+	): Promise<ApiResponseQueryListBacklinks[]> {
+
+		// Validate title
+		let pageId: number | false = false;
+		let title: Title | false = false;
+		if (typeof titleOrId === 'number') {
+			pageId = titleOrId;
+		} else {
+			title = this.validateTitle(titleOrId, true);
+		}
+
+		// Query the API
+		const responses = await this.continuedRequest({
+			...additionalParams,
+			action: 'query',
+			list: 'backlinks',
+			bltitle: title && title.getPrefixedText(),
+			blpageid: pageId,
+			bllimit: 'max',
+			format: 'json',
+			formatversion: '2'
+		}, {
+			limit: Infinity
+		});
+
+		// Format the responses and return them as an array
+		let ret: ApiResponseQueryListBacklinks[] = [];
+		responses.forEach((res) => {
+			const links = res.query?.backlinks;
+			if (!links) this.errorEmpty();
+			ret = ret.concat(links);
 		});
 		return ret;
 
