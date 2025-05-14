@@ -39,11 +39,18 @@ import * as https from 'https';
 import { MWBOT_VERSION } from './version';
 import {
 	MultiValue,
+	PartiallyRequired,
 	ApiParams,
 	ApiParamsAction,
 	ApiParamsActionEdit,
 	ApiParamsActionParse,
 	ApiResponse,
+	ApiResponseEdit,
+	ApiResponseParse,
+	ApiResponseQuery,
+	ApiResponseQueryPages,
+	ApiResponseQueryPagesPropLinkshere,
+	ApiResponseQueryPagesPropTranscludedin,
 	ApiResponseQueryMetaSiteinfoGeneral,
 	ApiResponseQueryMetaSiteinfoNamespaces,
 	ApiResponseQueryMetaSiteinfoNamespacealiases,
@@ -52,14 +59,7 @@ import {
 	ApiResponseQueryMetaSiteinfoInterwikimap,
 	ApiResponseQueryMetaSiteinfoMagicwords,
 	ApiResponseQueryMetaSiteinfoFunctionhooks,
-	ApiResponseEdit,
-	ApiResponseParse,
-	ApiResponseQueryPages,
-	PartiallyRequired,
 	ApiResponseQueryListCategorymembers,
-	ApiResponseQueryListBacklinks,
-	ApiResponseQueryPagesPropTranscludedin,
-	ApiResponseQuery,
 	ApiResponseQueryListPrefixsearch
 } from './api_types';
 import { MwbotError, MwbotErrorData } from './MwbotError';
@@ -2731,9 +2731,7 @@ export class Mwbot {
 	 * @param params {@link https://www.mediawiki.org/wiki/API:Parsing_wikitext | Parameters} to the API.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the `response.parse` object from the API response, or rejecting with an error.
-	 * @throws If:
-	 * - `response.parse` is missing (causing an `mwbot_api: empty` error).
-	 * - the HTTP request fails.
+	 * @throws If `response.parse` is missing. (`empty`)
 	 */
 	async parse(params: ApiParamsActionParse, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponseParse> {
 		params = mergeDeep(params, {
@@ -2766,11 +2764,8 @@ export class Mwbot {
 	 * @param options
 	 * @param options.loose Whether to apply loose validation to the `titles` input.
 	 *
-	 * - If `false` (default), the method throws if `titles` contains:
-	 *   - a value that is neither a string nor a {@link Title} instance,
-	 *   - an empty title,
-	 *   - an interwiki title,
-	 *   - or a title in the Special or Media namespaces.
+	 * - If `false` (default), the method throws if any input title fails validation
+	 *   via {@link validateTitle}.
 	 * - If `true`, such titles are skipped (and `exists()` will return `null` for them).
 	 *
 	 * @param options.rejectProof Whether to suppress request errors (default: `false`).
@@ -2851,8 +2846,9 @@ export class Mwbot {
 	 * - An array of category titles (without the namespace prefix) if a single title is provided.
 	 * - An object mapping each normalized title (as returned by {@link TitleStatic.normalize} in `'api'` format)
 	 *   to an array of category titles (without the namespace prefix) if multiple titles are provided.
-	 *
-	 * Throws immediately if any input title fails validation via {@link validateTitle}.
+	 * @throws If
+	 * - Any input title fails validation via {@link validateTitle}.
+	 * - `titles` is an empty array. (`emptyinput`)
 	 */
 	getCategories(title: string | Title, hidden?: boolean): Promise<string[]>;
 	getCategories(titles: (string | Title)[], hidden?: boolean): Promise<Record<string, string[]>>;
@@ -2980,7 +2976,7 @@ export class Mwbot {
 	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Bcategorymembers | `list=categorymembers`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @returns A Promise resolving to the result array in `response.query.categorymembers` or rejecting with an error.
-	 * @throws {MwbotError} If:
+	 * @throws If:
 	 * - `titleOrId`, if not a number, fails title validation via {@link validateTitle}.
 	 * - `titleOrId`, if not a number, is not a category title. (`invalidtitle`)
 	 */
@@ -3031,65 +3027,84 @@ export class Mwbot {
 	}
 
 	/**
-	 * Retrieves a list of pages that link to the given page.
+	 * Retrieves a list of pages that link to the given page(s).
 	 *
 	 * Enforced parameters:
 	 * ```
 	 * {
 	 *   action: 'query',
-	 *   list: 'backlinks',
-	 *   bltitle: titleOrId, // If a string or a Title instance
-	 *   blpageid: titleOrId, // If a number
-	 *   bllimit: 'max',
+	 *   titles: titles,
+	 *   prop: 'linkshere',
+	 *   lhlimit: 'max',
 	 *   format: 'json',
 	 *   formatversion: '2'
 	 * }
 	 * ```
 	 *
-	 * @param titleOrId The title or the ID of the page to search.
+	 * @param titles A single title or an array of titles to enumerate backlinks for.
 	 * @param additionalParams Additional parameters for
-	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Bbacklinks | `list=backlinks`}.
+	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Blinkshere | `prop=linkshere`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
-	 * @returns A Promise resolving to the result array in `response.query.backlinks` or rejecting with an error.
-	 * @throws {MwbotError} If:
-	 * - `titleOrId`, if not a number, fails title validation via {@link validateTitle}.
+	 * @returns A Promise that resolves to:
+	 * - An array of `linkshere` objects if a single title is provided.
+	 * - An object mapping each normalized title (as returned by {@link TitleStatic.normalize} in `'api'` format)
+	 *   to an array of `linkshere` objects if multiple titles are provided.
+	 * @throws If
+	 * - Any input title fails validation via {@link validateTitle} (with `allowSpecial` set to `true`).
+	 * - `titles` is an empty array. (`emptyinput`)
 	 */
+	getBacklinks(title: string | Title, additionalParams?: ApiParams): Promise<ApiResponseQueryPagesPropLinkshere[]>;
+	getBacklinks(titles: (string | Title)[], additionalParams?: ApiParams): Promise<Record<string, ApiResponseQueryPagesPropLinkshere[]>>;
 	async getBacklinks(
-		titleOrId: string | Title | number,
+		titles: string | Title | (string | Title)[],
 		additionalParams: ApiParams = {}
-	): Promise<ApiResponseQueryListBacklinks[]> {
+	): Promise<ApiResponseQueryPagesPropLinkshere[] | Record<string, ApiResponseQueryPagesPropLinkshere[]>> {
 
-		// Validate title
-		let pageId: number | false = false;
-		let title: Title | false = false;
-		if (typeof titleOrId === 'number') {
-			pageId = titleOrId;
-		} else {
-			title = this.validateTitle(titleOrId, { allowAnonymous: true });
+		// Normalize titles
+		const isArrayInput = Array.isArray(titles);
+		const titleSet = new Set<string>();
+		for (const t of (isArrayInput ? titles : [titles])) {
+			titleSet.add(this.validateTitle(t, { allowAnonymous: true, allowSpecial: true }).getPrefixedText());
+		}
+		if (!titleSet.size) {
+			throw new MwbotError('fatal', {
+				code: 'emptyinput',
+				info: '"titles" cannot be empty.'
+			});
 		}
 
-		// Query the API
+		// Send API requests
+		const validatedTitles = [...titleSet];
 		const responses = await this.continuedRequest({
 			...additionalParams,
 			action: 'query',
-			list: 'backlinks',
-			bltitle: title && title.getPrefixedText(),
-			blpageid: pageId,
-			bllimit: 'max',
+			titles: validatedTitles,
+			prop: 'linkshere',
+			lhlimit: 'max',
 			format: 'json',
 			formatversion: '2'
 		}, {
-			limit: Infinity
+			limit: Infinity,
+			multiValues: 'titles'
 		});
 
-		// Format the responses and return them as an array
-		let ret: ApiResponseQueryListBacklinks[] = [];
-		responses.forEach((res) => {
-			const links = res.query?.backlinks;
-			if (!links) this.errorEmpty();
-			ret = ret.concat(links);
-		});
-		return ret;
+		// Process the responses and return them
+		const result: Record<string, ApiResponseQueryPagesPropLinkshere[]> = Object.create(null);
+		for (const res of responses) {
+			const pages = res.query?.pages;
+			if (!pages) this.errorEmpty();
+			pages.forEach(({ title, linkshere }) => {
+				if (!title || !linkshere) return;
+				result[title] ||= [];
+				result[title].push(...linkshere);
+			});
+		}
+
+		if (isArrayInput) {
+			return result;
+		} else {
+			return result[validatedTitles[0]] || [];
+		}
 
 	}
 
@@ -3116,8 +3131,9 @@ export class Mwbot {
 	 * - An array of `transcludedin` objects if a single title is provided.
 	 * - An object mapping each normalized title (as returned by {@link TitleStatic.normalize} in `'api'` format)
 	 *   to an array of `transcludedin` objects if multiple titles are provided.
-	 * @throws {MwbotError}
-	 * If any input title fails validation via {@link validateTitle} (with `allowSpecial` set to `true`).
+	 * @throws If
+	 * - Any input title fails validation via {@link validateTitle} (with `allowSpecial` set to `true`).
+	 * - `titles` is an empty array. (`emptyinput`)
 	 */
 	getTransclusions(title: string | Title, additionalParams?: ApiParams): Promise<ApiResponseQueryPagesPropTranscludedin[]>;
 	getTransclusions(titles: (string | Title)[], additionalParams?: ApiParams): Promise<Record<string, ApiResponseQueryPagesPropTranscludedin[]>>;
@@ -3195,7 +3211,7 @@ export class Mwbot {
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @returns A Promise that resolves to the `response.query` object (not the `response.query.search`
 	 * array, as `list=search` may return additional properties in the `query` object, such as `searchinfo`).
-	 * @throws {MwbotError} If:
+	 * @throws If:
 	 * - `target` is not a string. (`typemismatch`)
 	 * - `target` is empty. (`emptyinput`)
 	 * - `response.query` or `response.query.search` is missing in the request response. (`empty`)
@@ -3274,7 +3290,7 @@ export class Mwbot {
 	 * @param limit The maximum number of continuation cycles to perform (default: `Infinity`).
 	 * Specify this if the `target` is very generic and may produce too many results.
 	 * @returns A Promise resolving to the result array in `response.query.prefixsearch` or rejecting with an error.
-	 * @throws {MwbotError} If:
+	 * @throws If:
 	 * - `target` is not a string. (`typemismatch`)
 	 * - `target` is empty. (`emptyinput`)
 	 * - `limit` is provided and is not a positive integer or `Infinity`. (`invalidlimit`)
