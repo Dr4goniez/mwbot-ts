@@ -43,9 +43,11 @@ import {
 	ApiParams,
 	ApiParamsAction,
 	ApiParamsActionEdit,
+	ApiParamsActionMove,
 	ApiParamsActionParse,
 	ApiResponse,
 	ApiResponseEdit,
+	ApiResponseMove,
 	ApiResponseParse,
 	ApiResponseQuery,
 	ApiResponseQueryPages,
@@ -60,9 +62,7 @@ import {
 	ApiResponseQueryMetaSiteinfoMagicwords,
 	ApiResponseQueryMetaSiteinfoFunctionhooks,
 	ApiResponseQueryListCategorymembers,
-	ApiResponseQueryListPrefixsearch,
-	ApiParamsActionMove,
-	ApiResponseMove
+	ApiResponseQueryListPrefixsearch
 } from './api_types';
 import { MwbotError, MwbotErrorData } from './MwbotError';
 import * as Util from './Util';
@@ -2660,7 +2660,6 @@ export class Mwbot {
 	 *   from: from, // If a string or a Title instance
 	 *   fromid: from, // If a number
 	 *   to: to,
-	 *   reason: reason,
 	 *   format: 'json',
 	 *   formatversion: '2'
 	 * }
@@ -2668,7 +2667,6 @@ export class Mwbot {
 	 *
 	 * @param from The title or ID of the page to move.
 	 * @param to The destination title.
-	 * @param reason The reason for the move.
 	 * @param additionalParams Additional parameters for
 	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=move | `action=move`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
@@ -2683,7 +2681,6 @@ export class Mwbot {
 	async move(
 		from: string | Title | number,
 		to: string | Title,
-		reason: string,
 		additionalParams: Partial<ApiParamsActionMove> = {},
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponseMove> {
@@ -2716,7 +2713,6 @@ export class Mwbot {
 			from: fromTitle,
 			fromid: fromId,
 			to: toTitle,
-			reason,
 			format: 'json',
 			formatversion: '2'
 		}, requestOptions);
