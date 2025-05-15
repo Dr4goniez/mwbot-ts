@@ -45,6 +45,7 @@ import {
 	ApiParamsActionEdit,
 	ApiParamsActionMove,
 	ApiParamsActionParse,
+	ApiParamsActionRollback,
 	ApiResponse,
 	ApiResponseEdit,
 	ApiResponseMove,
@@ -62,7 +63,8 @@ import {
 	ApiResponseQueryMetaSiteinfoMagicwords,
 	ApiResponseQueryMetaSiteinfoFunctionhooks,
 	ApiResponseQueryListCategorymembers,
-	ApiResponseQueryListPrefixsearch
+	ApiResponseQueryListPrefixsearch,
+	ApiResponseRollback
 } from './api_types';
 import { MwbotError, MwbotErrorData } from './MwbotError';
 import * as Util from './Util';
@@ -2673,8 +2675,8 @@ export class Mwbot {
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the `response.move` object, or rejecting with an error.
 	 * @throws If:
-	 * - The client is anonymous.
-	 * - The client lacks the `move` user right.
+	 * - The client is anonymous. (`anonymous`)
+	 * - The client lacks the `move` user right. (`nopermission`)
 	 * - `from` is not a number and fails title validation via {@link validateTitle}.
 	 * - `to` fails title validation via {@link validateTitle}.
 	 */
@@ -2806,6 +2808,83 @@ export class Mwbot {
 			format: 'json',
 			formatversion: '2'
 		}, additionalParams), requestOptions);
+	}
+
+	/**
+	 * Rolls back the most recent edits to a page made by a specific user.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'rollback',
+	 *   title: titleOrId, // If a string or a Title instance
+	 *   pageid: pageId, // If a number
+	 *   user: user,
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param titleOrId The title or ID of the page to rollback.
+	 * @param user The username whose consecutive edits to the page should be rolled back.
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Rollback | `action=rollback`}.
+	 *
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the `response.rollback` object, or rejecting with an error.
+	 * @throws If:
+	 * - The client is anonymous. (`anonymous`)
+	 * - The client lacks the `rollback` user right. (`nopermission`)
+	 * - `titleOrId`, if not a number, fails title validation via {@link validateTitle}.
+	 */
+	async rollback(
+		titleOrId: string | Title | number,
+		user: string,
+		additionalParams: Partial<ApiParamsActionRollback> = {},
+		requestOptions: MwbotRequestConfig = {}
+	): Promise<ApiResponseRollback> {
+
+		// Loosely validate rights to rollback edits
+		if (this.isAnonymous()) {
+			this.errorAnonymous();
+		}
+		if (!this.config.get('wgUserRights').includes('rollback')) {
+			throw new MwbotError('api_mwbot', {
+				code: 'nopermission',
+				info: 'You do not have permission to rollback edits.'
+			});
+		}
+
+		// Validate title and user
+		let pageId: number | false = false;
+		let title: string | false = false;
+		if (typeof titleOrId === 'number') {
+			pageId = titleOrId;
+		} else {
+			title = this.validateTitle(titleOrId).getPrefixedText();
+		}
+		if (typeof user !== 'string') {
+			throw new MwbotError('fatal', {
+				code: 'typemismatch',
+				info: `Expected a string for "user", but got ${typeof user}.`
+			});
+		}
+
+		const res = await this.postWithToken('rollback', {
+			...additionalParams,
+			action: 'rollback',
+			title,
+			pageid: pageId,
+			user,
+			format: 'json',
+			formatversion: '2'
+		}, requestOptions);
+		if (res.rollback) {
+			return res.rollback;
+		}
+		this.errorEmpty(true, '("response.rollback" is missing).');
+
 	}
 
 	// ****************************** QUERY-RELATED UTILITY REQUEST METHODS ******************************

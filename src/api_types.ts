@@ -424,6 +424,19 @@ export interface ApiParamsActionParse extends ApiParams {
 		| "unknown/unknown";
 }
 
+export interface ApiParamsActionRollback extends ApiParams {
+	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
+    title?: string;
+    pageid?: number;
+    tags?: string | string[];
+    user: string;
+    summary?: string;
+    markbot?: boolean;
+    watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+    watchlistexpiry?: string;
+    token?: string;
+}
+
 // ************************************** Response types **************************************
 
 export interface ApiResponse {
@@ -532,7 +545,7 @@ export interface ApiResponse {
 	// removeauthenticationdata?: ApiResponseRemoveauthenticationdata;
 	// resetpassword?: ApiResponseResetpassword;
 	// revisiondelete?: ApiResponseRevisiondelete;
-	// rollback?: ApiResponseRollback;
+	rollback?: ApiResponseRollback;
 	// rsd?: ApiResponseRsd;
 	// searchtranslations?: ApiResponseSearchtranslations;
 	// setglobalaccountstatus?: ApiResponseSetglobalaccountstatus;
@@ -1194,7 +1207,16 @@ export interface ApiResponsePurge extends _PageSetInvalidTitlesAndRevisions { //
 // export interface ApiResponseRemoveauthenticationdata {}
 // export interface ApiResponseResetpassword {}
 // export interface ApiResponseRevisiondelete {}
-// export interface ApiResponseRollback {}
+
+export interface ApiResponseRollback { // Fully checked (source code level)
+    title: string;
+    pageid: number;
+    summary: string;
+    revid: number;
+    old_revid: number;
+    last_revid: number;
+}
+
 // export interface ApiResponseRsd {}
 // export interface ApiResponseSearchtranslations {}
 // export interface ApiResponseSetglobalaccountstatus {}
