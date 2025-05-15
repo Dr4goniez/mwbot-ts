@@ -663,6 +663,30 @@ export class Mwbot {
 		return this._info.user.rights.includes('apihighlimits') ? 500 : 50;
 	}
 
+	/**
+	 * Checks whether the authenticated user has the specified user right(s).
+	 *
+	 * @param rights The user right or list of rights to check.
+	 * @param mode The match mode:
+	 * - `'every'` (default) returns `true` only if the user has all of the specified rights.
+	 * - `'some'` returns `true` if the user has at least one of them.
+	 * @returns `true` if the user has the specified right(s) according to the chosen mode;
+	 * otherwise `false`.
+	 */
+	hasRights(rights: string | string[], mode: 'every' | 'some' = 'every'): boolean {
+		rights = Array.isArray(rights) ? rights : [rights];
+		const possessed = new Set(this._info.user.rights);
+		switch (mode) {
+			case 'every': return rights.every((r) => possessed.has(r));
+			case 'some': return rights.some((r) => possessed.has(r));
+			default:
+				throw new MwbotError('fatal', {
+					code: 'typemismatch',
+					info: `"${mode}" is invalid as the "mode" parameter value.`
+				});
+		}
+	}
+
 	// ****************************** SITE-RELATED CONFIG ******************************
 
 	/**
@@ -2691,7 +2715,7 @@ export class Mwbot {
 		if (this.isAnonymous()) {
 			this.errorAnonymous();
 		}
-		if (!this.config.get('wgUserRights').includes('move')) {
+		if (!this.hasRights('move')) {
 			throw new MwbotError('api_mwbot', {
 				code: 'nopermission',
 				info: 'You do not have permission to move pages.'
@@ -2849,7 +2873,7 @@ export class Mwbot {
 		if (this.isAnonymous()) {
 			this.errorAnonymous();
 		}
-		if (!this.config.get('wgUserRights').includes('rollback')) {
+		if (!this.hasRights('rollback')) {
 			throw new MwbotError('api_mwbot', {
 				code: 'nopermission',
 				info: 'You do not have permission to rollback edits.'
