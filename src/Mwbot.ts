@@ -1956,11 +1956,11 @@ export class Mwbot {
 			},
 			additionalParams
 		);
-		const res = await this.get(params, requestOptions);
-		const resToken = res.query?.tokens;
-		if (resToken && isEmptyObject(resToken) === false) {
-			this.tokens = resToken; // Update cashed tokens
-			const token = resToken[tokenName];
+		const response = await this.get(params, requestOptions);
+		const tokenMap = response.query?.tokens;
+		if (tokenMap && isEmptyObject(tokenMap) === false) {
+			this.tokens = tokenMap; // Update cashed tokens
+			const token = tokenMap[tokenName];
 			if (token) {
 				return token;
 			} else {
@@ -1970,7 +1970,7 @@ export class Mwbot {
 				});
 			}
 		} else {
-			this.errorEmpty();
+			this.errorEmpty(true, void 0, { response });
 		}
 	}
 
@@ -2339,7 +2339,7 @@ export class Mwbot {
 			const res = await this.get(params, requestOptions);
 			const pages = res.query?.pages;
 			if (!pages || !pages[0]) {
-				this.errorEmpty(true, void 0, { title: t });
+				this.errorEmpty(true, '("response.query.pages" is missing).', { title: t });
 			}
 			pages[0].title ??= t;
 			const processed = processSinglePage(
@@ -2415,7 +2415,7 @@ export class Mwbot {
 
 			const pages = res.query?.pages;
 			if (!pages) {
-				setToAll(this.errorEmpty(false), batchIndex);
+				setToAll(this.errorEmpty(false, '("response.query.pages" is missing).', { response: res }), batchIndex);
 				continue;
 			}
 
@@ -2628,7 +2628,7 @@ export class Mwbot {
 		const token = await this.getToken('login', { maxlag: void 0 }, disableRetryAPI);
 
 		// Login
-		const resLogin = await this.post({
+		const response = await this.post({
 			action: 'login',
 			lgname: username,
 			lgpassword: password,
@@ -2638,16 +2638,16 @@ export class Mwbot {
 			maxlag: void 0 // Overwrite maxlag to have this request prioritized
 		}, disableRetryAPI);
 
-		if (!resLogin.login) {
-			this.errorEmpty(true, void 0, { response: resLogin });
-		} else if (resLogin.login.result !== 'Success') {
+		if (!response.login) {
+			this.errorEmpty(true, '("response.login" is missing).', { response });
+		} else if (response.login.result !== 'Success') {
 			throw new MwbotError('api_mwbot', {
 				code: 'loginfailed',
-				info: resLogin.login.reason || 'Failed to log in.'
-			}, { response: resLogin });
+				info: response.login.reason || 'Failed to log in.'
+			}, { response });
 		} else {
 			this.tokens = {}; // Clear cashed tokens because these can't be used for the newly logged-in user
-			return resLogin;
+			return response;
 		}
 
 	}
@@ -2722,7 +2722,7 @@ export class Mwbot {
 		if (response.move) {
 			return response.move;
 		}
-		this.errorEmpty(true, '("response.move") is missing.');
+		this.errorEmpty(true, '("response.move") is missing.', { response });
 
 	}
 
@@ -2753,11 +2753,11 @@ export class Mwbot {
 			format: 'json',
 			formatversion: '2'
 		};
-		const res = await this.fetch(parameters, requestOptions);
-		if (res.parse) {
-			return res.parse;
+		const response = await this.fetch(parameters, requestOptions);
+		if (response.parse) {
+			return response.parse;
 		}
-		this.errorEmpty(true, '("response.parse" is missing).', { response: res });
+		this.errorEmpty(true, '("response.parse" is missing).', { response });
 	}
 
 	/**
@@ -2871,7 +2871,7 @@ export class Mwbot {
 			});
 		}
 
-		const res = await this.postWithToken('rollback', {
+		const response = await this.postWithToken('rollback', {
 			...additionalParams,
 			action: 'rollback',
 			title,
@@ -2880,10 +2880,10 @@ export class Mwbot {
 			format: 'json',
 			formatversion: '2'
 		}, requestOptions);
-		if (res.rollback) {
-			return res.rollback;
+		if (response.rollback) {
+			return response.rollback;
 		}
-		this.errorEmpty(true, '("response.rollback" is missing).');
+		this.errorEmpty(true, '("response.rollback" is missing).', { response });
 
 	}
 
@@ -2955,7 +2955,7 @@ export class Mwbot {
 			const pages = res.query?.pages;
 			if (!pages) {
 				if (rejectProof) continue;
-				this.errorEmpty();
+				this.errorEmpty(true, '("response.query.pages" is missing).', { response: res });
 			}
 			for (const { ns, title, missing } of pages) {
 				if (title && typeof ns === 'number') {
@@ -3047,7 +3047,7 @@ export class Mwbot {
 		const result: Record<string, string[]> = Object.create(null);
 		for (const res of responses) {
 			const pages = res.query?.pages;
-			if (!pages) this.errorEmpty();
+			if (!pages) this.errorEmpty(true, '("response.query.pages" is missing).', { response: res });
 			pages.forEach(({ title, categories }) => {
 				if (!title || !categories) return;
 				const stripped = categories.map(c => c.title.replace(CATEGORY_PREFIX, ''));
@@ -3105,7 +3105,7 @@ export class Mwbot {
 		const retSet = new Set<string>();
 		for (const res of responses) {
 			const allpages = res.query?.allpages;
-			if (!allpages) this.errorEmpty();
+			if (!allpages) this.errorEmpty(true, '("response.query.allpages" is missing).', { response: res });
 			allpages.forEach(({ title }) => {
 				retSet.add(title.replace(CATEGORY_PREFIX, ''));
 			});
@@ -3178,7 +3178,7 @@ export class Mwbot {
 		let ret: ApiResponseQueryListCategorymembers[] = [];
 		responses.forEach((res) => {
 			const members = res.query?.categorymembers;
-			if (!members) this.errorEmpty();
+			if (!members) this.errorEmpty(true, '("response.query.categorymembers" is missing).', { response: res });
 			ret = ret.concat(members);
 		});
 		return ret;
@@ -3261,7 +3261,7 @@ export class Mwbot {
 		const result: Record<string, ApiResponseQueryPagesPropLinkshere[]> = Object.create(null);
 		for (const res of responses) {
 			const pages = res.query?.pages;
-			if (!pages) this.errorEmpty();
+			if (!pages) this.errorEmpty(true, '("response.query.pages" is missing).', { response: res });
 			pages.forEach(({ title, linkshere }) => {
 				if (!title || !linkshere) return;
 				result[title] ||= [];
@@ -3353,7 +3353,7 @@ export class Mwbot {
 		const result: Record<string, ApiResponseQueryPagesPropTranscludedin[]> = Object.create(null);
 		for (const res of responses) {
 			const pages = res.query?.pages;
-			if (!pages) this.errorEmpty();
+			if (!pages) this.errorEmpty(true, '("response.query.pages" is missing).', { response: res });
 			pages.forEach(({ title, transcludedin }) => {
 				if (!title || !transcludedin) return;
 				result[title] ||= [];
@@ -3433,18 +3433,18 @@ export class Mwbot {
 
 		// Merge the response arrays into a single object and return it
 		let ret: PartiallyRequired<ApiResponseQuery, 'search'> = Object.create(null);
-		for (const { query } of responses) {
-			if (!query) {
-				this.errorEmpty(true, '("response.query" is missing).');
+		for (const res of responses) {
+			if (!res.query) {
+				this.errorEmpty(true, '("response.query" is missing).', { response: res });
 			}
-			if (!query.search) {
-				this.errorEmpty(true, '("response.query.search" is missing).');
+			if (!res.query.search) {
+				this.errorEmpty(true, '("response.query.search" is missing).', { response: res });
 			}
-			const q = query as PartiallyRequired<ApiResponseQuery, 'search'>;
+			const query = res.query as PartiallyRequired<ApiResponseQuery, 'search'>;
 			if (responses.length === 1) {
-				return q;
+				return query;
 			}
-			ret = mergeDeep(ret, q);
+			ret = mergeDeep(ret, query);
 		}
 		return ret;
 
@@ -3527,7 +3527,7 @@ export class Mwbot {
 		let ret: ApiResponseQueryListPrefixsearch[] = [];
 		responses.forEach((res) => {
 			const prefixsearch = res.query?.prefixsearch;
-			if (!prefixsearch) this.errorEmpty();
+			if (!prefixsearch) this.errorEmpty(true, '("response.query.prefixsearch" is missing).', { response: res });
 			ret = ret.concat(prefixsearch);
 		});
 		return ret;
