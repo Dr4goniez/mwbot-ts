@@ -1744,8 +1744,8 @@ export class Mwbot {
 	}
 
 	/**
-	 * Performs API requests with a multi-value field that is subject to the apilimit, processing multiple requests
-	 * in parallel if necessary.
+	 * Performs API requests with a multi-value field that is subject to the apilimit, processing multiple
+	 * requests in parallel if necessary.
 	 *
 	 * For example:
 	 * ```ts
@@ -1756,8 +1756,13 @@ export class Mwbot {
 	 * }
 	 * ```
 	 * Pass the multi-value field as an array, and this method will automatically split it based on the
-	 * user's apilimit (`500` for bots, `50` otherwise). The key(s) of the multi-value field(s) must be passed
-	 * as the second parameter.
+	 * user's apilimit (`500` for bots, `50` otherwise). The key(s) of the multi-value field(s) must be
+	 * passed as the second parameter.
+	 *
+	 * **Request method**:
+	 *
+	 * By default, this method assumes a **read-only request** and automatically chooses between `GET` and `POST`.
+	 * To perform a database write action, `requestOptions.method` must be explicitly set to `'POST'`.
 	 *
 	 * @param parameters Parameters to the API, including multi-value fields.
 	 * @param keys The key(s) of the multi-value field(s) to split (e.g., `titles`).
@@ -1793,11 +1798,21 @@ export class Mwbot {
 			});
 		}
 
+		// Set up request options
+		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
+		const method = typeof requestOptions.method === 'string' && requestOptions.method.toUpperCase();
+		if (method !== 'POST') {
+			requestOptions.method = 'GET';
+			(requestOptions as MwbotRequestConfig & ReadRequestConfig).autoMethod = true;
+		}
+		delete requestOptions._cloned; // Let request() handle mutation prevention for each request
+		requestOptions.timeout ??= 120 * 1000;
+
 		// Send API requests in batches of 100
 		const results: (ApiResponse | MwbotError)[] = [];
 		for (let i = 0; i < batchParams.length; i += 100) {
 			const batch = batchParams.slice(i, i + 100).map((params) =>
-				this.fetch(params, requestOptions).catch((err: MwbotError) => err)
+				this.request(params, requestOptions).catch((err: MwbotError) => err)
 			);
 			const batchResults = await Promise.all(batch);
 			results.push(...batchResults);
