@@ -454,6 +454,19 @@ export interface ApiParamsActionRollback extends ApiParams {
     token?: string;
 }
 
+export interface ApiParamsActionUndelete extends ApiParams {
+	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
+    title: string;
+    reason?: string;
+    tags?: string | string[];
+    timestamps?: string | string[];
+    fileids?: number | number[];
+    undeletetalk?: boolean;
+    watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+    watchlistexpiry?: string;
+    token?: string;
+}
+
 // ************************************** Response types **************************************
 
 export interface ApiResponse {
@@ -585,7 +598,7 @@ export interface ApiResponse {
 	// translationstats?: ApiResponseTranslationstats;
 	// ttmserver?: ApiResponseTtmserver;
 	// unblock?: ApiResponseUnblock;
-	// undelete?: ApiResponseUndelete;
+	undelete?: ApiResponseUndelete;
 	// unlinkaccount?: ApiResponseUnlinkaccount;
 	// upload?: ApiResponseUpload;
 	// userrights?: ApiResponseUserrights;
@@ -1290,7 +1303,14 @@ export interface ApiResponseSitematrixSiteSpecial extends ApiResponseSitematrixS
 // export interface ApiResponseTranslationstats {}
 // export interface ApiResponseTtmserver {}
 // export interface ApiResponseUnblock {}
-// export interface ApiResponseUndelete {}
+
+export interface ApiResponseUndelete {
+	title: string;
+	revisions: number;
+	fileversions: number;
+	reason: string;
+}
+
 // export interface ApiResponseUnlinkaccount {}
 // export interface ApiResponseUpload {}
 // export interface ApiResponseUserights {}

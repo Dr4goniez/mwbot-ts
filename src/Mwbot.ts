@@ -47,6 +47,7 @@ import {
 	ApiParamsActionMove,
 	ApiParamsActionParse,
 	ApiParamsActionRollback,
+	ApiParamsActionUndelete,
 	ApiResponse,
 	ApiResponseDelete,
 	ApiResponseEdit,
@@ -66,7 +67,8 @@ import {
 	ApiResponseQueryMetaSiteinfoFunctionhooks,
 	ApiResponseQueryListCategorymembers,
 	ApiResponseQueryListPrefixsearch,
-	ApiResponseRollback
+	ApiResponseRollback,
+	ApiResponseUndelete
 } from './api_types';
 import { MwbotError, MwbotErrorData } from './MwbotError';
 import * as Util from './Util';
@@ -2990,6 +2992,70 @@ export class Mwbot {
 			return response.rollback;
 		}
 		this.errorEmpty(true, '("response.rollback" is missing).', { response });
+
+	}
+
+	/**
+	 * Undeletes revisions of a deleted page.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'undelete',
+	 *   title: title,
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * This method does not automatically handle multi-value fields that exceed the {@link apilimit}.
+	 * Such cases must be handled manually (e.g., via {@link massRequest}).
+	 *
+	 * @param title The title of the page to undelete.
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Undelete | `action=undelete`}.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the `response.undelete` object, or rejecting with an error.
+	 * @throws If:
+	 * - The client is anonymous. (`anonymous`)
+	 * - The client lacks the `undelete` user right. (`nopermission`)
+	 * - `title` fails title validation via {@link validateTitle}.
+	 */
+	async undelete(
+		title: string | Title,
+		additionalParams: Partial<ApiParamsActionUndelete> = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<ApiResponseUndelete> {
+
+		// Loosely validate rights to undelete revisions
+		if (this.isAnonymous()) {
+			this.errorAnonymous();
+		}
+		if (!this.hasRights('undelete')) {
+			throw new MwbotError('api_mwbot', {
+				code: 'nopermission',
+				info: 'You do not have permission to undelete revisions.'
+			});
+		}
+
+		title = this.validateTitle(title).getPrefixedText();
+		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
+		requestOptions.timeout ??= 180 * 1000;
+
+		// Undeletes the revisions
+		const response = await this.postWithCsrfToken({
+			...additionalParams,
+			action: 'undelete',
+			title,
+			format: 'json',
+			formatversion: '2'
+		}, requestOptions);
+
+		if (response.undelete) {
+			return response.undelete;
+		}
+		this.errorEmpty(true, '("response.undelete") is missing.', { response });
 
 	}
 
