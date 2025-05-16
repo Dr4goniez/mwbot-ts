@@ -2680,8 +2680,8 @@ export class Mwbot {
 	 *
 	 * @param from The title or ID of the page to move.
 	 * @param to The destination title.
-	 * @param additionalParams Additional parameters for
-	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=move | `action=move`}.
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Move | `action=move`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the `response.move` object, or rejecting with an error.
@@ -2840,7 +2840,6 @@ export class Mwbot {
 	 * @param user The username whose consecutive edits to the page should be rolled back.
 	 * @param additionalParams
 	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Rollback | `action=rollback`}.
-	 *
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the `response.rollback` object, or rejecting with an error.
@@ -3142,8 +3141,8 @@ export class Mwbot {
 	 * ```
 	 *
 	 * @param titleOrId The **prefixed** title or the page ID of the category to enumerate.
-	 * @param additionalParams Additional parameters for
-	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Bcategorymembers | `list=categorymembers`}.
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Categorymembers | `list=categorymembers`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the result array in `response.query.categorymembers`, or rejecting with an error.
@@ -3212,8 +3211,8 @@ export class Mwbot {
 	 * ```
 	 *
 	 * @param titles A single title or an array of titles to enumerate backlinks for.
-	 * @param additionalParams Additional parameters for
-	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Blinkshere | `prop=linkshere`}.
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Linkshere | `prop=linkshere`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise that resolves to:
@@ -3304,8 +3303,8 @@ export class Mwbot {
 	 * ```
 	 *
 	 * @param titles A single title or an array of titles to enumerate transclusions for.
-	 * @param additionalParams Additional parameters for
-	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Btranscludedin | `prop=transcludedin`}.
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Transcludedin | `prop=transcludedin`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise that resolves to:
@@ -3396,8 +3395,8 @@ export class Mwbot {
 	 * ```
 	 *
 	 * @param target The search query string to look for in page titles or content.
-	 * @param additionalParams Additional parameters for
-	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Bsearch | `list=search`}.
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Search | `list=search`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise that resolves to the `response.query` object (not the `response.query.search`
@@ -3477,8 +3476,8 @@ export class Mwbot {
 	 * ```
 	 *
 	 * @param target The search string.
-	 * @param additionalParams Additional parameters for
-	 * {@link https://www.mediawiki.org/w/api.php?action=help&modules=query%2Bprefixsearch | `list=prefixsearch`}.
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Prefixsearch | `list=prefixsearch`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @param limit The maximum number of continuation cycles to perform (default: `Infinity`).
 	 * Specify this if the `target` is very generic and may produce too many results.
