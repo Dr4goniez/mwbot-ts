@@ -660,7 +660,7 @@ export class Mwbot {
 	 * @returns `500` for users with the `apihighlimits` permission; otherwise, `50`.
 	 */
 	get apilimit(): 500 | 50 {
-		return this._info.user.rights.includes('apihighlimits') ? 500 : 50;
+		return this.hasRights('apihighlimits') ? 500 : 50;
 	}
 
 	/**
