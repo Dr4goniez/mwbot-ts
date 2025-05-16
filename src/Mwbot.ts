@@ -667,24 +667,17 @@ export class Mwbot {
 	 * Checks whether the authenticated user has the specified user right(s).
 	 *
 	 * @param rights The user right or list of rights to check.
-	 * @param mode The match mode:
-	 * - `'every'` (default) returns `true` only if the user has all of the specified rights.
-	 * - `'some'` returns `true` if the user has at least one of them.
-	 * @returns `true` if the user has the specified right(s) according to the chosen mode;
-	 * otherwise `false`.
+	 * @param requireAll
+	 * Whether to require **all** rights (`true`, default) or **any** one of them (`false`).
+	 * @returns
+	 * `true` if the user has the specified right(s) according to the given condition; otherwise `false`.
 	 */
-	hasRights(rights: string | string[], mode: 'every' | 'some' = 'every'): boolean {
+	hasRights(rights: string | string[], requireAll = true): boolean {
 		rights = Array.isArray(rights) ? rights : [rights];
 		const possessed = new Set(this._info.user.rights);
-		switch (mode) {
-			case 'every': return rights.every((r) => possessed.has(r));
-			case 'some': return rights.some((r) => possessed.has(r));
-			default:
-				throw new MwbotError('fatal', {
-					code: 'typemismatch',
-					info: `"${mode}" is invalid as the "mode" parameter value.`
-				});
-		}
+		return requireAll
+			? rights.every((r) => possessed.has(r))
+			: rights.some((r) => possessed.has(r));
 	}
 
 	// ****************************** SITE-RELATED CONFIG ******************************
