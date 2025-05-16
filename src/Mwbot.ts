@@ -1963,17 +1963,14 @@ export class Mwbot {
 		if (typeof additionalParams === 'string') {
 			additionalParams = { assert: additionalParams };
 		}
-		const params = Object.assign(
-			{
-				action: 'query',
-				meta: 'tokens',
-				type: '*',
-				format: 'json',
-				formatversion: '2'
-			},
-			additionalParams
-		);
-		const response = await this.get(params, requestOptions);
+		const response = await this.get({
+			action: 'query',
+			meta: 'tokens',
+			type: '*',
+			format: 'json',
+			formatversion: '2',
+			...additionalParams
+		}, requestOptions);
 		const tokenMap = response.query?.tokens;
 		if (tokenMap && isEmptyObject(tokenMap) === false) {
 			this.tokens = tokenMap; // Update cashed tokens
@@ -2157,20 +2154,17 @@ export class Mwbot {
 		additionalParams: ApiParamsActionEdit = {},
 		requestOptions: MwbotRequestConfig = {}
 	): Promise<ApiResponseEditSuccess> {
-		const params: ApiParamsActionEdit = Object.assign(
-			{
-				action: 'edit',
-				title: title.getPrefixedDb(),
-				text: content,
-				summary,
-				bot: true,
-				format: 'json',
-				formatversion: '2'
-			},
-			internalOptions,
-			additionalParams
-		);
-		const res = await this.postWithCsrfToken(params as ApiParams, requestOptions);
+		const res = await this.postWithCsrfToken({
+			action: 'edit',
+			title: title.getPrefixedDb(),
+			text: content,
+			summary,
+			bot: true,
+			format: 'json',
+			formatversion: '2',
+			...internalOptions,
+			...additionalParams
+		}, requestOptions);
 		if (res.edit?.result === 'Success') {
 			return res.edit as ApiResponseEditSuccess;
 		}
@@ -2478,7 +2472,7 @@ export class Mwbot {
 				} else if (value instanceof MwbotError) {
 					ret[retIndex] = deepCloneInstance(value);
 				} else {
-					ret[retIndex] = Object.assign({}, value);
+					ret[retIndex] = { ...value };
 				}
 			});
 		}
@@ -2812,19 +2806,19 @@ export class Mwbot {
 			}
 		});
 		if (invalid.length) {
-			const err = new MwbotError('fatal', {
+			throw new MwbotError('fatal', {
 				code: 'typemismatch',
 				info: 'The array passed as the first argument of purge() must only contain strings or Title instances.'
 			}, { invalid });
-			throw err;
 		}
-		return this.post(Object.assign({
+		return this.post({
 			action: 'purge',
 			forcelinkupdate: true,
 			titles: [...titleSet],
 			format: 'json',
-			formatversion: '2'
-		}, additionalParams), requestOptions);
+			formatversion: '2',
+			...additionalParams
+		}, requestOptions);
 	}
 
 	/**
