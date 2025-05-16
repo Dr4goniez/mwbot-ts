@@ -900,8 +900,11 @@ export class Mwbot {
 	// ****************************** CORE REQUEST METHODS ******************************
 
 	/**
-	 * Returns a deep-cloned version of the given request options,
-	 * ensuring that the returned object is safe to mutate without affecting the original.
+	 * Returns a deep-cloned version of the given request options, ensuring that the returned object
+	 * is safe to mutate without affecting the original.
+	 *
+	 * If `requestOptions` is `undefined` or an empty object, a new object with `_cloned: true` is
+	 * returned immediately to avoid unnecessary cloning.
 	 *
 	 * If the `_cloned` flag is already present and truthy, the original object is returned as-is.
 	 * Otherwise, the object is deeply cloned via `mergeDeep()`, and `_cloned` is set to `true`
@@ -910,7 +913,10 @@ export class Mwbot {
 	 * @param requestOptions The request options to check and clone if needed.
 	 * @returns A safely cloneable `MwbotRequestConfig` object with `_cloned` set to `true`.
 	 */
-	protected static unrefRequestOptions(requestOptions: MwbotRequestConfig): MwbotRequestConfig {
+	protected static unrefRequestOptions(requestOptions?: MwbotRequestConfig): MwbotRequestConfig {
+		if (requestOptions === undefined || isEmptyObject(requestOptions)) {
+			return { _cloned: true };
+		}
 		if (requestOptions._cloned) {
 			return requestOptions;
 		}
@@ -984,7 +990,7 @@ export class Mwbot {
 	 */
 	async request(
 		parameters: ApiParams,
-		requestOptions: MwbotRequestConfig & ReadRequestConfig = {}
+		requestOptions?: MwbotRequestConfig & ReadRequestConfig
 	): Promise<ApiResponse> {
 
 		// Preprocess the request options
@@ -1575,7 +1581,7 @@ export class Mwbot {
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
-	get(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
+	get(parameters: ApiParams, requestOptions?: MwbotRequestConfig): Promise<ApiResponse> {
 		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		requestOptions.method = 'GET';
 		return this.request(parameters, requestOptions);
@@ -1588,7 +1594,7 @@ export class Mwbot {
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
-	post(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
+	post(parameters: ApiParams, requestOptions?: MwbotRequestConfig): Promise<ApiResponse> {
 		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		requestOptions.method = 'POST';
 		return this.request(parameters, requestOptions);
@@ -1605,7 +1611,7 @@ export class Mwbot {
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
-	nonwritePost(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
+	nonwritePost(parameters: ApiParams, requestOptions?: MwbotRequestConfig): Promise<ApiResponse> {
 		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		requestOptions.method = 'POST';
 		requestOptions.headers ||= {};
@@ -1623,7 +1629,7 @@ export class Mwbot {
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
-	fetch(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
+	fetch(parameters: ApiParams, requestOptions?: MwbotRequestConfig): Promise<ApiResponse> {
 		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		requestOptions.method = 'GET';
 		(requestOptions as MwbotRequestConfig & ReadRequestConfig).autoMethod = true;
@@ -1675,7 +1681,7 @@ export class Mwbot {
 	async continuedRequest(
 		parameters: ApiParams,
 		options: { rejectProof?: boolean; limit?: number; multiValues?: string | string[] } = {},
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<(ApiResponse | MwbotError)[]> {
 
 		const { rejectProof = false, limit = 10, multiValues } = options;
@@ -1767,7 +1773,7 @@ export class Mwbot {
 		parameters: ApiParams,
 		keys: string | string[],
 		batchSize?: number,
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<(ApiResponse | MwbotError)[]> {
 
 		// Create batch array
@@ -1912,7 +1918,11 @@ export class Mwbot {
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
-	async postWithToken(tokenType: string, parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
+	async postWithToken(
+		tokenType: string,
+		parameters: ApiParams,
+		requestOptions?: MwbotRequestConfig
+	): Promise<ApiResponse> {
 		if (this.isAnonymous()) {
 			this.errorAnonymous();
 		}
@@ -1950,7 +1960,7 @@ export class Mwbot {
 	async getToken(
 		tokenType: string,
 		additionalParams?: ApiParams | 'user' | 'bot' | 'anon',
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<string> {
 
 		// Check for a cached token
@@ -2060,7 +2070,7 @@ export class Mwbot {
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
-	postWithCsrfToken(parameters: ApiParams, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
+	postWithCsrfToken(parameters: ApiParams, requestOptions?: MwbotRequestConfig): Promise<ApiResponse> {
 		return this.postWithToken('csrf', parameters, requestOptions);
 	}
 
@@ -2072,7 +2082,7 @@ export class Mwbot {
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to a CSRF token, or rejecting with an error.
 	 */
-	getCsrfToken(requestOptions: MwbotRequestConfig = {}): Promise<string> {
+	getCsrfToken(requestOptions?: MwbotRequestConfig): Promise<string> {
 		return this.getToken('csrf', void 0, requestOptions);
 	}
 
@@ -2154,7 +2164,7 @@ export class Mwbot {
 		summary?: string,
 		internalOptions: ApiParamsActionEdit = {},
 		additionalParams: ApiParamsActionEdit = {},
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseEditSuccess> {
 		const res = await this.postWithCsrfToken({
 			action: 'edit',
@@ -2210,7 +2220,7 @@ export class Mwbot {
 		content: string,
 		summary?: string,
 		additionalParams: ApiParamsActionEdit = {},
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseEditSuccess> {
 		return this._save(this.validateTitle(title), content, summary, { createonly: true }, additionalParams, requestOptions);
 	}
@@ -2249,7 +2259,7 @@ export class Mwbot {
 		content: string,
 		summary?: string,
 		additionalParams: ApiParamsActionEdit = {},
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponse> {
 		return this._save(this.validateTitle(title), content, summary, { nocreate: true }, additionalParams, requestOptions);
 	}
@@ -2283,7 +2293,7 @@ export class Mwbot {
 	async read(titles: (string | Title)[], requestOptions?: MwbotRequestConfig): Promise<(Revision | MwbotError)[]>;
 	async read(
 		titles: string | Title | (string | Title)[],
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<Revision | (Revision | MwbotError)[]> {
 
 		// If `titles` isn't an array, verify it (validateTitle throws an error if the title is invalid)
@@ -2511,7 +2521,7 @@ export class Mwbot {
 	async edit(
 		title: string | Title,
 		transform: TransformationPredicate,
-		requestOptions: MwbotRequestConfig = {},
+		requestOptions?: MwbotRequestConfig,
 		/** @private */
 		retry = 0
 	): Promise<ApiResponseEditSuccess> {
@@ -2562,7 +2572,7 @@ export class Mwbot {
 			params as ApiParams,
 			Mwbot.unrefRequestOptions(requestOptions)
 		).catch((err: MwbotError) => err);
-		const { disableRetry, disableRetryAPI, disableRetryByCode = [] } = requestOptions;
+		const { disableRetry, disableRetryAPI, disableRetryByCode = [] } = requestOptions || {};
 		if (
 			result instanceof MwbotError && result.code === 'editconflict' &&
 			typeof retry === 'number' && retry < 3 &&
@@ -2572,7 +2582,7 @@ export class Mwbot {
 			console.warn('Warning: Encountered an edit conflict.');
 			console.log('Retrying in 5 seconds...');
 			await sleep(5000);
-			return await this.edit(title, transform, Mwbot.unrefRequestOptions(requestOptions), ++retry);
+			return await this.edit(title, transform, Mwbot.unrefRequestOptions(requestOptions), retry + 1);
 		}
 		if (result instanceof MwbotError) {
 			throw result;
@@ -2620,7 +2630,7 @@ export class Mwbot {
 		content: string,
 		summary?: string,
 		additionalParams: ApiParamsActionEdit = {},
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponse> {
 		return this._save(this.validateTitle(title), content, summary, { section: 'new', sectiontitle }, additionalParams, requestOptions);
 	}
@@ -2655,7 +2665,7 @@ export class Mwbot {
 	async delete(
 		titleOrId: string | Title | number,
 		additionalParams: Partial<ApiParamsActionDelete> = {},
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseDelete> {
 
 		// Loosely validate rights to delete pages
@@ -2763,7 +2773,7 @@ export class Mwbot {
 		from: string | Title | number,
 		to: string | Title,
 		additionalParams: Partial<ApiParamsActionMove> = {},
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseMove> {
 
 		// Loosely validate rights to move pages
@@ -2825,14 +2835,13 @@ export class Mwbot {
 	 * @returns A Promise resolving to the `response.parse` object from the API response, or rejecting with an error.
 	 * @throws If `response.parse` is missing. (`empty`)
 	 */
-	async parse(params: ApiParamsActionParse, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponseParse> {
-		const parameters: ApiParams = {
+	async parse(params: ApiParamsActionParse, requestOptions?: MwbotRequestConfig): Promise<ApiResponseParse> {
+		const response = await this.fetch({
 			...params,
 			action: 'parse',
 			format: 'json',
 			formatversion: '2'
-		};
-		const response = await this.fetch(parameters, requestOptions);
+		}, requestOptions);
 		if (response.parse) {
 			return response.parse;
 		}
@@ -2861,7 +2870,11 @@ export class Mwbot {
 	 * @return A Promise resolving to an {@link ApiResponse}, or rejecting with an error object.
 	 * @throws If `titles` contains non-strings or non-Titles.
 	 */
-	async purge(titles: (string | Title)[], additionalParams: ApiParams = {}, requestOptions: MwbotRequestConfig = {}): Promise<ApiResponse> {
+	async purge(
+		titles: (string | Title)[],
+		additionalParams: ApiParams = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<ApiResponse> {
 		const titleSet = new Set<string>();
 		const invalid: unknown[] = [];
 		titles.forEach((t) => {
@@ -2920,7 +2933,7 @@ export class Mwbot {
 		titleOrId: string | Title | number,
 		user: string,
 		additionalParams: Partial<ApiParamsActionRollback> = {},
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseRollback> {
 
 		// Loosely validate rights to rollback edits
@@ -2999,7 +3012,7 @@ export class Mwbot {
 	async getExistencePredicate(
 		titles: (string | Title)[],
 		options: { loose?: boolean; rejectProof?: boolean } = {},
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<ExistencePredicate> {
 
 		const loose = !!options.loose;
@@ -3086,7 +3099,7 @@ export class Mwbot {
 	async getCategories(
 		titles: string | Title | (string | Title)[],
 		hidden?: boolean,
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<string[] | Record<string, string[]>> {
 
 		// Normalize titles
@@ -3155,7 +3168,7 @@ export class Mwbot {
 	async getCategoriesByPrefix(
 		prefix: string,
 		limit = Infinity,
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<string[]> {
 
 		// Validate limit
@@ -3221,7 +3234,7 @@ export class Mwbot {
 	async getCategoryMembers(
 		titleOrId: string | Title | number,
 		additionalParams: ApiParams = {},
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseQueryListCategorymembers[]> {
 
 		// Validate title
@@ -3304,7 +3317,7 @@ export class Mwbot {
 	async getBacklinks(
 		titles: string | Title | (string | Title)[],
 		additionalParams: ApiParams = {},
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseQueryPagesPropLinkshere[] | Record<string, ApiResponseQueryPagesPropLinkshere[]>> {
 
 		// Normalize titles
@@ -3396,7 +3409,7 @@ export class Mwbot {
 	async getTransclusions(
 		titles: string | Title | (string | Title)[],
 		additionalParams: ApiParams = {},
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseQueryPagesPropTranscludedin[] | Record<string, ApiResponseQueryPagesPropTranscludedin[]>> {
 
 		// Normalize titles
@@ -3477,7 +3490,7 @@ export class Mwbot {
 	async search(
 		target: string,
 		additionalParams: ApiParams = {},
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<PartiallyRequired<ApiResponseQuery, 'search'>> {
 
 		// Validate `target`
@@ -3561,7 +3574,7 @@ export class Mwbot {
 		target: string,
 		additionalParams: ApiParams = {},
 		limit = Infinity,
-		requestOptions: MwbotRequestConfig = {}
+		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseQueryListPrefixsearch[]> {
 
 		// Validate `target`
