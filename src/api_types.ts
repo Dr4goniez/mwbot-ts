@@ -229,6 +229,23 @@ export type ApiParamsAction =
 	| 'webauthn'
 	| 'wikilove';
 
+export interface ApiParamsActionDelete extends ApiParams {
+	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
+    title?: string;
+    pageid?: number;
+    reason?: string;
+    tags?: string | string[];
+    deletetalk?: boolean;
+	/** @deprecated */
+    watch?: boolean;
+    watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+    watchlistexpiry?: string;
+	/** @deprecated */
+    unwatch?: boolean;
+    oldimage?: string;
+    token?: string;
+}
+
 export interface ApiParamsActionEdit extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki/blob/main/api_params/index.d.ts
 	title?: string;
@@ -491,7 +508,7 @@ export interface ApiResponse {
 	// compare?: ApiResponseCompare;
 	// createaccount?: ApiResponseCreateaccount;
 	// createlocalaccount?: ApiResponseCreatelocalaccount;
-	// delete?: ApiResponseDelete;
+	delete?: ApiResponseDelete;
 	// deleteglobalaccount?: ApiResponseDeleteglobalaccount;
 	// discussiontoolsedit?: ApiResponseDiscussiontoolsedit;
 	// discussiontoolsfindcomment?: ApiResponseDiscussiontoolsfindcomment;
@@ -868,7 +885,15 @@ export interface _CentralUserInfo {
 // export interface ApiResponseCompare {}
 // export interface ApiResponseCreateaccount {}
 // export interface ApiResponseCreatelocalaccount {}
-// export interface ApiResponseDelete {}
+
+export type ApiResponseDelete = { // Fully checked (source code level)
+	title: string;
+	reason: string;
+} & XOR<
+	{ scheduled: true },
+	{ logid: number }
+>;
+
 // export interface ApiResponseDeleteglobalaccount {}
 // export interface ApiResponseEchomarkread {}
 // export interface ApiResponseEchomarkseen {}

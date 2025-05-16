@@ -42,11 +42,13 @@ import {
 	PartiallyRequired,
 	ApiParams,
 	ApiParamsAction,
+	ApiParamsActionDelete,
 	ApiParamsActionEdit,
 	ApiParamsActionMove,
 	ApiParamsActionParse,
 	ApiParamsActionRollback,
 	ApiResponse,
+	ApiResponseDelete,
 	ApiResponseEdit,
 	ApiResponseMove,
 	ApiResponseParse,
@@ -2624,6 +2626,72 @@ export class Mwbot {
 	}
 
 	// ****************************** ACTION-RELATED UTILITY REQUEST METHODS ******************************
+
+	/**
+	 * Deletes a page.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'delete',
+	 *   title: titleOrId, // If a string or a Title instance
+	 *   pageid: pageId, // If a number
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param titleOrId The title or ID of the page to delete.
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Delete | `action=delete`}.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the `response.delete` object, or rejecting with an error.
+	 * @throws If:
+	 * - The client is anonymous. (`anonymous`)
+	 * - The client lacks the `delete` user right. (`nopermission`)
+	 * - `titleOrId`, if not a number, fails title validation via {@link validateTitle}.
+	 */
+	async delete(
+		titleOrId: string | Title | number,
+		additionalParams: Partial<ApiParamsActionDelete> = {},
+		requestOptions: MwbotRequestConfig = {}
+	): Promise<ApiResponseDelete> {
+
+		// Loosely validate rights to delete pages
+		if (this.isAnonymous()) {
+			this.errorAnonymous();
+		}
+		if (!this.hasRights('delete')) {
+			throw new MwbotError('api_mwbot', {
+				code: 'nopermission',
+				info: 'You do not have permission to delete pages.'
+			});
+		}
+
+		// Validate title
+		let pageId: number | false = false;
+		let title: string | false = false;
+		if (typeof titleOrId === 'number') {
+			pageId = titleOrId;
+		} else {
+			title = this.validateTitle(titleOrId).getPrefixedText();
+		}
+
+		const response = await this.postWithCsrfToken({
+			...additionalParams,
+			action: 'delete',
+			title,
+			pageid: pageId,
+			format: 'json',
+			formatversion: '2'
+		}, requestOptions);
+		if (response.delete) {
+			return response.delete;
+		}
+		this.errorEmpty(true, '("response.delete" is missing).', { response });
+
+	}
 
 	/**
 	 * Logs in to the wiki for which this instance has been initialized.
