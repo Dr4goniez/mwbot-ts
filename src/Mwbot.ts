@@ -3403,7 +3403,7 @@ export class Mwbot {
 	 * - `titles` is an empty array. (`emptyinput`)
 	 */
 	getCategories(
-		title: string | Title,
+		titles: string | Title,
 		hidden?: boolean,
 		requestOptions?: MwbotRequestConfig
 	): Promise<string[]>;
@@ -3615,7 +3615,7 @@ export class Mwbot {
 	 * - `titles` is an empty array. (`emptyinput`)
 	 */
 	getBacklinks(
-		title: string | Title,
+		titles: string | Title,
 		additionalParams?: ApiParams,
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseQueryPagesPropLinkshere[]>;
@@ -3705,7 +3705,7 @@ export class Mwbot {
 	 * - `titles` is an empty array. (`emptyinput`)
 	 */
 	getTransclusions(
-		title: string | Title,
+		titles: string | Title,
 		additionalParams?: ApiParams,
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseQueryPagesPropTranscludedin[]>;
