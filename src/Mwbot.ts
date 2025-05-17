@@ -46,6 +46,7 @@ import {
 	ApiParamsActionEdit,
 	ApiParamsActionMove,
 	ApiParamsActionParse,
+	ApiParamsActionProtect,
 	ApiParamsActionRollback,
 	ApiParamsActionUndelete,
 	ApiResponse,
@@ -53,6 +54,7 @@ import {
 	ApiResponseEdit,
 	ApiResponseMove,
 	ApiResponseParse,
+	ApiResponseProtect,
 	ApiResponseQuery,
 	ApiResponseQueryPages,
 	ApiResponseQueryPagesPropLinkshere,
@@ -2883,6 +2885,85 @@ export class Mwbot {
 	}
 
 	/**
+	 * Protects a page.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'protect',
+	 *   title: titleOrId, // If a string or a Title instance
+	 *   pageid: titleOrId, // If a number
+	 *   protections: levels,
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param titleOrId The title or ID of the page to protect.
+	 * @param levels The protection levels to apply, in one of the following forms:
+	 * - A pipe-separated string (e.g., `'edit=sysop|move=sysop'`)
+	 * - An array of `action=level` strings (e.g., `['edit=sysop', 'move=sysop']`)
+	 * - An object map of actions to levels (e.g., `{ edit: 'sysop', move: 'sysop' }`)
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Protect | `action=protect`}.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the `response.protect` object, or rejecting with an error.
+	 * @throws If:
+	 * - The client is anonymous. (`anonymous`)
+	 * - The client lacks the `protect` user right. (`nopermission`)
+	 * - `titleOrId` is not a number and fails title validation via {@link validateTitle}.
+	 * - `levels` is of an invalid type. (`typemismatch`)
+	 */
+	async protect(
+		titleOrId: string | Title | number,
+		levels: string | string[] | { [action: string]: string },
+		additionalParams: Partial<ApiParamsActionProtect> = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<ApiResponseProtect> {
+
+		this.requireRights('protect', 'protect pages');
+
+		// Validate title and protection levels
+		let pageId: number | false = false;
+		let title: string | false = false;
+		if (typeof titleOrId === 'number') {
+			pageId = titleOrId;
+		} else {
+			title = this.validateTitle(titleOrId).getPrefixedText();
+		}
+
+		let protections: string;
+		if (typeof levels === 'string') {
+			protections = levels;
+		} else if (Array.isArray(levels)) {
+			protections = levels.join('|');
+		} else if (isObject(levels)) {
+			protections = Object.entries(levels).map(([action, level]) => `${action}=${level}`).join('|');
+		} else {
+			throw new MwbotError('fatal', {
+				code: 'typemismatch',
+				info: 'The "levels" parameter for protect() only accepts a string, string array, or mapped object.'
+			});
+		}
+
+		// Protect the page
+		const response = await this.postWithCsrfToken({
+			...additionalParams,
+			...Mwbot.getActionParams('protect'),
+			title,
+			pageid: pageId,
+			protections
+		}, requestOptions);
+
+		if (response.protect) {
+			return response.protect;
+		}
+		this.errorEmpty(true, '("response.protect") is missing.', { response });
+
+	}
+
+	/**
 	 * Purges the cache for the given titles.
 	 *
 	 * Default parameters:
@@ -3050,6 +3131,41 @@ export class Mwbot {
 		}
 		this.errorEmpty(true, '("response.undelete") is missing.', { response });
 
+	}
+
+	/**
+	 * Unprotects a page.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'protect',
+	 *   title: titleOrId, // If a string or a Title instance
+	 *   pageid: titleOrId, // If a number
+	 *   protections: '', // Remove all protections
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param titleOrId The title or ID of the page to protect.
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Protect | `action=protect`}.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the `response.protect` object, or rejecting with an error.
+	 * @throws If:
+	 * - The client is anonymous. (`anonymous`)
+	 * - The client lacks the `protect` user right. (`nopermission`)
+	 * - `titleOrId` is not a number and fails title validation via {@link validateTitle}.
+	 */
+	async unprotect(
+		titleOrId: string | Title | number,
+		additionalParams: Partial<ApiParamsActionProtect> = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<ApiResponseProtect> {
+		// Use async-await to handle exceptions as Promise rejections
+		return await this.protect(titleOrId, '', additionalParams, requestOptions);
 	}
 
 	// ****************************** QUERY-RELATED UTILITY REQUEST METHODS ******************************

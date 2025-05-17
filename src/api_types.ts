@@ -441,6 +441,22 @@ export interface ApiParamsActionParse extends ApiParams {
 		| "unknown/unknown";
 }
 
+export interface ApiParamsActionProtect extends ApiParams {
+	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
+    title?: string;
+    pageid?: number;
+    protections: string | string[];
+    expiry?: string | string[];
+    reason?: string;
+    tags?: string | string[];
+    cascade?: boolean;
+	/** @deprecated */
+    watch?: boolean;
+    watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+    watchlistexpiry?: string;
+    token?: string;
+}
+
 export interface ApiParamsActionRollback extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
     title?: string;
@@ -569,7 +585,7 @@ export interface ApiResponse {
 	paraminfo?: ApiResponseParaminfo;
 	parse?: ApiResponseParse;
 	// patrol?: ApiResponsePatrol;
-	// protect?: ApiResponseProtect;
+	protect?: ApiResponseProtect;
 	purge?: ApiResponsePurge[];
 	query?: ApiResponseQuery;
 	// removeauthenticationdata?: ApiResponseRemoveauthenticationdata;
@@ -1234,7 +1250,17 @@ export interface ApiResponseParsePropLimitreportdata {
 }
 
 // export interface ApiResponsePatrol {}
-// export interface ApiResponseProtect {}
+
+export interface ApiResponseProtect { // Fully checked (source code level)
+	title: string;
+	reason: string;
+	cascade?: true;
+	protections: ApiResponseProtectProtections[];
+}
+export interface ApiResponseProtectProtections {
+	[action: string]: string;
+	expiry: string;
+}
 
 export interface ApiResponsePurge extends _PageSetInvalidTitlesAndRevisions { // Fully checked (source code level)
 	purged?: true;
@@ -1304,7 +1330,7 @@ export interface ApiResponseSitematrixSiteSpecial extends ApiResponseSitematrixS
 // export interface ApiResponseTtmserver {}
 // export interface ApiResponseUnblock {}
 
-export interface ApiResponseUndelete {
+export interface ApiResponseUndelete { // Fully checked (source code level)
 	title: string;
 	revisions: number;
 	fileversions: number;
