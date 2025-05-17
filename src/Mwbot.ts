@@ -682,6 +682,31 @@ export class Mwbot {
 			: rights.some((r) => possessed.has(r));
 	}
 
+	/**
+	 * Ensures the client has the specified user rights before proceeding.
+	 *
+	 * If the client is anonymous or lacks the required rights, an error is thrown.
+	 *
+	 * @param rights A single right or list of rights required to perform the action.
+	 * @param actionDescription A brief description of the action requiring the rights.
+	 * This will be included in the error message if permission is denied.
+	 *
+	 * @throws If:
+	 * - The client is anonymous. (`anonymous`)
+	 * - The client lacks the required rights. (`nopermission`)
+	 */
+	protected requireRights(rights: string | string[], actionDescription: string): never | void {
+		if (this.isAnonymous()) {
+			this.errorAnonymous();
+		}
+		if (!this.hasRights(rights)) {
+			throw new MwbotError('api_mwbot', {
+				code: 'nopermission',
+				info: `You do not have permission to ${actionDescription}.`
+			});
+		}
+	}
+
 	// ****************************** SITE-RELATED CONFIG ******************************
 
 	/**
@@ -2703,16 +2728,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseDelete> {
 
-		// Loosely validate rights to delete pages
-		if (this.isAnonymous()) {
-			this.errorAnonymous();
-		}
-		if (!this.hasRights('delete')) {
-			throw new MwbotError('api_mwbot', {
-				code: 'nopermission',
-				info: 'You do not have permission to delete pages.'
-			});
-		}
+		this.requireRights('delete', 'delete pages');
 
 		// Validate title
 		let pageId: number | false = false;
@@ -2807,16 +2823,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseMove> {
 
-		// Loosely validate rights to move pages
-		if (this.isAnonymous()) {
-			this.errorAnonymous();
-		}
-		if (!this.hasRights('move')) {
-			throw new MwbotError('api_mwbot', {
-				code: 'nopermission',
-				info: 'You do not have permission to move pages.'
-			});
-		}
+		this.requireRights('move', 'move pages');
 
 		// Validate `from` and `to`
 		let fromId: number | false = false;
@@ -2961,16 +2968,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseRollback> {
 
-		// Loosely validate rights to rollback edits
-		if (this.isAnonymous()) {
-			this.errorAnonymous();
-		}
-		if (!this.hasRights('rollback')) {
-			throw new MwbotError('api_mwbot', {
-				code: 'nopermission',
-				info: 'You do not have permission to rollback edits.'
-			});
-		}
+		this.requireRights('rollback', 'rollback edits');
 
 		// Validate title and user
 		let pageId: number | false = false;
@@ -3034,16 +3032,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseUndelete> {
 
-		// Loosely validate rights to undelete revisions
-		if (this.isAnonymous()) {
-			this.errorAnonymous();
-		}
-		if (!this.hasRights('undelete')) {
-			throw new MwbotError('api_mwbot', {
-				code: 'nopermission',
-				info: 'You do not have permission to undelete revisions.'
-			});
-		}
+		this.requireRights('undelete', 'undelete revisions');
 
 		title = this.validateTitle(title).getPrefixedText();
 		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
