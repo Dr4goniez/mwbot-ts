@@ -3,6 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/mwbot-ts.svg)](https://www.npmjs.com/package/mwbot-ts)
 [![GitHub License](https://img.shields.io/github/license/Dr4goniez/mwbot-ts)](https://github.com/Dr4goniez/mwbot-ts)
 ![node-current](https://img.shields.io/node/v/mwbot-ts)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
 [🐙 GitHub](https://github.com/Dr4goniez/mwbot-ts) - [📦 npm](https://www.npmjs.com/package/mwbot-ts) - [📘 API Documentation](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html)
 
