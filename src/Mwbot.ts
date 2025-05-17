@@ -536,9 +536,7 @@ export class Mwbot {
 
 		// Get user and site info
 		const res: ApiResponse = await this.get({
-			action: 'query',
-			format: 'json',
-			formatversion: '2',
+			...Mwbot.getActionParams('query'),
 			meta: 'userinfo|siteinfo',
 			uiprop: 'rights',
 			siprop: 'functionhooks|general|magicwords|interwikimap|namespaces|namespacealiases',
@@ -1912,6 +1910,33 @@ export class Mwbot {
 
 	}
 
+	/**
+	 * Constructs a standard API request parameter object for a given MediaWiki API action.
+	 *
+	 * The returned object includes:
+	 * ```ts
+	 * {
+	 *   action: action,
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param action The API action name (e.g., 'query', 'edit', etc.).
+	 * @returns An object containing the action name along with fixed `format` and `formatversion` values.
+	 */
+	static getActionParams(action: ApiParamsAction): {
+		action: ApiParamsAction;
+		format: 'json';
+		formatversion: '2';
+	} {
+		return {
+			action,
+			format: 'json',
+			formatversion: '2'
+		};
+	}
+
 	// ****************************** TOKEN-RELATED METHODS ******************************
 
 	/**
@@ -1993,11 +2018,9 @@ export class Mwbot {
 			additionalParams = { assert: additionalParams };
 		}
 		const response = await this.get({
-			action: 'query',
+			...Mwbot.getActionParams('query'),
 			meta: 'tokens',
 			type: '*',
-			format: 'json',
-			formatversion: '2',
 			...additionalParams
 		}, requestOptions);
 		const tokenMap = response.query?.tokens;
@@ -2184,13 +2207,11 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseEditSuccess> {
 		const res = await this.postWithCsrfToken({
-			action: 'edit',
+			...Mwbot.getActionParams('edit'),
 			title: title.getPrefixedDb(),
 			text: content,
 			summary,
 			bot: true,
-			format: 'json',
-			formatversion: '2',
 			...internalOptions,
 			...additionalParams
 		}, requestOptions);
@@ -2329,13 +2350,12 @@ export class Mwbot {
 		}
 
 		const params: ApiParams = {
-			action: 'query',
+			...Mwbot.getActionParams('query'),
 			// titles, // Set below dynamically
 			prop: 'revisions',
 			rvprop: 'ids|timestamp|user|content',
 			rvslots: 'main',
-			curtimestamp: true,
-			formatversion: '2'
+			curtimestamp: true
 		};
 
 		const processSinglePage = (
@@ -2569,15 +2589,13 @@ export class Mwbot {
 			}, { transformed: params });
 		}
 		const defaultParams: ApiParamsActionEdit = {
-			action: 'edit',
+			...Mwbot.getActionParams('edit'),
 			title: revision.title,
 			bot: true,
 			baserevid: revision.baserevid,
 			basetimestamp: revision.basetimestamp,
 			starttimestamp: revision.starttimestamp,
-			nocreate: true,
-			format: 'json',
-			formatversion: '2'
+			nocreate: true
 		};
 		if (typeof params.pageid === 'number') {
 			delete defaultParams.title; // Mutually exclusive
@@ -2707,11 +2725,9 @@ export class Mwbot {
 
 		const response = await this.postWithCsrfToken({
 			...additionalParams,
-			action: 'delete',
+			...Mwbot.getActionParams('delete'),
 			title,
-			pageid: pageId,
-			format: 'json',
-			formatversion: '2'
+			pageid: pageId
 		}, requestOptions);
 		if (response.delete) {
 			return response.delete;
@@ -2735,12 +2751,10 @@ export class Mwbot {
 
 		// Login
 		const response = await this.post({
-			action: 'login',
+			...Mwbot.getActionParams('login'),
 			lgname: username,
 			lgpassword: password,
 			lgtoken: token,
-			format: 'json',
-			formatversion: '2',
 			maxlag: void 0 // Overwrite maxlag to have this request prioritized
 		}, disableRetryAPI);
 
@@ -2817,12 +2831,10 @@ export class Mwbot {
 		// Move the page
 		const response = await this.postWithCsrfToken({
 			...additionalParams,
-			action: 'move',
+			...Mwbot.getActionParams('move'),
 			from: fromTitle,
 			fromid: fromId,
-			to: toTitle,
-			format: 'json',
-			formatversion: '2'
+			to: toTitle
 		}, requestOptions);
 
 		if (response.move) {
@@ -2855,9 +2867,7 @@ export class Mwbot {
 	async parse(params: ApiParamsActionParse, requestOptions?: MwbotRequestConfig): Promise<ApiResponseParse> {
 		const response = await this.fetch({
 			...params,
-			action: 'parse',
-			format: 'json',
-			formatversion: '2'
+			...Mwbot.getActionParams('parse')
 		}, requestOptions);
 		if (response.parse) {
 			return response.parse;
@@ -2910,11 +2920,9 @@ export class Mwbot {
 			}, { invalid });
 		}
 		return this.post({
-			action: 'purge',
+			...Mwbot.getActionParams('purge'),
 			forcelinkupdate: true,
 			titles: [...titleSet],
-			format: 'json',
-			formatversion: '2',
 			...additionalParams
 		}, requestOptions);
 	}
@@ -2981,12 +2989,10 @@ export class Mwbot {
 
 		const response = await this.postWithToken('rollback', {
 			...additionalParams,
-			action: 'rollback',
+			...Mwbot.getActionParams('rollback'),
 			title,
 			pageid: pageId,
-			user,
-			format: 'json',
-			formatversion: '2'
+			user
 		}, requestOptions);
 		if (response.rollback) {
 			return response.rollback;
@@ -3046,10 +3052,8 @@ export class Mwbot {
 		// Undeletes the revisions
 		const response = await this.postWithCsrfToken({
 			...additionalParams,
-			action: 'undelete',
-			title,
-			format: 'json',
-			formatversion: '2'
+			...Mwbot.getActionParams('undelete'),
+			title
 		}, requestOptions);
 
 		if (response.undelete) {
@@ -3111,10 +3115,8 @@ export class Mwbot {
 
 		// Query the API for title existence
 		const responses = await this.massRequest({
-			action: 'query',
-			titles: Array.from(targets),
-			format: 'json',
-			formatversion: '2'
+			...Mwbot.getActionParams('query'),
+			titles: Array.from(targets)
 		}, 'titles', void 0, requestOptions);
 
 		// Process responses and populate existence map
@@ -3199,13 +3201,11 @@ export class Mwbot {
 		// Send API requests
 		const validatedTitles = [...titleSet];
 		const responses = await this.continuedRequest({
-			action: 'query',
+			...Mwbot.getActionParams('query'),
 			titles: validatedTitles,
 			prop: 'categories',
 			clshow: hidden ? 'hidden' : hidden === false ? '!hidden' : undefined,
-			cllimit: 'max',
-			format: 'json',
-			formatversion: '2'
+			cllimit: 'max'
 		}, {
 			limit: Infinity,
 			multiValues: 'titles'
@@ -3265,13 +3265,11 @@ export class Mwbot {
 		const CATEGORY_PREFIX = config.get('wgFormattedNamespaces')[NS_CATEGORY] + ':';
 
 		const responses = await this.continuedRequest({
-			action: 'query',
+			...Mwbot.getActionParams('query'),
 			list: 'allpages',
 			apprefix: prefix,
 			apnamespace: NS_CATEGORY,
-			aplimit: 'max',
-			format: 'json',
-			formatversion: '2'
+			aplimit: 'max'
 		}, { limit }, requestOptions);
 
 		const retSet = new Set<string>();
@@ -3337,13 +3335,11 @@ export class Mwbot {
 		// Query the API
 		const responses = await this.continuedRequest({
 			...additionalParams,
-			action: 'query',
+			...Mwbot.getActionParams('query'),
 			list: 'categorymembers',
 			cmtitle: title && title.getPrefixedText(),
 			cmpageid: pageId,
-			cmlimit: 'max',
-			format: 'json',
-			formatversion: '2'
+			cmlimit: 'max'
 		}, { limit: Infinity }, requestOptions);
 
 		// Format the responses and return them as an array
@@ -3418,12 +3414,10 @@ export class Mwbot {
 		const validatedTitles = [...titleSet];
 		const responses = await this.continuedRequest({
 			...additionalParams,
-			action: 'query',
+			...Mwbot.getActionParams('query'),
 			titles: validatedTitles,
 			prop: 'linkshere',
-			lhlimit: 'max',
-			format: 'json',
-			formatversion: '2'
+			lhlimit: 'max'
 		}, {
 			limit: Infinity,
 			multiValues: 'titles'
@@ -3510,12 +3504,10 @@ export class Mwbot {
 		const validatedTitles = [...titleSet];
 		const responses = await this.continuedRequest({
 			...additionalParams,
-			action: 'query',
+			...Mwbot.getActionParams('query'),
 			titles: validatedTitles,
 			prop: 'transcludedin',
-			tilimit: 'max',
-			format: 'json',
-			formatversion: '2'
+			tilimit: 'max'
 		}, {
 			limit: Infinity,
 			multiValues: 'titles'
@@ -3591,12 +3583,10 @@ export class Mwbot {
 		// Send an API request
 		const responses = await this.continuedRequest({
 			...additionalParams,
-			action: 'query',
+			...Mwbot.getActionParams('query'),
 			list: 'search',
 			srsearch: target,
-			srlimit: 'max',
-			format: 'json',
-			formatversion: '2'
+			srlimit: 'max'
 		}, { limit: Infinity }, requestOptions);
 		if (!responses.length) {
 			// `responses` is never expected to be an empty array but just in case
@@ -3683,12 +3673,10 @@ export class Mwbot {
 		// Send an API request
 		const responses = await this.continuedRequest({
 			...additionalParams,
-			action: 'query',
+			...Mwbot.getActionParams('query'),
 			list: 'prefixsearch',
 			pssearch: target,
-			pslimit: 'max',
-			format: 'json',
-			formatversion: '2'
+			pslimit: 'max'
 		}, { limit }, requestOptions);
 		if (!responses.length) {
 			// `responses` is never expected to be an empty array but just in case
