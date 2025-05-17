@@ -229,21 +229,47 @@ export type ApiParamsAction =
 	| 'webauthn'
 	| 'wikilove';
 
+export interface ApiParamsActionBlock extends ApiParams {
+	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
+	id?: number;
+	user?: string;
+	/** @deprecated */
+	userid?: number;
+	expiry?: string;
+	reason?: string;
+	anononly?: boolean;
+	nocreate?: boolean;
+	autoblock?: boolean;
+	noemail?: boolean;
+	hidename?: boolean;
+	allowusertalk?: boolean;
+	reblock?: boolean;
+	newblock?: boolean;
+	watchuser?: boolean;
+	watchlistexpiry?: string;
+	tags?: MultiValue<string>;
+	partial?: boolean;
+	pagerestrictions?: MultiValue<string>;
+	namespacerestrictions?: MultiValue<number>;
+	actionrestrictions?: MultiValue<ApiActionRestrictions>;
+	token?: string;
+}
+
 export interface ApiParamsActionDelete extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
-    title?: string;
-    pageid?: number;
-    reason?: string;
-    tags?: string | string[];
-    deletetalk?: boolean;
+	title?: string;
+	pageid?: number;
+	reason?: string;
+	tags?: string | string[];
+	deletetalk?: boolean;
 	/** @deprecated */
-    watch?: boolean;
-    watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
-    watchlistexpiry?: string;
+	watch?: boolean;
+	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlistexpiry?: string;
 	/** @deprecated */
-    unwatch?: boolean;
-    oldimage?: string;
-    token?: string;
+	unwatch?: boolean;
+	oldimage?: string;
+	token?: string;
 }
 
 export interface ApiParamsActionEdit extends ApiParams {
@@ -308,18 +334,18 @@ export interface ApiParamsActionEdit extends ApiParams {
 
 export interface ApiParamsActionMove extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
-    from?: string;
-    fromid?: number;
-    to: string;
-    reason?: string;
-    movetalk?: boolean;
-    movesubpages?: boolean;
-    noredirect?: boolean;
-    watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
-    watchlistexpiry?: string;
-    ignorewarnings?: boolean;
-    tags?: string | string[];
-    token?: string;
+	from?: string;
+	fromid?: number;
+	to: string;
+	reason?: string;
+	movetalk?: boolean;
+	movesubpages?: boolean;
+	noredirect?: boolean;
+	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlistexpiry?: string;
+	ignorewarnings?: boolean;
+	tags?: string | string[];
+	token?: string;
 }
 
 export interface ApiParamsActionParse extends ApiParams {
@@ -443,44 +469,44 @@ export interface ApiParamsActionParse extends ApiParams {
 
 export interface ApiParamsActionProtect extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
-    title?: string;
-    pageid?: number;
-    protections: string | string[];
-    expiry?: string | string[];
-    reason?: string;
-    tags?: string | string[];
-    cascade?: boolean;
+	title?: string;
+	pageid?: number;
+	protections: string | string[];
+	expiry?: string | string[];
+	reason?: string;
+	tags?: string | string[];
+	cascade?: boolean;
 	/** @deprecated */
-    watch?: boolean;
-    watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
-    watchlistexpiry?: string;
-    token?: string;
+	watch?: boolean;
+	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlistexpiry?: string;
+	token?: string;
 }
 
 export interface ApiParamsActionRollback extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
-    title?: string;
-    pageid?: number;
-    tags?: string | string[];
-    user: string;
-    summary?: string;
-    markbot?: boolean;
-    watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
-    watchlistexpiry?: string;
-    token?: string;
+	title?: string;
+	pageid?: number;
+	tags?: string | string[];
+	user: string;
+	summary?: string;
+	markbot?: boolean;
+	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlistexpiry?: string;
+	token?: string;
 }
 
 export interface ApiParamsActionUndelete extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
-    title: string;
-    reason?: string;
-    tags?: string | string[];
-    timestamps?: string | string[];
-    fileids?: number | number[];
-    undeletetalk?: boolean;
-    watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
-    watchlistexpiry?: string;
-    token?: string;
+	title: string;
+	reason?: string;
+	tags?: string | string[];
+	timestamps?: string | string[];
+	fileids?: number | number[];
+	undeletetalk?: boolean;
+	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlistexpiry?: string;
+	token?: string;
 }
 
 // ************************************** Response types **************************************
@@ -710,6 +736,8 @@ export type ApiResponseWarningsLegacy = PartialRecord<ApiParamsAction, XOR< // e
 	}>
 >;
 
+export type ApiActionRestrictions = 'upload' | 'move' | 'create' | 'thanks';
+
 // ************************************** Private types and interfaces **************************************
 
 /**
@@ -897,7 +925,26 @@ export interface _CentralUserInfo {
 // export interface ApiResponseAbuselogprivatedetails {}
 // export interface ApiResponseAggregategroups {}
 // export interface ApiResponseAntispoof {}
-// export interface ApiResponseBlock {}
+
+export interface ApiResponseBlock { // Fully checked (source code level)
+	user: string;
+	userID: number;
+	expiry: string;
+	id: number;
+	reason: string;
+	anononly: boolean;
+	nocreate: boolean;
+	autoblock: boolean;
+	noemail: boolean;
+	hidename: boolean;
+	allowusertalk: boolean;
+	watchuser: boolean;
+	partial: boolean;
+	pagerestrictions: string[] | null;
+	namespacerestrictions: number[] | null;
+	actionrestrictions: ApiActionRestrictions[] | null;
+}
+
 // export interface ApiResponseCentralauthtoken {}
 // export interface ApiResponseCentralnoticecdncacheupdatebanner {}
 // export interface ApiResponseCentralnoticechoicedata {}
@@ -1273,12 +1320,12 @@ export interface ApiResponsePurge extends _PageSetInvalidTitlesAndRevisions { //
 // export interface ApiResponseRevisiondelete {}
 
 export interface ApiResponseRollback { // Fully checked (source code level)
-    title: string;
-    pageid: number;
-    summary: string;
-    revid: number;
-    old_revid: number;
-    last_revid: number;
+	title: string;
+	pageid: number;
+	summary: string;
+	revid: number;
+	old_revid: number;
+	last_revid: number;
 }
 
 // export interface ApiResponseRsd {}
@@ -2466,7 +2513,7 @@ export interface ApiResponseQueryListBlocks { // Fully checked (source code leve
 			title: string;
 		}[];
 		namespaces?: number[];
-		actions?: ('upload' | 'move' | 'create' | 'thanks')[];
+		actions?: ApiActionRestrictions[];
 	};
 }
 
@@ -2774,7 +2821,7 @@ export interface ApiResponseQueryListLogeventsParams {
 			page_title: string;
 		}[];
 		namespaces?: number[];
-		actions?: ('upload' | 'move' | 'create' | 'thanks')[];
+		actions?: ApiActionRestrictions[];
 	};
 	blockId?: number;
 	sitewide?: boolean;

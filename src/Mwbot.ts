@@ -42,6 +42,7 @@ import {
 	PartiallyRequired,
 	ApiParams,
 	ApiParamsAction,
+	ApiParamsActionBlock,
 	ApiParamsActionDelete,
 	ApiParamsActionEdit,
 	ApiParamsActionMove,
@@ -50,6 +51,7 @@ import {
 	ApiParamsActionRollback,
 	ApiParamsActionUndelete,
 	ApiResponse,
+	ApiResponseBlock,
 	ApiResponseDelete,
 	ApiResponseEdit,
 	ApiResponseMove,
@@ -2698,6 +2700,73 @@ export class Mwbot {
 	}
 
 	// ****************************** ACTION-RELATED UTILITY REQUEST METHODS ******************************
+
+	/**
+	 * Blocks a user.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'block',
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * Default parameters:
+	 * ```
+	 * {
+	 *   user: target,
+	 *   anononly: true, // Soft-block
+	 *   nocreate: true,
+	 *   autoblock: true,
+	 *   allowusertalk: true,
+	 * }
+	 * ```
+	 *
+	 * @param target The user name, IP address, or user ID to block.
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Block#Blocking_users | `action=block`}.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the `response.block` object, or rejecting with an error.
+	 * @throws If:
+	 * - The client is anonymous. (`anonymous`)
+	 * - The client lacks the `block` user right. (`nopermission`)
+	 * - `target` is not a string. (`typemismatch`)
+	 */
+	async block(
+		target: string,
+		additionalParams: ApiParamsActionBlock = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<ApiResponseBlock> {
+
+		this.requireRights('block', 'block users');
+
+		if (typeof target !== 'string') {
+			throw new MwbotError('fatal', {
+				code: 'typemismatch',
+				info: `Expected a string for "user", but got ${typeof target}.`
+			});
+		}
+
+		// Undeletes the revisions
+		const response = await this.postWithCsrfToken({
+			user: target,
+			anononly: true,
+			nocreate: true,
+			autoblock: true,
+			allowusertalk: true,
+			...additionalParams,
+			...Mwbot.getActionParams('block')
+		}, requestOptions);
+
+		if (response.block) {
+			return response.block;
+		}
+		this.errorEmpty(true, '("response.block") is missing.', { response });
+
+	}
 
 	/**
 	 * Deletes a page.
