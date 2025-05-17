@@ -321,6 +321,16 @@ export interface TitleStatic {
 	 * @throws If `title` is not a string.
 	 */
 	normalize(title: string, options?: TitleNormalizeOptions): string | null;
+	/**
+	 * Normalizes a username by capitalizing its first letter, following MediaWiki conventions.
+	 * IP addresses are capitalized with all hexadecimal segments spelled out (e.g., `192.168.0.1`
+	 * for IPv4 and `FD12:3456:789A:0001:0000:0000:0000:0000` for IPv6).
+	 *
+	 * @param username The username to normalize.
+	 * @returns The normalized username, or `null` if the input contains characters that are not
+	 * allowed in usernames.
+	 */
+	normalizeUsername(username: string): string | null;
 }
 
 /**
@@ -1385,6 +1395,27 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 				ret += fragment;
 			}
 			return ret;
+		}
+
+		static normalizeUsername(username: string): string | null {
+			if (typeof username !== 'string') {
+				return null;
+			}
+			username = Title.clean(username);
+			const ip = IPUtil.sanitize(username, true);
+			if (ip) {
+				return ip;
+			}
+			if (/[/@#<>[\]|{}:]|^(\d{1,3}\.){3}\d{1,3}$/.test(username)) {
+				// Contains invalid characters or invalid IPv4 string
+				return null;
+			}
+			if (/^[\u10A0-\u10FF]/.test(username)) {
+				// Georgean first letters shouldn't be capitalized
+				return username;
+			} else {
+				return Title.phpCharToUpper(mwString.charAt(username, 0)) + username.slice(1);
+			}
 		}
 
 		hadLeadingColon(): boolean {
