@@ -15,9 +15,9 @@
 **Main features**:
 
 * Supports all core authentication methods: `OAuth 2.0`, `OAuth 1.0a`, and `BotPasswords`. Anonymous access is also supported for non-write requests.
-* Uses [Axios](https://axios-http.com/) to perform HTTP requests, with responses automatically normalized to a consistent JSON format (`{"formatversion": "2"}` is enabled by default). For full control, the <code>[rawRequest](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#rawrequest)</code> method is also available.
+* Uses [Axios](https://axios-http.com/) to perform HTTP requests, with responses automatically normalized to a consistent JSON format (`{"formatversion": "2"}` is enabled by default). For full control, the [`rawRequest`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#rawrequest) method is also available.
 * Automatically handles common MediaWiki API complexities, such as converting boolean values into a PHP-compatible format, optimizing request headers to reduce bandwidth usage, managing the `maxlag` parameter for server load (default: 5 seconds), and retrying failed HTTP requests under appropriate conditions. See also [mw:API:Data formats](https://www.mediawiki.org/wiki/API:Data_formats) and [mw:API:Etiquette](https://www.mediawiki.org/wiki/API:Etiquette).
-* Fetches and caches edit tokens automatically. POST requests for database *write* operations can be made via <code>[postWithToken](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#postwithtoken)</code> or <code>[postWithCsrfToken](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#postwithcsrftoken)</code>, which closely mirror the functionality of MediaWiki’s built-in `mediawiki.Api` module.
+* Fetches and caches edit tokens automatically. POST requests for database *write* operations can be made via [`postWithToken`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#postwithtoken) or [`postWithCsrfToken`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#postwithcsrftoken), which closely mirror the functionality of MediaWiki’s built-in `mediawiki.Api` module.
 * Manages intervals between write requests automatically. By default, the framework enforces at least a 5-second gap between successful `action=edit`, `action=move`, and `action=upload` requests, relieving clients of manual throttling.
 * Built around an extensible core class, `Mwbot`, which is designed to be subclassed — making it easy to implement shared logic, custom workflows, or application-specific behavior.
 * Handles HTTP request errors in a unified manner via the [MwbotError](#error-handling) class, with [all internal error codes documented](https://dr4goniez.github.io/mwbot-ts/interfaces/MwbotError.MwbotErrorCodes.html) for easy debugging.
@@ -145,7 +145,7 @@ In general, there is no need to set custom request configurations. The following
 
 (Properties of `MwbotRequestConfig`)
 * `method` - Use `GET` for read-only requests whenever possible. `POST` is not cacheable and may be routed to a distant datacenter in multi-datacenter setups (such as Wikimedia sites).
-* `headers['Content-Type']` - The MediaWiki API only supports [<code>application/x-www-form-urlencoded</code> and <code>multipart/form-data</code>](https://www.mediawiki.org/wiki/API:Data_formats#Input). The framework selects the appropriate content type automatically.
+* `headers['Content-Type']` - The MediaWiki API only supports [`application/x-www-form-urlencoded` and `multipart/form-data`](https://www.mediawiki.org/wiki/API:Data_formats#Input). The framework selects the appropriate content type automatically.
 * `headers['Accept-Encoding']` - Handles data compression to [optimize bandwidth usage](https://www.mediawiki.org/wiki/API:Etiquette#Request_limit).
 * `params.format` - Should always be `'json'`, as [all other formats have been deprecated or removed](https://www.mediawiki.org/wiki/API:Data_formats#Output). `mwbot-ts` enforces this by throwing an error if the specification is missing.
 * `params.formatversion` - The framework assumes `{"formatversion": "2"}` to define types and interfaces. Changing this breaks type expectations and offers no benefit.
@@ -530,7 +530,7 @@ Mwbot2.init(initOptions).then(async (mwbot) => {
 
 </details>
 
-Extending the class also allows you to optimize or customize default request behavior. For example, if you'd like your `purge()` call to include the [<code>forcerecursivelinkupdate</code>](https://www.mediawiki.org/wiki/API:Purge#purge:forcerecursivelinkupdate) parameter by default, you can define your own specialized method:
+Extending the class also allows you to optimize or customize default request behavior. For example, if you'd like your `purge()` call to include the [`forcerecursivelinkupdate`](https://www.mediawiki.org/wiki/API:Purge#purge:forcerecursivelinkupdate) parameter by default, you can define your own specialized method:
 
 <details>
 <summary>Implement a <code>purgeDeep()</code> method</summary>
@@ -632,7 +632,7 @@ The [Wikitext](https://dr4goniez.github.io/mwbot-ts/interfaces/Wikitext.Wikitext
 * `{{template}}`, including (double-braced) [magic words](https://www.mediawiki.org/wiki/Help:Magic_words) and [parser functions](https://www.mediawiki.org/wiki/Help:Extension:ParserFunctions).
 * `[[wikilink]]`
 
-For each markup type, the class provides `parse**` and `modify**` methods, where `**` denotes the type (e.g., [<code>parseTemplates</code>](https://dr4goniez.github.io/mwbot-ts/interfaces/Wikitext.Wikitext.html#parsetemplates)).
+For each markup type, the class provides `parse**` and `modify**` methods, where `**` denotes the type (e.g., [`parseTemplates`](https://dr4goniez.github.io/mwbot-ts/interfaces/Wikitext.Wikitext.html#parsetemplates)).
 
 To create a new instance, use the constructor or the static [newFromTitle](https://dr4goniez.github.io/mwbot-ts/interfaces/Wikitext.Wikitext.html#parsetemplates) method, which fetches the content of a page and returns a `Promise` resolving to a `Wikitext` instance:
 
@@ -1026,7 +1026,7 @@ console.dir(wikitext.parseWikilinks(), {depth: null});
 
 In many cases, you can skip calling the parsing methods:
 * You can use the corresponding `modify**` methods directly, which internally call the appropriate `parse**` method and apply a transformation via a callback function. Each callback receives one element from the parsed array.
-* You can call a modification method from inside the callback function of [<code>mwbot.edit()</code>](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#edit) (referred to as "[transformation predicate](https://dr4goniez.github.io/mwbot-ts/types/Mwbot.TransformationPredicate.html)"), which takes a `Wikitext` instance as its first argument.
+* You can call a modification method from inside the callback function of [`mwbot.edit()`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#edit) (referred to as "[transformation predicate](https://dr4goniez.github.io/mwbot-ts/types/Mwbot.TransformationPredicate.html)"), which takes a `Wikitext` instance as its first argument.
 
 <details>
 <summary><code>wikitext.modifyTags</code></summary>
