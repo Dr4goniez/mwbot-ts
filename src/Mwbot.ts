@@ -49,6 +49,7 @@ import {
 	ApiParamsActionParse,
 	ApiParamsActionProtect,
 	ApiParamsActionRollback,
+	ApiParamsActionUnblock,
 	ApiParamsActionUndelete,
 	ApiResponse,
 	ApiResponseBlock,
@@ -72,6 +73,7 @@ import {
 	ApiResponseQueryListCategorymembers,
 	ApiResponseQueryListPrefixsearch,
 	ApiResponseRollback,
+	ApiResponseUnblock,
 	ApiResponseUndelete
 } from './api_types';
 import { MwbotError, MwbotErrorData } from './MwbotError';
@@ -3146,6 +3148,63 @@ export class Mwbot {
 			return response.rollback;
 		}
 		this.errorEmpty(true, '("response.rollback" is missing).', { response });
+
+	}
+
+	/**
+	 * Unblocks a user.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'unblock',
+	 *   id: userOrId, // If a number
+	 *   user: userOrId, // If a string
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param userOrId The user name, IP address, user ID, or block ID to unblock.
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Block#Unblocking_users | `action=unblock`}.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the `response.unblock` object, or rejecting with an error.
+	 * @throws If:
+	 * - The client is anonymous. (`anonymous`)
+	 * - The client lacks the `block` user right. (`nopermission`)
+	 * - `userOrId` is neither a string nor a number. (`typemismatch`)
+	 */
+	async unblock(
+		userOrId: string | number,
+		additionalParams: ApiParamsActionUnblock = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<ApiResponseUnblock> {
+
+		this.requireRights('block', 'unblock users');
+
+		const id = typeof userOrId === 'number' && userOrId;
+		const user = typeof userOrId === 'string' && userOrId;
+		if (id === false && user === false) {
+			throw new MwbotError('fatal', {
+				code: 'typemismatch',
+				info: `Expected a string or number for "userOrId", but got ${typeof userOrId}.`
+			});
+		}
+
+		// Unblock the user
+		const response = await this.postWithCsrfToken({
+			...additionalParams,
+			...Mwbot.getActionParams('unblock'),
+			id,
+			user
+		}, requestOptions);
+
+		if (response.unblock) {
+			return response.unblock;
+		}
+		this.errorEmpty(true, '("response.unblock") is missing.', { response });
 
 	}
 

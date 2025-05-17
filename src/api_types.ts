@@ -496,6 +496,19 @@ export interface ApiParamsActionRollback extends ApiParams {
 	token?: string;
 }
 
+export interface ApiParamsActionUnblock extends ApiParams {
+	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
+	id?: number;
+	user?: string;
+	/** @deprecated */
+	userid?: number;
+	reason?: string;
+	tags?: string | string[];
+	watchuser?: boolean;
+	watchlistexpiry?: string;
+	token?: string;
+}
+
 export interface ApiParamsActionUndelete extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
 	title: string;
@@ -639,7 +652,7 @@ export interface ApiResponse {
 	// translationreview?: ApiResponseTranslationreview;
 	// translationstats?: ApiResponseTranslationstats;
 	// ttmserver?: ApiResponseTtmserver;
-	// unblock?: ApiResponseUnblock;
+	unblock?: ApiResponseUnblock;
 	undelete?: ApiResponseUndelete;
 	// unlinkaccount?: ApiResponseUnlinkaccount;
 	// upload?: ApiResponseUpload;
@@ -1375,7 +1388,15 @@ export interface ApiResponseSitematrixSiteSpecial extends ApiResponseSitematrixS
 // export interface ApiResponseTranslationreview {}
 // export interface ApiResponseTranslationstats {}
 // export interface ApiResponseTtmserver {}
-// export interface ApiResponseUnblock {}
+
+export interface ApiResponseUnblock { // Fully checked (source code level)
+	id: number;
+	user: string;
+	userid: number;
+	reason: string;
+	watchuser: boolean;
+	watchlistexpiry?: string;
+}
 
 export interface ApiResponseUndelete { // Fully checked (source code level)
 	title: string;
