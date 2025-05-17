@@ -156,7 +156,7 @@ In general, there is no need to set custom request configurations. The following
 
 ### Request methods
 #### Basic request methods
-For basic API calls, `mwbot-ts` provides the [<code>get</code>](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#get) and [<code>post</code>](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#post) methods, both built on the method-neutral [<code>request</code>](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#request) method. For read-only queries with long parameters, the [<code>nonwritePost</code>](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#nonwritePost) method serves as a POST-based alternative to `get`, helping avoid [<code>414 URI Too Long</code>](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/414) errors. For full control over requests, use [<code>rawRequest</code>](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#rawRequest). To cancel all in-flight requests, use [<code>abort</code>](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#abort).
+For basic API calls, `mwbot-ts` provides the [`get`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#get) and [`post`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#post) methods, both built on the method-neutral [`request`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#request) method. For read-only queries with long parameters, the [`nonwritePost`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#nonwritePost) method acts as a POST-based alternative to `get`, helping avoid [`414 URI Too Long`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/414) errors. When you’re unsure whether to use `GET` or `POST` for a read-only query, the [`fetch`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#fetch) method automatically selects the appropriate method based on request length and intent. For complete control over the request configuration, use [`rawRequest`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#rawRequest). To cancel all in-flight requests, use [`abort`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#abort).
 
 <details>
 <summary>get</summary>
@@ -437,17 +437,37 @@ if (response instanceof MwbotError) {
 </details>
 
 #### Other Utility Methods
-`mwbot-ts` also provides helper methods for common tasks, while intentionally keeping the core API minimal. Versatile utility methods may be added upon request, and such requests are always welcome! 😊
+`mwbot-ts` also provides helper methods for common tasks, as listed below. Versatile utility methods may be added upon request, and such requests are always welcome! 😊
 
-- [`getExistencePredicate`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getexistencepredicate): Returns an `exists()` function that checks whether given pages exist.
+<details>
+<summary>List of utility request methods</summary>
+
+- [`block`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#block): Blocks a user.
+- [`delete`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#delete): Deletes a page.
+- [`getBacklinks`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getbacklinks): Retrieves a list of pages that link to the given page(s).
 - [`getCategories`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getcategories): Retrieves the categories to which the specified titles belong.
 - [`getCategoriesByPrefix`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getcategoriesbyprefix): Returns a list of categories that match a given prefix.
+- [`getCategoryMembers`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getcategorymembers): Retrieves a list of pages that belong to the given category.
+- [`getExistencePredicate`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getexistencepredicate): Returns an `exists()` function that checks whether given pages exist.
+- [`getTransclusions`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#gettransclusions): Retrieves a list of pages that transclude the given page(s).
+- [`move`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#move): Moves a page.
 - [`parse`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#parse): Runs the parser via the API.
+- [`prefixSearch`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#prefixsearch): Performs a prefix search for page titles.
+- [`protect`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#protect): Protects a page.
 - [`purge`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#purge): Clears the server-side cache for the specified pages.
 - [`read`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#read): Retrieves the latest revision content of the specified page(s).
+- [`rollback`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#rollback): Rolls back the most recent edits to a page made by a specific user.
+- [`search`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#search): Performs a full-text search.
+- [`unblock`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#unblock): Unblocks a user.
+- [`undelete`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#undelete): Undeletes revisions of a deleted page.
+- [`unprotect`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#unprotect): Unprotects a page.
 
-### Extend the class
-Different bot operators have different needs, and it's common to define custom functions using native framework methods. For example, a quick way to check whether a page exists might look like this:
+</details>
+
+### Extend the Class
+Different bot operators have different needs, and it’s common to define custom functions using native framework methods. For example, a quick way to check whether a page exists might look like this:
+
+> **Note**: `mwbot-ts` includes a built-in method for checking page existence: [`getExistencePredicate`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getexistencepredicate).
 
 <details>
 <summary>Implement an <code>exists()</code> function</summary>
