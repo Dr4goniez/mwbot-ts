@@ -2579,7 +2579,7 @@ export class Mwbot {
 	async edit(
 		title: string | Title,
 		transform: TransformationPredicate,
-		editRequestOptions: MwbotRequestConfig & ExclusionComplianceConfig,
+		editRequestOptions?: MwbotRequestConfig & ExclusionComplianceConfig,
 		/** @private */
 		retry = 0
 	): Promise<ApiResponseEditSuccess> {
