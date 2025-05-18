@@ -556,7 +556,7 @@ export class Mwbot {
 			!userinfo || !functionhooks || !general || !magicwords || !namespaces || !namespacealiases
 		) {
 			return retryIfPossible(
-				this.errorEmpty(false, '(check HTTP headers?)'),
+				Mwbot.dieAsEmpty(false, '(check HTTP headers?)'),
 				attemptIndex
 			);
 		} else if (userinfo.anon && !this.isAnonymous()) {
@@ -689,22 +689,17 @@ export class Mwbot {
 	}
 
 	/**
-	 * Ensures the client has the specified user rights before proceeding.
-	 *
-	 * If the client is anonymous or lacks the required rights, an error is thrown.
+	 * Throws an error if the client is anonymous or lacks the required rights.
 	 *
 	 * @param rights A single right or list of rights required to perform the action.
 	 * @param actionDescription A brief description of the action requiring the rights.
 	 * This will be included in the error message if permission is denied.
-	 *
 	 * @throws If:
 	 * - The client is anonymous. (`anonymous`)
 	 * - The client lacks the required rights. (`nopermission`)
 	 */
-	protected requireRights(rights: string | string[], actionDescription: string): never | void {
-		if (this.isAnonymous()) {
-			this.errorAnonymous();
-		}
+	protected dieIfNoRights(rights: string | string[], actionDescription: string): never | void {
+		this.dieIfAnonymous();
 		if (!this.hasRights(rights)) {
 			throw new MwbotError('api_mwbot', {
 				code: 'nopermission',
@@ -1101,7 +1096,7 @@ export class Mwbot {
 			}
 
 			if (!data) {
-				this.errorEmpty(true, '(check HTTP headers?)', { axios: response });
+				Mwbot.dieAsEmpty(true, '(check HTTP headers?)', { axios: response });
 			}
 			if (typeof data !== 'object') {
 				// In most cases the raw HTML of [[Main page]]
@@ -1115,18 +1110,13 @@ export class Mwbot {
 				const err = MwbotError.newFromResponse(data as Required<Pick<ApiResponse, "error">> | Required<Pick<ApiResponse, "errors">>);
 
 				// Handle error codes
-				if (err.code === 'missingparam' && this.isAnonymous() && err.info.includes('The "token" parameter must be set')) {
-					this.errorAnonymous();
-				}
-
+				this.dieIfAnonymous(err.code === 'missingparam' && err.info.includes('The "token" parameter must be set'));
 				if (!requestOptions.disableRetryAPI) {
 					// Handle retries
 					switch (err.code) {
 						case 'badtoken':
 						case 'notoken':
-							if (this.isAnonymous()) {
-								this.errorAnonymous();
-							}
+							this.dieIfAnonymous();
 							if (requestOptions.method === 'POST' && clonedParams.action && !requestOptions.disableRetryByCode?.includes(clonedParams.action)) {
 								const tokenType = await this.getTokenType(clonedParams.action); // Identify the required token type
 								if (!tokenType) {
@@ -1499,15 +1489,19 @@ export class Mwbot {
 	}
 
 	/**
-	 * Throws an `api_mwbot: anonymous` error.
+	 * Throws an `api_mwbot: anonymous` error if the client is authenticated as anonymous.
 	 *
-	 * @throws
+	 * @param condition Optional additional condition (default: `true`). The error is thrown
+	 * only if this is `true` and the client is anonymous.
+	 * @throws MwbotError If the client is anonymous and the condition is `true`.
 	 */
-	protected errorAnonymous(): never {
-		throw new MwbotError('api_mwbot', {
-			code: 'anonymous',
-			info: 'Anonymous users are limited to non-write requests.'
-		});
+	protected dieIfAnonymous(condition = true): never | void {
+		if (condition && this.isAnonymous()) {
+			throw new MwbotError('api_mwbot', {
+				code: 'anonymous',
+				info: 'Anonymous users are limited to non-write requests.'
+			});
+		}
 	}
 
 	/**
@@ -1519,9 +1513,9 @@ export class Mwbot {
 	 * A space is automatically prepended if provided; otherwise, a period is appended.
 	 * @param data Optional data object to set to the error.
 	 */
-	protected errorEmpty(die?: true, additionalInfo?: string, data?: MwbotErrorData): never;
-	protected errorEmpty(die: false, additionalInfo?: string, data?: MwbotErrorData): MwbotError<'api_mwbot'>;
-	protected errorEmpty(die = true, additionalInfo?: string, data?: MwbotErrorData): never | MwbotError<'api_mwbot'> {
+	protected static dieAsEmpty(die?: true, additionalInfo?: string, data?: MwbotErrorData): never;
+	protected static dieAsEmpty(die: false, additionalInfo?: string, data?: MwbotErrorData): MwbotError<'api_mwbot'>;
+	protected static dieAsEmpty(die = true, additionalInfo?: string, data?: MwbotErrorData): never | MwbotError<'api_mwbot'> {
 		die ??= true;
 		const info = 'OK response but empty result' + (additionalInfo ? ' ' + additionalInfo : '.');
 		const error = new MwbotError('api_mwbot', {
@@ -1996,9 +1990,7 @@ export class Mwbot {
 		parameters: ApiParams,
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponse> {
-		if (this.isAnonymous()) {
-			this.errorAnonymous();
-		}
+		this.dieIfAnonymous();
 		const assertParams = {
 			assert: parameters.assert,
 			assertuser: parameters.assertuser
@@ -2067,7 +2059,7 @@ export class Mwbot {
 				});
 			}
 		} else {
-			this.errorEmpty(true, void 0, { response });
+			Mwbot.dieAsEmpty(true, void 0, { response });
 		}
 	}
 
@@ -2178,9 +2170,7 @@ export class Mwbot {
 	 */
 	protected validateTitle(title: string | Title, options: { allowAnonymous?: boolean; allowSpecial?: boolean } = {}): Title {
 		const { allowAnonymous = false, allowSpecial = false } = options;
-		if (this.isAnonymous() && !allowAnonymous) {
-			this.errorAnonymous();
-		}
+		this.dieIfAnonymous(!allowAnonymous);
 		if (typeof title !== 'string' && !(title instanceof this.Title)) {
 			throw new MwbotError('fatal', {
 				code: 'typemismatch',
@@ -2408,7 +2398,7 @@ export class Mwbot {
 				!rev.timestamp ||
 				typeof rev.slots?.main.content !== 'string'
 			) {
-				return this.errorEmpty(false, void 0, { title: page.title });
+				return Mwbot.dieAsEmpty(false, void 0, { title: page.title });
 			} else {
 				return {
 					pageid: page.pageid,
@@ -2430,7 +2420,7 @@ export class Mwbot {
 			const res = await this.get(params, requestOptions);
 			const pages = res.query?.pages;
 			if (!pages || !pages[0]) {
-				this.errorEmpty(true, '("response.query.pages" is missing).', { title: t });
+				Mwbot.dieAsEmpty(true, '("response.query.pages" is missing).', { title: t });
 			}
 			pages[0].title ??= t;
 			const processed = processSinglePage(
@@ -2506,7 +2496,7 @@ export class Mwbot {
 
 			const pages = res.query?.pages;
 			if (!pages) {
-				setToAll(this.errorEmpty(false, '("response.query.pages" is missing).', { response: res }), batchIndex);
+				setToAll(Mwbot.dieAsEmpty(false, '("response.query.pages" is missing).', { response: res }), batchIndex);
 				continue;
 			}
 
@@ -2919,7 +2909,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseBlock> {
 
-		this.requireRights('block', 'block users');
+		this.dieIfNoRights('block', 'block users');
 
 		if (typeof target !== 'string') {
 			throw new MwbotError('fatal', {
@@ -2942,7 +2932,7 @@ export class Mwbot {
 		if (response.block) {
 			return response.block;
 		}
-		this.errorEmpty(true, '("response.block") is missing.', { response });
+		Mwbot.dieAsEmpty(true, '("response.block") is missing.', { response });
 
 	}
 
@@ -2977,7 +2967,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseDelete> {
 
-		this.requireRights('delete', 'delete pages');
+		this.dieIfNoRights('delete', 'delete pages');
 
 		// Validate title
 		let pageId: number | false = false;
@@ -2997,7 +2987,7 @@ export class Mwbot {
 		if (response.delete) {
 			return response.delete;
 		}
-		this.errorEmpty(true, '("response.delete" is missing).', { response });
+		Mwbot.dieAsEmpty(true, '("response.delete" is missing).', { response });
 
 	}
 
@@ -3024,7 +3014,7 @@ export class Mwbot {
 		}, disableRetryAPI);
 
 		if (!response.login) {
-			this.errorEmpty(true, '("response.login" is missing).', { response });
+			Mwbot.dieAsEmpty(true, '("response.login" is missing).', { response });
 		} else if (response.login.result !== 'Success') {
 			throw new MwbotError('api_mwbot', {
 				code: 'loginfailed',
@@ -3072,7 +3062,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseMove> {
 
-		this.requireRights('move', 'move pages');
+		this.dieIfNoRights('move', 'move pages');
 
 		// Validate `from` and `to`
 		let fromId: number | false = false;
@@ -3096,7 +3086,7 @@ export class Mwbot {
 		if (response.move) {
 			return response.move;
 		}
-		this.errorEmpty(true, '("response.move") is missing.', { response });
+		Mwbot.dieAsEmpty(true, '("response.move") is missing.', { response });
 
 	}
 
@@ -3128,7 +3118,7 @@ export class Mwbot {
 		if (response.parse) {
 			return response.parse;
 		}
-		this.errorEmpty(true, '("response.parse" is missing).', { response });
+		Mwbot.dieAsEmpty(true, '("response.parse" is missing).', { response });
 	}
 
 	/**
@@ -3169,7 +3159,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseProtect> {
 
-		this.requireRights('protect', 'protect pages');
+		this.dieIfNoRights('protect', 'protect pages');
 
 		// Validate title and protection levels
 		let pageId: number | false = false;
@@ -3206,7 +3196,7 @@ export class Mwbot {
 		if (response.protect) {
 			return response.protect;
 		}
-		this.errorEmpty(true, '("response.protect") is missing.', { response });
+		Mwbot.dieAsEmpty(true, '("response.protect") is missing.', { response });
 
 	}
 
@@ -3296,7 +3286,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseRollback> {
 
-		this.requireRights('rollback', 'rollback edits');
+		this.dieIfNoRights('rollback', 'rollback edits');
 
 		// Validate title and user
 		let pageId: number | false = false;
@@ -3323,7 +3313,7 @@ export class Mwbot {
 		if (response.rollback) {
 			return response.rollback;
 		}
-		this.errorEmpty(true, '("response.rollback" is missing).', { response });
+		Mwbot.dieAsEmpty(true, '("response.rollback" is missing).', { response });
 
 	}
 
@@ -3358,7 +3348,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseUnblock> {
 
-		this.requireRights('block', 'unblock users');
+		this.dieIfNoRights('block', 'unblock users');
 
 		const id = typeof userOrId === 'number' && userOrId;
 		const user = typeof userOrId === 'string' && userOrId;
@@ -3380,7 +3370,7 @@ export class Mwbot {
 		if (response.unblock) {
 			return response.unblock;
 		}
-		this.errorEmpty(true, '("response.unblock") is missing.', { response });
+		Mwbot.dieAsEmpty(true, '("response.unblock") is missing.', { response });
 
 	}
 
@@ -3417,7 +3407,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseUndelete> {
 
-		this.requireRights('undelete', 'undelete revisions');
+		this.dieIfNoRights('undelete', 'undelete revisions');
 
 		title = this.validateTitle(title).getPrefixedText();
 		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
@@ -3433,7 +3423,7 @@ export class Mwbot {
 		if (response.undelete) {
 			return response.undelete;
 		}
-		this.errorEmpty(true, '("response.undelete") is missing.', { response });
+		Mwbot.dieAsEmpty(true, '("response.undelete") is missing.', { response });
 
 	}
 
@@ -3538,7 +3528,7 @@ export class Mwbot {
 			const pages = res.query?.pages;
 			if (!pages) {
 				if (rejectProof) continue;
-				this.errorEmpty(true, '("response.query.pages" is missing).', { response: res });
+				Mwbot.dieAsEmpty(true, '("response.query.pages" is missing).', { response: res });
 			}
 			for (const { ns, title, missing } of pages) {
 				if (title && typeof ns === 'number') {
@@ -3628,7 +3618,7 @@ export class Mwbot {
 		const result: Record<string, string[]> = Object.create(null);
 		for (const res of responses) {
 			const pages = res.query?.pages;
-			if (!pages) this.errorEmpty(true, '("response.query.pages" is missing).', { response: res });
+			if (!pages) Mwbot.dieAsEmpty(true, '("response.query.pages" is missing).', { response: res });
 			pages.forEach(({ title, categories }) => {
 				if (!title || !categories) return;
 				const stripped = categories.map(c => c.title.replace(CATEGORY_PREFIX, ''));
@@ -3684,7 +3674,7 @@ export class Mwbot {
 		const retSet = new Set<string>();
 		for (const res of responses) {
 			const allpages = res.query?.allpages;
-			if (!allpages) this.errorEmpty(true, '("response.query.allpages" is missing).', { response: res });
+			if (!allpages) Mwbot.dieAsEmpty(true, '("response.query.allpages" is missing).', { response: res });
 			allpages.forEach(({ title }) => {
 				retSet.add(title.replace(CATEGORY_PREFIX, ''));
 			});
@@ -3755,7 +3745,7 @@ export class Mwbot {
 		let ret: ApiResponseQueryListCategorymembers[] = [];
 		responses.forEach((res) => {
 			const members = res.query?.categorymembers;
-			if (!members) this.errorEmpty(true, '("response.query.categorymembers" is missing).', { response: res });
+			if (!members) Mwbot.dieAsEmpty(true, '("response.query.categorymembers" is missing).', { response: res });
 			ret = ret.concat(members);
 		});
 		return ret;
@@ -3836,7 +3826,7 @@ export class Mwbot {
 		const result: Record<string, ApiResponseQueryPagesPropLinkshere[]> = Object.create(null);
 		for (const res of responses) {
 			const pages = res.query?.pages;
-			if (!pages) this.errorEmpty(true, '("response.query.pages" is missing).', { response: res });
+			if (!pages) Mwbot.dieAsEmpty(true, '("response.query.pages" is missing).', { response: res });
 			pages.forEach(({ title, linkshere }) => {
 				if (!title || !linkshere) return;
 				result[title] ||= [];
@@ -3926,7 +3916,7 @@ export class Mwbot {
 		const result: Record<string, ApiResponseQueryPagesPropTranscludedin[]> = Object.create(null);
 		for (const res of responses) {
 			const pages = res.query?.pages;
-			if (!pages) this.errorEmpty(true, '("response.query.pages" is missing).', { response: res });
+			if (!pages) Mwbot.dieAsEmpty(true, '("response.query.pages" is missing).', { response: res });
 			pages.forEach(({ title, transcludedin }) => {
 				if (!title || !transcludedin) return;
 				result[title] ||= [];
@@ -3999,17 +3989,17 @@ export class Mwbot {
 		}, { limit: Infinity }, requestOptions);
 		if (!responses.length) {
 			// `responses` is never expected to be an empty array but just in case
-			this.errorEmpty();
+			Mwbot.dieAsEmpty();
 		}
 
 		// Merge the response arrays into a single object and return it
 		let ret: PartiallyRequired<ApiResponseQuery, 'search'> = Object.create(null);
 		for (const res of responses) {
 			if (!res.query) {
-				this.errorEmpty(true, '("response.query" is missing).', { response: res });
+				Mwbot.dieAsEmpty(true, '("response.query" is missing).', { response: res });
 			}
 			if (!res.query.search) {
-				this.errorEmpty(true, '("response.query.search" is missing).', { response: res });
+				Mwbot.dieAsEmpty(true, '("response.query.search" is missing).', { response: res });
 			}
 			const query = res.query as PartiallyRequired<ApiResponseQuery, 'search'>;
 			if (responses.length === 1) {
@@ -4089,14 +4079,14 @@ export class Mwbot {
 		}, { limit }, requestOptions);
 		if (!responses.length) {
 			// `responses` is never expected to be an empty array but just in case
-			this.errorEmpty();
+			Mwbot.dieAsEmpty();
 		}
 
 		// Format the responses and return them as an array
 		let ret: ApiResponseQueryListPrefixsearch[] = [];
 		responses.forEach((res) => {
 			const prefixsearch = res.query?.prefixsearch;
-			if (!prefixsearch) this.errorEmpty(true, '("response.query.prefixsearch" is missing).', { response: res });
+			if (!prefixsearch) Mwbot.dieAsEmpty(true, '("response.query.prefixsearch" is missing).', { response: res });
 			ret = ret.concat(prefixsearch);
 		});
 		return ret;
