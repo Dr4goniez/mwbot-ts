@@ -1042,6 +1042,7 @@ export class Mwbot {
 		const baseUrlLength = new TextEncoder().encode(baseUrl).length;
 		if (autoMethod && length + baseUrlLength > 2084) {
 			method = 'POST';
+			requestOptions.method = 'POST';
 		}
 		if (method === 'POST') {
 			await this.handlePost(requestOptions, hasLongFields); // Encode params to data
