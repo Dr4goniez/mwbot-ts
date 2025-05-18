@@ -1,1 +1,1 @@
-export const MWBOT_VERSION = "1.2.2";
+export const MWBOT_VERSION = "1.2.3";
