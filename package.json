@@ -19,8 +19,8 @@
     "readme-links": "npx markdown-link-check README.md",
     "test-build": "ts-node src/test/test_build.ts",
     "prebuild": "node -p \"'export const MWBOT_VERSION = ' + JSON.stringify(require('./package.json').version) + ';'\" > src/version.ts",
-    "build": "npm run prebuild & tsc -p . & node generate-types.mjs",
-    "docs": "node -e \"require('fs-extra').emptyDir('docs');\" & npx typedoc --options typedoc.json"
+    "build": "npm run prebuild && tsc -p . && node generate-types.mjs",
+    "docs": "node -e \"require('fs-extra').emptyDir('docs');\" && npx typedoc --options typedoc.json"
   },
   "engines": {
     "node": ">=14.18.3"
