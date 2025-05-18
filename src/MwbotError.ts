@@ -166,6 +166,7 @@ export interface MwbotErrorCodes {
 		anonymous: 'Anonymous users are limited to non-write requests.';
 		loginfailed: 'Failed to log in.';
 		nopermission: 'You do not have permission to perform this action.';
+		botdenied: 'The target page has opted out of edits by this bot or the message types it delivers.';
 		// Used in the catch block of Mwbot._init
 		badauth: 'Failed to authenticate the client as a registered user in Mwbot.init.';
 		badvars: 'Failed to initialize wg-variables in Mwbot.init.';
@@ -230,7 +231,7 @@ export interface MwbotErrorData {
 	 */
 	axios?: Record<string, any>;
 	/**
-	 * Present for title-related errors encountered by {@link Mwbot.read}.
+	 * Present when the error involves a processed page title, such as in {@link Mwbot.read}.
 	 */
 	title?: string;
 	/**

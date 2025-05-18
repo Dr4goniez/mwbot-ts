@@ -81,7 +81,7 @@ import * as Util from './Util';
 const { mergeDeep, isPlainObject, isObject, sleep, isEmptyObject, arraysEqual, deepCloneInstance } = Util;
 import * as mwString from './String';
 import { TitleFactory, TitleStatic, Title } from './Title';
-import { TemplateFactory, TemplateStatic, ParserFunctionStatic } from './Template';
+import { TemplateFactory, TemplateStatic, ParserFunctionStatic, ParsedTemplate } from './Template';
 import { WikilinkFactory, WikilinkStatic, FileWikilinkStatic, RawWikilinkStatic } from './Wikilink';
 import { WikitextFactory, WikitextStatic, Wikitext } from './Wikitext';
 
@@ -2583,13 +2583,13 @@ export class Mwbot {
 	 *
 	 * @param title The page title, either as a string or a {@link Title} instance.
 	 * @param transform See {@link TransformationPredicate} for details.
-	 * @param requestOptions Optional HTTP request options.
+	 * @param editRequestOptions Optional HTTP request options and exclusion compliance options.
 	 * @returns A Promise resolving to an {@link ApiResponse}, or rejecting with an error object.
 	 */
 	async edit(
 		title: string | Title,
 		transform: TransformationPredicate,
-		requestOptions?: MwbotRequestConfig,
+		editRequestOptions: MwbotRequestConfig & ExclusionComplianceConfig,
 		/** @private */
 		retry = 0
 	): Promise<ApiResponseEditSuccess> {
@@ -2601,9 +2601,23 @@ export class Mwbot {
 			});
 		}
 
-		const revision = await this.read(title, Mwbot.unrefRequestOptions(requestOptions));
+		// Parse request options
+		const {
+			comply = false,
+			complianceTypes,
+			...requestOptions
+		} = Mwbot.unrefRequestOptions(editRequestOptions) as MwbotRequestConfig & ExclusionComplianceConfig;
+		delete requestOptions._cloned; // Let the callee methods handle mutation prevention
 
-		const unresolvedParams = transform(new this.Wikitext(revision.content), { ...revision });
+		// Retrieve the latest revision content
+		const revision = await this.read(title, requestOptions);
+		const wikitext = new this.Wikitext(revision.content);
+		if (comply) {
+			this.dieIfDenied(revision.title, wikitext, complianceTypes);
+		}
+
+		// Apply transformation
+		const unresolvedParams = transform(wikitext, { ...revision });
 		let params = unresolvedParams instanceof Promise
 			? await unresolvedParams
 			: unresolvedParams;
@@ -2634,11 +2648,8 @@ export class Mwbot {
 		params = Object.assign(defaultParams, params);
 
 		// Not using _save() here because it's complicated to destructure the user-defined params
-		const result = await this.postWithCsrfToken(
-			params as ApiParams,
-			Mwbot.unrefRequestOptions(requestOptions)
-		).catch((err: MwbotError) => err);
-		const { disableRetry, disableRetryAPI, disableRetryByCode = [] } = requestOptions || {};
+		const result = await this.postWithCsrfToken(params, requestOptions).catch((err: MwbotError) => err);
+		const { disableRetry, disableRetryAPI, disableRetryByCode = [] } = requestOptions;
 		if (
 			result instanceof MwbotError && result.code === 'editconflict' &&
 			typeof retry === 'number' && retry < 3 &&
@@ -2648,7 +2659,7 @@ export class Mwbot {
 			console.warn('Warning: Encountered an edit conflict.');
 			console.log('Retrying in 5 seconds...');
 			await sleep(5000);
-			return await this.edit(title, transform, Mwbot.unrefRequestOptions(requestOptions), retry + 1);
+			return await this.edit(title, transform, editRequestOptions, retry + 1);
 		}
 		if (result instanceof MwbotError) {
 			throw result;
@@ -2660,6 +2671,171 @@ export class Mwbot {
 			code: 'editfailed',
 			info: 'Edit failed.'
 		}, { response: result });
+
+	}
+
+	/**
+	 * Throws an error if the page opts out of bot editing via `{{bots}}` or `{{nobots}}` templates.
+	 *
+	 * This method checks the parsed wikitext for templates named `{{bots}}` or `{{nobots}}` and enforces
+	 * bot exclusion rules based on the parameters `allow`, `deny`, or `optout`. If the page explicitly
+	 * opts out of bot actions for the current user or for any of the specified `complianceTypes`, a
+	 * {@link MwbotError} is thrown.
+	 *
+	 * It also emits console warnings for any suspicious or conflicting use of these templates, such as:
+	 * - both `allow` and `deny` present in one `{{bots}}`
+	 * - parameters inside `{{nobots}}`
+	 * - presence of both `{{bots}}` and `{{nobots}}` on the same page
+	 * - multiple instances of either template
+	 *
+	 * @param title The title of the page being processed.
+	 * @param wikitext A {@link Wikitext} instance for the page, used to extract templates.
+	 * @param complianceTypes A message type or list of message types to check against `|optout=`.
+	 * @throws `botdenied` if the page content includes a `{{nobots}}` template or a `{{bots}}`
+	 * template that explicitly excludes the current user or the given message types.
+	 * @returns Nothing if bot access is allowed; otherwise throws an error.
+	 */
+	protected dieIfDenied(
+		title: string,
+		wikitext: Wikitext,
+		complianceTypes: string | string[] = []
+	): never | void {
+
+		// Retrieve {{bots}} and {{nobots}} transclusions
+		const warnings: string[] = [];
+		const config = this.config;
+		const NS_TEMPLATE = config.get('wgNamespaceIds').template;
+		const count = {
+			bots: 0,
+			nobots: 0
+		};
+		const templates = wikitext.parseTemplates({
+			templatePredicate: (temp) => {
+				const isTemplate =
+					!temp.skip &&
+					this._Template.is(temp, 'ParsedTemplate') &&
+					temp.title.getNamespaceId() === NS_TEMPLATE;
+				if (!isTemplate) {
+					return false;
+				}
+				switch (temp.title.getMain()) {
+					case 'Bots':
+						count.bots++;
+						if (
+							temp.hasParam(({ key, value }) => !!(key === 'allow' && value)) &&
+							temp.hasParam(({ key, value }) => !!(key === 'deny' && value))
+						) {
+							warnings.push(`The template "${temp.text}" unexpectedly includes both "|allow=" and "|deny=" parameters.`);
+						}
+						return true;
+					case 'Nobots':
+						count.nobots++;
+						if (Object.keys(temp.params).length) {
+							warnings.push(`The template "${temp.text}" unexpectedly includes parameters.`);
+						}
+						return true;
+					default: return false;
+				}
+			}
+		}) as ParsedTemplate[];
+		if (!templates.length) {
+			return;
+		}
+
+		const username = config.get('wgUserName');
+		const deniedTypes = new Set(Array.isArray(complianceTypes) ? complianceTypes : [complianceTypes]);
+		let text = '';
+		for (const temp of templates) {
+
+			// {{nobots}} being there means denied
+			if (temp.title.getMain() === 'Nobots') {
+				text = temp.text;
+				break;
+			}
+
+			// Handle |allow=
+			const allow = temp.getParam('allow');
+			if (allow?.value) {
+				const raw = allow.value;
+				const values = raw.split(',').map(v => v.trim()).filter(Boolean);
+				const hasNone = values.includes('none');
+				if (hasNone && values.length > 1) {
+					warnings.push(`The template "${temp.text}" contains "|allow=${raw}", which mixes "none" with other values.`);
+					text = temp.text;
+					break;
+				} else if (hasNone) {
+					text = temp.text;
+					break;
+				}
+				const isListed = values.some(name => name === 'all' || this._Title.normalizeUsername(name) === username);
+				if (!isListed) {
+					text = temp.text;
+					break;
+				}
+			}
+
+			// Handle |deny=
+			const deny = temp.getParam('deny');
+			if (deny?.value) {
+				const raw = deny.value;
+				const values = raw.split(',').map(v => v.trim()).filter(Boolean);
+				const hasNone = values.includes('none');
+				if (hasNone && values.length > 1) {
+					warnings.push(`The template "${temp.text}" contains "|deny=${raw}", which mixes "none" with other values.`);
+					// continue instead of break
+				} else if (hasNone) {
+					// deny=none means allow all, do nothing
+				} else {
+					const isListed = values.some(name => name === 'all' || this._Title.normalizeUsername(name) === username);
+					if (isListed) {
+						text = temp.text;
+						break;
+					}
+				}
+			}
+
+			// Check if a non-empty "|optout=" includes the current user's name
+			const optout = temp.getParam('optout');
+			if (optout?.value) {
+				const isListed = optout.value.split(',').some((type) => {
+					type = type.trim();
+					if (!type) return false;
+					return type === 'all' || deniedTypes.has(type);
+				});
+				if (isListed) {
+					text = temp.text;
+					break;
+				}
+			}
+
+		}
+
+		// Show warnings if caught
+		if (count.bots && count.nobots) {
+			warnings.push('This page contains both {{bots}} and {{nobots}} templates, which may conflict.');
+		}
+		if (count.bots > 1) {
+			warnings.push(`This page includes {{bots}} ${count.bots} times.`);
+		}
+		if (count.nobots > 1) {
+			warnings.push(`This page includes {{nobots}} ${count.nobots} times.`);
+		}
+		if (warnings.length && !this.userMwbotOptions.suppressWarnings) {
+			console.warn(`[Warning]: Exclusion compliance warnings caught for "${title}".`);
+			console.group();
+			for (const w of warnings) {
+				console.warn('- ' + w);
+			}
+			console.groupEnd();
+		}
+
+		// `text` being set means the page has opted out
+		if (text) {
+			throw new MwbotError('api_mwbot', {
+				code: 'botdenied',
+				info: `Bot edit denied due to "${text}".`
+			}, { title });
+		}
 
 	}
 
@@ -4145,6 +4321,26 @@ export interface ReadRequestConfig {
 	 * fall back to `'GET'` unless `'POST'` is explicitly specified.
 	 */
 	autoMethod?: boolean;
+}
+
+/**
+ * Additional options for {@link Mwbot.edit}.
+ */
+export interface ExclusionComplianceConfig {
+	/**
+	 * Whether to comply with {@link https://en.wikipedia.org/wiki/Template:Bots bot exclusions} by
+	 * automatically detecting `{{bots}}` and `{{nobots}}` templates. (Default: `false`)
+	 *
+	 * If the target page opts out of bot edits, the attempt will fail with a `botdefined` error.
+	 */
+	comply?: boolean;
+	/**
+	 * The message type(s) this edit is associated with. If the page includes a `{{bots|optout=}}` template
+	 * that matches any of the specified types, the edit attempt will fail with a `botdefined` error.
+	 *
+	 * Ignored unless {@link comply} is set to `true`.
+	 */
+	complianceTypes?: string | string[];
 }
 
 /**
