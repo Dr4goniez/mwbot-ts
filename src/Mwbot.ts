@@ -4321,12 +4321,12 @@ export interface ExclusionComplianceConfig {
 	 * Whether to comply with {@link https://en.wikipedia.org/wiki/Template:Bots bot exclusions} by
 	 * automatically detecting `{{bots}}` and `{{nobots}}` templates. (Default: `false`)
 	 *
-	 * If the target page opts out of bot edits, the attempt will fail with a `botdefined` error.
+	 * If the target page opts out of bot edits, the attempt will fail with a `botdenied` error.
 	 */
 	comply?: boolean;
 	/**
 	 * The message type(s) this edit is associated with. If the page includes a `{{bots|optout=}}` template
-	 * that matches any of the specified types, the edit attempt will fail with a `botdefined` error.
+	 * that matches any of the specified types, the edit attempt will fail with a `botdenied` error.
 	 *
 	 * Ignored unless {@link comply} is set to `true`.
 	 */
