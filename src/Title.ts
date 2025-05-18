@@ -324,7 +324,7 @@ export interface TitleStatic {
 	/**
 	 * Normalizes a username by capitalizing its first letter, following MediaWiki conventions.
 	 * IP addresses are capitalized with all hexadecimal segments spelled out (e.g., `192.168.0.1`
-	 * for IPv4 and `FD12:3456:789A:0001:0000:0000:0000:0000` for IPv6).
+	 * for IPv4 and `FD12:3456:789A:1:0:0:0:0` for IPv6).
 	 *
 	 * @param username The username to normalize.
 	 * @returns The normalized username, or `null` if the input contains characters that are not
