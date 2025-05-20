@@ -202,6 +202,7 @@ export interface MwbotErrorCodes {
 		nourl: 'No valid API endpoint is provided.';
 		invalidcreds: 'There is an issue with the credential information passed to Mwbot.';
 		emptyinput: 'A required input value is empty.';
+		internal: 'An unexpected internal error occurred.';
 		// Used in Mwbot.createBatchArray
 		invalidsize: 'The "batchSize" argument for massRequest() or continuedRequest() is invalid.';
 		fieldmismatch: 'API parameters passed to massRequest() or continuedRequest() involve unmatching multi-value fields.';
