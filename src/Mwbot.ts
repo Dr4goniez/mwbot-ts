@@ -3560,7 +3560,7 @@ export class Mwbot {
 		// Return an `exists()` function
 		return (title: string | Title): boolean | null => {
 			if (!(title instanceof this.Title)) {
-				const t = this.Title.normalize(title);
+				const t = this.Title.normalize(title, { format: 'api' });
 				if (!t) return null;
 				title = t;
 			} else {
