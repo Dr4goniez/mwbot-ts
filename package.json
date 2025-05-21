@@ -65,7 +65,8 @@
     "fs-extra": "^11.3.0",
     "markdown-link-check": "^3.13.7",
     "ts-node": "^10.9.2",
-    "typedoc": "^0.28.3",
+    "typedoc": "^0.28.4",
+    "typedoc-plugin-no-inherit": "^1.6.1",
     "typescript": "^5.8.3"
   }
 }

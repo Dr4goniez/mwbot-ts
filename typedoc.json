@@ -15,5 +15,7 @@
 	"excludeProtected": false,
 	"includeVersion": true,
 	"out": "docs",
-	// "readme": "README.md",
+	"plugin": [
+		"typedoc-plugin-no-inherit"
+	]
 }
