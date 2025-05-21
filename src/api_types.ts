@@ -229,6 +229,7 @@ export type ApiParamsAction =
 	| 'webauthn'
 	| 'wikilove';
 
+/** @noInheritDoc */
 export interface ApiParamsActionBlock extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
 	id?: number;
@@ -255,6 +256,7 @@ export interface ApiParamsActionBlock extends ApiParams {
 	token?: string;
 }
 
+/** @noInheritDoc */
 export interface ApiParamsActionDelete extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
 	title?: string;
@@ -272,6 +274,7 @@ export interface ApiParamsActionDelete extends ApiParams {
 	token?: string;
 }
 
+/** @noInheritDoc */
 export interface ApiParamsActionEdit extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki/blob/main/api_params/index.d.ts
 	title?: string;
@@ -332,6 +335,7 @@ export interface ApiParamsActionEdit extends ApiParams {
 	captchaid?: string;
 }
 
+/** @noInheritDoc */
 export interface ApiParamsActionMove extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
 	from?: string;
@@ -348,6 +352,7 @@ export interface ApiParamsActionMove extends ApiParams {
 	token?: string;
 }
 
+/** @noInheritDoc */
 export interface ApiParamsActionParse extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
 	title?: string;
@@ -467,6 +472,7 @@ export interface ApiParamsActionParse extends ApiParams {
 		| "unknown/unknown";
 }
 
+/** @noInheritDoc */
 export interface ApiParamsActionProtect extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
 	title?: string;
@@ -483,6 +489,7 @@ export interface ApiParamsActionProtect extends ApiParams {
 	token?: string;
 }
 
+/** @noInheritDoc */
 export interface ApiParamsActionRollback extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
 	title?: string;
@@ -496,6 +503,7 @@ export interface ApiParamsActionRollback extends ApiParams {
 	token?: string;
 }
 
+/** @noInheritDoc */
 export interface ApiParamsActionUnblock extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
 	id?: number;
@@ -509,6 +517,7 @@ export interface ApiParamsActionUnblock extends ApiParams {
 	token?: string;
 }
 
+/** @noInheritDoc */
 export interface ApiParamsActionUndelete extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
 	title: string;
@@ -1082,6 +1091,7 @@ export interface ApiResponseParaminfo { // TODO: Check source code
 	helpformat: string;
 	modules: ApiResponseParaminfoModules[];
 }
+/** @noInheritDoc */
 export interface ApiResponseParaminfoModules extends PartialRecord<_HelpFlags, true> { // Source code check midway
 	name: string;
 	classname: string;
@@ -1261,6 +1271,7 @@ export interface ApiResponseParsePropCategories {
 	known?: true;
 	hidden?: true;
 }
+/** @noInheritDoc */
 export interface ApiResponseParsePropLinks extends _TitleInfo {
 	// Note: Not using ApiQueryBase::addTitleInfo
 	exists: boolean;
@@ -1318,6 +1329,7 @@ export interface ApiResponseProtectProtections {
 	expiry: string;
 }
 
+/** @noInheritDoc */
 export interface ApiResponsePurge extends _PageSetInvalidTitlesAndRevisions { // Fully checked (source code level)
 	purged?: true;
 	linkupdate?: true;
@@ -1364,6 +1376,7 @@ export interface ApiResponseSitematrixSite {
 	sitename?: string;
 	closed?: true;
 }
+/** @noInheritDoc */
 export interface ApiResponseSitematrixSiteSpecial extends ApiResponseSitematrixSite {
 	private?: true;
 	fishbowl?: true;
@@ -1567,6 +1580,7 @@ export interface ApiResponseQuery { // Checked ApiQuery.php; TODO: Complete comm
 
 // ************************************** action=query (general properties) **************************************
 
+/** @noInheritDoc */
 export interface ApiResponseQueryPages extends // Fully checked (source code level)
 	Omit<_PageSetInvalidTitlesAndRevisions, 'revid' | 'iw' | 'url'>,
 	ApiResponseQueryPagesPropInfo,
@@ -1608,6 +1622,7 @@ export interface ApiResponseQueryPages extends // Fully checked (source code lev
 	wbentityusage?: Record<string, ApiResponseQueryPagesPropWbentityusage>;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryPagesPropCategories extends _TitleInfo { // Fully checked (source code level)
 	sortkey?: string; // clprop=sortkey
 	sortkeyprefix?: string; // clprop=sortkey
@@ -1915,6 +1930,7 @@ export interface ApiResponseQueryPagesPropTranscodestatus { // Fully checked (so
 	final_bitrate: string; // int(11) in the database but output as a string
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryPagesPropVideoinfo extends ApiResponseQueryPagesPropImageinfo { // Fully checked (source code level)
 	derivatives?: ApiResponseQueryPagesPropVideoinfoDerivatives[];
 	timedtext?: ApiResponseQueryPagesPropVideoinfoTimedtext[];
@@ -2262,6 +2278,7 @@ export interface ApiResponseQueryMetaSiteinfoUploaddialogFormat {
 	uncategorized: string;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryMetaSiteinfoUsergroups extends Partial<_GroupsChangeableBy> { // Fully checked (source code level)
 	name: string;
 	rights: string[];
@@ -2295,6 +2312,7 @@ export type ApiResponseQueryMetaTokens = { // Fully checked (source code level)
 
 // ********************** action=query&meta=userinfo **********************
 
+/** @noInheritDoc */
 export interface ApiResponseQueryMetaUserinfo extends // Fully checked (source code level)
 	/**
 	 * `uiprop=blockinfo`
@@ -2426,6 +2444,7 @@ export interface ApiResponseQueryListAbusefilters { // Fully checked (source cod
 	deleted?: '';
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListAbuselog extends Partial<_TitleInfo> { // Fully checked (source code level)
 	id?: number;
 	filter_id?: string;
@@ -2461,19 +2480,23 @@ export type ApiResponseQueryListAllfileusages = ApiResponseQueryListAlllinks; //
 
 export type ApiResponseQueryListAllimages = _TitleInfo & ApiResponseQueryPagesPropImageinfo; // Fully checked (source code level)
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListAlllinks extends Partial<_TitleInfo> { // Fully checked (source code level)
 	fromid?: number;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListAllpages extends _TitleInfo { // Fully checked (source code level)
 	pageid: number;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListAllredirects extends ApiResponseQueryListAlllinks { // Fully checked (source code level)
 	fragment?: string;
 	interwiki?: string;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListAllrevisions extends Partial<_TitleInfo> { // Fully checked (source code level)
 	pageid?: number;
 	revisions: ApiResponseQueryPagesPropRevisions[];
@@ -2481,6 +2504,7 @@ export interface ApiResponseQueryListAllrevisions extends Partial<_TitleInfo> { 
 
 export type ApiResponseQueryListAlltransclusions = ApiResponseQueryListAlllinks; // Fully checked (source code level)
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListAllusers extends _BlockDetails, _CentralUserInfo { // Fully checked (source code level)
 	// Note: ApiQueryAllUsers.php and ApiQueryUsers.php are different, and not interchangeable
 	userid: number;
@@ -2540,6 +2564,7 @@ export interface ApiResponseQueryListBlocksRestrictionsPages {
 	title: string;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListCategorymembers extends Partial<_TitleInfo> { // Fully checked (source code level)
 	pageid?: number;
 	sortkey?: string;
@@ -2591,6 +2616,7 @@ export type ApiResponseQueryListCheckuser = XOR< // Fully checked (source code l
 		ipusers: ApiResponseQueryListCheckuserIpusers[];
 	}
 >;
+/** @noInheritDoc */
 export interface ApiResponseQueryListCheckuserEdits extends _TitleInfo {
 	// Generated by ApiQueryCheckUserActionsResponse::getResponseData
 	timestamp: string;
@@ -2640,11 +2666,13 @@ export interface ApiResponseQueryListExtdistrepos { // Fully checked (source cod
 	skins: string[];
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListExturlusage extends _TitleInfo { // Fully checked (source code level)
 	pageid?: number;
 	url?: string;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListFilearchive extends _TitleInfo { // Fully checked (source code level)
 	id: number;
 	name: string;
@@ -2746,6 +2774,7 @@ export interface ApiResponseQueryListGlobalgroups { // Fully checked (source cod
 
 export type ApiResponseQueryListImageusage = _ApiQueryBacklinks; // Fully checked (source code level)
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListIwbacklinks extends _TitleInfo { // Fully checked (source code level)
 	pageid: number;
 	redirect?: true;
@@ -2753,6 +2782,7 @@ export interface ApiResponseQueryListIwbacklinks extends _TitleInfo { // Fully c
 	iwtitle?: string;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListLangbacklinks extends _TitleInfo { // Fully checked (source code level)
 	pageid: number;
 	redirect?: true;
@@ -2760,6 +2790,7 @@ export interface ApiResponseQueryListLangbacklinks extends _TitleInfo { // Fully
 	lltitle?: string;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListLinterrors extends _TitleInfo { // Fully checked (source code level)
 	pageid: number;
 	lintId: number;
@@ -2794,6 +2825,7 @@ export type ApiResponseQueryListLinterrorsCategories =
 	| 'unclosed-quotes-in-heading'
 	| 'wikilink-in-extlink';
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListLogevents extends Partial<_TitleInfo> { // Fully checked (source code level)
 	logid?: number;
 	actionhidden?: true;
@@ -2900,6 +2932,7 @@ export interface ApiResponseQueryListMessagecollectionMetadata {
 	remaining: number;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListMostviewed extends _TitleInfo { // Fully checked (source code level)
 	count: number;
 }
@@ -2919,16 +2952,19 @@ export interface ApiResponseQueryListPagepropnames { // Fully checked (source co
 	propname: string;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListPageswithprop extends Partial<_TitleInfo> { // Fully checked (source code level)
 	pageid?: number;
 	value?: string; // TODO: Should this be unknown?
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListPrefixsearch extends _TitleInfo { // Fully checked (source code level)
 	special?: true;
 	pageid?: number;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListProtectedtitles extends _TitleInfo { // Fully checked (source code level)
 	timestamp?: string;
 	user?: string;
@@ -2947,16 +2983,19 @@ export interface ApiResponseQueryListQuerypage { // Fully checked (source code l
 	maxresults?: number;
 	results: ApiResponseQueryListQuerypageResults[];
 }
+/** @noInheritDoc */
 export interface ApiResponseQueryListQuerypageResults extends _TitleInfo {
 	value?: string;
 	timestamp?: string;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListRandom extends _TitleInfo { // Fully checked (source code level)
 	id: number;
 	redirect?: boolean;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListRecentchanges extends Partial<_TitleInfo> { // Fully checked (source code level)
 	type: ApiResponseQueryListRecentchangesTypes;
 	actionhidden?: true;
@@ -3001,6 +3040,7 @@ export type ApiResponseQueryListRecentchangesTypes =
 	| 'external'
 	| 'categorize';
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListSearch extends _TitleInfo { // Fully checked (source code level)
 	pageid: number;
 	size?: number;
@@ -3020,12 +3060,14 @@ export interface ApiResponseQueryListSearchInfoInterwiki { // Fully checked (sou
 	totalhits?: number;
 	approximate_totalhits?: number;
 }
+/** @noInheritDoc */
 export interface ApiResponseQueryListSearchInfo extends ApiResponseQueryListSearchInfoInterwiki { // Fully checked (source code level)
 	suggestion?: string;
 	suggestionsnippet?: string;
 	rewrittenquery?: string;
 	rewrittenquerysnippet?: string;
 }
+/** @noInheritDoc */
 export interface ApiResponseQueryListSearchInterwikisearch extends ApiResponseQueryListSearch { // Fully checked (source code level)
 	namespace: string;
 	title: string;
@@ -3085,6 +3127,7 @@ export interface ApiResponseQueryListThreadsReplies {
 	id: string;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListUsercontribs extends _TitleInfo { // Fully checked (source code level)
 	texthidden?: true;
 	userid: number;
@@ -3108,6 +3151,7 @@ export interface ApiResponseQueryListUsercontribs extends _TitleInfo { // Fully 
 	suppressed?: true;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListUsers extends _BlockDetails, _CentralUserInfo { // Fully checked (source code level)
 	name: string;
 	invalid?: true;
@@ -3127,6 +3171,7 @@ export interface ApiResponseQueryListUsers extends _BlockDetails, _CentralUserIn
 	cancreateerror?: unknown; // Probably the same as ApiResponseErrors
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListWatchlist extends Partial<_TitleInfo> { // Fully checked (source code level)
 	// Mostly the same as ApiResponseQueryListRecentchanges but not identical
 	// as the object is generated by a separate module (ApiQueryWatchlist.php)
@@ -3167,10 +3212,12 @@ export interface ApiResponseQueryListWatchlist extends Partial<_TitleInfo> { // 
 	suppressed?: true;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListWatchlistraw extends _TitleInfo { // Fully checked (source code level)
 	changed?: string;
 }
 
+/** @noInheritDoc */
 export interface ApiResponseQueryListWblistentityusage extends _TitleInfo { // Fully checked (source code level)
 	pageid: number;
 	wblistentityusage: Record<string, ApiResponseQueryPagesPropWbentityusage>;
