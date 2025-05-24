@@ -563,7 +563,7 @@ export interface ApiResponse {
 	// acquiretempusername?: ApiResponseAcquiretempusername;
 	// aggregategroups?: ApiResponseAggregategroups;
 	// antispoof?: ApiResponseAntispoof;
-	// block?: ApiResponseBlock;
+	block?: ApiResponseBlock;
 	// centralauthtoken?: ApiResponseCentralauthtoken;
 	// centralnoticecdncacheupdatebanner?: ApiResponseCentralnoticecdncacheupdatebanner;
 	// centralnoticechoicedata?: ApiResponseCentralnoticechoicedata;
@@ -670,6 +670,19 @@ export interface ApiResponse {
 
 }
 
+/**
+ * Represents an empty PHP array (`[]`).
+ *
+ * Unlike JavaScript, which distinguishes between indexed arrays and objects, PHP uses the same internal structure
+ * for both indexed and associative arrays. As a result, when the API returns an empty PHP array, it is interpreted
+ * in JavaScript as an empty array (`[]`), not an empty object (`{}`).
+ *
+ * This typically occurs when an API module accepts a `**prop=` query parameter and the user explicitly overrides
+ * its default value by specifying it as empty.
+ *
+ * See https://phabricator.wikimedia.org/T395188.
+ */
+export type ApiResponseEmptyPhpArray = [];
 
 // ************************************** General response properties **************************************
 
@@ -1425,9 +1438,9 @@ export interface ApiResponseUndelete { // Fully checked (source code level)
 
 // ************************************** action=query **************************************
 
-export interface ApiResponseQuery { // Checked ApiQuery.php; TODO: Complete commented-out properties
+export interface ApiResponseQuery { // Check completed
 
-	[key: string]: any; // TODO: Remove this
+	[key: string]: unknown;
 
 	// ********************** General properties **********************
 
@@ -1450,29 +1463,26 @@ export interface ApiResponseQuery { // Checked ApiQuery.php; TODO: Complete comm
 	 */
 	export?: string;
 
-	protocols?: string[]; // TODO: What module does this originate from?
-
 	// ********************** Meta properties **********************
 
 	allmessages?: ApiResponseQueryMetaAllmessages[];
-	// authmanagerinfo: ApiResponseQueryMetaAuthmanagerinfo;
-	// babel: ApiResponseQueryMetaBabel;
-	// communityconfiguration: ApiResponseQueryMetaCommunityconfiguration;
-	// featureusage: ApiResponseQueryMetaFeatureusage;
-	// filerepoinfo: ApiResponseQueryMetaFilerepoinfo;
-	// globalpreferences: ApiResponseQueryMetaGlobalpreferences;
-	// globalrenamestatus: ApiResponseQueryMetaGlobalrenamestatus;
-	// globaluserinfo: ApiResponseQueryMetaGlobaluserinfo;
-	// languageinfo: ApiResponseQueryMetaLanguageinfo;
-	// languagestats: ApiResponseQueryMetaLanguagestats;
-	// linterstats: ApiResponseQueryMetaLinterstats;
-	// managemessagegroups: ApiResponseQueryMetaManagemessagegroups;
-	// messagegroups: ApiResponseQueryMetaMessagegroups;
-	// messagegroupstats: ApiResponseQueryMetaMessagegroupstats;
-	// messagetranslations: ApiResponseQueryMetaMessagetranslations;
-	// notifications: ApiResponseQueryMetaNotifications;
-
-	// meta=siteinfo
+	authmanagerinfo?: ApiResponseQueryMetaAuthmanagerinfo;
+	babel?: ApiResponseQueryMetaBabel;
+	communityconfiguration?: ApiResponseQueryMetaCommunityconfiguration;
+	featureusage?: ApiResponseQueryMetaFeatureusage;
+	filerepoinfo?: ApiResponseQueryMetaFilerepoinfo[];
+	globalpreferences?: ApiResponseQueryMetaGlobalpreferences;
+	globalrenamestatus?: { [user: string]: ApiResponseQueryMetaGlobalrenamestatus };
+	globaluserinfo?: ApiResponseQueryMetaGlobaluserinfo;
+	languageinfo?: ApiResponseQueryMetaLanguageinfo;
+	languagestats?: ApiResponseQueryMetaLanguagestats[];
+	linterstats?: ApiResponseQueryMetaLinterstats;
+	managemessagegroups?: ApiResponseQueryMetaManagemessagegroups[];
+	messagegroups?: (ApiResponseEmptyPhpArray | ApiResponseQueryMetaMessagegroups)[];
+	messagegroupstats?: ApiResponseQueryMetaMessagegroupstats[];
+	messagetranslations?: ApiResponseQueryMetaMessagetranslations[];
+	notifications?: ApiResponseQueryMetaNotifications;
+	// ----- meta=siteinfo -----
 	autocreatetempuser?: ApiResponseQueryMetaSiteinfoAutocreatetempuser;
 	dbrepllag?: ApiResponseQueryMetaSiteinfoDbrepllag[];
 	defaultoptions?: ApiResponseQueryMetaSiteinfoDefaultoptions;
@@ -1497,12 +1507,12 @@ export interface ApiResponseQuery { // Checked ApiQuery.php; TODO: Complete comm
 	uploaddialog?: ApiResponseQueryMetaSiteinfoUploaddialog;
 	usergroups?: ApiResponseQueryMetaSiteinfoUsergroups[];
 	variables?: ApiResponseQueryMetaSiteinfoVariables[]; // string[]
-
-	// siteviews: ApiResponseQueryMetaSiteviews;
+	// ----- meta=siteinfo end -----
+	siteviews?: ApiResponseQueryMetaSiteviews;
 	tokens?: ApiResponseQueryMetaTokens;
-	// unreadnotificationpages: ApiResponseQueryMetaUnreadnotificationpages;
+	unreadnotificationpages?: ApiResponseQueryMetaUnreadnotificationpages;
 	userinfo?: ApiResponseQueryMetaUserinfo;
-	// wikibase: ApiResponseQueryMetaWikibase;
+	wikibase?: ApiResponseEmptyPhpArray | ApiResponseQueryMetaWikibase;
 
 	// ********************** List properties **********************
 
@@ -1554,15 +1564,10 @@ export interface ApiResponseQuery { // Checked ApiQuery.php; TODO: Complete comm
 	recentchanges?: ApiResponseQueryListRecentchanges[];
 	search?: ApiResponseQueryListSearch[];
 		searchinfo?: ApiResponseQueryListSearchInfo;
-		additionalsearch?: {
-			[iwprefix: string]: ApiResponseQueryListSearchInterwikisearch[];
-		};
+		additionalsearch?: { [iwprefix: string]: ApiResponseQueryListSearchInterwikisearch[] };
 		additionalsearchinfo?: ApiResponseQueryListSearchInfoInterwiki;
-		interwikisearch?: {
-			[iwprefix: string]: ApiResponseQueryListSearchInterwikisearch[];
-		};
+		interwikisearch?: { [iwprefix: string]: ApiResponseQueryListSearchInterwikisearch[] };
 		interwikisearchinfo?: ApiResponseQueryListSearchInfoInterwiki;
-
 	tags?: ApiResponseQueryListTags[];
 	threads?: { [thread_id: string]: ApiResponseQueryListThreads };
 	usercontribs?: ApiResponseQueryListUsercontribs[];
@@ -1962,9 +1967,33 @@ export interface ApiResponseQueryPagesPropWbentityusage { // Fully checked (sour
 
 // ************************************** action=query&meta=something **************************************
 
-// export interface ApiResponseQueryMetaAuthmanagerinfo {}
-
-// ********************** action=query&meta=allmessages **********************
+export interface ApiResponseQueryMetaAuthmanagerinfo { // Fully checked (source code level)
+	canauthenticatenow: boolean;
+	cancreateaccounts: boolean;
+	canlinkaccounts: boolean;
+	securitysensitiveoperationstatus?: 'ok' | 'reauth' | 'fail';
+	haspreservedstate?: boolean;
+	hasprimarypreservedstate?: boolean;
+	preservedusername?: string;
+	requests?: ApiResponseQueryMetaAuthmanagerinfoRequests[];
+	fields?: Record<string, ApiResponseQueryMetaAuthmanagerinfoRequestsField>;
+}
+export interface ApiResponseQueryMetaAuthmanagerinfoRequests {
+	id: string;
+	metadata: object; // {}
+	required: 'optional' | 'required' | 'primary-required';
+	provider: string;
+	account: string;
+	fields?: Record<string, ApiResponseQueryMetaAuthmanagerinfoRequestsField>;
+}
+export interface ApiResponseQueryMetaAuthmanagerinfoRequestsField {
+	type: string;
+	label: string;
+	options?: unknown; // TODO: Update this if possible
+	help: string;
+	optional: boolean;
+	sensitive: boolean;
+}
 
 export interface ApiResponseQueryMetaAllmessages { // Fully checked (source code level)
 	name: string;
@@ -1976,23 +2005,254 @@ export interface ApiResponseQueryMetaAllmessages { // Fully checked (source code
 	default?: string;
 }
 
-// export interface ApiResponseQueryMetaBabel {}
-// export interface ApiResponseQueryMetaCommunityconfiguration {}
-// export interface ApiResponseQueryMetaFeatureusage {}
-// export interface ApiResponseQueryMetaFilerepoinfo {}
-// export interface ApiResponseQueryMetaGlobalpreferences {}
-// export interface ApiResponseQueryMetaGlobalrenamestatus {}
-// export interface ApiResponseQueryMetaGlobaluserinfo {}
-// export interface ApiResponseQueryMetaLanguageinfo {}
-// export interface ApiResponseQueryMetaLanguagestats {}
-// export interface ApiResponseQueryMetaLinterstats {}
-// export interface ApiResponseQueryMetaManagemessagegroups {}
-// export interface ApiResponseQueryMetaMessagegroups {}
-// export interface ApiResponseQueryMetaMessagegroupstats {}
-// export interface ApiResponseQueryMetaMessagetranslations {}
-// export interface ApiResponseQueryMetaNotifications {}
+export interface ApiResponseQueryMetaBabel { // Fully checked (source code level)
+	[langcode: string]: string;
+}
 
-// ********************** action=query&meta=siteinfo **********************
+export interface ApiResponseQueryMetaCommunityconfiguration { // Fully checked (source code level)
+	data: Record<string, unknown>;
+	version: string; // Enclosed in "if", but doesn't seem to ever lack
+}
+
+export interface ApiResponseQueryMetaFeatureusage { // Fully checked (source code level)
+	agent: string;
+	start: string;
+	end: string;
+	usage: ApiResponseQueryMetaFeatureusageUsage[];
+}
+export interface ApiResponseQueryMetaFeatureusageUsage {
+	feature: string;
+	date: string;
+	count: number;
+}
+
+export interface ApiResponseQueryMetaFilerepoinfo { // Fully checked (source code level)
+	name?: string;
+	displayname?: string;
+	rootUrl?: string | false;
+	local?: boolean;
+	url?: string | false;
+	thumbUrl?: string | false;
+	initialCapital?: boolean;
+	descBaseUrl?: string;
+	scriptDirUrl?: string;
+	fetchDescription?: boolean;
+	descriptionCacheExpiry?: number;
+	favicon?: string;
+	canUpload?: boolean;
+}
+
+export interface ApiResponseQueryMetaGlobalpreferences { // Fully checked (source code level)
+	preferences?: Record<string, string>;
+	localoverrides?: Record<string, unknown>;
+}
+
+export interface ApiResponseQueryMetaGlobalrenamestatus { // Fully checked (source code level)
+	from: string;
+	to: string;
+	// See GlobalRenameUserStatus::getStatuses and
+	// https://www.mediawiki.org/wiki/Extension:CentralAuth/renameuser_status_table
+	status: { [wiki: string]: 'queued' | 'inprogress' | 'failed' };
+}
+
+export interface ApiResponseQueryMetaGlobaluserinfo { // Fully checked (source code level)
+	home: string | null;
+	id: number;
+	registration: string;
+	name: string;
+	locked?: true;
+	hidden?: true;
+	missing?: true;
+	groups?: string[];
+	rights?: string[];
+	merged?: ApiResponseQueryMetaGlobaluserinfoMergedAccount[];
+	editcount?: number;
+	unattached?: ApiResponseQueryMetaGlobaluserinfoAccount[];
+}
+export interface ApiResponseQueryMetaGlobaluserinfoAccount {
+	wiki: string;
+	editcount: number;
+	registration: string;
+	groups?: string[];
+	blocked?: ApiResponseQueryMetaGlobaluserinfoBlocked;
+}
+export interface ApiResponseQueryMetaGlobaluserinfoMergedAccount extends ApiResponseQueryMetaGlobaluserinfoAccount {
+	url: string;
+	id: number;
+	timestamp: string;
+	method: string;
+}
+export interface ApiResponseQueryMetaGlobaluserinfoBlocked {
+	expiry: string;
+	reason: string;
+}
+
+export interface ApiResponseQueryMetaLanguageinfo { // Fully checked (source code level)
+	code?: string;
+	bcp47?: string;
+	dir?: string;
+	autonym?: string;
+	name?: string;
+	fallbacks?: string[];
+	variants?: string[];
+	variantnames?: { [code: string]: string };
+}
+
+/**
+ * Generated by `QueryStatsActionApi::makeItem`.
+ * @private
+ */
+export interface _QueryStatsActionApiItem {
+	total: number;
+	translated: number;
+	fuzzy: number;
+	proofread: number;
+}
+/** */
+export interface ApiResponseQueryMetaLanguagestats extends _QueryStatsActionApiItem { // Fully checked (source code level)
+	group: string;
+}
+
+export interface ApiResponseQueryMetaLinterstats { // Fully checked (source code level)
+	totals: ApiResponseQueryMetaLinterstatsTotals;
+}
+export interface ApiResponseQueryMetaLinterstatsTotals {
+	[category: string]: number;
+}
+
+export interface ApiResponseQueryMetaManagemessagegroups { // Fully checked (source code level)
+	key: string;
+	content: string;
+	similarity: number;
+	link: string;
+	title: string;
+}
+
+export interface ApiResponseQueryMetaMessagegroups { // Fully checked (source code level)
+	id?: string;
+	label?: string;
+	description?: string;
+	class?: string;
+	namespace?: number | false;
+	exists?: boolean;
+	icon?: string;
+	priority?: string;
+	prioritylangs?: string[] | false;
+	priorityforce?: boolean;
+	workflowstates?: ApiResponseQueryMetaMessagegroupsWorkflowstates | false;
+	sourcelanguage?: string;
+	subscription?: boolean;
+	groupcount?: number;
+	groups?: (ApiResponseEmptyPhpArray | ApiResponseQueryMetaMessagegroups)[];
+}
+export interface ApiResponseQueryMetaMessagegroupsWorkflowstates {
+	[state: string]: ApiResponseQueryMetaMessagegroupsWorkflowstatesEntry;
+}
+export interface ApiResponseQueryMetaMessagegroupsWorkflowstatesEntry {
+	canchange?: 1;
+	name: string;
+}
+
+/** */
+export interface ApiResponseQueryMetaMessagegroupstats extends _QueryStatsActionApiItem { // Fully checked (source code level)
+	code: string;
+	language: string;
+}
+
+export interface ApiResponseQueryMetaMessagetranslations { // Fully checked (source code level)
+	title: string;
+	language: string;
+	lasttranslator: string;
+	fuzzy?: 'fuzzy';
+	translation: string;
+}
+
+// ----- meta=notifications -----
+
+export type ApiResponseQueryMetaNotifications = // Fully checked (source code level)
+	| ApiResponseEmptyPhpArray
+	| ApiResponseQueryMetaNotificationsUngrouped
+	| ApiResponseQueryMetaNotificationsGrouped;
+
+// "&notgroupbysection=" not set
+export interface ApiResponseQueryMetaNotificationsUngrouped extends ApiResponseQueryMetaNotificationsList {
+	seenTime?: ApiResponseQueryMetaNotificationsUngroupedSeentime;
+}
+export interface ApiResponseQueryMetaNotificationsUngroupedSeentime {
+	alert: string;
+	message: string;
+}
+
+// "&notgroupbysection=true"
+export interface ApiResponseQueryMetaNotificationsGrouped {
+	alert: ApiResponseQueryMetaNotificationsGroupedList;
+	message: ApiResponseQueryMetaNotificationsGroupedList;
+	rawcount?: number;
+	count?: string;
+}
+export interface ApiResponseQueryMetaNotificationsGroupedList extends ApiResponseQueryMetaNotificationsList {
+	seenTime?: string;
+}
+
+export interface ApiResponseQueryMetaNotificationsList {
+	list?: ApiResponseQueryMetaNotificationsListitem[];
+	continue?: string | null;
+	rawcount?: number;
+	count?: string;
+}
+export interface ApiResponseQueryMetaNotificationsListitem {
+	// Generated by DataOutputFormatter::formatOutput
+	wiki: string;
+	id: number;
+	type: string;
+	category: string;
+	section: string;
+	timestamp: ApiResponseQueryMetaNotificationsTimestamp;
+	bundledIds?: number[];
+	title?: ApiResponseQueryMetaNotificationsTitle;
+	agent?: ApiResponseQueryMetaNotificationsAgent;
+	revid?: number;
+	read?: string;
+	targetpages: number[];
+	// Generated by ApiEchoNotifications::makeForeignNotification
+	count?: number;
+	sources?: { [wiki: string]: ApiResponseQueryMetaNotificationsSources };
+}
+export interface ApiResponseQueryMetaNotificationsTimestamp {
+	utciso8601: string;
+	utcunix: number;
+	unix: string;
+	utcmw: string;
+	mw: string;
+	date: string;
+}
+export interface ApiResponseQueryMetaNotificationsTitle {
+	full: string;
+	namespace: string;
+	'namespace-key': number;
+	text: string;
+}
+export type ApiResponseQueryMetaNotificationsAgent = XOR<
+	{
+		id: number;
+		name: string;
+	},
+	{
+		userhidden: '';
+	}
+>;
+export interface ApiResponseForeignNotificationsApiEndpoints {
+	// Generated by ForeignNotifications::getApiEndpoints
+	title: string;
+	url: string | null;
+	base: string | null;
+}
+export interface ApiResponseQueryMetaNotificationsSources extends ApiResponseForeignNotificationsApiEndpoints {
+	// Generated by ApiEchoNotifications::makeForeignNotification
+	ts: string | null;
+}
+
+// ----- meta=siteinfo -----
 
 export interface ApiResponseQueryMetaSiteinfoAutocreatetempuser { // Fully checked (source code level)
 	enabled: boolean;
@@ -2287,11 +2547,11 @@ export interface ApiResponseQueryMetaSiteinfoUsergroups extends Partial<_GroupsC
 
 export type ApiResponseQueryMetaSiteinfoVariables = string; // Fully checked (source code level)
 
-// ********************** action=query&meta=siteviews **********************
+// ----- meta=siteinfo end -----
 
-// export interface ApiResponseQueryMetaSiteviews {}
-
-// ********************** action=query&meta=tokens **********************
+export interface ApiResponseQueryMetaSiteviews { // Fully checked (source code level)
+	[date: string]: number;
+}
 
 export type ApiResponseQueryMetaTokens = { // Fully checked (source code level)
 	csrftoken?: string;
@@ -2308,9 +2568,21 @@ export type ApiResponseQueryMetaTokens = { // Fully checked (source code level)
 	[tokentype: string]: string;
 };
 
-// export interface ApiResponseQueryMetaUnreadnotificationpages {}
-
-// ********************** action=query&meta=userinfo **********************
+export interface ApiResponseQueryMetaUnreadnotificationpages {
+	[wiki: string]: ApiResponseQueryMetaUnreadnotificationpagesEntry;
+}
+export interface ApiResponseQueryMetaUnreadnotificationpagesEntry {
+	pages: ApiResponseQueryMetaUnreadnotificationpagesEntryPages[];
+	totalCount: number;
+	source: ApiResponseForeignNotificationsApiEndpoints;
+}
+export interface ApiResponseQueryMetaUnreadnotificationpagesEntryPages {
+	ns?: number;
+	title: string | null;
+	unprefixed?: string;
+	pages?: (string | null)[];
+	count: number;
+}
 
 /** */
 export interface ApiResponseQueryMetaUserinfo extends // Fully checked (source code level)
@@ -2424,7 +2696,18 @@ export interface ApiResponseQueryMetaUserinfoAcceptlang {
 	code: string;
 }
 
-// export interface ApiResponseQueryMetaWikibase {}
+export interface ApiResponseQueryMetaWikibase {
+	repo?: ApiResponseQueryMetaWikibaseRepo;
+	siteid?: string;
+}
+export interface ApiResponseQueryMetaWikibaseRepo {
+	url: ApiResponseQueryMetaWikibaseRepoUrls;
+}
+export interface ApiResponseQueryMetaWikibaseRepoUrls {
+	base: string;
+	scriptpath: string;
+	articlepath: string;
+}
 
 
 // ************************************** action=query&list=something **************************************
@@ -2551,7 +2834,7 @@ export interface ApiResponseQueryListBlocks { // Fully checked (source code leve
 	/**
 	 * An empty array if the user is not partial-blocked; otherwise an object.
 	 */
-	restrictions?: [] | ApiResponseQueryListBlocksRestrictions;
+	restrictions?: ApiResponseEmptyPhpArray | ApiResponseQueryListBlocksRestrictions;
 }
 export interface ApiResponseQueryListBlocksRestrictions {
 	pages?: ApiResponseQueryListBlocksRestrictionsPages[];
@@ -2585,8 +2868,8 @@ export interface ApiResponseQueryListCentralnoticelogs { // Fully checked (sourc
 	logs: ApiResponseQueryListCentralnoticelogsLog[];
 }
 export interface ApiResponseQueryListCentralnoticelogsLog {
-	removed: [] | ApiResponseQueryListCentralnoticelogsDiff;
-	added: [] | ApiResponseQueryListCentralnoticelogsDiff;
+	removed: ApiResponseEmptyPhpArray | ApiResponseQueryListCentralnoticelogsDiff;
+	added: ApiResponseEmptyPhpArray | ApiResponseQueryListCentralnoticelogsDiff;
 }
 export interface ApiResponseQueryListCentralnoticelogsDiff {
 	// Direct result of a SELECT query, formatted as a diff via CampaignLog.php and ApiCentralNoticeLogs.php
@@ -3105,8 +3388,8 @@ export interface ApiResponseQueryListThreads { // Fully checked (source code lev
 	subject?: string | null;
 	summaryid?: string | null;
 	type?: string;
-	reactions?: [] | { [key: string]: ApiResponseQueryListThreadsReactions };
-	replies?: [] | { [thread_id: string]: ApiResponseQueryListThreadsReplies };
+	reactions?: ApiResponseEmptyPhpArray | { [key: string]: ApiResponseQueryListThreadsReactions };
+	replies?: ApiResponseEmptyPhpArray | { [thread_id: string]: ApiResponseQueryListThreadsReplies };
 	/**
 	 * `thrender=true`
 	 */
