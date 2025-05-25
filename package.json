@@ -19,7 +19,8 @@
     "readme-links": "npx markdown-link-check README.md",
     "test-build": "ts-node src/test/test_build.ts",
     "build": "node generate-version.mjs && node empty-dir.mjs dist/build && tsc -p . && node generate-index.mjs",
-    "docs": "node empty-dir.mjs docs && npx typedoc --options typedoc.json"
+    "docs": "node empty-dir.mjs docs && npx typedoc --options typedoc.json",
+    "update": "update-version.sh"
   },
   "engines": {
     "node": ">=14.18.3"
