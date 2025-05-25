@@ -1785,7 +1785,7 @@ export class Mwbot {
 	 *
 	 * @param parameters Parameters to the API, including multi-value fields.
 	 * @param keys The key(s) of the multi-value field(s) to split (e.g., `titles`).
-	 * @param batchSize Optional batch size (defaults to the {@link apilimit}`). Must be a positive integer
+	 * @param batchSize Optional batch size (defaults to the `{@link apilimit}`). Must be a positive integer
 	 * less than or equal to `apilimit`.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns
