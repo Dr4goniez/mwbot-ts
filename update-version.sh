@@ -34,6 +34,3 @@ git checkout main
 git merge docs
 git branch -d docs
 git push origin main
-
-# Publish to npm
-npm publish
