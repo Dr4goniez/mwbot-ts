@@ -78,7 +78,7 @@ Mwbot.init(initOptions, defaultRequestOptions).then((mwbot) => {
 
 </details>
 
-The `Mwbot.init` method requires a [MwbotInitOptions](https://dr4goniez.github.io/mwbot-ts/types/Mwbot.MwbotInitOptions.html) object, which consists of [MwbotOptions](https://dr4goniez.github.io/mwbot-ts/interfaces/Mwbot.MwbotOptions.html) and [Credentials](https://dr4goniez.github.io/mwbot-ts/types/Mwbot.Credentials.html). This object is used to initialize default instance options and authentication credentials:
+The `Mwbot.init` method requires a [MwbotInitOptions](https://dr4goniez.github.io/mwbot-ts/interfaces/Mwbot.MwbotInitOptions.html) object, which consists of [MwbotOptions](https://dr4goniez.github.io/mwbot-ts/interfaces/Mwbot.MwbotOptions.html) and [Credentials](https://dr4goniez.github.io/mwbot-ts/types/Mwbot.Credentials.html). This object is used to initialize default instance options and authentication credentials:
 
 <details>
 <summary>MwbotInitOptions:</summary>
@@ -332,7 +332,7 @@ See also [postWithCsrfToken](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.
 * [edit](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#edit) - Fetches the latest revision of a page, applies a transformation function, and submits the modified content. Automatically handles edit conflicts up to 3 times.
   * `mwbot.edit()` also supports [exclusion compliance](https://en.wikipedia.org/wiki/Template:Bots) — that is, reading `{{bots}}` and `{{nobots}}` templates in the page content and determining whether your bot is opted in. With `mwbot-ts`, this is easy to implement: simply pass `{ comply: true }` to the method. There’s no need to handle any complex regex manually. See also [`ExclusionComplianceConfig`](https://dr4goniez.github.io/mwbot-ts/interfaces/Mwbot.ExclusionComplianceConfig.html).
 
-All of these methods return a `Promise` that resolves with an [ApiResponseEditSuccess](https://dr4goniez.github.io/mwbot-ts/types/Mwbot.ApiResponseEditSuccess.html) object or rejects with a `MwbotError` (see [#Error handling](#error-handling)). When the `Promise` resolves, the `result` field is always `'Success'`, and all other cases are handled with a rejection. In other words, there is no need to inspect the response object to verify whether the edit succeeded: When `then()` is called, that's a success, and when `catch()` is called, that's a failure.
+All of these methods return a `Promise` that resolves with an [ApiResponseEditSuccess](https://dr4goniez.github.io/mwbot-ts/interfaces/Mwbot.ApiResponseEditSuccess.html) object or rejects with a `MwbotError` (see [#Error handling](#error-handling)). When the `Promise` resolves, the `result` field is always `'Success'`, and all other cases are handled with a rejection. In other words, there is no need to inspect the response object to verify whether the edit succeeded: When `then()` is called, that's a success, and when `catch()` is called, that's a failure.
 
 <details>
 <summary>ApiResponseEditSuccess</summary>

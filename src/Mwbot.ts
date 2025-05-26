@@ -4134,7 +4134,9 @@ export class Mwbot {
 /**
  * Options to be passed as the first argument of {@link Mwbot.init}.
  */
-export type MwbotInitOptions = MwbotOptions & { credentials: Credentials };
+export interface MwbotInitOptions extends MwbotOptions {
+	credentials: Credentials;
+}
 
 /**
  * Configuration options for {@link Mwbot.init}. These options can also be updated later
@@ -4562,7 +4564,9 @@ export type TransformationPredicate =
  * A variant of {@link ApiResponseEdit} where the `result` property is guaranteed to be `'Success'`.
  * Used in {@link Mwbot.create}, {@link Mwbot.save}, and {@link Mwbot.edit}.
  */
-export type ApiResponseEditSuccess = Omit<ApiResponseEdit, 'result'> & { result: 'Success' };
+export interface ApiResponseEditSuccess extends Omit<ApiResponseEdit, 'result'> {
+	result: 'Success';
+}
 
 /**
  * A function that checks whether a given title exists.
