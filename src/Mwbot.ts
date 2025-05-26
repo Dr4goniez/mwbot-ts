@@ -180,7 +180,7 @@ export class Mwbot {
 	 * Custom agents that manage keep-alive connections for HTTP requests.
 	 * These are injected into the request options when using OAuth.
 	 *
-	 * See https://www.mediawiki.org/wiki/Manual:Creating_a_bot#Bot_best_practices.
+	 * See [[{@link https://www.mediawiki.org/wiki/Manual:Creating_a_bot#Bot_best_practices | mw:Manual:Creating a bot#Bot best practices}]].
 	 */
 	protected readonly agents: {
 		http: http.Agent;
@@ -680,9 +680,7 @@ export class Mwbot {
 		actionDescription: string,
 		allowAnonymous = false
 	): never | void {
-		if (!allowAnonymous) {
-			this.dieIfAnonymous();
-		}
+		this.dieIfAnonymous(!allowAnonymous);
 		if (!this.hasRights(rights)) {
 			throw new MwbotError('api_mwbot', {
 				code: 'nopermission',
@@ -1622,7 +1620,7 @@ export class Mwbot {
 	 * Performs an HTTP POST request to the MediaWiki API to **fetch data**. This method should only be used
 	 * to circumvent a `414 URI too long` error; otherwise, use {@link get}.
 	 *
-	 * Per {@link https://www.mediawiki.org/wiki/API:Etiquette#Other_notes | mw:API:Etiquette#Other_notes},
+	 * Per [[{@link https://www.mediawiki.org/wiki/API:Etiquette#Other_notes | mw:API:Etiquette#Other notes}]],
 	 * `Promise-Non-Write-API-Action: true` will be set to the request headers automatically.
 	 *
 	 * @param parameters Parameters to the API.
@@ -1763,8 +1761,8 @@ export class Mwbot {
 	}
 
 	/**
-	 * Performs API requests with a multi-value field that is subject to the apilimit, processing multiple
-	 * requests in parallel if necessary.
+	 * Performs API requests with a multi-value field that is subject to the {@link apilimit}, processing
+	 * multiple requests in parallel if necessary.
 	 *
 	 * For example:
 	 * ```ts
@@ -1775,7 +1773,7 @@ export class Mwbot {
 	 * }
 	 * ```
 	 * Pass the multi-value field as an array, and this method will automatically split it based on the
-	 * user's apilimit (`500` for bots, `50` otherwise). The key(s) of the multi-value field(s) must be
+	 * user's `apilimit` (`500` for bots, `50` otherwise). The key(s) of the multi-value field(s) must be
 	 * passed as the second parameter.
 	 *
 	 * **Request method**:
@@ -1785,8 +1783,8 @@ export class Mwbot {
 	 *
 	 * @param parameters Parameters to the API, including multi-value fields.
 	 * @param keys The key(s) of the multi-value field(s) to split (e.g., `titles`).
-	 * @param batchSize Optional batch size (defaults to the `{@link apilimit}`). Must be a positive integer
-	 * less than or equal to `apilimit`.
+	 * @param batchSize Optional batch size (defaults to the `apilimit`). Must be a positive integer less than
+	 * or equal to the `apilimit`.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns
 	 * A Promise resolving to an array of API responses or {@link MwbotError} objects for failed requests.
@@ -2012,10 +2010,23 @@ export class Mwbot {
 	 *
 	 * If a cached token is available, it is returned immediately. Otherwise, an API request is made to fetch a new token.
 	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'query',
+	 *   meta: 'tokens',
+	 *   type: '*',
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
 	 * @param tokenType The type of token to retrieve (e.g., `csrf`).
-	 * @param additionalParams Additional API parameters. If a string is provided, it is treated as the `assert` parameter.
+	 * @param additionalParams
+	 * Additional API parameters. If a string is provided, it is treated as the `assert` parameter.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns The retrieved token. If the request fails, a rejected Promise with a {@link MwbotError} object is returned.
+	 * @returns A Promise resolving to the retrieved token, or rejecting with an error.
 	 */
 	async getToken(
 		tokenType: string,
@@ -2036,10 +2047,10 @@ export class Mwbot {
 			additionalParams = { assert: additionalParams };
 		}
 		const response = await this.get({
+			...additionalParams,
 			...Mwbot.getActionParams('query'),
 			meta: 'tokens',
-			type: '*',
-			...additionalParams
+			type: '*'
 		}, requestOptions);
 		const tokenMap = response.query?.tokens;
 		if (tokenMap && isEmptyObject(tokenMap) === false) {
@@ -2273,7 +2284,8 @@ export class Mwbot {
 	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Edit | `action=edit`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to {@link ApiResponseEditSuccess}, or rejecting with {@link MwbotError}.
+	 * @returns A Promise resolving to the `response.edit` object (where the `result` property is guaranteed
+	 * to be `'Success'`), or rejecting with an error.
 	 */
 	async create(
 		title: string | Title,
@@ -2319,7 +2331,8 @@ export class Mwbot {
 	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Edit | `action=edit`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the API response, or rejecting with {@link MwbotError}.
+	 * @returns A Promise resolving to the `response.edit` object (where the `result` property is guaranteed
+	 * to be `'Success'`), or rejecting with an error.
 	 */
 	async save(
 		title: string | Title,
@@ -2327,7 +2340,7 @@ export class Mwbot {
 		summary?: string,
 		additionalParams: ApiParamsActionEdit = {},
 		requestOptions?: MwbotRequestConfig
-	): Promise<ApiResponse> {
+	): Promise<ApiResponseEditSuccess> {
 		return this._save(this.validateTitle(title), content, summary, { nocreate: true }, additionalParams, requestOptions);
 	}
 
@@ -2362,7 +2375,8 @@ export class Mwbot {
 	 * @param title The page title, either as a string or a {@link Title} instance.
 	 * @param transform See {@link TransformationPredicate} for details.
 	 * @param editRequestOptions Optional HTTP request options and exclusion compliance options.
-	 * @returns A Promise resolving to an {@link ApiResponse}, or rejecting with an error object.
+	 * @returns A Promise resolving to the `response.edit` object (where the `result` property is guaranteed
+	 * to be `'Success'`), or rejecting with an error.
 	 */
 	async edit(
 		title: string | Title,
@@ -2398,37 +2412,37 @@ export class Mwbot {
 
 		// Apply transformation
 		const unresolvedParams = transform(wikitext, { ...revision });
-		let params = unresolvedParams instanceof Promise
+		let userParams = unresolvedParams instanceof Promise
 			? await unresolvedParams
 			: unresolvedParams;
-		if (params === null) {
+		if (userParams === null) {
 			throw new MwbotError('api_mwbot', {
 				code: 'aborted',
 				info: 'Edit aborted by the user.'
 			});
 		}
-		if (!isPlainObject(params)) {
+		if (!isPlainObject(userParams)) {
 			throw new MwbotError('fatal', {
 				code: 'typemismatch',
 				info: 'The transformation predicate must resolve to a plain object.'
-			}, { transformed: params });
+			}, { transformed: userParams });
 		}
-		const defaultParams: ApiParamsActionEdit = {
+		const parameters: ApiParamsActionEdit = {
 			title: revision.title,
 			bot: true,
 			baserevid: revision.baserevid,
 			basetimestamp: revision.basetimestamp,
 			starttimestamp: revision.starttimestamp,
 			nocreate: true,
+			...userParams,
 			...Mwbot.getActionParams('edit'),
 		};
-		if (typeof params.pageid === 'number') {
-			delete defaultParams.title; // Mutually exclusive
+		if (typeof parameters.title === 'string' && typeof parameters.pageid === 'number') {
+			delete parameters.title; // Mutually exclusive
 		}
-		params = Object.assign(defaultParams, params);
 
-		// Not using _save() here because it's complicated to destructure the user-defined params
-		const result = await this.postWithCsrfToken(params, requestOptions).catch((err: MwbotError) => err);
+		// Not using _save() here because it's complicated to destructure the user-defined userParams
+		const result = await this.postWithCsrfToken(parameters, requestOptions).catch((err: MwbotError) => err);
 		const { disableRetry, disableRetryAPI, disableRetryByCode } = requestOptions;
 		if (
 			result instanceof MwbotError && result.code === 'editconflict' &&
@@ -2647,7 +2661,8 @@ export class Mwbot {
 	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Edit | `action=edit`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @param requestOptions Optional HTTP request options.
-	 * @return A Promise resolving to an {@link ApiResponse}, or rejecting with an error object.
+	 * @returns A Promise resolving to the `response.edit` object (where the `result` property is guaranteed
+	 * to be `'Success'`), or rejecting with an error.
 	 */
 	async newSection(
 		title: string | Title,
@@ -2656,7 +2671,7 @@ export class Mwbot {
 		summary?: string,
 		additionalParams: ApiParamsActionEdit = {},
 		requestOptions?: MwbotRequestConfig
-	): Promise<ApiResponse> {
+	): Promise<ApiResponseEditSuccess> {
 		return this._save(this.validateTitle(title), content, summary, { section: 'new', sectiontitle }, additionalParams, requestOptions);
 	}
 
@@ -2735,7 +2750,7 @@ export class Mwbot {
 	 * {
 	 *   action: 'delete',
 	 *   title: titleOrId, // If a string or a Title instance
-	 *   pageid: pageId, // If a number
+	 *   pageid: titleOrId, // If a number
 	 *   format: 'json',
 	 *   formatversion: '2'
 	 * }
@@ -3058,7 +3073,7 @@ export class Mwbot {
 	 * {
 	 *   action: 'rollback',
 	 *   title: titleOrId, // If a string or a Title instance
-	 *   pageid: pageId, // If a number
+	 *   pageid: titleOrId, // If a number
 	 *   user: user,
 	 *   format: 'json',
 	 *   formatversion: '2'
@@ -3271,15 +3286,15 @@ export class Mwbot {
 	/**
 	 * Retrieves the latest revision contents of multiple titles from the API.
 	 *
-	 * This method returns a Promise resolving to an array of API responses, whose length is exactly
+	 * This method returns a Promise resolving to an array of revision information, whose length is exactly
 	 * the same as the input `titles` array. This ensures that each title at a specific index in `titles`
 	 * will have its corresponding response at the same index in the returned array, preserving a strict
 	 * mapping between inputs and outputs.
 	 *
 	 * @param titles An array of the page titles, either as strings or {@link Title} instances, or mixed.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to an array of API responses, with errors for invalid titles at their
-	 * respective indexes.
+	 * @returns A Promise resolving to an array of revision information, with errors for invalid titles at
+	 * their respective indexes.
 	 */
 	async read(titles: (string | Title)[], requestOptions?: MwbotRequestConfig): Promise<(Revision | MwbotError)[]>;
 	async read(
@@ -3575,7 +3590,8 @@ export class Mwbot {
 	 * Retrieves the categories that the given title(s) belong to.
 	 *
 	 * @param titles A single title or an array of titles to enumerate categories for.
-	 * @param hidden A specification to enumerate hidden categories. This manipulates the `clshow` parameter:
+	 * @param hidden A specification to enumerate hidden categories. This manipulates the `clshow` parameter
+	 * for {@link https://www.mediawiki.org/wiki/API:Categories | `prop=categories`}:
 	 * - If not provided, enumerates both hidden and unhidden categories.
 	 * - If `true`, only enumerates hidden categories (`clshow=hidden`).
 	 * - If `false`, only enumerates unhidden categories (`clshow=!hidden`).
