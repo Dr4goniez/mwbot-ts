@@ -262,7 +262,7 @@ export interface TemplateBase<T extends string | Title> {
  * foo.insertParam('', 'bar').insertParam('user', 'baz');
  * foo.stringify(); // {{Foo|bar|user=baz}}
  */
-export interface TemplateStatic extends TemplateBaseStatic<Title> {
+export interface TemplateStatic extends Omit<TemplateBaseStatic<Title>, 'new'> {
 	/**
 	 * Creates a new instance.
 	 *
