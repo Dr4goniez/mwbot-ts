@@ -21,19 +21,18 @@ export type PartialRecord<K extends keyof any, T> = {
  * Constructs a type in which only one key in `K` can have the value in `V`.
  * ```
  * // Error
- * const ex1: OnlyOneRecord<'a' | 'b', {1: 1}> = {
- *   a: {1: 1},
- *   b: {1: 1}
+ * const ex1: OnlyOneRecord<'a' | 'b', { 1: 1 }> = {
+ *   a: { 1: 1 },
+ *   b: { 1: 1 }
  * };
  * // Ok
- * const ex2: OnlyOneRecord<'a' | 'b', {1: 1}> = {
- *   b: {1: 1}
+ * const ex2: OnlyOneRecord<'a' | 'b', { 1: 1 }> = {
+ *   b: { 1: 1 }
  * };
  * ```
  */
 export type OnlyOneRecord<K extends string, V = any> = {
-	[P in K]: (Record<P, V> &
-	Partial<Record<Exclude<K, P>, never>>) extends infer O
+	[P in K]: (Record<P, V> & Partial<Record<Exclude<K, P>, never>>) extends infer O
 	? { [Q in keyof O]: O[Q] }
 	: never
 }[K];
@@ -229,6 +228,52 @@ export type ApiParamsAction =
 	| 'webauthn'
 	| 'wikilove';
 
+/** */
+export interface ApiParamsActionBlock extends ApiParams {
+	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
+	id?: number;
+	user?: string;
+	/** @deprecated */
+	userid?: number;
+	expiry?: string;
+	reason?: string;
+	anononly?: boolean;
+	nocreate?: boolean;
+	autoblock?: boolean;
+	noemail?: boolean;
+	hidename?: boolean;
+	allowusertalk?: boolean;
+	reblock?: boolean;
+	newblock?: boolean;
+	watchuser?: boolean;
+	watchlistexpiry?: string;
+	tags?: string | string[];
+	partial?: boolean;
+	pagerestrictions?: string | string[];
+	namespacerestrictions?: number | number[];
+	actionrestrictions?: ApiActionRestrictions | ApiActionRestrictions[];
+	token?: string;
+}
+
+/** */
+export interface ApiParamsActionDelete extends ApiParams {
+	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
+	title?: string;
+	pageid?: number;
+	reason?: string;
+	tags?: string | string[];
+	deletetalk?: boolean;
+	/** @deprecated */
+	watch?: boolean;
+	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlistexpiry?: string;
+	/** @deprecated */
+	unwatch?: boolean;
+	oldimage?: string;
+	token?: string;
+}
+
+/** */
 export interface ApiParamsActionEdit extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki/blob/main/api_params/index.d.ts
 	title?: string;
@@ -289,6 +334,24 @@ export interface ApiParamsActionEdit extends ApiParams {
 	captchaid?: string;
 }
 
+/** */
+export interface ApiParamsActionMove extends ApiParams {
+	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
+	from?: string;
+	fromid?: number;
+	to: string;
+	reason?: string;
+	movetalk?: boolean;
+	movesubpages?: boolean;
+	noredirect?: boolean;
+	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlistexpiry?: string;
+	ignorewarnings?: boolean;
+	tags?: string | string[];
+	token?: string;
+}
+
+/** */
 export interface ApiParamsActionParse extends ApiParams {
 	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
 	title?: string;
@@ -408,6 +471,65 @@ export interface ApiParamsActionParse extends ApiParams {
 		| "unknown/unknown";
 }
 
+/** */
+export interface ApiParamsActionProtect extends ApiParams {
+	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
+	title?: string;
+	pageid?: number;
+	protections: string | string[];
+	expiry?: string | string[];
+	reason?: string;
+	tags?: string | string[];
+	cascade?: boolean;
+	/** @deprecated */
+	watch?: boolean;
+	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlistexpiry?: string;
+	token?: string;
+}
+
+/** */
+export interface ApiParamsActionRollback extends ApiParams {
+	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
+	title?: string;
+	pageid?: number;
+	tags?: string | string[];
+	user: string;
+	summary?: string;
+	markbot?: boolean;
+	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlistexpiry?: string;
+	token?: string;
+}
+
+/** */
+export interface ApiParamsActionUnblock extends ApiParams {
+	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
+	id?: number;
+	user?: string;
+	/** @deprecated */
+	userid?: number;
+	reason?: string;
+	tags?: string | string[];
+	watchuser?: boolean;
+	watchlistexpiry?: string;
+	token?: string;
+}
+
+/** */
+export interface ApiParamsActionUndelete extends ApiParams {
+	// Adapted from https://github.com/wikimedia-gadgets/types-mediawiki-api/blob/main/index.d.ts
+	title: string;
+	reason?: string;
+	tags?: string | string[];
+	timestamps?: string | string[];
+	fileids?: number | number[];
+	undeletetalk?: boolean;
+	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlistexpiry?: string;
+	token?: string;
+}
+
 // ************************************** Response types **************************************
 
 export interface ApiResponse {
@@ -417,17 +539,13 @@ export interface ApiResponse {
 	// ********************** General properties **********************
 
 	batchcomplete?: boolean;
-	continue?: {
-		[key: string]: string;
-	};
+	continue?: Record<string, string>;
 	curtimestamp?: string;
 	docref?: string; // Present when "errors" is present
 	error?: ApiResponseError;
 	errorlang?: string;
 	errors?: ApiResponseErrors[];
-	limits?: {
-		[key: string]: number;
-	};
+	limits?: Record<string, string>;
 	normalized?: ApiResponseNormalizedTitle[];
 	requestid?: string;
 	servedby?: string;
@@ -444,7 +562,7 @@ export interface ApiResponse {
 	// acquiretempusername?: ApiResponseAcquiretempusername;
 	// aggregategroups?: ApiResponseAggregategroups;
 	// antispoof?: ApiResponseAntispoof;
-	// block?: ApiResponseBlock;
+	block?: ApiResponseBlock;
 	// centralauthtoken?: ApiResponseCentralauthtoken;
 	// centralnoticecdncacheupdatebanner?: ApiResponseCentralnoticecdncacheupdatebanner;
 	// centralnoticechoicedata?: ApiResponseCentralnoticechoicedata;
@@ -462,7 +580,7 @@ export interface ApiResponse {
 	// compare?: ApiResponseCompare;
 	// createaccount?: ApiResponseCreateaccount;
 	// createlocalaccount?: ApiResponseCreatelocalaccount;
-	// delete?: ApiResponseDelete;
+	delete?: ApiResponseDelete;
 	// deleteglobalaccount?: ApiResponseDeleteglobalaccount;
 	// discussiontoolsedit?: ApiResponseDiscussiontoolsedit;
 	// discussiontoolsfindcomment?: ApiResponseDiscussiontoolsfindcomment;
@@ -503,20 +621,20 @@ export interface ApiResponse {
 	// markfortranslation?: ApiResponseMarkfortranslation;
 	// massmessage?: ApiResponseMassmessage;
 	// mergehistory?: ApiResponseMergehistory;
-	// move?: ApiResponseMove;
+	move?: ApiResponseMove;
 	// newslettersubscribe?: ApiResponseNewslettersubscribe;
 	// opensearch?: ApiResponseOpensearch;
 	// options?: ApiResponseOptions;
 	paraminfo?: ApiResponseParaminfo;
 	parse?: ApiResponseParse;
 	// patrol?: ApiResponsePatrol;
-	// protect?: ApiResponseProtect;
+	protect?: ApiResponseProtect;
 	purge?: ApiResponsePurge[];
 	query?: ApiResponseQuery;
 	// removeauthenticationdata?: ApiResponseRemoveauthenticationdata;
 	// resetpassword?: ApiResponseResetpassword;
 	// revisiondelete?: ApiResponseRevisiondelete;
-	// rollback?: ApiResponseRollback;
+	rollback?: ApiResponseRollback;
 	// rsd?: ApiResponseRsd;
 	// searchtranslations?: ApiResponseSearchtranslations;
 	// setglobalaccountstatus?: ApiResponseSetglobalaccountstatus;
@@ -538,8 +656,8 @@ export interface ApiResponse {
 	// translationreview?: ApiResponseTranslationreview;
 	// translationstats?: ApiResponseTranslationstats;
 	// ttmserver?: ApiResponseTtmserver;
-	// unblock?: ApiResponseUnblock;
-	// undelete?: ApiResponseUndelete;
+	unblock?: ApiResponseUnblock;
+	undelete?: ApiResponseUndelete;
 	// unlinkaccount?: ApiResponseUnlinkaccount;
 	// upload?: ApiResponseUpload;
 	// userrights?: ApiResponseUserrights;
@@ -551,6 +669,19 @@ export interface ApiResponse {
 
 }
 
+/**
+ * Represents an empty PHP array (`[]`).
+ *
+ * Unlike JavaScript, which distinguishes between indexed arrays and objects, PHP uses the same internal structure
+ * for both indexed and associative arrays. As a result, when the API returns an empty PHP array, it is interpreted
+ * in JavaScript as an empty array (`[]`), not an empty object (`{}`).
+ *
+ * This typically occurs when an API module accepts a `**prop=` query parameter and the user explicitly overrides
+ * its default value by specifying it as empty.
+ *
+ * See https://phabricator.wikimedia.org/T395188.
+ */
+export type ApiResponseEmptyPhpArray = [];
 
 // ************************************** General response properties **************************************
 
@@ -613,7 +744,7 @@ export interface ApiResponseRedirectTitle {
 	[datakey: string]: unknown;
 }
 
-export type ApiResponseWarnings = {
+export interface ApiResponseWarnings {
 	code: string;
 	module: string;
 	data: {
@@ -624,7 +755,7 @@ export type ApiResponseWarnings = {
 	text?: string; // errorformat=wikitext, errorformat=plaintext
 	key?: string; // errorformat=raw
 	params?: string[]; // errorformat=raw
-};
+}
 
 export type ApiResponseWarningsLegacy = PartialRecord<ApiParamsAction, XOR< // errorformat=bc
 	{
@@ -634,6 +765,86 @@ export type ApiResponseWarningsLegacy = PartialRecord<ApiParamsAction, XOR< // e
 		warnings: string; // formatversion=2, latest
 	}>
 >;
+
+export type ApiActionRestrictions = 'upload' | 'move' | 'create' | 'thanks';
+
+/**
+ * Generated by `ApiQueryBase::addTitleInfo`.
+ *
+ * Note: This is used as a utility to define an object that includes `ns` and `title` properties,
+ * even if the object is not actually created by `ApiQueryBase::addTitleInfo`.
+ */
+export interface ApiResponseTitleInfo {
+	ns: number;
+	title: string;
+}
+/**
+ * Use {@link ApiResponseTitleInfo} instead.
+ * @deprecated
+ */
+export interface _TitleInfo extends ApiResponseTitleInfo {}
+
+/**
+ * Block details of a user, generated by `ApiBlockInfoHelper::getBlockDetails`.
+ */
+export interface ApiResponseBlockDetails {
+	blockid?: number;
+	blockedby?: string;
+	blockedbyid?: number;
+	blockreason?: string;
+	blockedtimestamp?: string;
+	blockexpiry?: string;
+	blockpartial?: boolean;
+	blocknocreate?: boolean;
+	blockanononly?: boolean;
+	blockemail?: boolean;
+	blockowntalk?: boolean;
+	blockedtimestampformatted?: string;
+	blockexpiryformatted?: string; // Omitted if infinite
+	blockexpiryrelative?: string; // Omitted if infinite
+	systemblocktype?: string | null;
+	blockcomponents?: ApiResponseBlockDetails[];
+}
+/**
+ * Use {@link ApiResponseBlockDetails} instead.
+ * @deprecated
+ */
+export interface _BlockDetails extends ApiResponseBlockDetails {}
+
+/**
+ * Generated by `UserGroupManager::getGroupsChangeableBy`.
+ */
+export interface ApiResponseGroupsChangeableBy {
+	add: string[];
+	remove: string[];
+	'add-self': string[];
+	'remove-self': string[];
+}
+/**
+ * Use {@link ApiResponseGroupsChangeableBy} instead.
+ * @deprecated
+ */
+export interface _GroupsChangeableBy extends ApiResponseGroupsChangeableBy {}
+
+/**
+ * Generated by `ApiQueryUserInfo::getCentralUserInfo`.
+ */
+export interface ApiResponseCentralUserInfo {
+	centralids?: {
+		[provider: string]: number;
+	};
+	attachedlocal?: {
+		[provider: string]: boolean;
+	};
+	attachedwik?: {
+		[provider: string]: boolean;
+	};
+}
+/**
+ * Use {@link ApiResponseCentralUserInfo} instead.
+ * @deprecated
+ */
+export interface _CentralUserInfo extends ApiResponseCentralUserInfo {}
 
 // ************************************** Private types and interfaces **************************************
 
@@ -676,56 +887,43 @@ export interface _PageSetInvalidTitlesAndRevisions {
 }
 
 /**
-* Generated by `ApiPageSet::getInvalidTitlesAndReasons`.
-* @private
-*/
+ * Generated by `ApiPageSet::getInvalidTitlesAndReasons`.
+ * @private
+ */
 export interface _PageSetInvalidTitlesAndReasons {
 	title: string;
 	invalidreason: string;
 	invalid: true;
 }
 /**
-* @private
-*/
-export interface _PageSetInvalidSpecialPages extends _TitleInfo {
+ * @private
+ */
+export interface _PageSetInvalidSpecialPages extends ApiResponseTitleInfo {
 	special: true;
 	missing?: true;
 }
 /**
-* Generated by `ApiPageSet::getMissingPageIDs`.
-* @private
-*/
+ * Generated by `ApiPageSet::getMissingPageIDs`.
+ * @private
+ */
 export interface _PageSetMissingPageIDs {
 	pageid: number;
 	missing: true;
 }
 /**
-* Generated by `ApiPageSet::getMissingRevisionIDs`.
-* @private
-*/
+ * Generated by `ApiPageSet::getMissingRevisionIDs`.
+ * @private
+ */
 export interface _PageSetMissingRevisionIDs {
 	revid: number;
 	missing: true;
 }
 /**
-* @private
-*/
-export interface _PageSetMissingTitles extends _TitleInfo {
-	missing: true;
-	known?: true;
-}
-
-/**
- * Generated by `ApiQueryBase::addTitleInfo`.
- *
- * Note: This is used as a utility to define an object that includes `ns` and `title` properties,
- * even if the object is not actually created by `ApiQueryBase::addTitleInfo`.
- *
  * @private
  */
-export interface _TitleInfo {
-	ns: number;
-	title: string;
+export interface _PageSetMissingTitles extends ApiResponseTitleInfo {
+	missing: true;
+	known?: true;
 }
 
 /**
@@ -735,7 +933,7 @@ export interface _TitleInfo {
  * - `list=imageusage`
  * @private
  */
-export interface _ApiQueryBacklinks extends _TitleInfo {
+export interface _ApiQueryBacklinks extends ApiResponseTitleInfo {
 	pageid: number;
 	redirect?: true;
 }
@@ -751,7 +949,7 @@ export interface _ApiQueryBacklinks extends _TitleInfo {
  * which sets an empty value for the parameter.
  * @private
  */
-export type _ApiQueryBacklinksprop = Partial<Omit<_ApiQueryBacklinks, 'redirect'>> & {
+export interface _ApiQueryBacklinksprop extends Partial<Omit<_ApiQueryBacklinks, 'redirect'>> {
 	// Unlike the `list=` modules, `pageid`, `ns`, and `title` are optional, and `redirect` can be `false`
 	redirect?: boolean;
 	// fragment?: string; // Handle this separately because it's used only by "prop=redirects"
@@ -763,56 +961,6 @@ export interface _ApiQueryBacklinkspropFragment {
 	fragment?: string;
 }
 
-/**
- * Block details of a user, generated by `ApiBlockInfoHelper::getBlockDetails`.
- * @private
- */
-export interface _BlockDetails {
-	blockid?: number;
-	blockedby?: string;
-	blockedbyid?: number;
-	blockreason?: string;
-	blockedtimestamp?: string;
-	blockexpiry?: string;
-	blockpartial?: boolean;
-	blocknocreate?: boolean;
-	blockanononly?: boolean;
-	blockemail?: boolean;
-	blockowntalk?: boolean;
-	blockedtimestampformatted?: string;
-	blockexpiryformatted?: string; // Omitted if infinite
-	blockexpiryrelative?: string; // Omitted if infinite
-	systemblocktype?: string | null;
-	blockcomponents?: _BlockDetails[];
-}
-
-/**
- * Generated by `UserGroupManager::getGroupsChangeableBy`.
- * @private
- */
-export interface _GroupsChangeableBy {
-	add: string[];
-	remove: string[];
-	'add-self': string[];
-	'remove-self': string[];
-}
-
-/**
- * Generated by `ApiQueryUserInfo::getCentralUserInfo`.
- * @private
- */
-export interface _CentralUserInfo {
-	centralids?: {
-		[provider: string]: number;
-	};
-	attachedlocal?: {
-		[provider: string]: boolean;
-	};
-	attachedwik?: {
-		[provider: string]: boolean;
-	};
-}
-
 // ************************************** action=somthing **************************************
 
 // export interface ApiResponseAbusefiltercheckmatch {}
@@ -822,7 +970,26 @@ export interface _CentralUserInfo {
 // export interface ApiResponseAbuselogprivatedetails {}
 // export interface ApiResponseAggregategroups {}
 // export interface ApiResponseAntispoof {}
-// export interface ApiResponseBlock {}
+
+export interface ApiResponseBlock { // Fully checked (source code level)
+	user: string;
+	userID: number;
+	expiry: string;
+	id: number;
+	reason: string;
+	anononly: boolean;
+	nocreate: boolean;
+	autoblock: boolean;
+	noemail: boolean;
+	hidename: boolean;
+	allowusertalk: boolean;
+	watchuser: boolean;
+	partial: boolean;
+	pagerestrictions: string[] | null;
+	namespacerestrictions: number[] | null;
+	actionrestrictions: ApiActionRestrictions[] | null;
+}
+
 // export interface ApiResponseCentralauthtoken {}
 // export interface ApiResponseCentralnoticecdncacheupdatebanner {}
 // export interface ApiResponseCentralnoticechoicedata {}
@@ -839,7 +1006,15 @@ export interface _CentralUserInfo {
 // export interface ApiResponseCompare {}
 // export interface ApiResponseCreateaccount {}
 // export interface ApiResponseCreatelocalaccount {}
-// export interface ApiResponseDelete {}
+
+export type ApiResponseDelete = { // Fully checked (source code level)
+	title: string;
+	reason: string;
+} & XOR<
+	{ scheduled: true },
+	{ logid: number }
+>;
+
 // export interface ApiResponseDeleteglobalaccount {}
 // export interface ApiResponseEchomarkread {}
 // export interface ApiResponseEchomarkseen {}
@@ -915,7 +1090,26 @@ export type ApiResponseLogin = XOR< // Fully checked (source code level)
 // export interface ApiResponseManagetags {}
 // export interface ApiResponseMassmessage {}
 // export interface ApiResponseMergehistory {}
-// export interface ApiResponseMove {}
+
+export interface ApiResponseMove { // Fully checked (source code level)
+	from: string;
+	to: string;
+	reason: string;
+	redirectcreated: boolean;
+	moveoverredirect: boolean;
+	talkfrom?: string;
+	talkto?: string;
+	talkmoveoverredirect?: boolean;
+	'talkmove-errors'?: Record<string, unknown>; // Probably the same as ApiResponseErrors
+	subpages?: ApiResponseMoveSubpages[];
+	'subpages-talk'?: ApiResponseMoveSubpages[];
+}
+export interface ApiResponseMoveSubpages {
+	from: string;
+	to?: string;
+	errors?: Record<string, unknown>;
+}
+
 // export interface ApiResponseNewslettersubscribe {}
 // export interface ApiResponseOpensearch {}
 // export interface ApiResponseOptions {}
@@ -924,6 +1118,7 @@ export interface ApiResponseParaminfo { // TODO: Check source code
 	helpformat: string;
 	modules: ApiResponseParaminfoModules[];
 }
+/** */
 export interface ApiResponseParaminfoModules extends PartialRecord<_HelpFlags, true> { // Source code check midway
 	name: string;
 	classname: string;
@@ -1103,11 +1298,13 @@ export interface ApiResponseParsePropCategories {
 	known?: true;
 	hidden?: true;
 }
-export interface ApiResponseParsePropLinks extends _TitleInfo {
+/** */
+export interface ApiResponseParsePropLinks extends ApiResponseTitleInfo {
 	// Note: Not using ApiQueryBase::addTitleInfo
 	exists: boolean;
 }
-export type ApiResponseParsePropTemplates = ApiResponseParsePropLinks;
+/** */
+export interface ApiResponseParsePropTemplates extends ApiResponseParsePropLinks {}
 export interface ApiResponseParsePropSections {
 	// Generated by `SectionMetadata::toLegacy`
 	toclevel: number;
@@ -1148,8 +1345,19 @@ export interface ApiResponseParsePropLimitreportdata {
 }
 
 // export interface ApiResponsePatrol {}
-// export interface ApiResponseProtect {}
 
+export interface ApiResponseProtect { // Fully checked (source code level)
+	title: string;
+	reason: string;
+	cascade?: true;
+	protections: ApiResponseProtectProtections[];
+}
+export interface ApiResponseProtectProtections {
+	[action: string]: string;
+	expiry: string;
+}
+
+/** */
 export interface ApiResponsePurge extends _PageSetInvalidTitlesAndRevisions { // Fully checked (source code level)
 	purged?: true;
 	linkupdate?: true;
@@ -1159,7 +1367,16 @@ export interface ApiResponsePurge extends _PageSetInvalidTitlesAndRevisions { //
 // export interface ApiResponseRemoveauthenticationdata {}
 // export interface ApiResponseResetpassword {}
 // export interface ApiResponseRevisiondelete {}
-// export interface ApiResponseRollback {}
+
+export interface ApiResponseRollback { // Fully checked (source code level)
+	title: string;
+	pageid: number;
+	summary: string;
+	revid: number;
+	old_revid: number;
+	last_revid: number;
+}
+
 // export interface ApiResponseRsd {}
 // export interface ApiResponseSearchtranslations {}
 // export interface ApiResponseSetglobalaccountstatus {}
@@ -1187,6 +1404,7 @@ export interface ApiResponseSitematrixSite {
 	sitename?: string;
 	closed?: true;
 }
+/** */
 export interface ApiResponseSitematrixSiteSpecial extends ApiResponseSitematrixSite {
 	private?: true;
 	fishbowl?: true;
@@ -1207,8 +1425,23 @@ export interface ApiResponseSitematrixSiteSpecial extends ApiResponseSitematrixS
 // export interface ApiResponseTranslationreview {}
 // export interface ApiResponseTranslationstats {}
 // export interface ApiResponseTtmserver {}
-// export interface ApiResponseUnblock {}
-// export interface ApiResponseUndelete {}
+
+export interface ApiResponseUnblock { // Fully checked (source code level)
+	id: number;
+	user: string;
+	userid: number;
+	reason: string;
+	watchuser: boolean;
+	watchlistexpiry?: string;
+}
+
+export interface ApiResponseUndelete { // Fully checked (source code level)
+	title: string;
+	revisions: number;
+	fileversions: number;
+	reason: string;
+}
+
 // export interface ApiResponseUnlinkaccount {}
 // export interface ApiResponseUpload {}
 // export interface ApiResponseUserights {}
@@ -1220,9 +1453,9 @@ export interface ApiResponseSitematrixSiteSpecial extends ApiResponseSitematrixS
 
 // ************************************** action=query **************************************
 
-export interface ApiResponseQuery { // Checked ApiQuery.php; TODO: Complete commented-out properties
+export interface ApiResponseQuery { // Check completed
 
-	[key: string]: any; // TODO: Remove this
+	[key: string]: unknown;
 
 	// ********************** General properties **********************
 
@@ -1245,29 +1478,26 @@ export interface ApiResponseQuery { // Checked ApiQuery.php; TODO: Complete comm
 	 */
 	export?: string;
 
-	protocols?: string[]; // TODO: What module does this originate from?
-
 	// ********************** Meta properties **********************
 
 	allmessages?: ApiResponseQueryMetaAllmessages[];
-	// authmanagerinfo: ApiResponseQueryMetaAuthmanagerinfo;
-	// babel: ApiResponseQueryMetaBabel;
-	// communityconfiguration: ApiResponseQueryMetaCommunityconfiguration;
-	// featureusage: ApiResponseQueryMetaFeatureusage;
-	// filerepoinfo: ApiResponseQueryMetaFilerepoinfo;
-	// globalpreferences: ApiResponseQueryMetaGlobalpreferences;
-	// globalrenamestatus: ApiResponseQueryMetaGlobalrenamestatus;
-	// globaluserinfo: ApiResponseQueryMetaGlobaluserinfo;
-	// languageinfo: ApiResponseQueryMetaLanguageinfo;
-	// languagestats: ApiResponseQueryMetaLanguagestats;
-	// linterstats: ApiResponseQueryMetaLinterstats;
-	// managemessagegroups: ApiResponseQueryMetaManagemessagegroups;
-	// messagegroups: ApiResponseQueryMetaMessagegroups;
-	// messagegroupstats: ApiResponseQueryMetaMessagegroupstats;
-	// messagetranslations: ApiResponseQueryMetaMessagetranslations;
-	// notifications: ApiResponseQueryMetaNotifications;
-
-	// meta=siteinfo
+	authmanagerinfo?: ApiResponseQueryMetaAuthmanagerinfo;
+	babel?: ApiResponseQueryMetaBabel;
+	communityconfiguration?: ApiResponseQueryMetaCommunityconfiguration;
+	featureusage?: ApiResponseQueryMetaFeatureusage;
+	filerepoinfo?: ApiResponseQueryMetaFilerepoinfo[];
+	globalpreferences?: ApiResponseQueryMetaGlobalpreferences;
+	globalrenamestatus?: { [user: string]: ApiResponseQueryMetaGlobalrenamestatus };
+	globaluserinfo?: ApiResponseQueryMetaGlobaluserinfo;
+	languageinfo?: ApiResponseQueryMetaLanguageinfo;
+	languagestats?: ApiResponseQueryMetaLanguagestats[];
+	linterstats?: ApiResponseQueryMetaLinterstats;
+	managemessagegroups?: ApiResponseQueryMetaManagemessagegroups[];
+	messagegroups?: (ApiResponseEmptyPhpArray | ApiResponseQueryMetaMessagegroups)[];
+	messagegroupstats?: ApiResponseQueryMetaMessagegroupstats[];
+	messagetranslations?: ApiResponseQueryMetaMessagetranslations[];
+	notifications?: ApiResponseQueryMetaNotifications;
+	// ----- meta=siteinfo -----
 	autocreatetempuser?: ApiResponseQueryMetaSiteinfoAutocreatetempuser;
 	dbrepllag?: ApiResponseQueryMetaSiteinfoDbrepllag[];
 	defaultoptions?: ApiResponseQueryMetaSiteinfoDefaultoptions;
@@ -1292,12 +1522,12 @@ export interface ApiResponseQuery { // Checked ApiQuery.php; TODO: Complete comm
 	uploaddialog?: ApiResponseQueryMetaSiteinfoUploaddialog;
 	usergroups?: ApiResponseQueryMetaSiteinfoUsergroups[];
 	variables?: ApiResponseQueryMetaSiteinfoVariables[]; // string[]
-
-	// siteviews: ApiResponseQueryMetaSiteviews;
+	// ----- meta=siteinfo end -----
+	siteviews?: ApiResponseQueryMetaSiteviews;
 	tokens?: ApiResponseQueryMetaTokens;
-	// unreadnotificationpages: ApiResponseQueryMetaUnreadnotificationpages;
+	unreadnotificationpages?: ApiResponseQueryMetaUnreadnotificationpages;
 	userinfo?: ApiResponseQueryMetaUserinfo;
-	// wikibase: ApiResponseQueryMetaWikibase;
+	wikibase?: ApiResponseEmptyPhpArray | ApiResponseQueryMetaWikibase;
 
 	// ********************** List properties **********************
 
@@ -1349,15 +1579,10 @@ export interface ApiResponseQuery { // Checked ApiQuery.php; TODO: Complete comm
 	recentchanges?: ApiResponseQueryListRecentchanges[];
 	search?: ApiResponseQueryListSearch[];
 		searchinfo?: ApiResponseQueryListSearchInfo;
-		additionalsearch?: {
-			[iwprefix: string]: ApiResponseQueryListSearchInterwikisearch[];
-		};
+		additionalsearch?: { [iwprefix: string]: ApiResponseQueryListSearchInterwikisearch[] };
 		additionalsearchinfo?: ApiResponseQueryListSearchInfoInterwiki;
-		interwikisearch?: {
-			[iwprefix: string]: ApiResponseQueryListSearchInterwikisearch[];
-		};
+		interwikisearch?: { [iwprefix: string]: ApiResponseQueryListSearchInterwikisearch[] };
 		interwikisearchinfo?: ApiResponseQueryListSearchInfoInterwiki;
-
 	tags?: ApiResponseQueryListTags[];
 	threads?: { [thread_id: string]: ApiResponseQueryListThreads };
 	usercontribs?: ApiResponseQueryListUsercontribs[];
@@ -1375,6 +1600,7 @@ export interface ApiResponseQuery { // Checked ApiQuery.php; TODO: Complete comm
 
 // ************************************** action=query (general properties) **************************************
 
+/** */
 export interface ApiResponseQueryPages extends // Fully checked (source code level)
 	Omit<_PageSetInvalidTitlesAndRevisions, 'revid' | 'iw' | 'url'>,
 	ApiResponseQueryPagesPropInfo,
@@ -1416,7 +1642,8 @@ export interface ApiResponseQueryPages extends // Fully checked (source code lev
 	wbentityusage?: Record<string, ApiResponseQueryPagesPropWbentityusage>;
 }
 
-export interface ApiResponseQueryPagesPropCategories extends _TitleInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryPagesPropCategories extends ApiResponseTitleInfo { // Fully checked (source code level)
 	sortkey?: string; // clprop=sortkey
 	sortkeyprefix?: string; // clprop=sortkey
 	timestamp?: string; // clprop=timestamp
@@ -1436,7 +1663,8 @@ export interface ApiResponseQueryPagesPropContributors { // Fully checked (sourc
 	name: string;
 }
 
-export type ApiResponseQueryPagesPropDeletedrevisions = ApiResponseQueryPagesPropRevisions; // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryPagesPropDeletedrevisions extends ApiResponseQueryPagesPropRevisions {} // Fully checked (source code level)
 
 export interface ApiResponseQueryPagesPropDuplicatefiles { // Fully checked (source code level)
 	name: string;
@@ -1451,7 +1679,8 @@ export interface ApiResponseQueryPagesPropExtlinks { // Fully checked (source co
 
 export type ApiResponseQueryPagesPropExtracts = string; // Fully checked (source code level)
 
-export type ApiResponseQueryPagesPropFileusage = _ApiQueryBacklinksprop; // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryPagesPropFileusage extends _ApiQueryBacklinksprop {} // Fully checked (source code level)
 
 export interface ApiResponseQueryPagesPropGlobalusage { // Fully checked (source code level)
 	title: string;
@@ -1513,7 +1742,8 @@ export interface ApiResponseQueryPagesPropImageinfoExtmetadata { // Fully checke
 	}
 }
 
-export type ApiResponseQueryPagesPropImages = _TitleInfo; // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryPagesPropImages extends ApiResponseTitleInfo {} // Fully checked (source code level)
 
 export interface ApiResponseQueryPagesPropInfo { // Fully checked (source code level)
 
@@ -1586,9 +1816,11 @@ export interface ApiResponseQueryPagesPropLanglinks { // Fully checked (source c
 	title: string;
 }
 
-export type ApiResponseQueryPagesPropLinks = _TitleInfo; // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryPagesPropLinks extends ApiResponseTitleInfo {} // Fully checked (source code level)
 
-export type ApiResponseQueryPagesPropLinkshere = _ApiQueryBacklinksprop; // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryPagesPropLinkshere extends _ApiQueryBacklinksprop {} // Fully checked (source code level)
 
 export interface ApiResponseQueryPagesPropMmcontent { // Fully checked (source code level)
 	description: string | null;
@@ -1623,8 +1855,9 @@ export interface ApiResponseQueryPagesPropPageviews { // Fully checked (source c
 	[date: string]: number;
 }
 
-export type ApiResponseQueryPagesPropRedirects = // Fully checked (source code level)
-	Omit<_ApiQueryBacklinksprop, 'redirect'> & _ApiQueryBacklinkspropFragment;
+/** */
+export interface ApiResponseQueryPagesPropRedirects extends // Fully checked (source code level)
+	Omit<_ApiQueryBacklinksprop, 'redirect'>, _ApiQueryBacklinkspropFragment {}
 
 /**
  * Generated by `ApiQueryRevisionsBase::extractRevisionInfo`, `ApiQueryRevisionsBase::extractAllSlotInfo`,
@@ -1707,9 +1940,11 @@ export interface ApiResponseQueryPagesPropRevisions { // Fully checked (source c
 	};
 }
 
-export type ApiResponseQueryPagesPropTemplates = _TitleInfo; // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryPagesPropTemplates extends ApiResponseTitleInfo {} // Fully checked (source code level)
 
-export type ApiResponseQueryPagesPropTranscludedin = _ApiQueryBacklinksprop; // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryPagesPropTranscludedin extends _ApiQueryBacklinksprop {} // Fully checked (source code level)
 
 export interface ApiResponseQueryPagesPropTranscodestatus { // Fully checked (source code level)
 	// WebVideoTranscode::getTranscodeState fetches the entire DB fields, and ApiTranscodeStatus::execute
@@ -1723,6 +1958,7 @@ export interface ApiResponseQueryPagesPropTranscodestatus { // Fully checked (so
 	final_bitrate: string; // int(11) in the database but output as a string
 }
 
+/** */
 export interface ApiResponseQueryPagesPropVideoinfo extends ApiResponseQueryPagesPropImageinfo { // Fully checked (source code level)
 	derivatives?: ApiResponseQueryPagesPropVideoinfoDerivatives[];
 	timedtext?: ApiResponseQueryPagesPropVideoinfoTimedtext[];
@@ -1754,9 +1990,33 @@ export interface ApiResponseQueryPagesPropWbentityusage { // Fully checked (sour
 
 // ************************************** action=query&meta=something **************************************
 
-// export interface ApiResponseQueryMetaAuthmanagerinfo {}
-
-// ********************** action=query&meta=allmessages **********************
+export interface ApiResponseQueryMetaAuthmanagerinfo { // Fully checked (source code level)
+	canauthenticatenow: boolean;
+	cancreateaccounts: boolean;
+	canlinkaccounts: boolean;
+	securitysensitiveoperationstatus?: 'ok' | 'reauth' | 'fail';
+	haspreservedstate?: boolean;
+	hasprimarypreservedstate?: boolean;
+	preservedusername?: string;
+	requests?: ApiResponseQueryMetaAuthmanagerinfoRequests[];
+	fields?: Record<string, ApiResponseQueryMetaAuthmanagerinfoRequestsField>;
+}
+export interface ApiResponseQueryMetaAuthmanagerinfoRequests {
+	id: string;
+	metadata: object; // {}
+	required: 'optional' | 'required' | 'primary-required';
+	provider: string;
+	account: string;
+	fields?: Record<string, ApiResponseQueryMetaAuthmanagerinfoRequestsField>;
+}
+export interface ApiResponseQueryMetaAuthmanagerinfoRequestsField {
+	type: string;
+	label: string;
+	options?: unknown; // TODO: Update this if possible
+	help: string;
+	optional: boolean;
+	sensitive: boolean;
+}
 
 export interface ApiResponseQueryMetaAllmessages { // Fully checked (source code level)
 	name: string;
@@ -1768,23 +2028,254 @@ export interface ApiResponseQueryMetaAllmessages { // Fully checked (source code
 	default?: string;
 }
 
-// export interface ApiResponseQueryMetaBabel {}
-// export interface ApiResponseQueryMetaCommunityconfiguration {}
-// export interface ApiResponseQueryMetaFeatureusage {}
-// export interface ApiResponseQueryMetaFilerepoinfo {}
-// export interface ApiResponseQueryMetaGlobalpreferences {}
-// export interface ApiResponseQueryMetaGlobalrenamestatus {}
-// export interface ApiResponseQueryMetaGlobaluserinfo {}
-// export interface ApiResponseQueryMetaLanguageinfo {}
-// export interface ApiResponseQueryMetaLanguagestats {}
-// export interface ApiResponseQueryMetaLinterstats {}
-// export interface ApiResponseQueryMetaManagemessagegroups {}
-// export interface ApiResponseQueryMetaMessagegroups {}
-// export interface ApiResponseQueryMetaMessagegroupstats {}
-// export interface ApiResponseQueryMetaMessagetranslations {}
-// export interface ApiResponseQueryMetaNotifications {}
+export interface ApiResponseQueryMetaBabel { // Fully checked (source code level)
+	[langcode: string]: string;
+}
 
-// ********************** action=query&meta=siteinfo **********************
+export interface ApiResponseQueryMetaCommunityconfiguration { // Fully checked (source code level)
+	data: Record<string, unknown>;
+	version: string; // Enclosed in "if", but doesn't seem to ever lack
+}
+
+export interface ApiResponseQueryMetaFeatureusage { // Fully checked (source code level)
+	agent: string;
+	start: string;
+	end: string;
+	usage: ApiResponseQueryMetaFeatureusageUsage[];
+}
+export interface ApiResponseQueryMetaFeatureusageUsage {
+	feature: string;
+	date: string;
+	count: number;
+}
+
+export interface ApiResponseQueryMetaFilerepoinfo { // Fully checked (source code level)
+	name?: string;
+	displayname?: string;
+	rootUrl?: string | false;
+	local?: boolean;
+	url?: string | false;
+	thumbUrl?: string | false;
+	initialCapital?: boolean;
+	descBaseUrl?: string;
+	scriptDirUrl?: string;
+	fetchDescription?: boolean;
+	descriptionCacheExpiry?: number;
+	favicon?: string;
+	canUpload?: boolean;
+}
+
+export interface ApiResponseQueryMetaGlobalpreferences { // Fully checked (source code level)
+	preferences?: Record<string, string>;
+	localoverrides?: Record<string, unknown>;
+}
+
+export interface ApiResponseQueryMetaGlobalrenamestatus { // Fully checked (source code level)
+	from: string;
+	to: string;
+	// See GlobalRenameUserStatus::getStatuses and
+	// https://www.mediawiki.org/wiki/Extension:CentralAuth/renameuser_status_table
+	status: { [wiki: string]: 'queued' | 'inprogress' | 'failed' };
+}
+
+export interface ApiResponseQueryMetaGlobaluserinfo { // Fully checked (source code level)
+	home: string | null;
+	id: number;
+	registration: string;
+	name: string;
+	locked?: true;
+	hidden?: true;
+	missing?: true;
+	groups?: string[];
+	rights?: string[];
+	merged?: ApiResponseQueryMetaGlobaluserinfoMergedAccount[];
+	editcount?: number;
+	unattached?: ApiResponseQueryMetaGlobaluserinfoAccount[];
+}
+export interface ApiResponseQueryMetaGlobaluserinfoAccount {
+	wiki: string;
+	editcount: number;
+	registration: string;
+	groups?: string[];
+	blocked?: ApiResponseQueryMetaGlobaluserinfoBlocked;
+}
+export interface ApiResponseQueryMetaGlobaluserinfoMergedAccount extends ApiResponseQueryMetaGlobaluserinfoAccount {
+	url: string;
+	id: number;
+	timestamp: string;
+	method: string;
+}
+export interface ApiResponseQueryMetaGlobaluserinfoBlocked {
+	expiry: string;
+	reason: string;
+}
+
+export interface ApiResponseQueryMetaLanguageinfo { // Fully checked (source code level)
+	code?: string;
+	bcp47?: string;
+	dir?: string;
+	autonym?: string;
+	name?: string;
+	fallbacks?: string[];
+	variants?: string[];
+	variantnames?: { [code: string]: string };
+}
+
+/**
+ * Generated by `QueryStatsActionApi::makeItem`.
+ * @private
+ */
+export interface _QueryStatsActionApiItem {
+	total: number;
+	translated: number;
+	fuzzy: number;
+	proofread: number;
+}
+/** */
+export interface ApiResponseQueryMetaLanguagestats extends _QueryStatsActionApiItem { // Fully checked (source code level)
+	group: string;
+}
+
+export interface ApiResponseQueryMetaLinterstats { // Fully checked (source code level)
+	totals: ApiResponseQueryMetaLinterstatsTotals;
+}
+export interface ApiResponseQueryMetaLinterstatsTotals {
+	[category: string]: number;
+}
+
+export interface ApiResponseQueryMetaManagemessagegroups { // Fully checked (source code level)
+	key: string;
+	content: string;
+	similarity: number;
+	link: string;
+	title: string;
+}
+
+export interface ApiResponseQueryMetaMessagegroups { // Fully checked (source code level)
+	id?: string;
+	label?: string;
+	description?: string;
+	class?: string;
+	namespace?: number | false;
+	exists?: boolean;
+	icon?: string;
+	priority?: string;
+	prioritylangs?: string[] | false;
+	priorityforce?: boolean;
+	workflowstates?: ApiResponseQueryMetaMessagegroupsWorkflowstates | false;
+	sourcelanguage?: string;
+	subscription?: boolean;
+	groupcount?: number;
+	groups?: (ApiResponseEmptyPhpArray | ApiResponseQueryMetaMessagegroups)[];
+}
+export interface ApiResponseQueryMetaMessagegroupsWorkflowstates {
+	[state: string]: ApiResponseQueryMetaMessagegroupsWorkflowstatesEntry;
+}
+export interface ApiResponseQueryMetaMessagegroupsWorkflowstatesEntry {
+	canchange?: 1;
+	name: string;
+}
+
+/** */
+export interface ApiResponseQueryMetaMessagegroupstats extends _QueryStatsActionApiItem { // Fully checked (source code level)
+	code: string;
+	language: string;
+}
+
+export interface ApiResponseQueryMetaMessagetranslations { // Fully checked (source code level)
+	title: string;
+	language: string;
+	lasttranslator: string;
+	fuzzy?: 'fuzzy';
+	translation: string;
+}
+
+// ----- meta=notifications -----
+
+export type ApiResponseQueryMetaNotifications = // Fully checked (source code level)
+	| ApiResponseEmptyPhpArray
+	| ApiResponseQueryMetaNotificationsUngrouped
+	| ApiResponseQueryMetaNotificationsGrouped;
+
+// "&notgroupbysection=" not set
+export interface ApiResponseQueryMetaNotificationsUngrouped extends ApiResponseQueryMetaNotificationsList {
+	seenTime?: ApiResponseQueryMetaNotificationsUngroupedSeentime;
+}
+export interface ApiResponseQueryMetaNotificationsUngroupedSeentime {
+	alert: string;
+	message: string;
+}
+
+// "&notgroupbysection=true"
+export interface ApiResponseQueryMetaNotificationsGrouped {
+	alert: ApiResponseQueryMetaNotificationsGroupedList;
+	message: ApiResponseQueryMetaNotificationsGroupedList;
+	rawcount?: number;
+	count?: string;
+}
+export interface ApiResponseQueryMetaNotificationsGroupedList extends ApiResponseQueryMetaNotificationsList {
+	seenTime?: string;
+}
+
+export interface ApiResponseQueryMetaNotificationsList {
+	list?: ApiResponseQueryMetaNotificationsListitem[];
+	continue?: string | null;
+	rawcount?: number;
+	count?: string;
+}
+export interface ApiResponseQueryMetaNotificationsListitem {
+	// Generated by DataOutputFormatter::formatOutput
+	wiki: string;
+	id: number;
+	type: string;
+	category: string;
+	section: string;
+	timestamp: ApiResponseQueryMetaNotificationsTimestamp;
+	bundledIds?: number[];
+	title?: ApiResponseQueryMetaNotificationsTitle;
+	agent?: ApiResponseQueryMetaNotificationsAgent;
+	revid?: number;
+	read?: string;
+	targetpages: number[];
+	// Generated by ApiEchoNotifications::makeForeignNotification
+	count?: number;
+	sources?: { [wiki: string]: ApiResponseQueryMetaNotificationsSources };
+}
+export interface ApiResponseQueryMetaNotificationsTimestamp {
+	utciso8601: string;
+	utcunix: number;
+	unix: string;
+	utcmw: string;
+	mw: string;
+	date: string;
+}
+export interface ApiResponseQueryMetaNotificationsTitle {
+	full: string;
+	namespace: string;
+	'namespace-key': number;
+	text: string;
+}
+export type ApiResponseQueryMetaNotificationsAgent = XOR<
+	{
+		id: number;
+		name: string;
+	},
+	{
+		userhidden: '';
+	}
+>;
+export interface ApiResponseForeignNotificationsApiEndpoints {
+	// Generated by ForeignNotifications::getApiEndpoints
+	title: string;
+	url: string | null;
+	base: string | null;
+}
+export interface ApiResponseQueryMetaNotificationsSources extends ApiResponseForeignNotificationsApiEndpoints {
+	// Generated by ApiEchoNotifications::makeForeignNotification
+	ts: string | null;
+}
+
+// ----- meta=siteinfo -----
 
 export interface ApiResponseQueryMetaSiteinfoAutocreatetempuser { // Fully checked (source code level)
 	enabled: boolean;
@@ -1992,17 +2483,18 @@ export interface ApiResponseQueryMetaSiteinfoNamespacealiases { // Fully checked
 }
 
 export interface ApiResponseQueryMetaSiteinfoNamespaces { // Fully checked (source code level)
-	[nsId: string]: {
-		id: number;
-		case: 'first-letter' | 'case-sensitive';
-		name: string;
-		subpages: boolean;
-		canonical?: string;
-		content: boolean;
-		nonincludable: boolean;
-		namespaceprotection?: string;
-		defaultcontentmodel?: string;
-	};
+	[nsId: string]: ApiResponseQueryMetaSiteinfoNamespacesEntry;
+}
+export interface ApiResponseQueryMetaSiteinfoNamespacesEntry {
+	id: number;
+	case: 'first-letter' | 'case-sensitive';
+	name: string;
+	subpages: boolean;
+	canonical?: string;
+	content: boolean;
+	nonincludable: boolean;
+	namespaceprotection?: string;
+	defaultcontentmodel?: string;
 }
 
 export interface ApiResponseQueryMetaSiteinfoRestrictions { // Fully checked (source code level)
@@ -2047,26 +2539,30 @@ export interface ApiResponseQueryMetaSiteinfoStatistics { // Fully checked (sour
 }
 
 export interface ApiResponseQueryMetaSiteinfoUploaddialog { // Fully checked (source code level)
-	fields: {
-		description: boolean;
-		date: boolean;
-		categories: boolean;
-	};
-	licensemessages: {
-		local: string;
-		foreign: string;
-	};
+	fields: ApiResponseQueryMetaSiteinfoUploaddialogFields;
+	licensemessages: ApiResponseQueryMetaSiteinfoUploaddialogLicensemessages;
 	comment: string;
-	format: {
-		filepage: string;
-		description: string;
-		ownwork: string;
-		license: string;
-		uncategorized: string;
-	};
+	format: ApiResponseQueryMetaSiteinfoUploaddialogFormat;
+}
+export interface ApiResponseQueryMetaSiteinfoUploaddialogFields {
+	description: boolean;
+	date: boolean;
+	categories: boolean;
+}
+export interface ApiResponseQueryMetaSiteinfoUploaddialogLicensemessages {
+	local: string;
+	foreign: string;
+}
+export interface ApiResponseQueryMetaSiteinfoUploaddialogFormat {
+	filepage: string;
+	description: string;
+	ownwork: string;
+	license: string;
+	uncategorized: string;
 }
 
-export interface ApiResponseQueryMetaSiteinfoUsergroups extends Partial<_GroupsChangeableBy> { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryMetaSiteinfoUsergroups extends Partial<ApiResponseGroupsChangeableBy> { // Fully checked (source code level)
 	name: string;
 	rights: string[];
 	number?: number;
@@ -2074,11 +2570,11 @@ export interface ApiResponseQueryMetaSiteinfoUsergroups extends Partial<_GroupsC
 
 export type ApiResponseQueryMetaSiteinfoVariables = string; // Fully checked (source code level)
 
-// ********************** action=query&meta=siteviews **********************
+// ----- meta=siteinfo end -----
 
-// export interface ApiResponseQueryMetaSiteviews {}
-
-// ********************** action=query&meta=tokens **********************
+export interface ApiResponseQueryMetaSiteviews { // Fully checked (source code level)
+	[date: string]: number;
+}
 
 export type ApiResponseQueryMetaTokens = { // Fully checked (source code level)
 	csrftoken?: string;
@@ -2095,19 +2591,32 @@ export type ApiResponseQueryMetaTokens = { // Fully checked (source code level)
 	[tokentype: string]: string;
 };
 
-// export interface ApiResponseQueryMetaUnreadnotificationpages {}
+export interface ApiResponseQueryMetaUnreadnotificationpages {
+	[wiki: string]: ApiResponseQueryMetaUnreadnotificationpagesEntry;
+}
+export interface ApiResponseQueryMetaUnreadnotificationpagesEntry {
+	pages: ApiResponseQueryMetaUnreadnotificationpagesEntryPages[];
+	totalCount: number;
+	source: ApiResponseForeignNotificationsApiEndpoints;
+}
+export interface ApiResponseQueryMetaUnreadnotificationpagesEntryPages {
+	ns?: number;
+	title: string | null;
+	unprefixed?: string;
+	pages?: (string | null)[];
+	count: number;
+}
 
-// ********************** action=query&meta=userinfo **********************
-
+/** */
 export interface ApiResponseQueryMetaUserinfo extends // Fully checked (source code level)
 	/**
 	 * `uiprop=blockinfo`
 	 */
-	_BlockDetails,
+	ApiResponseBlockDetails,
 	/**
 	 * `uiprop=centralids`
 	 */
-	_CentralUserInfo
+	ApiResponseCentralUserInfo
 {
 
 	// uiprop-independent properties
@@ -2141,7 +2650,7 @@ export interface ApiResponseQueryMetaUserinfo extends // Fully checked (source c
 	/**
 	 * `uiprop=changeablegroups`
 	 */
-	changeablegroups?: _GroupsChangeableBy;
+	changeablegroups?: ApiResponseGroupsChangeableBy;
 	/**
 	 * `uiprop=options`
 	 */
@@ -2199,18 +2708,29 @@ export interface ApiResponseQueryMetaUserinfoGroupmemberships {
 	group: string;
 	expiry: string;
 }
-export type ApiResponseQueryMetaUserinfoRatelimits = {
+export interface ApiResponseQueryMetaUserinfoRatelimits {
 	[action: string]: PartialRecord<'anon' | 'user' | 'ip' | 'subnet' | 'newbie', {
 		hits: number;
 		seconds: number;
 	}>;
-};
+}
 export interface ApiResponseQueryMetaUserinfoAcceptlang {
 	q: number;
 	code: string;
 }
 
-// export interface ApiResponseQueryMetaWikibase {}
+export interface ApiResponseQueryMetaWikibase {
+	repo?: ApiResponseQueryMetaWikibaseRepo;
+	siteid?: string;
+}
+export interface ApiResponseQueryMetaWikibaseRepo {
+	url: ApiResponseQueryMetaWikibaseRepoUrls;
+}
+export interface ApiResponseQueryMetaWikibaseRepoUrls {
+	base: string;
+	scriptpath: string;
+	articlepath: string;
+}
 
 
 // ************************************** action=query&list=something **************************************
@@ -2230,7 +2750,8 @@ export interface ApiResponseQueryListAbusefilters { // Fully checked (source cod
 	deleted?: '';
 }
 
-export interface ApiResponseQueryListAbuselog extends Partial<_TitleInfo> { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListAbuselog extends Partial<ApiResponseTitleInfo> { // Fully checked (source code level)
 	id?: number;
 	filter_id?: string;
 	filter?: string;
@@ -2259,33 +2780,42 @@ export interface ApiResponseQueryListAllcategories { // Fully checked (source co
 	hidden?: boolean;
 }
 
-export type ApiResponseQueryListAlldeletedrevisions = ApiResponseQueryListAllrevisions; // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListAlldeletedrevisions extends ApiResponseQueryListAllrevisions {} // Fully checked (source code level)
 
-export type ApiResponseQueryListAllfileusages = ApiResponseQueryListAlllinks; // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListAllfileusages extends ApiResponseQueryListAlllinks {} // Fully checked (source code level)
 
-export type ApiResponseQueryListAllimages = _TitleInfo & ApiResponseQueryPagesPropImageinfo; // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListAllimages extends ApiResponseTitleInfo, ApiResponseQueryPagesPropImageinfo {} // Fully checked (source code level)
 
-export interface ApiResponseQueryListAlllinks extends Partial<_TitleInfo> { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListAlllinks extends Partial<ApiResponseTitleInfo> { // Fully checked (source code level)
 	fromid?: number;
 }
 
-export interface ApiResponseQueryListAllpages extends _TitleInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListAllpages extends ApiResponseTitleInfo { // Fully checked (source code level)
 	pageid: number;
 }
 
+/** */
 export interface ApiResponseQueryListAllredirects extends ApiResponseQueryListAlllinks { // Fully checked (source code level)
 	fragment?: string;
 	interwiki?: string;
 }
 
-export interface ApiResponseQueryListAllrevisions extends Partial<_TitleInfo> { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListAllrevisions extends Partial<ApiResponseTitleInfo> { // Fully checked (source code level)
 	pageid?: number;
 	revisions: ApiResponseQueryPagesPropRevisions[];
 }
 
-export type ApiResponseQueryListAlltransclusions = ApiResponseQueryListAlllinks; // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListAlltransclusions extends ApiResponseQueryListAlllinks {} // Fully checked (source code level)
 
-export interface ApiResponseQueryListAllusers extends _BlockDetails, _CentralUserInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListAllusers extends ApiResponseBlockDetails, ApiResponseCentralUserInfo { // Fully checked (source code level)
 	// Note: ApiQueryAllUsers.php and ApiQueryUsers.php are different, and not interchangeable
 	userid: number;
 	name: string;
@@ -2298,7 +2828,8 @@ export interface ApiResponseQueryListAllusers extends _BlockDetails, _CentralUse
 	rights?: string[];
 }
 
-export type ApiResponseQueryListBacklinks = _ApiQueryBacklinks; // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListBacklinks extends _ApiQueryBacklinks {} // Fully checked (source code level)
 
 export interface ApiResponseQueryListBetafeatures { // Fully checked (source code level)
 	[key: string]: {
@@ -2331,18 +2862,21 @@ export interface ApiResponseQueryListBlocks { // Fully checked (source code leve
 	/**
 	 * An empty array if the user is not partial-blocked; otherwise an object.
 	 */
-	restrictions?: [] | {
-		pages?: {
-			id: number;
-			ns: number;
-			title: string;
-		}[];
-		namespaces?: number[];
-		actions?: ('upload' | 'move' | 'create' | 'thanks')[];
-	};
+	restrictions?: ApiResponseEmptyPhpArray | ApiResponseQueryListBlocksRestrictions;
+}
+export interface ApiResponseQueryListBlocksRestrictions {
+	pages?: ApiResponseQueryListBlocksRestrictionsPages[];
+	namespaces?: number[];
+	actions?: ApiActionRestrictions[];
+}
+export interface ApiResponseQueryListBlocksRestrictionsPages {
+	id: number;
+	ns: number;
+	title: string;
 }
 
-export interface ApiResponseQueryListCategorymembers extends Partial<_TitleInfo> { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListCategorymembers extends Partial<ApiResponseTitleInfo> { // Fully checked (source code level)
 	pageid?: number;
 	sortkey?: string;
 	sortkeyprefix?: string;
@@ -2362,8 +2896,8 @@ export interface ApiResponseQueryListCentralnoticelogs { // Fully checked (sourc
 	logs: ApiResponseQueryListCentralnoticelogsLog[];
 }
 export interface ApiResponseQueryListCentralnoticelogsLog {
-	removed: [] | ApiResponseQueryListCentralnoticelogsDiff;
-	added: [] | ApiResponseQueryListCentralnoticelogsDiff;
+	removed: ApiResponseEmptyPhpArray | ApiResponseQueryListCentralnoticelogsDiff;
+	added: ApiResponseEmptyPhpArray | ApiResponseQueryListCentralnoticelogsDiff;
 }
 export interface ApiResponseQueryListCentralnoticelogsDiff {
 	// Direct result of a SELECT query, formatted as a diff via CampaignLog.php and ApiCentralNoticeLogs.php
@@ -2393,7 +2927,8 @@ export type ApiResponseQueryListCheckuser = XOR< // Fully checked (source code l
 		ipusers: ApiResponseQueryListCheckuserIpusers[];
 	}
 >;
-export interface ApiResponseQueryListCheckuserEdits extends _TitleInfo {
+/** */
+export interface ApiResponseQueryListCheckuserEdits extends ApiResponseTitleInfo {
 	// Generated by ApiQueryCheckUserActionsResponse::getResponseData
 	timestamp: string;
 	user: string;
@@ -2435,19 +2970,22 @@ export interface ApiResponseQueryListCodexicons { // Fully checked (source code 
 	[key: string]: unknown;
 }
 
-export type ApiResponseQueryListEmbeddedin = _ApiQueryBacklinks; // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListEmbeddedin extends _ApiQueryBacklinks {} // Fully checked (source code level)
 
 export interface ApiResponseQueryListExtdistrepos { // Fully checked (source code level)
 	extensions: string[];
 	skins: string[];
 }
 
-export interface ApiResponseQueryListExturlusage extends _TitleInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListExturlusage extends ApiResponseTitleInfo { // Fully checked (source code level)
 	pageid?: number;
 	url?: string;
 }
 
-export interface ApiResponseQueryListFilearchive extends _TitleInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListFilearchive extends ApiResponseTitleInfo { // Fully checked (source code level)
 	id: number;
 	name: string;
 	parseddescription?: string;
@@ -2546,23 +3084,27 @@ export interface ApiResponseQueryListGlobalgroups { // Fully checked (source cod
 	rights?: string[];
 }
 
-export type ApiResponseQueryListImageusage = _ApiQueryBacklinks; // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListImageusage extends _ApiQueryBacklinks {} // Fully checked (source code level)
 
-export interface ApiResponseQueryListIwbacklinks extends _TitleInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListIwbacklinks extends ApiResponseTitleInfo { // Fully checked (source code level)
 	pageid: number;
 	redirect?: true;
 	iwprefix?: string;
 	iwtitle?: string;
 }
 
-export interface ApiResponseQueryListLangbacklinks extends _TitleInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListLangbacklinks extends ApiResponseTitleInfo { // Fully checked (source code level)
 	pageid: number;
 	redirect?: true;
 	lllang?: string;
 	lltitle?: string;
 }
 
-export interface ApiResponseQueryListLinterrors extends _TitleInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListLinterrors extends ApiResponseTitleInfo { // Fully checked (source code level)
 	pageid: number;
 	lintId: number;
 	category: ApiResponseQueryListLinterrorsCategories;
@@ -2596,7 +3138,8 @@ export type ApiResponseQueryListLinterrorsCategories =
 	| 'unclosed-quotes-in-heading'
 	| 'wikilink-in-extlink';
 
-export interface ApiResponseQueryListLogevents extends Partial<_TitleInfo> { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListLogevents extends Partial<ApiResponseTitleInfo> { // Fully checked (source code level)
 	logid?: number;
 	actionhidden?: true;
 	pageid?: number;
@@ -2646,7 +3189,7 @@ export interface ApiResponseQueryListLogeventsParams {
 			page_title: string;
 		}[];
 		namespaces?: number[];
-		actions?: ('upload' | 'move' | 'create' | 'thanks')[];
+		actions?: ApiActionRestrictions[];
 	};
 	blockId?: number;
 	sitewide?: boolean;
@@ -2702,7 +3245,8 @@ export interface ApiResponseQueryListMessagecollectionMetadata {
 	remaining: number;
 }
 
-export interface ApiResponseQueryListMostviewed extends _TitleInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListMostviewed extends ApiResponseTitleInfo { // Fully checked (source code level)
 	count: number;
 }
 
@@ -2721,17 +3265,20 @@ export interface ApiResponseQueryListPagepropnames { // Fully checked (source co
 	propname: string;
 }
 
-export interface ApiResponseQueryListPageswithprop extends Partial<_TitleInfo> { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListPageswithprop extends Partial<ApiResponseTitleInfo> { // Fully checked (source code level)
 	pageid?: number;
 	value?: string; // TODO: Should this be unknown?
 }
 
-export interface ApiResponseQueryListPrefixsearch extends _TitleInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListPrefixsearch extends ApiResponseTitleInfo { // Fully checked (source code level)
 	special?: true;
 	pageid?: number;
 }
 
-export interface ApiResponseQueryListProtectedtitles extends _TitleInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListProtectedtitles extends ApiResponseTitleInfo { // Fully checked (source code level)
 	timestamp?: string;
 	user?: string;
 	userid?: number;
@@ -2749,17 +3296,20 @@ export interface ApiResponseQueryListQuerypage { // Fully checked (source code l
 	maxresults?: number;
 	results: ApiResponseQueryListQuerypageResults[];
 }
-export interface ApiResponseQueryListQuerypageResults extends _TitleInfo {
+/** */
+export interface ApiResponseQueryListQuerypageResults extends ApiResponseTitleInfo {
 	value?: string;
 	timestamp?: string;
 }
 
-export interface ApiResponseQueryListRandom extends _TitleInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListRandom extends ApiResponseTitleInfo { // Fully checked (source code level)
 	id: number;
 	redirect?: boolean;
 }
 
-export interface ApiResponseQueryListRecentchanges extends Partial<_TitleInfo> { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListRecentchanges extends Partial<ApiResponseTitleInfo> { // Fully checked (source code level)
 	type: ApiResponseQueryListRecentchangesTypes;
 	actionhidden?: true;
 	pageid?: number;
@@ -2803,7 +3353,8 @@ export type ApiResponseQueryListRecentchangesTypes =
 	| 'external'
 	| 'categorize';
 
-export interface ApiResponseQueryListSearch extends _TitleInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListSearch extends ApiResponseTitleInfo { // Fully checked (source code level)
 	pageid: number;
 	size?: number;
 	wordcount?: number;
@@ -2822,12 +3373,14 @@ export interface ApiResponseQueryListSearchInfoInterwiki { // Fully checked (sou
 	totalhits?: number;
 	approximate_totalhits?: number;
 }
+/** */
 export interface ApiResponseQueryListSearchInfo extends ApiResponseQueryListSearchInfoInterwiki { // Fully checked (source code level)
 	suggestion?: string;
 	suggestionsnippet?: string;
 	rewrittenquery?: string;
 	rewrittenquerysnippet?: string;
 }
+/** */
 export interface ApiResponseQueryListSearchInterwikisearch extends ApiResponseQueryListSearch { // Fully checked (source code level)
 	namespace: string;
 	title: string;
@@ -2865,8 +3418,8 @@ export interface ApiResponseQueryListThreads { // Fully checked (source code lev
 	subject?: string | null;
 	summaryid?: string | null;
 	type?: string;
-	reactions?: [] | { [key: string]: ApiResponseQueryListThreadsReactions };
-	replies?: [] | { [thread_id: string]: ApiResponseQueryListThreadsReplies };
+	reactions?: ApiResponseEmptyPhpArray | { [key: string]: ApiResponseQueryListThreadsReactions };
+	replies?: ApiResponseEmptyPhpArray | { [thread_id: string]: ApiResponseQueryListThreadsReplies };
 	/**
 	 * `thrender=true`
 	 */
@@ -2887,7 +3440,8 @@ export interface ApiResponseQueryListThreadsReplies {
 	id: string;
 }
 
-export interface ApiResponseQueryListUsercontribs extends _TitleInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListUsercontribs extends ApiResponseTitleInfo { // Fully checked (source code level)
 	texthidden?: true;
 	userid: number;
 	user: string;
@@ -2910,7 +3464,8 @@ export interface ApiResponseQueryListUsercontribs extends _TitleInfo { // Fully 
 	suppressed?: true;
 }
 
-export interface ApiResponseQueryListUsers extends _BlockDetails, _CentralUserInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListUsers extends ApiResponseBlockDetails, ApiResponseCentralUserInfo { // Fully checked (source code level)
 	name: string;
 	invalid?: true;
 	userid?: number;
@@ -2929,7 +3484,8 @@ export interface ApiResponseQueryListUsers extends _BlockDetails, _CentralUserIn
 	cancreateerror?: unknown; // Probably the same as ApiResponseErrors
 }
 
-export interface ApiResponseQueryListWatchlist extends Partial<_TitleInfo> { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListWatchlist extends Partial<ApiResponseTitleInfo> { // Fully checked (source code level)
 	// Mostly the same as ApiResponseQueryListRecentchanges but not identical
 	// as the object is generated by a separate module (ApiQueryWatchlist.php)
 	type: ApiResponseQueryListRecentchangesTypes;
@@ -2969,11 +3525,13 @@ export interface ApiResponseQueryListWatchlist extends Partial<_TitleInfo> { // 
 	suppressed?: true;
 }
 
-export interface ApiResponseQueryListWatchlistraw extends _TitleInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListWatchlistraw extends ApiResponseTitleInfo { // Fully checked (source code level)
 	changed?: string;
 }
 
-export interface ApiResponseQueryListWblistentityusage extends _TitleInfo { // Fully checked (source code level)
+/** */
+export interface ApiResponseQueryListWblistentityusage extends ApiResponseTitleInfo { // Fully checked (source code level)
 	pageid: number;
 	wblistentityusage: Record<string, ApiResponseQueryPagesPropWbentityusage>;
 }

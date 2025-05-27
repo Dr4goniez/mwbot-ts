@@ -75,7 +75,7 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 		}
 
 		super();
-		const {code, info, ...rest} = config;
+		const { code, info, ...rest } = config;
 		this.name = 'MwbotError';
 		this.type = type;
 		this.code = code;
@@ -84,7 +84,7 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 			this.data = Object.assign({}, data);
 		}
 		if (isEmptyObject(rest) === false) {
-			this.data = Object.assign(this.data || {}, {error: rest});
+			this.data = Object.assign(this.data || {}, { error: rest });
 		}
 
 		// Ensure proper stack trace capture
@@ -111,8 +111,8 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 				response.errors[0].text || // errorformat=wikitext, errorformat=plaintext
 				response.errors[0].key || // errorformat=raw
 				'Unknown error.';
-			const {errors, ...rest} = response;
-			error = Object.assign({info}, errors[0], rest);
+			const { errors, ...rest } = response;
+			error = Object.assign({ info }, errors[0], rest);
 		} else {
 			error = response.error;
 		}
@@ -165,6 +165,8 @@ export interface MwbotErrorCodes {
 		invalidformat: 'Not using "format=json" in request parameters.';
 		anonymous: 'Anonymous users are limited to non-write requests.';
 		loginfailed: 'Failed to log in.';
+		nopermission: 'You do not have permission to perform this action.';
+		botdenied: 'The target page has opted out of edits by this bot or the message types it delivers.';
 		// Used in the catch block of Mwbot._init
 		badauth: 'Failed to authenticate the client as a registered user in Mwbot.init.';
 		badvars: 'Failed to initialize wg-variables in Mwbot.init.';
@@ -199,11 +201,14 @@ export interface MwbotErrorCodes {
 		typemismatch: 'There is an issue with the type of a variable.';
 		nourl: 'No valid API endpoint is provided.';
 		invalidcreds: 'There is an issue with the credential information passed to Mwbot.';
-		// Used in Mwbot.massRequest
-		invalidsize: 'The "batchSize" argument for Mwbot.massRequest is invalid.';
-		emptykeys: 'The "keys" argument for Mwbot.massRequest is an empty array.';
-		fieldmismatch: 'API parameters passed to Mwbot.massRequest involve unmatching multi-value fields.';
-		nofields: 'No multi-value fields are provided for Mwbot.massRequest.';
+		emptyinput: 'A required input value is empty.';
+		internal: 'An unexpected internal error occurred.';
+		// Used in Mwbot.createBatchArray
+		invalidsize: 'The "batchSize" argument for massRequest() or continuedRequest() is invalid.';
+		fieldmismatch: 'API parameters passed to massRequest() or continuedRequest() involve unmatching multi-value fields.';
+		nofields: 'No multi-value fields are provided for massRequest() or continuedRequest().';
+		// Used in Mwbot.continuedRequest
+		invalidlimit: 'The "limit" argument for continuedRequest() is invalid.';
 		// Used in Wikitext.modify
 		invalidtype: 'Wikitext.modify does not support this expression type.';
 	};
@@ -227,7 +232,7 @@ export interface MwbotErrorData {
 	 */
 	axios?: Record<string, any>;
 	/**
-	 * Present for title-related errors encountered by {@link Mwbot.read}.
+	 * Present when the error involves a processed page title, such as in {@link Mwbot.read}.
 	 */
 	title?: string;
 	/**

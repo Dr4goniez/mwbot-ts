@@ -1,6 +1,6 @@
 {
   "name": "mwbot-ts",
-  "version": "1.0.2",
+  "version": "1.2.6",
   "description": "A flexible JavaScript/TypeScript framework for building MediaWiki bots in Node.js.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,9 +18,9 @@
     "readme-log": "node logger.mjs src/test/test_readme.ts _readme",
     "readme-links": "npx markdown-link-check README.md",
     "test-build": "ts-node src/test/test_build.ts",
-    "prebuild": "node -p \"'export const MWBOT_VERSION = ' + JSON.stringify(require('./package.json').version) + ';'\" > src/version.ts",
-    "build": "npm run prebuild & tsc -p . & node generate-types.mjs",
-    "docs": "node -e \"require('fs-extra').emptyDir('docs');\" & npx typedoc --options typedoc.json"
+    "build": "node generate-version.mjs && node empty-dir.mjs dist/build && tsc -p . && node generate-index.mjs",
+    "docs": "node empty-dir.mjs docs && npx typedoc --options typedoc.json",
+    "update": "update-version.sh"
   },
   "engines": {
     "node": ">=14.18.3"
@@ -62,10 +62,9 @@
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "eslint": "^8.57.1",
-    "fs-extra": "^11.3.0",
     "markdown-link-check": "^3.13.7",
     "ts-node": "^10.9.2",
-    "typedoc": "^0.28.3",
+    "typedoc": "^0.28.4",
     "typescript": "^5.8.3"
   }
 }

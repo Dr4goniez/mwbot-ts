@@ -14,6 +14,5 @@
 	"excludePrivate": false,
 	"excludeProtected": false,
 	"includeVersion": true,
-	"out": "docs",
-	// "readme": "README.md",
+	"out": "docs"
 }

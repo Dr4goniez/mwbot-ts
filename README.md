@@ -3,6 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/mwbot-ts.svg)](https://www.npmjs.com/package/mwbot-ts)
 [![GitHub License](https://img.shields.io/github/license/Dr4goniez/mwbot-ts)](https://github.com/Dr4goniez/mwbot-ts)
 ![node-current](https://img.shields.io/node/v/mwbot-ts)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
 [🐙 GitHub](https://github.com/Dr4goniez/mwbot-ts) - [📦 npm](https://www.npmjs.com/package/mwbot-ts) - [📘 API Documentation](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html)
 
@@ -15,9 +16,9 @@
 **Main features**:
 
 * Supports all core authentication methods: `OAuth 2.0`, `OAuth 1.0a`, and `BotPasswords`. Anonymous access is also supported for non-write requests.
-* Uses [Axios](https://axios-http.com/) to perform HTTP requests, with responses automatically normalized to a consistent JSON format (`{"formatversion": "2"}` is enabled by default). For full control, the <code>[rawRequest](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#rawrequest)</code> method is also available.
+* Uses [Axios](https://axios-http.com/) to perform HTTP requests, with responses automatically normalized to a consistent JSON format (`{"formatversion": "2"}` is enabled by default). For full control, the [`rawRequest`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#rawrequest) method is also available.
 * Automatically handles common MediaWiki API complexities, such as converting boolean values into a PHP-compatible format, optimizing request headers to reduce bandwidth usage, managing the `maxlag` parameter for server load (default: 5 seconds), and retrying failed HTTP requests under appropriate conditions. See also [mw:API:Data formats](https://www.mediawiki.org/wiki/API:Data_formats) and [mw:API:Etiquette](https://www.mediawiki.org/wiki/API:Etiquette).
-* Fetches and caches edit tokens automatically. POST requests for database *write* operations can be made via <code>[postWithToken](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#postwithtoken)</code> or <code>[postWithCsrfToken](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#postwithcsrftoken)</code>, which closely mirror the functionality of MediaWiki’s built-in `mediawiki.Api` module.
+* Fetches and caches edit tokens automatically. POST requests for database *write* operations can be made via [`postWithToken`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#postwithtoken) or [`postWithCsrfToken`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#postwithcsrftoken), which closely mirror the functionality of MediaWiki’s built-in `mediawiki.Api` module.
 * Manages intervals between write requests automatically. By default, the framework enforces at least a 5-second gap between successful `action=edit`, `action=move`, and `action=upload` requests, relieving clients of manual throttling.
 * Built around an extensible core class, `Mwbot`, which is designed to be subclassed — making it easy to implement shared logic, custom workflows, or application-specific behavior.
 * Handles HTTP request errors in a unified manner via the [MwbotError](#error-handling) class, with [all internal error codes documented](https://dr4goniez.github.io/mwbot-ts/interfaces/MwbotError.MwbotErrorCodes.html) for easy debugging.
@@ -77,7 +78,7 @@ Mwbot.init(initOptions, defaultRequestOptions).then((mwbot) => {
 
 </details>
 
-The `Mwbot.init` method requires a [MwbotInitOptions](https://dr4goniez.github.io/mwbot-ts/types/Mwbot.MwbotInitOptions.html) object, which consists of [MwbotOptions](https://dr4goniez.github.io/mwbot-ts/interfaces/Mwbot.MwbotOptions.html) and [Credentials](https://dr4goniez.github.io/mwbot-ts/types/Mwbot.Credentials.html). This object is used to initialize default instance options and authentication credentials:
+The `Mwbot.init` method requires a [MwbotInitOptions](https://dr4goniez.github.io/mwbot-ts/interfaces/Mwbot.MwbotInitOptions.html) object, which consists of [MwbotOptions](https://dr4goniez.github.io/mwbot-ts/interfaces/Mwbot.MwbotOptions.html) and [Credentials](https://dr4goniez.github.io/mwbot-ts/types/Mwbot.Credentials.html). This object is used to initialize default instance options and authentication credentials:
 
 <details>
 <summary>MwbotInitOptions:</summary>
@@ -145,7 +146,7 @@ In general, there is no need to set custom request configurations. The following
 
 (Properties of `MwbotRequestConfig`)
 * `method` - Use `GET` for read-only requests whenever possible. `POST` is not cacheable and may be routed to a distant datacenter in multi-datacenter setups (such as Wikimedia sites).
-* `headers['Content-Type']` - The MediaWiki API only supports [<code>application/x-www-form-urlencoded</code> and <code>multipart/form-data</code>](https://www.mediawiki.org/wiki/API:Data_formats#Input). The framework selects the appropriate content type automatically.
+* `headers['Content-Type']` - The MediaWiki API only supports [`application/x-www-form-urlencoded` and `multipart/form-data`](https://www.mediawiki.org/wiki/API:Data_formats#Input). The framework selects the appropriate content type automatically.
 * `headers['Accept-Encoding']` - Handles data compression to [optimize bandwidth usage](https://www.mediawiki.org/wiki/API:Etiquette#Request_limit).
 * `params.format` - Should always be `'json'`, as [all other formats have been deprecated or removed](https://www.mediawiki.org/wiki/API:Data_formats#Output). `mwbot-ts` enforces this by throwing an error if the specification is missing.
 * `params.formatversion` - The framework assumes `{"formatversion": "2"}` to define types and interfaces. Changing this breaks type expectations and offers no benefit.
@@ -156,7 +157,7 @@ In general, there is no need to set custom request configurations. The following
 
 ### Request methods
 #### Basic request methods
-For basic API calls, `mwbot-ts` provides the [<code>get</code>](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#get) and [<code>post</code>](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#post) methods, both built on the method-neutral [<code>request</code>](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#request) method. For read-only queries with long parameters, the [<code>nonwritePost</code>](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#nonwritePost) method serves as a POST-based alternative to `get`, helping avoid [<code>414 URI Too Long</code>](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/414) errors. For full control over requests, use [<code>rawRequest</code>](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#rawRequest). To cancel all in-flight requests, use [<code>abort</code>](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#abort).
+For basic API calls, `mwbot-ts` provides the [`get`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#get) and [`post`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#post) methods, both built on the method-neutral [`request`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#request) method. For read-only queries with long parameters, the [`nonwritePost`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#nonwritePost) method acts as a POST-based alternative to `get`, helping avoid [`414 URI Too Long`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/414) errors. When you’re unsure whether to use `GET` or `POST` for a read-only query, the [`fetch`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#fetch) method automatically selects the appropriate method based on request length and intent. For complete control over the request configuration, use [`rawRequest`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#rawRequest). To cancel all in-flight requests, use [`abort`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#abort).
 
 <details>
 <summary>get</summary>
@@ -195,12 +196,29 @@ mwbot.post({
 <summary>nonwritePost</summary>
 
 ```ts
-// Use when GET would exceed URL limits
+// Use when a GET request may exceed URL length limits
 mwbot.nonwritePost({
   action: 'query',
   list: 'blocks',
   bkusers: [/* very long field */], // Note: `mwbot-ts` accepts array inputs
   bklimit: 'max',
+  format: 'json',
+  formatversion: '2'
+})
+.then(console.log);
+```
+
+</details>
+
+<details>
+<summary>fetch</summary>
+
+```ts
+// Performs a read-only API request, letting mwbot-ts decide the appropriate HTTP method
+// Automatically switches from GET to POST if the query is too long to fit in the URL
+mwbot.fetch({
+  action: 'query',
+  titles: [/* A field that can be either short or long */],
   format: 'json',
   formatversion: '2'
 })
@@ -240,14 +258,14 @@ mwbot.abort();
 </details>
 
 #### Utility request methods
-The [continuedRequest](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#continuedrequest) method simplifies handling [API continuation](https://www.mediawiki.org/wiki/API:Continue). It returns a `Promise` that resolves to a single merged API response instead of an array, allowing you to process the result as if you had made just one request:
+The [continuedRequest](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#continuedrequest) method simplifies handling [API continuation](https://www.mediawiki.org/wiki/API:Continue). It returns a `Promise` that resolves to an array of continued API responses:
 
 <details>
 <summary>continuedRequest</summary>
 
 ```ts
 // Performs an API request with automatic continuation
-// By default, the maximum number of continuations is 10
+// By default, continues up to 10 times (or until complete)
 mwbot.continuedRequest({
   action: 'query',
   list: 'logevents',
@@ -257,7 +275,7 @@ mwbot.continuedRequest({
   format: 'json',
   formatversion: '2'
 })
-.then(console.log); // Merged object response
+.then(console.log);
 ```
 
 </details>
@@ -279,7 +297,7 @@ mwbot.massRequest({
   format: 'json',
   formatversion: '2'
 }, 'bkusers')
-.then(console.log); // Array response
+.then(console.log);
 ```
 
 </details>
@@ -311,9 +329,10 @@ See also [postWithCsrfToken](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.
 * [create](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#create) - Creates a new page. If the page already exists, the `Promise` is rejected with an `articleexists` error. There's no need to pre-check for existence.
 * [save](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#save) - Saves a content to an existing page. By default, it rejects if the page does not exist.
 * [newSection](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#newsection) - Adds a new section to a page.
-* [edit](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#edit) - Fetches the latest revision of a page, applies a transformation function, and submits the modified content. **Automatically handles edit conflicts up to 3 times**.
+* [edit](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#edit) - Fetches the latest revision of a page, applies a transformation function, and submits the modified content. Automatically handles edit conflicts up to 3 times.
+  * `mwbot.edit()` also supports [exclusion compliance](https://en.wikipedia.org/wiki/Template:Bots) — that is, reading `{{bots}}` and `{{nobots}}` templates in the page content and determining whether your bot is opted in. With `mwbot-ts`, this is easy to implement: simply pass `{ comply: true }` to the method. There’s no need to handle any complex regex manually. See also [`ExclusionComplianceConfig`](https://dr4goniez.github.io/mwbot-ts/interfaces/Mwbot.ExclusionComplianceConfig.html).
 
-All of these methods return a `Promise` that resolves with an [ApiResponseEditSuccess](https://dr4goniez.github.io/mwbot-ts/types/Mwbot.ApiResponseEditSuccess.html) object or rejects with a `MwbotError` (see [#Error handling](#error-handling)). When the `Promise` resolves, the `result` field is always `'Success'`, and all other cases are handled with a rejection. In other words, there is no need to inspect the response object to verify whether the edit succeeded: When `then()` is called, that's a success, and when `catch()` is called, that's a failure.
+All of these methods return a `Promise` that resolves with an [ApiResponseEditSuccess](https://dr4goniez.github.io/mwbot-ts/interfaces/Mwbot.ApiResponseEditSuccess.html) object or rejects with a `MwbotError` (see [#Error handling](#error-handling)). When the `Promise` resolves, the `result` field is always `'Success'`, and all other cases are handled with a rejection. In other words, there is no need to inspect the response object to verify whether the edit succeeded: When `then()` is called, that's a success, and when `catch()` is called, that's a failure.
 
 <details>
 <summary>ApiResponseEditSuccess</summary>
@@ -419,17 +438,38 @@ if (response instanceof MwbotError) {
 
 </details>
 
-#### Other utility methods
-`mwbot-ts` also provides helper methods for common tasks, while intentionally keeping the core API as minimal as possible. Versatile utility methods may be added on request, and such requests are always welcome.😊
+#### Other Utility Methods
+`mwbot-ts` also provides helper methods for common tasks, as listed below. Versatile utility methods may be added upon request, and such requests are always welcome! 😊
 
-The framework includes utility methods such as:
-- [getExistencePredicate](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getexistencepredicate): Returns a function that checks whether pages exist.
-- [parse](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#parse): Runs the MediaWiki parser via the API.
-- [purge](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#purge): Purges the cache for the specified titles.
-- [read](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#read): Reads the latest revision content of one or more pages.
+<details>
+<summary>List of utility request methods</summary>
 
-### Extend the class
-Different bot operators have different needs, and it's common to define custom functions using native framework methods. For example, a quick way to check whether a page exists might look like this:
+- [`block`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#block): Blocks a user.
+- [`delete`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#delete): Deletes a page.
+- [`getBacklinks`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getbacklinks): Retrieves a list of pages that link to the given page(s).
+- [`getCategories`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getcategories): Retrieves the categories to which the specified titles belong.
+- [`getCategoriesByPrefix`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getcategoriesbyprefix): Returns a list of categories that match a given prefix.
+- [`getCategoryMembers`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getcategorymembers): Retrieves a list of pages that belong to the given category.
+- [`getExistencePredicate`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getexistencepredicate): Returns an `exists()` function that checks whether given pages exist.
+- [`getTransclusions`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#gettransclusions): Retrieves a list of pages that transclude the given page(s).
+- [`move`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#move): Moves a page.
+- [`parse`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#parse): Runs the parser via the API.
+- [`prefixSearch`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#prefixsearch): Performs a prefix search for page titles.
+- [`protect`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#protect): Protects a page.
+- [`purge`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#purge): Clears the server-side cache for the specified pages.
+- [`read`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#read): Retrieves the latest revision content of the specified page(s).
+- [`rollback`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#rollback): Rolls back the most recent edits to a page made by a specific user.
+- [`search`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#search): Performs a full-text search.
+- [`unblock`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#unblock): Unblocks a user.
+- [`undelete`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#undelete): Undeletes revisions of a deleted page.
+- [`unprotect`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#unprotect): Unprotects a page.
+
+</details>
+
+### Extend the Class
+Different bot operators have different needs, and it’s common to define custom functions using native framework methods. For example, a quick way to check whether a page exists might look like this:
+
+> **Note**: `mwbot-ts` includes a built-in method for checking page existence: [`getExistencePredicate`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getexistencepredicate).
 
 <details>
 <summary>Implement an <code>exists()</code> function</summary>
@@ -493,7 +533,7 @@ Mwbot2.init(initOptions).then(async (mwbot) => {
 
 </details>
 
-Extending the class also allows you to optimize or customize default request behavior. For example, if you'd like your `purge()` call to include the [<code>forcerecursivelinkupdate</code>](https://www.mediawiki.org/wiki/API:Purge#purge:forcerecursivelinkupdate) parameter by default, you can define your own specialized method:
+Extending the class also allows you to optimize or customize default request behavior. For example, if you'd like your `purge()` call to include the [`forcerecursivelinkupdate`](https://www.mediawiki.org/wiki/API:Purge#purge:forcerecursivelinkupdate) parameter by default, you can define your own specialized method:
 
 <details>
 <summary>Implement a <code>purgeDeep()</code> method</summary>
@@ -595,7 +635,7 @@ The [Wikitext](https://dr4goniez.github.io/mwbot-ts/interfaces/Wikitext.Wikitext
 * `{{template}}`, including (double-braced) [magic words](https://www.mediawiki.org/wiki/Help:Magic_words) and [parser functions](https://www.mediawiki.org/wiki/Help:Extension:ParserFunctions).
 * `[[wikilink]]`
 
-For each markup type, the class provides `parse**` and `modify**` methods, where `**` denotes the type (e.g., [<code>parseTemplates</code>](https://dr4goniez.github.io/mwbot-ts/interfaces/Wikitext.Wikitext.html#parsetemplates)).
+For each markup type, the class provides `parse**` and `modify**` methods, where `**` denotes the type (e.g., [`parseTemplates`](https://dr4goniez.github.io/mwbot-ts/interfaces/Wikitext.Wikitext.html#parsetemplates)).
 
 To create a new instance, use the constructor or the static [newFromTitle](https://dr4goniez.github.io/mwbot-ts/interfaces/Wikitext.Wikitext.html#parsetemplates) method, which fetches the content of a page and returns a `Promise` resolving to a `Wikitext` instance:
 
@@ -989,7 +1029,7 @@ console.dir(wikitext.parseWikilinks(), {depth: null});
 
 In many cases, you can skip calling the parsing methods:
 * You can use the corresponding `modify**` methods directly, which internally call the appropriate `parse**` method and apply a transformation via a callback function. Each callback receives one element from the parsed array.
-* You can call a modification method from inside the callback function of [<code>mwbot.edit()</code>](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#edit) (referred to as "[transformation predicate](https://dr4goniez.github.io/mwbot-ts/types/Mwbot.TransformationPredicate.html)"), which takes a `Wikitext` instance as its first argument.
+* You can call a modification method from inside the callback function of [`mwbot.edit()`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#edit) (referred to as "[transformation predicate](https://dr4goniez.github.io/mwbot-ts/types/Mwbot.TransformationPredicate.html)"), which takes a `Wikitext` instance as its first argument.
 
 <details>
 <summary><code>wikitext.modifyTags</code></summary>

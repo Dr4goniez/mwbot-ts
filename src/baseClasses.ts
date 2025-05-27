@@ -49,7 +49,7 @@ export abstract class ParamBase {
 		 */
 		ifexist?: boolean;
 	} = {}): boolean {
-		const {overwrite = true, ifexist = false} = options;
+		const { overwrite = true, ifexist = false } = options;
 		if (
 			typeof this.params[index] !== 'string' && !ifexist ||
 			typeof this.params[index] === 'string' && !overwrite

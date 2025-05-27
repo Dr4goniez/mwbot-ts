@@ -1,8 +1,8 @@
 # Untracked files and directories
-node_modules
-dist
+node_modules/
+dist/
 
 # Private files and directories
-test
 logs
 src/regex.txt
+src/test/

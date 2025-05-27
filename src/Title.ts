@@ -69,13 +69,13 @@ import * as mwString from './String';
  * ```js
  * new mw.Title('w:en:Main_page').getPrefixedDb();
  * // => 'W:en:Main_page'
- * // {namespace: 0, title: 'w:en:Main_page', fragment: null}
+ * // { namespace: 0, title: 'w:en:Main_page', fragment: null }
  * ```
  * - mwbot.Title
  * ```js
  * new mwbot.Title('w:en:Main_page').getPrefixedDb();
  * // => 'w:en:Main_page'
- * // {namespace: 0, title: 'Main_page', fragment: null, colon: '', interwiki: 'w:en', local_interwiki: false}
+ * // { namespace: 0, title: 'Main_page', fragment: null, colon: '', interwiki: 'w:en', local_interwiki: false }
  * ```
  *
  * Here, `Main_page` is correctly extracted as the title in `mwbot.Title`. To check whether
@@ -91,10 +91,10 @@ import * as mwString from './String';
  *
  * ```js
  * const title = new mwbot.Title('mw:mediawiki:sidebar');
- * // {namespace: 0, title: 'mediawiki:sidebar', fragment: null, colon: '', interwiki: 'mw', local_interwiki: false}
+ * // { namespace: 0, title: 'mediawiki:sidebar', fragment: null, colon: '', interwiki: 'mw', local_interwiki: false }
  * title.getNamespaceId();
  * // => 0
- * title.getPrefixedDb({interwiki: true});
+ * title.getPrefixedDb({ interwiki: true });
  * // => 'mw:mediawiki:sidebar'
  * ```
  *
@@ -111,10 +111,10 @@ import * as mwString from './String';
  *
  * ```js
  * const title = new mwbot.Title(':Category:CSD');
- * // {namespace: 14, title: 'CSD', fragment: null, colon: ':', interwiki: '', local_interwiki: false}
+ * // { namespace: 14, title: 'CSD', fragment: null, colon: ':', interwiki: '', local_interwiki: false }
  * title.hadLeadingColon();
  * // => true
- * title.getPrefixedDb({colon: true});
+ * title.getPrefixedDb({ colon: true });
  * // => ':Category:CSD'
  * ```
  */
@@ -195,7 +195,7 @@ export interface TitleStatic {
 	 *
 	 * @return A valid Title object or `null` if the input cannot be turned into a valid title.
 	 */
-	newFromUserInput(title: string, defaultNamespace?: number, options?: {forUploading?: true}): Title | null;
+	newFromUserInput(title: string, defaultNamespace?: number, options?: { forUploading?: true }): Title | null;
 	/**
 	 * Sanitizes a file name as supplied by the user, originating in the user's file system
 	 * so it is most likely a valid MediaWiki title and file name after processing.
@@ -321,6 +321,16 @@ export interface TitleStatic {
 	 * @throws If `title` is not a string.
 	 */
 	normalize(title: string, options?: TitleNormalizeOptions): string | null;
+	/**
+	 * Normalizes a username by capitalizing its first letter, following MediaWiki conventions.
+	 * IP addresses are capitalized with all hexadecimal segments spelled out (e.g., `192.168.0.1`
+	 * for IPv4 and `FD12:3456:789A:1:0:0:0:0` for IPv6).
+	 *
+	 * @param username The username to normalize.
+	 * @returns The normalized username, or `null` if the input contains characters that are not
+	 * allowed in usernames.
+	 */
+	normalizeUsername(username: string): string | null;
 }
 
 /**
@@ -762,7 +772,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 *
 	 * *This variable is exclusive to `mwbot-ts`.*
 	 */
-	const localInterwikis = info.interwikimap.reduce((acc, {prefix, localinterwiki}) => {
+	const localInterwikis = info.interwikimap.reduce((acc, { prefix, localinterwiki }) => {
 		if (localinterwiki) {
 			acc.add(prefix);
 		}
@@ -790,7 +800,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 *
 	 * *This variable is exclusive to `mwbot-ts`.*
 	 */
-	const CAPITAL_LINK_OVERRIDES: {[id: number]: boolean} = {};
+	const CAPITAL_LINK_OVERRIDES: { [id: number]: boolean } = {};
 	/**
 	 * Set of the IDs of namespaces whose first letters are always capitalized.
 	 *
@@ -1202,7 +1212,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			}
 		}
 
-		static newFromUserInput(title: string, defaultNamespace = NS_MAIN, options = {forUploading : true}): Title | null {
+		static newFromUserInput(title: string, defaultNamespace = NS_MAIN, options = { forUploading : true }): Title | null {
 			let namespace = parseInt(<never>defaultNamespace) || NS_MAIN;
 			// Normalise additional whitespace
 			title = title.replace(/\s/g, ' ').trim();
@@ -1387,6 +1397,27 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			return ret;
 		}
 
+		static normalizeUsername(username: string): string | null {
+			if (typeof username !== 'string') {
+				return null;
+			}
+			username = Title.clean(username);
+			const ip = IPUtil.sanitize(username, true);
+			if (ip) {
+				return ip;
+			}
+			if (/[/@#<>[\]|{}:]|^(\d{1,3}\.){3}\d{1,3}$/.test(username)) {
+				// Contains invalid characters or invalid IPv4 string
+				return null;
+			}
+			if (/^[\u10A0-\u10FF]/.test(username)) {
+				// Georgean first letters shouldn't be capitalized
+				return username;
+			} else {
+				return Title.phpCharToUpper(mwString.charAt(username, 0)) + username.slice(1);
+			}
+		}
+
 		hadLeadingColon(): boolean {
 			return this.colon !== '';
 		}
@@ -1519,9 +1550,9 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			if (this.getNamespaceId() === namespace) {
 				return this.getMainText();
 			} else if (this.getNamespaceId() === NS_MAIN) {
-				return ':' + this.getPrefixedText({interwiki: false});
+				return ':' + this.getPrefixedText({ interwiki: false });
 			} else {
-				return this.getPrefixedText({interwiki: false});
+				return this.getPrefixedText({ interwiki: false });
 			}
 		}
 
@@ -1597,7 +1628,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		}
 
 		equals(title: string | Title, evalFragment = false): boolean | null {
-			const options: TitleOutputOptions = {fragment: evalFragment};
+			const options: TitleOutputOptions = { fragment: evalFragment };
 			if (title instanceof Title) {
 				title = title.getPrefixedDb(options);
 			} else if (typeof title === 'string') {
