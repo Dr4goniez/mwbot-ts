@@ -528,8 +528,7 @@ Mwbot2.init(initOptions).then(async (mwbot) => {
 });
 ```
 
-> **Note**: The `exists()` method above is intended as **a simple example**. In production, it should also account for false positives. For instance, if the input title is invalid, the response may lack a `missing` property, leading this method to incorrectly return `true` (see [this example](https://en.wikipedia.org/w/api.php?action=query&formatversion=2&&titles={)).<br>
-> In fact, **`mwbot-ts` already provides a built-in method, [getExistencePredicate](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getexistencepredicate), which fully covers this functionality**. In most cases, you don’t need to implement a custom existence checker.
+> **Note**: The `exists()` method above is intended as **a simple example**. In production, it should also account for false positives. For instance, if the input title is invalid, the response may lack a `missing` property, leading this method to incorrectly return `true` (see [this example](https://en.wikipedia.org/w/api.php?action=query&formatversion=2&&titles={)).
 
 </details>
 
