@@ -20,6 +20,7 @@ import { IPUtil } from 'ip-wiki';
 import type { Mwbot } from './Mwbot';
 import { toUpperMap, toLowerMap } from './phpCharMap';
 import * as mwString from './String';
+import { MwbotError } from './MwbotError';
 
 /**
  * This interface defines the static members of the `Title` class. For instance members,
@@ -130,9 +131,9 @@ export interface TitleStatic {
 	 * @param title The title of the page. If no `namespace` is provided, this will be analyzed
 	 * to determine if it includes a namespace prefix.
 	 * @param namespace The default namespace to use for the given title. (Default: `NS_MAIN`)
-	 * @throws {Error} If the provided title is invalid.
+	 * @throws {MwbotError} If the provided title is invalid.
 	 */
-    new (title: string, namespace?: number): Title;
+	new(title: string, namespace?: number): Title;
 	/**
 	 * Remove unicode bidirectional characters and trim a string.
 	 *
@@ -230,7 +231,7 @@ export interface TitleStatic {
 	 *
 	 * @param title Prefixed DB title (string) or instance of Title.
 	 * @return Boolean if the information is available, otherwise `null`.
-	 * @throws {Error} If title is not a string or Title.
+	 * @throws {MwbotError} If `title` is not a string or Title.
 	 */
 	exists(title: string | Title): boolean | null;
 	/**
@@ -1166,9 +1167,18 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		private local_interwiki: boolean;
 
 		constructor(title: string, namespace = NS_MAIN) {
+			if (typeof title !== 'string') {
+				throw new MwbotError('fatal', {
+					code: 'typemismatch',
+					info: `"title" for Title.constructor must be a string.`
+				}, { title });
+			}
 			const parsed = parse(title, namespace);
 			if (!parsed) {
-				throw new Error('Unable to parse title.');
+				throw new MwbotError('fatal', {
+					code: 'unparsabletitle',
+					info: `Unable to parse the title "${title}".`
+				});
 			}
 			this.namespace = parsed.namespace;
 			this.title = parsed.title;
@@ -1184,6 +1194,12 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		}
 
 		static newFromText(title: string, namespace = NS_MAIN): Title | null {
+			if (typeof title !== 'string') {
+				throw new MwbotError('fatal', {
+					code: 'typemismatch',
+					info: `"title" for Title.newFromText() must be a string.`
+				}, { title });
+			}
 			const parsed = parse(title, namespace);
 			if (!parsed) {
 				return null;
@@ -1299,7 +1315,10 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			} else if (title instanceof Title) {
 				match = obj[title.toString()];
 			} else {
-				throw new Error('Title.exists: title must be a string or an instance of Title');
+				throw new MwbotError('fatal', {
+					code: 'typemismatch',
+					info: `"title" for Title.exists() must be either a string or a Title instance.`
+				}, { title });
 			}
 			if (typeof match !== 'boolean') {
 				return null;
@@ -1371,7 +1390,10 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 
 		static normalize(title: string, options: TitleNormalizeOptions = {}): string | null {
 			if (typeof title !== 'string') {
-				throw new TypeError(`Expected a string for "title", but got ${typeof title}.`);
+				throw new MwbotError('fatal', {
+					code: 'typemismatch',
+					info: `"title" for Title.normalize() must be a string.`
+				}, { title });
 			}
 			const parsed = parse(title, options.namespace ?? NS_MAIN);
 			if (!parsed) {
