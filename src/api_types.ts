@@ -953,7 +953,7 @@ export interface _ApiQueryBacklinksprop extends Partial<Omit<_ApiQueryBacklinks,
 	// Unlike the `list=` modules, `pageid`, `ns`, and `title` are optional, and `redirect` can be `false`
 	redirect?: boolean;
 	// fragment?: string; // Handle this separately because it's used only by "prop=redirects"
-};
+}
 /**
  * @private
  */
