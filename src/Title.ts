@@ -327,6 +327,8 @@ export interface TitleStatic {
 	 * IP addresses are capitalized with all hexadecimal segments spelled out (e.g., `192.168.0.1`
 	 * for IPv4 and `FD12:3456:789A:1:0:0:0:0` for IPv6).
 	 *
+	 * *This method is exclusive to `mwbot-ts`.*
+	 *
 	 * @param username The username to normalize.
 	 * @returns The normalized username, or `null` if the input contains characters that are not
 	 * allowed in usernames.
@@ -634,6 +636,34 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	const FILENAME_MAX_BYTES = 240;
 	const TITLE_MAX_BYTES = 255;
 
+	const IW_PREFIXES = new Set<string>();
+	const IW_LOCALS = new Set<string>();
+	const IW_TRANSES = new Set<string>();
+	const IW_LOCALINTERWIKIS = new Set<string>();
+	info.interwikimap.forEach(({ prefix, local, trans, localinterwiki }) => {
+		IW_PREFIXES.add(prefix);
+		if (local) {
+			IW_LOCALS.add(prefix);
+		}
+		if (trans) {
+			IW_TRANSES.add(prefix);
+		}
+		if (localinterwiki) {
+			IW_LOCALINTERWIKIS.add(prefix);
+		}
+	});
+	// If the local project has a namespace alias that conflicts with an interwiki prefix,
+	// that prefix is always recognized as a namespace prefix
+	for (const nsPrefix in namespaceIds) {
+		if (IW_PREFIXES.has(nsPrefix)) {
+			// Delete conflicting prefixes from the lists of interwiki prefixes
+			IW_PREFIXES.delete(nsPrefix);
+			IW_LOCALS.delete(nsPrefix);
+			IW_TRANSES.delete(nsPrefix);
+			IW_LOCALINTERWIKIS.delete(nsPrefix);
+		}
+	}
+
 	/**
 	 * Get the namespace id from a namespace name (either from the localized, canonical or alias
 	 * name).
@@ -757,28 +787,17 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		}
 	];
 	/**
-	 * Check if an interwiki prefix is valid.
+	 * Checks if an interwiki prefix is valid.
 	 *
 	 * *This function is exclusive to `mwbot-ts`.*
 	 *
-	 * @param prefix The interwiki prefix. The function internally lowercases it.
-	 * @returns
+	 * @param prefix The interwiki prefix to check. It will be lowercased internally.
+	 * @returns The lowercased prefix if it is valid; otherwise, `false`.
 	 */
-	const isValidInterwiki = (prefix: string): boolean => {
+	const isValidInterwiki = (prefix: string): string | false => {
 		prefix = Title.lc(prefix);
-		return info.interwikimap.some((obj) => obj.prefix === prefix);
+		return IW_PREFIXES.has(prefix) ? prefix : false;
 	};
-	/**
-	 * Set of interwiki prefixes for the local project (e.g., `ja` for jawiki).
-	 *
-	 * *This variable is exclusive to `mwbot-ts`.*
-	 */
-	const localInterwikis = info.interwikimap.reduce((acc, { prefix, localinterwiki }) => {
-		if (localinterwiki) {
-			acc.add(prefix);
-		}
-		return acc;
-	}, new Set<string>());
 	/**
 	 * Get the subject namespace index for a given namespace.
 	 * Special namespaces (`NS_MEDIA`, `NS_SPECIAL`) are always the subject.
@@ -888,76 +907,72 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		if (title === '') {
 			return false;
 		}
-		// Process namespace or interwiki prefix (if any)
-		const parts = title.split(/_*:_*/);
+		// Process namespace and interwiki prefixes (if any)
 		let iw: string[] = [];
 		let local_interwiki = false;
-		if (parts.length > 1) {
+		const parts = title.split(':');
+		if (parts.length > 1) { // Contains a potential prefix followed by the main title
 			let ns: number | null = null;
-			title = parts[parts.length - 1];
+			title = parts.at(-1)!;
 			for (let i = parts.length - 2; i >= 0; i--) { // Start from the second last
-				const nsId = getNsIdByName(parts[i]);
-				const iwPrefix = isValidInterwiki(parts[i]) && Title.lc(parts[i]);
-				if (nsId !== false && iwPrefix !== false) {
-					// The prefix can be either a ns prefix or an iw prefix
-					if (ns !== null || iw.length) {
-						// If ns/iw prefix has previously been processed, that's an iw prefix
-						if (localInterwikis.has(iwPrefix)) {
-							// Local interwiki should be erased
-							// e.g., on enwiki, "en:Main_page" is the same as "Main_page"
-							local_interwiki = true;
-						} else {
-							// Interwiki resets the default namespace because there's no guarantee that
-							// the interwiki project has a specific namespace
-							ns = NS_MAIN;
-							// e.g., in "w:en:Main_page" and if we're parsing "w", "Main_page" is the title,
-							// where `parts = ['w', 'en', 'Main_page']` and iw = ['en']
-							title = parts.slice(i + iw.length + 1).join(':');
-							// Register the valid interwiki
-							iw.unshift(iwPrefix);
-						}
+				const part = parts[i].replace(rUnderscoreTrim, '');
+				const iwOrNs = isValidInterwiki(part) || getNsIdByName(part);
+				if (typeof iwOrNs === 'string') {
+					// `part` is an interwiki prefix
+					if (IW_LOCALINTERWIKIS.has(iwOrNs)) {
+						// Local interwiki should be erased
+						// e.g., on enwiki, "en:Main_page" is the same as "Main_page"
+						local_interwiki = true;
 					} else {
-						// If no prefix has previously been processed, that's an ns prefix
-						ns = nsId;
+						// Interwiki resets the namespace because there's no guarantee that
+						// the target project has a corresponding namespace
+						ns = NS_MAIN;
+						// e.g., in "w:en:Main_page" and if we're parsing "w", "Main_page" is the title,
+						// where `parts = ['w', 'en', 'Main_page']` and iw = ['en']
+						title = parts.slice(i + iw.length + 1).join(':');
+						// Register the interwiki prefix
+						local_interwiki = false;
+						iw.unshift(iwOrNs);
 					}
-				} else if (nsId !== false) {
-					if (nsId === NS_MAIN) {
-						// Empty string was passed to getNsIdByName
-						// This occurs when the title has a "::" sequence
-						title = ':' + title;
-					} else if (ns === NS_TALK) {
-						// Found Talk: in a previous iteration
+				} else if (typeof iwOrNs === 'number') {
+					// `part` is a namespace prefix
+					if (iwOrNs === NS_MAIN) {
+						// Empty string was passed to getNsIdByName (occurs when the title has a "::" sequence)
+						if (iw.length) {
+							// If this is part of an interwiki, it should be ignored ("w::en" is recognized as "w:en")
+							continue;
+						} else {
+							// Otherwise, it's part of the main title
+							title = ':' + title;
+						}
+					} else if (ns !== null && iwOrNs === NS_TALK) {
 						// Disallow titles like Talk:File:x
 						return false;
 					} else {
 						if (iw.length) {
 							// Disallow titles like Talk:Interwiki:x
-							if (nsId === NS_TALK) {
+							if (iwOrNs === NS_TALK) {
 								return false;
 							}
-							// Ns prefix precedes interwiki: that resets the ns-title division
+							// NS prefix precedes interwiki; that resets the ns-title division
 							// e.g., "Wikipedia:en:Foo" is "en:Foo" in the Wikipedia namespace
 							iw = [];
 							local_interwiki = false;
 							title = parts.slice(i + 1).join(':');
 						} else if (ns !== null) {
-							// Ns prefix was previously found: that resets the ns-title division
+							// Ns prefix was previously found; that resets the ns-title division
 							// e.g., "Category:Template:Foo" where "Template:Foo" is the new title
 							title = parts.slice(i + 1).join(':');
 						}
-						ns = nsId;
+						ns = iwOrNs;
 					}
-				} else if (iwPrefix !== false) {
-					if (localInterwikis.has(iwPrefix)) {
-						local_interwiki = true;
-					} else {
-						ns = NS_MAIN;
-						title = parts.slice(i + iw.length + 1).join(':');
-						iw.unshift(iwPrefix);
-					}
-				} else if (ns === null && !iw.length) {
-					// Just a title containing ":"
-					title = parts[i] + ':' + title;
+				} else {
+					// `part` is neither an interwiki prefix nor a namespace prefix
+					title = parts.slice(i).join(':');
+					// Resets all prefixes
+					iw = [];
+					local_interwiki = false;
+					ns = null;
 				}
 			}
 			namespace = ns !== null ? ns : NS_MAIN;
@@ -965,16 +980,16 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		// Handle empty title
 		const interwiki = iw.join(':');
 		if (title === '') {
-			if (iw.length) {
+			if (iw.length || local_interwiki) {
 				// Empty iw-links should point to the Main Page
 				// e.g., "mw:" is redirected to "mw:Main page"
 				const ret: ParsedTitle = {
 					namespace: NS_MAIN,
-					title: 'Main page',
+					title: 'Main_page',
 					fragment: null,
 					colon,
 					interwiki,
-					local_interwiki: true
+					local_interwiki
 				};
 				return ret;
 			} else {
@@ -1029,12 +1044,8 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		if (namespace !== NS_SPECIAL && mwString.byteLength(title) > TITLE_MAX_BYTES) {
 			return false;
 		}
-		// Allow IPv6 usernames to start with '::' by canonicalizing IPv6 titles.
-		// IP names are not allowed for accounts, and can only be referring to
-		// edits from the IP. Given '::' abbreviations and caps/lowercaps,
-		// there are numerous ways to present the same IP. Having sp:contribs scan
-		// them all is silly and having some show the edits and others not is
-		// inconsistent. Same for talk/userpages. Keep them normalized instead.
+		// Sanitize IP for user/user_talk titles
+		// This also allows IPv6 usernames to start with '::'
 		let sanitizedIp;
 		if ((namespace === NS_USER || namespace === NS_USER_TALK) && (sanitizedIp = IPUtil.sanitize(title, true))) {
 			title = sanitizedIp;
@@ -1450,22 +1461,8 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 
 		isLocal(): boolean {
 			if (this.isExternal()) {
-				const prefixes = this.interwiki.split(':');
-				const bools: boolean[] = [];
-				for (const prefix of prefixes) {
-					// Title::isLocal only involves the code in this "for" block.
-					// Additional codes are necessary because we look at an array instead of a string
-					// In theory, if one of the interwikis is local, that IS local. But since the Title is user-defined,
-					// we might encounter cases where local and non-local interwikis are mixed;
-					// hence ensure that all the interwikis are local.
-					const iw = info.interwikimap.find((obj) => obj.prefix === prefix);
-					if (iw) {
-						bools.push(!!iw.local);
-					}
-				}
-				if (bools.length === prefixes.length) {
-					return bools.every(Boolean);
-				}
+				const prefixes = this.interwiki.split(':'); // Should be all valid as interwiki prefixes
+				return prefixes.every((prefix) => IW_LOCALS.has(prefix));
 			}
 			return true;
 		}
@@ -1482,19 +1479,8 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			if (!this.isExternal()) {
 				return false;
 			}
-			const prefixes = this.interwiki.split(':');
-			const bools: boolean[] = [];
-			for (const prefix of prefixes) {
-				/** See also comments in {@link isLocal}. */
-				const iw = info.interwikimap.find((obj) => obj.prefix === prefix);
-				if (iw) {
-					bools.push(!!iw.trans);
-				}
-			}
-			if (bools.length === prefixes.length) {
-				return bools.every(Boolean);
-			}
-			return false;
+			const prefixes = this.interwiki.split(':'); // Should be all valid as interwiki prefixes
+			return prefixes.every((prefix) => IW_TRANSES.has(prefix));
 		}
 
 		getNamespaceId(): number {
