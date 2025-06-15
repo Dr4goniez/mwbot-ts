@@ -1251,13 +1251,33 @@ export class Mwbot {
 			const err = new MwbotError('api_mwbot', {
 				code: 'http',
 				info: 'HTTP request failed.'
-			});
+			}, { axios: error }); // Include the full response for debugging
 
-			if (error && error.code === 'ERR_CANCELED') {
-				throw err.setCode('aborted').setInfo('Request aborted by the user.');
+			// Code-based error handling
+			let retryAfter: number | null = null;
+			switch (error.code) {
+				case 'ERR_CANCELED':
+					delete err.data; // Error details are unnecessary
+					throw err.setCode('aborted').setInfo('Request aborted by the user.');
+				case 'ECONNABORTED':
+					// Usually triggered by a timeout
+					retryAfter = 5;
+					break;
+				case 'ECONNRESET':
+					// Connection was forcibly closed (e.g., server reset)
+					// This serves as a workaround for Axios's upstream TCP handling issue: https://github.com/axios/axios/issues/5267
+					retryAfter = 10;
+					break;
+			}
+			if (retryAfter !== null) {
+				console.warn(`Warning: Encountered an "${error.code}" error.`);
+				const msg = error.message?.replace(/[.?!]+$/, '') ?? err.info;
+				return await this.retry(
+					err.setInfo(msg + '.'),
+					attemptCount, clonedParams, requestOptions, retryAfter
+				);
 			}
 
-			err.data = { axios: error }; // Include the full response for debugging
 			const status = error?.response?.status ?? error?.status;
 			if (typeof status === 'number' && status >= 400) {
 				// Articulate the error object for common errors
@@ -1293,7 +1313,7 @@ export class Mwbot {
 						);
 					case 504:
 						return await this.retry(
-							err.setCode('timeout').setInfo('Gateway timeout (504)'),
+							err.setCode('timeout').setInfo('Gateway timeout (504).'),
 							attemptCount, clonedParams, requestOptions
 						);
 				}
