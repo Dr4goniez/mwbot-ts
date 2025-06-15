@@ -2412,7 +2412,7 @@ export class Mwbot {
 
 		// Apply transformation
 		const unresolvedParams = transform(wikitext, { ...revision });
-		let userParams = unresolvedParams instanceof Promise
+		const userParams = unresolvedParams instanceof Promise
 			? await unresolvedParams
 			: unresolvedParams;
 		if (userParams === null) {
