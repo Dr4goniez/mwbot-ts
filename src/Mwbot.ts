@@ -2729,16 +2729,10 @@ export class Mwbot {
 			meta: 'userinfo',
 			uiprop: 'options'
 		});
-
 		const options = response.query?.userinfo?.options;
 		if (options) {
-			const ret = new Map<string, NonNullPrimitive | null>();
-			Object.entries(options).forEach(([key, value]) => {
-				ret.set(key, value);
-			});
-			return ret;
+			return new Map(Object.entries(options));
 		}
-
 		Mwbot.dieAsEmpty(true, '("response.query.userinfo.options") is missing.', { response });
 	}
 
