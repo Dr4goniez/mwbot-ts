@@ -1177,7 +1177,22 @@ export class Mwbot {
 
 						case 'maxlag': {
 							console.warn(`Warning: Encountered a "${err.code}" error.`);
-							const retryAfter = parseInt(response?.headers?.['retry-after']) ?? 5;
+							let retryAfter = parseInt(response?.headers?.['retry-after']);
+							if (!Number.isFinite(retryAfter)) { // NaN handler
+								retryAfter = 5;
+							}
+							const lag = err.data?.error?.lag as number | undefined;
+							if (typeof lag === 'number') {
+								if (lag > 60) {
+									// If lag is excessive (> 60s), abort retry to avoid hammering the server
+									console.group();
+									console.warn(`- No retry will be attemped because the server is too busy.`);
+									console.groupEnd();
+									throw err;
+								}
+								// Otherwise, honor the higher of Retry-After and the lag (rounded up)
+								retryAfter = Math.max(Math.ceil(lag), retryAfter);
+							}
 							return await this.retry(err, attemptCount, clonedParams, requestOptions, 4, retryAfter);
 						}
 
