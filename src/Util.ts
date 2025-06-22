@@ -7,6 +7,8 @@
  * @module
  */
 
+import { Primitive, NonNullPrimitive } from './api_types';
+
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { Mwbot } from './Mwbot';
@@ -226,17 +228,27 @@ export function deepCloneInstance<T extends object>(obj: T, /** @private */ seen
 }
 
 /**
- * A union of primitive types.
+ * Checks whether the given value is a JavaScript primitive.
+ *
+ * This includes `string`, `number`, `boolean`, `bigint`, `symbol`, `undefined`, and `null`.
+ *
+ * @param value The value to test.
+ * @returns `true` if the value is a primitive; otherwise, `false`.
  */
-export type primitive = string | number | boolean | bigint | symbol | undefined | null;
+export function isPrimitive(value: unknown): value is Primitive {
+	return value !== Object(value);
+}
 
 /**
- * Checks whether a value is a primitive type.
- * @param value
- * @returns
+ * Checks whether the given value is a non-null, non-undefined primitive.
+ *
+ * This includes `string`, `number`, `boolean`, `bigint`, and `symbol`.
+ *
+ * @param value The value to test.
+ * @returns `true` if the value is a non-null primitive; otherwise, `false`.
  */
-export function isPrimitive(value: unknown): value is primitive {
-	return value !== Object(value);
+export function isNonNullPrimitive(value: unknown): value is NonNullPrimitive {
+	return isPrimitive(value) && value !== undefined && value !== null;
 }
 
 /**
@@ -256,7 +268,7 @@ export function escapeRegExp(str: string): string {
  * @param orderInsensitive Default: `false`
  * @returns
  */
-export function arraysEqual(array1: primitive[], array2: primitive[], orderInsensitive = false): boolean {
+export function arraysEqual(array1: Primitive[], array2: Primitive[], orderInsensitive = false): boolean {
 	if (orderInsensitive) {
 		return array1.length === array2.length && array1.every(el => array2.includes(el));
 	} else {

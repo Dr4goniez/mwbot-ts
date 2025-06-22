@@ -68,6 +68,24 @@ export type PartiallyRequired<T extends Record<string, any>, K extends keyof T> 
  */
 export type MultiValue<T> = T | T[];
 
+/**
+ * A union of all JavaScript primitive types.
+ *
+ * Note that this includes `null`, which is natively typed as `object`.
+ */
+export type Primitive = string | number | boolean | bigint | symbol | undefined | null;
+/**
+ * Use {@link Primitive} instead.
+ * @deprecated
+ */
+export type primitive = Primitive;
+/**
+ * A union of all primitive types, excluding `null` and `undefined`.
+ *
+ * Equivalent to {@link Primitive} without `null` and `undefined`.
+ */
+export type NonNullPrimitive = NonNullable<Primitive>;
+
 // ************************************** Parameter types **************************************
 
 /**
