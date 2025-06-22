@@ -2085,7 +2085,7 @@ export interface ApiResponseQueryMetaFilerepoinfo { // Fully checked (source cod
 
 export interface ApiResponseQueryMetaGlobalpreferences { // Fully checked (source code level)
 	preferences?: Record<string, string>;
-	localoverrides?: Record<string, unknown>;
+	localoverrides?: Record<string, NonNullPrimitive | null>;
 }
 
 export interface ApiResponseQueryMetaGlobalrenamestatus { // Fully checked (source code level)
@@ -2306,7 +2306,7 @@ export interface ApiResponseQueryMetaSiteinfoDbrepllag { // Fully checked (sourc
 }
 
 export interface ApiResponseQueryMetaSiteinfoDefaultoptions { // Fully checked
-	[option: string]: number | string | boolean | null;
+	[option: string]: NonNullPrimitive | null;
 }
 
 export interface ApiResponseQueryMetaSiteinfoExtensions { // Fully checked (source code level)
@@ -2673,7 +2673,7 @@ export interface ApiResponseQueryMetaUserinfo extends // Fully checked (source c
 	 * `uiprop=options`
 	 */
 	options?: {
-		[key: string]: string | number | boolean | null;
+		[key: string]: NonNullPrimitive | null;
 	};
 	/**
 	 * `uiprop=editcount`
