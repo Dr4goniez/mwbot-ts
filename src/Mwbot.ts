@@ -535,7 +535,7 @@ export class Mwbot {
 				Mwbot.dieAsEmpty(false, '(check HTTP headers?)'),
 				attemptIndex
 			);
-		} else if (userinfo.anon && !this.isAnonymous()) {
+		} else if (userinfo.id === 0 && !this.isAnonymous()) {
 			return retryIfPossible(
 				new MwbotError('api_mwbot', {
 					code: 'badauth',
