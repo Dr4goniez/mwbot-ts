@@ -74,7 +74,9 @@ import {
 	ApiResponseQueryListPrefixsearch,
 	ApiResponseRollback,
 	ApiResponseUnblock,
-	ApiResponseUndelete
+	ApiResponseUndelete,
+	NonNullPrimitive,
+	Primitive
 } from './api_types';
 import { MwbotError, MwbotErrorData } from './MwbotError';
 import * as Util from './Util';
@@ -2708,6 +2710,46 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseEditSuccess> {
 		return this._save(this.validateTitle(title), content, summary, { section: 'new', sectiontitle }, additionalParams, requestOptions);
+	}
+
+	// ****************************** OPTION-RELATED REQUEST METHODS ******************************
+
+	/**
+	 * Retrieves user options as a Map object.
+	 *
+	 * Each entry represents a user preference, where the key is a string and the value
+	 * is either a non-null primitive or `null`.
+	 *
+	 * @returns A Promise resolving to a Map of option keys and their values, or rejecting
+	 * with an error.
+	 */
+	async getOptions(): Promise<Map<string, NonNullPrimitive | null>> {
+		const response = await this.get({
+			...Mwbot.getActionParams('query'),
+			meta: 'userinfo',
+			uiprop: 'options'
+		});
+
+		const options = response.query?.userinfo?.options;
+		if (options) {
+			const ret = new Map<string, NonNullPrimitive | null>();
+			Object.entries(options).forEach(([key, value]) => {
+				ret.set(key, value);
+			});
+			return ret;
+		}
+
+		Mwbot.dieAsEmpty(true, '("response.query.userinfo.options") is missing.', { response });
+	}
+
+	/**
+	 * Retrieves the value of a specific user option by key.
+	 *
+	 * @param key The name of the user option to retrieve.
+	 * @returns A Promise resolving to the option value if found or `undefined` if not present.
+	 */
+	async getOption(key: string): Promise<Primitive> {
+		return (await this.getOptions()).get(key);
 	}
 
 	// ****************************** ACTION-RELATED UTILITY REQUEST METHODS ******************************
