@@ -2720,15 +2720,32 @@ export class Mwbot {
 	 * Each entry represents a user preference, where the key is a string and the value
 	 * is either a non-null primitive or `null`.
 	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'query',
+	 *   meta: 'userinfo',
+	 *   uiprop: 'options',
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param additionalParams Additional parameters to the API.
+	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to a Map of option keys and their values, or rejecting
 	 * with an error.
 	 */
-	async getOptions(): Promise<Map<string, NonNullPrimitive | null>> {
+	async getOptions(
+		additionalParams: ApiParams = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<Map<string, NonNullPrimitive | null>> {
 		const response = await this.get({
+			...additionalParams,
 			...Mwbot.getActionParams('query'),
 			meta: 'userinfo',
 			uiprop: 'options'
-		});
+		}, requestOptions);
 		const options = response.query?.userinfo?.options;
 		if (options) {
 			return new Map(Object.entries(options));
@@ -2739,11 +2756,28 @@ export class Mwbot {
 	/**
 	 * Retrieves the value of a specific user option by key.
 	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'query',
+	 *   meta: 'userinfo',
+	 *   uiprop: 'options',
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
 	 * @param key The name of the user option to retrieve.
+	 * @param additionalParams Additional parameters to the API.
+	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise resolving to the option value if found or `undefined` if not present.
 	 */
-	async getOption(key: string): Promise<Primitive> {
-		return (await this.getOptions()).get(key);
+	async getOption(
+		key: string,
+		additionalParams: ApiParams = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<Primitive> {
+		return (await this.getOptions(additionalParams, requestOptions)).get(key);
 	}
 
 	// ****************************** ACTION-RELATED UTILITY REQUEST METHODS ******************************
