@@ -623,8 +623,8 @@ export interface ApiResponse {
 	// flow?: ApiResponseFlow;
 	// flowthank?: ApiResponseFlowthank;
 	// globalblock?: ApiResponseGlobalblock;
-	// globalpreferenceoverrides?: ApiResponseGlobalpreferenceoverrides;
-	// globalpreferences?: ApiResponseGlobalpreferences;
+	globalpreferenceoverrides?: ApiResponseGlobalpreferenceoverrides;
+	globalpreferences?: ApiResponseGlobalpreferences;
 	// globaluserrights?: ApiResponseGlobaluserrights;
 	// groupreview?: ApiResponseGroupreview;
 	// help?: ApiResponseHelp;
@@ -642,7 +642,7 @@ export interface ApiResponse {
 	move?: ApiResponseMove;
 	// newslettersubscribe?: ApiResponseNewslettersubscribe;
 	// opensearch?: ApiResponseOpensearch;
-	// options?: ApiResponseOptions;
+	options?: ApiResponseOptions;
 	paraminfo?: ApiResponseParaminfo;
 	parse?: ApiResponseParse;
 	// patrol?: ApiResponsePatrol;
@@ -1068,8 +1068,11 @@ export interface ApiResponseEdit { // Fully checked (source code level)
 // export interface ApiResponseFlow_parsoid_utils {}
 // export interface ApiResponseFlowthank {}
 // export interface ApiResponseGlobalblock {}
-// export interface ApiResponseGlobalpreferenceoverrides {}
-// export interface ApiResponseGlobalpreferences {}
+
+export type ApiResponseGlobalpreferenceoverrides = ApiResponseOptions; // Fully checked (source code level)
+
+export type ApiResponseGlobalpreferences = ApiResponseOptions; // Fully checked (source code level)
+
 // export interface ApiResponseGlobaluserrights {}
 // export interface ApiResponseGraph {}
 // export interface ApiResponseGroupreview {}
@@ -1130,7 +1133,8 @@ export interface ApiResponseMoveSubpages {
 
 // export interface ApiResponseNewslettersubscribe {}
 // export interface ApiResponseOpensearch {}
-// export interface ApiResponseOptions {}
+
+export type ApiResponseOptions = 'success'; // Fully checked (source code level)
 
 export interface ApiResponseParaminfo { // TODO: Check source code
 	helpformat: string;
