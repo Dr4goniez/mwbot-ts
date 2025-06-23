@@ -2750,7 +2750,7 @@ export class Mwbot {
 		if (options) {
 			return new Map(Object.entries(options));
 		}
-		Mwbot.dieAsEmpty(true, '("response.query.userinfo.options") is missing.', { response });
+		Mwbot.dieAsEmpty(true, '("response.query.userinfo.options" is missing).', { response });
 	}
 
 	/**
@@ -2843,7 +2843,7 @@ export class Mwbot {
 		if (response.block) {
 			return response.block;
 		}
-		Mwbot.dieAsEmpty(true, '("response.block") is missing.', { response });
+		Mwbot.dieAsEmpty(true, '("response.block" is missing).', { response });
 
 	}
 
@@ -2992,7 +2992,7 @@ export class Mwbot {
 		if (response.move) {
 			return response.move;
 		}
-		Mwbot.dieAsEmpty(true, '("response.move") is missing.', { response });
+		Mwbot.dieAsEmpty(true, '("response.move" is missing).', { response });
 
 	}
 
@@ -3096,7 +3096,7 @@ export class Mwbot {
 		if (response.protect) {
 			return response.protect;
 		}
-		Mwbot.dieAsEmpty(true, '("response.protect") is missing.', { response });
+		Mwbot.dieAsEmpty(true, '("response.protect" is missing).', { response });
 
 	}
 
@@ -3285,7 +3285,7 @@ export class Mwbot {
 		if (response.unblock) {
 			return response.unblock;
 		}
-		Mwbot.dieAsEmpty(true, '("response.unblock") is missing.', { response });
+		Mwbot.dieAsEmpty(true, '("response.unblock" is missing).', { response });
 
 	}
 
@@ -3336,7 +3336,7 @@ export class Mwbot {
 		if (response.undelete) {
 			return response.undelete;
 		}
-		Mwbot.dieAsEmpty(true, '("response.undelete") is missing.', { response });
+		Mwbot.dieAsEmpty(true, '("response.undelete" is missing).', { response });
 
 	}
 
