@@ -1178,23 +1178,28 @@ export class Mwbot {
 
 						case 'maxlag': {
 							console.warn(`Warning: Encountered a "${err.code}" error.`);
+
 							let retryAfter = parseInt(response?.headers?.['retry-after']);
-							if (!Number.isFinite(retryAfter)) { // NaN handler
-								retryAfter = 5;
+							if (!Number.isFinite(retryAfter)) {
+								retryAfter = 5; // Fallback to 5 seconds if Retry-After header is missing or invalid
 							}
+
 							const lag = err.data?.error?.lag as number | undefined;
+							const maxLagLimit = requestOptions.maxLagLimit ?? 60; // Default limit is 60 seconds
+
 							if (typeof lag === 'number') {
-								if (lag > 60) {
-									// If lag is excessive (> 60s), abort retry to avoid hammering the server
+								if (lag > maxLagLimit) {
+									// If reported lag exceeds the configured limit, abort retry to avoid hammering the server
 									console.group();
-									console.warn(`- No retry will be attemped because the server is too busy.`);
+									console.warn(`- No retry will be attempted because server lag (${lag.toFixed(2)}s) exceeds the limit (${maxLagLimit}s).`);
 									console.groupEnd();
 									throw err;
 								}
-								// Otherwise, honor the higher of Retry-After and the lag (rounded up)
+								// Use the higher of Retry-After and the reported lag (rounded up)
 								retryAfter = Math.max(Math.ceil(lag), retryAfter);
 							}
-							return await this.retry(err, attemptCount, clonedParams, requestOptions, 4, retryAfter);
+
+							return await this.retry(err, attemptCount, clonedParams, requestOptions, 3, retryAfter);
 						}
 
 						case 'assertbotfailed':
@@ -4489,6 +4494,23 @@ export interface MwbotRequestConfig extends AxiosRequestConfig {
 	 * If a request fails due to one of these error codes, it will not be retried.
 	 */
 	disableRetryByCode?: string[];
+	/**
+	 * The maximum allowed server lag (in seconds) before aborting retries when a `'maxlag'` API error
+	 * is encountered.
+	 *
+	 * If the reported lag exceeds this threshold, the request will not be retried, and the `'maxlag'`
+	 * error will be thrown immediately.
+	 *
+	 * By default, `mwbot-ts` handles `'maxlag'` errors with the following delay mechanism before
+	 * attempting a retry:
+	 * - If the response includes a `Retry-After` header, its value (in seconds) determines the delay.
+	 * - If `Retry-After` is missing or invalid, a default delay of 5 seconds applies.
+	 * - If the reported server lag exceeds the delay, the delay is increased to match the lag (rounded up).
+	 * - If the lag exceeds `maxLagLimit`, no retry is performed, and the error is thrown immediately.
+	 *
+	 * If omitted, the default `maxLagLimit` is 60 seconds.
+	 */
+	maxLagLimit?: number;
 }
 
 /**
