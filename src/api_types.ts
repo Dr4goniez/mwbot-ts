@@ -80,11 +80,11 @@ export type Primitive = string | number | boolean | bigint | symbol | undefined 
  */
 export type primitive = Primitive;
 /**
- * A union of all primitive types, excluding `null` and `undefined`.
+ * Primitive types supported in user options.
  *
- * Equivalent to {@link Primitive} without `null` and `undefined`.
+ * Includes `string`, `number`, `boolean`, and `null`.
  */
-export type NonNullPrimitive = NonNullable<Primitive>;
+export type OptionPrimitive = string | number | boolean | null;
 
 // ************************************** Parameter types **************************************
 
@@ -2089,7 +2089,7 @@ export interface ApiResponseQueryMetaFilerepoinfo { // Fully checked (source cod
 
 export interface ApiResponseQueryMetaGlobalpreferences { // Fully checked (source code level)
 	preferences?: Record<string, string>;
-	localoverrides?: Record<string, NonNullPrimitive | null>;
+	localoverrides?: Record<string, OptionPrimitive>;
 }
 
 export interface ApiResponseQueryMetaGlobalrenamestatus { // Fully checked (source code level)
@@ -2310,7 +2310,7 @@ export interface ApiResponseQueryMetaSiteinfoDbrepllag { // Fully checked (sourc
 }
 
 export interface ApiResponseQueryMetaSiteinfoDefaultoptions { // Fully checked
-	[option: string]: NonNullPrimitive | null;
+	[option: string]: OptionPrimitive;
 }
 
 export interface ApiResponseQueryMetaSiteinfoExtensions { // Fully checked (source code level)
@@ -2677,7 +2677,7 @@ export interface ApiResponseQueryMetaUserinfo extends // Fully checked (source c
 	 * `uiprop=options`
 	 */
 	options?: {
-		[key: string]: NonNullPrimitive | null;
+		[key: string]: OptionPrimitive;
 	};
 	/**
 	 * `uiprop=editcount`

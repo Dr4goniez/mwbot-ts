@@ -39,6 +39,7 @@ import * as https from 'https';
 import { MWBOT_VERSION } from './version';
 import {
 	MultiValue,
+	OptionPrimitive,
 	PartiallyRequired,
 	ApiParams,
 	ApiParamsAction,
@@ -74,9 +75,7 @@ import {
 	ApiResponseQueryListPrefixsearch,
 	ApiResponseRollback,
 	ApiResponseUnblock,
-	ApiResponseUndelete,
-	NonNullPrimitive,
-	Primitive
+	ApiResponseUndelete
 } from './api_types';
 import { MwbotError, MwbotErrorData } from './MwbotError';
 import * as Util from './Util';
@@ -2739,7 +2738,7 @@ export class Mwbot {
 	async getOptions(
 		additionalParams: ApiParams = {},
 		requestOptions?: MwbotRequestConfig
-	): Promise<Map<string, NonNullPrimitive | null>> {
+	): Promise<Map<string, OptionPrimitive>> {
 		const response = await this.get({
 			...additionalParams,
 			...Mwbot.getActionParams('query'),
@@ -2770,13 +2769,13 @@ export class Mwbot {
 	 * @param key The name of the user option to retrieve.
 	 * @param additionalParams Additional parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the option value if found or `undefined` if not present.
+	 * @returns A Promise resolving to the option value if found, or `undefined` if not present.
 	 */
 	async getOption(
 		key: string,
 		additionalParams: ApiParams = {},
 		requestOptions?: MwbotRequestConfig
-	): Promise<Primitive> {
+	): Promise<OptionPrimitive | undefined> {
 		return (await this.getOptions(additionalParams, requestOptions)).get(key);
 	}
 

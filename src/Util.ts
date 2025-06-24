@@ -7,7 +7,7 @@
  * @module
  */
 
-import { Primitive, NonNullPrimitive } from './api_types';
+import { Primitive } from './api_types';
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -237,18 +237,6 @@ export function deepCloneInstance<T extends object>(obj: T, /** @private */ seen
  */
 export function isPrimitive(value: unknown): value is Primitive {
 	return value !== Object(value);
-}
-
-/**
- * Checks whether the given value is a non-null, non-undefined primitive.
- *
- * This includes `string`, `number`, `boolean`, `bigint`, and `symbol`.
- *
- * @param value The value to test.
- * @returns `true` if the value is a non-null primitive; otherwise, `false`.
- */
-export function isNonNullPrimitive(value: unknown): value is NonNullPrimitive {
-	return isPrimitive(value) && value !== undefined && value !== null;
 }
 
 /**
