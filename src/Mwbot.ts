@@ -2779,6 +2779,58 @@ export class Mwbot {
 		return (await this.getOptions(additionalParams, requestOptions)).get(key);
 	}
 
+	/**
+	 * Retrieves global user options as Map objects.
+	 *
+	 * The returned object contains:
+	 * - `preferences`: A Map of global user preference keys to string values.
+	 * - `localoverrides`: A Map of locally overridden preference keys to their values.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'query',
+	 *   meta: 'globalpreferences',
+	 *   gprprop: 'preferences|localoverrides',
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param additionalParams Additional parameters to the API.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to an object with `preferences` and `localoverrides` maps,
+	 * or rejecting with an error.
+	 * @throws {MwbotError} If the client is anonymous.
+	 */
+	async getGlobalOptions(
+		additionalParams: ApiParams = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<{
+		preferences: Map<string, string>;
+		localoverrides: Map<string, OptionPrimitive>;
+	}> {
+		this.dieIfAnonymous(); // meta=globalpreferences fails if not logged in
+		const response = await this.get({
+			...additionalParams,
+			...Mwbot.getActionParams('query'),
+			meta: 'globalpreferences',
+			gprprop: 'preferences|localoverrides'
+		}, requestOptions);
+		const { preferences, localoverrides } = response.query?.globalpreferences || {};
+		if (preferences && localoverrides) {
+			return {
+				preferences: new Map(Object.entries(preferences)),
+				localoverrides: new Map(Object.entries(localoverrides))
+			};
+		}
+		Mwbot.dieAsEmpty(
+			true,
+			'("preferences" or "localoverrides" properties are missing in "response.query.globalpreferences").',
+			{ response }
+		);
+	}
+
 	// ****************************** ACTION-RELATED UTILITY REQUEST METHODS ******************************
 
 	/**
