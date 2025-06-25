@@ -2920,7 +2920,7 @@ export class Mwbot {
 				...Mwbot.getActionParams(action),
 				change
 			}, requestOptions).then((res) => {
-				if (res.options === 'success') {
+				if (res[action] === 'success') {
 					return res;
 				}
 				Mwbot.dieAsEmpty(true, `(Expected "response.${action}" to be "success").`, { response: res });
@@ -2994,6 +2994,80 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<PartiallyRequired<ApiResponse, 'options'>> {
 		return this._saveOptions('options', { [key]: value }, additionalParams, requestOptions);
+	}
+
+	/**
+	 * Saves global user options.
+	 *
+	 * This is a variant of {@link saveOptions} and instead performs a `action=globalpreferences` request.
+	 *
+	 * @param options
+	 * @param additionalParams
+	 * @param requestOptions
+	 * @returns
+	 */
+	saveGlobalOptions(
+		options: Record<string, OptionPrimitive> | Map<string, OptionPrimitive>,
+		additionalParams: ApiParams = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<PartiallyRequired<ApiResponse, 'globalpreferences'>> {
+		return this._saveOptions('globalpreferences', options, additionalParams, requestOptions);
+	}
+
+	/**
+	 * Saves a single global user option.
+	 *
+	 * This is a variant of {@link saveOption} and instead performs a `action=globalpreferences` request.
+	 *
+	 * @param options
+	 * @param additionalParams
+	 * @param requestOptions
+	 * @returns
+	 */
+	saveGlobalOption(
+		key: string,
+		value: OptionPrimitive,
+		additionalParams: ApiParams = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<PartiallyRequired<ApiResponse, 'globalpreferences'>> {
+		return this._saveOptions('globalpreferences', { [key]: value }, additionalParams, requestOptions);
+	}
+
+	/**
+	 * Saves global user option overrides.
+	 *
+	 * This is a variant of {@link saveOptions} and instead performs a `action=globalpreferenceoverrides` request.
+	 *
+	 * @param options
+	 * @param additionalParams
+	 * @param requestOptions
+	 * @returns
+	 */
+	saveGlobalOptionOverrides(
+		options: Record<string, OptionPrimitive> | Map<string, OptionPrimitive>,
+		additionalParams: ApiParams = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<PartiallyRequired<ApiResponse, 'globalpreferenceoverrides'>> {
+		return this._saveOptions('globalpreferenceoverrides', options, additionalParams, requestOptions);
+	}
+
+	/**
+	 * Saves a single global user option override.
+	 *
+	 * This is a variant of {@link saveOption} and instead performs a `action=globalpreferenceoverrides` request.
+	 *
+	 * @param options
+	 * @param additionalParams
+	 * @param requestOptions
+	 * @returns
+	 */
+	saveGlobalOptionOverride(
+		key: string,
+		value: OptionPrimitive,
+		additionalParams: ApiParams = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<PartiallyRequired<ApiResponse, 'globalpreferenceoverrides'>> {
+		return this._saveOptions('globalpreferenceoverrides', { [key]: value }, additionalParams, requestOptions);
 	}
 
 	// ****************************** ACTION-RELATED UTILITY REQUEST METHODS ******************************
