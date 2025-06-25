@@ -2838,44 +2838,32 @@ export class Mwbot {
 
 	/**
 	 * Promise tracking the currently ongoing options save request.
-	 * Prevents overlapping option writes by serializing calls to {@link saveOptions}.
+	 * Prevents overlapping option writes by serializing calls to {@link _saveOptions}.
+	 * Set to `null` when no save operation is active.
 	 */
-	protected saveOptionsRequest: Promise<PartiallyRequired<ApiResponse, 'options'>> | null = null;
+	protected saveOptionsRequest: Promise<ApiResponse> | null = null;
 
 	/**
-	 * Saves user options based on the provided `options` mapping.
+	 * Internal handler for saving user options or global preferences.
 	 *
-	 * If a value is set to `null`, the corresponding option will be reset to its default.
+	 * Supports batching and serialization of requests to comply with API constraints and prevent overlapping modifications.
 	 *
-	 * The method batches option updates if the total exceeds {@link apilimit} or if key/value
-	 * constraints prevent bundling. Sequential API calls are issued when needed, but only a
-	 * single Promise is returned, resolving once all requests complete.
-	 *
-	 * Enforced parameters:
-	 * ```
-	 * {
-	 *   action: 'options',
-	 *   change: options, // // Auto-formatted string, respecting API constraints
-	 *   format: 'json',
-	 *   formatversion: '2',
-	 *   // `token` is automatically appended
-	 * }
-	 * ```
-	 *
+	 * @template T `'options'`, `'globalpreferences'`, or `'globalpreferenceoverrides'`.
+	 * @param action The API action to perform.
 	 * @param options A plain object or `Map` of option keys to values. Use `null` to reset an option.
-	 *
-	 * **Avoid passing the full Map returned by {@link getOptions} as it may include unmodified values.**
-	 * @param additionalParams Additional parameters to the API.
-	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to an API response where `response.options` is guaranteed to be
-	 * `'success'`; otherwise, rejecting with an error.
-	 * @throws {MwbotError} If the client is anonymous.
+	 * @param additionalParams User-provided additional parameters to the API.
+	 * @param requestOptions User-provided optional HTTP request options.
+	 * @returns A Promise resolving to an API response with a guaranteed `"success"` result for `response[action]`.
+	 * @throws {MwbotError} If:
+	 * - The client is anonymous. (`anonymous`)
+	 * - `options` is neither a plain object nor Map. (`typemismatch`)
 	 */
-	async saveOptions(
+	protected async _saveOptions<T extends 'options' | 'globalpreferences' | 'globalpreferenceoverrides'>(
+		action: T,
 		options: Record<string, OptionPrimitive> | Map<string, OptionPrimitive>,
 		additionalParams: ApiParams = {},
 		requestOptions?: MwbotRequestConfig
-	): Promise<PartiallyRequired<ApiResponse, 'options'>> {
+	): Promise<PartiallyRequired<ApiResponse, T>> {
 
 		this.dieIfAnonymous();
 		if (isPlainObject(options)) {
@@ -2896,10 +2884,10 @@ export class Mwbot {
 			const bundleable = !key.includes('=');
 			const usePipe = !key.includes('|') && (value === null || !value.includes('|'));
 
-			// Add a new element to `batches` if:
-			// * `batches` is empty, or
-			// * the last element's `bundleable` is set to false, or
-			// * the last element's `pairs` has reached the apilimit
+			// Start new batch if:
+			// - No batches yet
+			// - Last batch cannot bundle further
+			// - Last batch reached apilimit
 			let last = batches.at(-1);
 			if (!last?.bundleable || last.pairs.length >= apilimit) {
 				batches.push({ pairs: [], bundleable, usePipe });
@@ -2920,7 +2908,7 @@ export class Mwbot {
 			await this.saveOptionsRequest;
 		}
 
-		// Send API requests
+		// Send requests sequentially per batch
 		const unicodeSep = '\u001F';
 		for (const [i, { pairs, usePipe }] of Object.entries(batches)) {
 			const change = usePipe
@@ -2929,15 +2917,13 @@ export class Mwbot {
 
 			this.saveOptionsRequest = this.postWithCsrfToken({
 				...additionalParams,
-				...Mwbot.getActionParams('options'),
+				...Mwbot.getActionParams(action),
 				change
 			}, requestOptions).then((res) => {
 				if (res.options === 'success') {
-					return res as PartiallyRequired<ApiResponse, 'options'>;
+					return res;
 				}
-				Mwbot.dieAsEmpty(true, '(Expected "response.options" to be "success").', { response: res });
-			}).catch((err) => {
-				throw err;
+				Mwbot.dieAsEmpty(true, `(Expected "response.${action}" to be "success").`, { response: res });
 			});
 
 			// Await each batch sequentially except for the last one
@@ -2946,12 +2932,49 @@ export class Mwbot {
 			}
 		}
 
-		return await this.saveOptionsRequest!;
+		return await this.saveOptionsRequest! as PartiallyRequired<ApiResponse, T>;
 	}
 
 	/**
-	 * Saves a single user option by key and value.
-	 * Providing `null` as the value resets the option to its default.
+	 * Saves user options based on the provided `options` mapping.
+	 *
+	 * If a value is set to `null`, the corresponding option will be reset to its default.
+	 *
+	 * The method batches option updates if the total exceeds {@link apilimit} or if key/value
+	 * constraints prevent bundling. Sequential API calls are issued when needed, but only a
+	 * single Promise is returned, resolving once all requests complete.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'options',
+	 *   change: options, // Auto-formatted string
+	 *   format: 'json',
+	 *   formatversion: '2',
+	 *   // `token` is automatically appended
+	 * }
+	 * ```
+	 *
+	 * @param options A plain object or `Map` of option keys to values. Use `null` to reset an option.
+	 *
+	 * **Avoid passing the full Map returned by {@link getOptions} as it may include unmodified values.**
+	 * @param additionalParams Additional parameters to the API.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to an API response where `response.options` is guaranteed to be `'success'`.
+	 * @throws {MwbotError} If:
+	 * - The client is anonymous. (`anonymous`)
+	 * - `options` is neither a plain object nor Map. (`typemismatch`)
+	 */
+	saveOptions(
+		options: Record<string, OptionPrimitive> | Map<string, OptionPrimitive>,
+		additionalParams: ApiParams = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<PartiallyRequired<ApiResponse, 'options'>> {
+		return this._saveOptions('options', options, additionalParams, requestOptions);
+	}
+
+	/**
+	 * Saves a single user option. Providing `null` as the value resets the option to its default.
 	 *
 	 * See {@link saveOptions} for enforced parameters.
 	 *
@@ -2959,9 +2982,10 @@ export class Mwbot {
 	 * @param value The new value to set, or `null` to reset to default.
 	 * @param additionalParams Additional parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to an API response where `response.options` is guaranteed to be
-	 * `'success'`; otherwise, rejecting with an error.
-	 * @throws {MwbotError} If the client is anonymous.
+	 * @returns A Promise resolving to an API response where `response.options` is guaranteed to be `'success'`.
+	 * @throws {MwbotError} If:
+	 * - The client is anonymous. (`anonymous`)
+	 * - `options` is neither a plain object nor Map. (`typemismatch`)
 	 */
 	saveOption(
 		key: string,
@@ -2969,7 +2993,7 @@ export class Mwbot {
 		additionalParams: ApiParams = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<PartiallyRequired<ApiResponse, 'options'>> {
-		return this.saveOptions({ [key]: value }, additionalParams, requestOptions );
+		return this._saveOptions('options', { [key]: value }, additionalParams, requestOptions);
 	}
 
 	// ****************************** ACTION-RELATED UTILITY REQUEST METHODS ******************************
