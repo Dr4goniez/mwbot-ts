@@ -451,6 +451,13 @@ if (response instanceof MwbotError) {
 - [`getCategoriesByPrefix`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getcategoriesbyprefix): Returns a list of categories that match a given prefix.
 - [`getCategoryMembers`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getcategorymembers): Retrieves a list of pages that belong to the given category.
 - [`getExistencePredicate`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getexistencepredicate): Returns an `exists()` function that checks whether given pages exist.
+- [`getGlobalPreferences`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getglobalpreferences): Retrieves global preferences and local overrides as Maps.
+- [`getGlobalOptions`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getglobaloptions): Retrieves global preferences as a Map.
+- [`getGlobalOption`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getglobaloption): Retrieves the value of a specific global preference.
+- [`getGlobalOptionOverrides`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getglobaloptionoverrides): Retrieves overridden global preferences as a Map.
+- [`getGlobalOptionOverride`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getglobaloptionoverride): Retrieves the value of a specific overridden global preference.
+- [`getOptions`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getoptions): Retrieves user preferences as Maps.
+- [`getOption`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#getoption): Retrieves the value of a specific user preference.
 - [`getTransclusions`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#gettransclusions): Retrieves a list of pages that transclude the given page(s).
 - [`move`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#move): Moves a page.
 - [`parse`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#parse): Runs the parser via the API.
@@ -459,6 +466,12 @@ if (response instanceof MwbotError) {
 - [`purge`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#purge): Clears the server-side cache for the specified pages.
 - [`read`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#read): Retrieves the latest revision content of the specified page(s).
 - [`rollback`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#rollback): Rolls back the most recent edits to a page made by a specific user.
+- [`saveGlobalOptions`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#saveglobaloptions): Saves global preferences.
+- [`saveGlobalOption`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#saveglobaloption): Saves a specific global preference.
+- [`saveGlobalOptionOverrides`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#saveglobaloptionoverrides): Saves global preference overrides.
+- [`saveGlobalOptionOverride`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#saveglobaloptionoverride): Saves a specific global preference override.
+- [`saveOptions`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#saveoptions): Saves user preferences.
+- [`saveOption`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#saveoption): Saves a specific user preference.
 - [`search`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#search): Performs a full-text search.
 - [`unblock`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#unblock): Unblocks a user.
 - [`undelete`](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html#undelete): Undeletes revisions of a deleted page.
