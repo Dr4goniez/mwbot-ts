@@ -3147,7 +3147,8 @@ export class Mwbot {
 	 *
 	 * This is a variant of {@link saveOption} and instead performs a `action=globalpreferences` request.
 	 *
-	 * @param options
+	 * @param key
+	 * @param value
 	 * @param additionalParams
 	 * @param requestOptions
 	 * @returns
@@ -3184,7 +3185,8 @@ export class Mwbot {
 	 *
 	 * This is a variant of {@link saveOption} and instead performs a `action=globalpreferenceoverrides` request.
 	 *
-	 * @param options
+	 * @param key
+	 * @param value
 	 * @param additionalParams
 	 * @param requestOptions
 	 * @returns
