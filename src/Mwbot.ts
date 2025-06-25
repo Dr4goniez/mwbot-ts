@@ -2760,16 +2760,7 @@ export class Mwbot {
 	/**
 	 * Retrieves the value of a specific user option by key.
 	 *
-	 * Enforced parameters:
-	 * ```
-	 * {
-	 *   action: 'query',
-	 *   meta: 'userinfo',
-	 *   uiprop: 'options',
-	 *   format: 'json',
-	 *   formatversion: '2'
-	 * }
-	 * ```
+	 * This is a variant of {@link getOptions} that returns the value for a single key.
 	 *
 	 * @param key The name of the user option to retrieve.
 	 * @param additionalParams Additional parameters to the API.
@@ -2785,7 +2776,91 @@ export class Mwbot {
 	}
 
 	/**
-	 * Retrieves global user options as Map objects.
+	 * Internal handler for fetching global user preferences and/or overrides.
+	 *
+	 * @param gprprop Which property or properties to retrieve.
+	 * @param additionalParams Additional parameters to the API.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to a Map or an object of Maps, depending on `gprprop`.
+	 * @throws {MwbotError} If not logged in or required properties are missing.
+	 */
+	protected async _getGlobalPreferences(
+		gprprop: ['preferences', 'localoverrides'],
+		additionalParams?: ApiParams,
+		requestOptions?: MwbotRequestConfig
+	): Promise<{
+		preferences: Map<string, string>;
+		localoverrides: Map<string, OptionPrimitive>;
+	}>;
+	protected async _getGlobalPreferences(
+		gprprop: ['preferences'],
+		additionalParams?: ApiParams,
+		requestOptions?: MwbotRequestConfig
+	): Promise<Map<string, string>>;
+	protected async _getGlobalPreferences(
+		gprprop: ['localoverrides'],
+		additionalParams?: ApiParams,
+		requestOptions?: MwbotRequestConfig
+	): Promise<Map<string, OptionPrimitive>>;
+	protected async _getGlobalPreferences(
+		gprprop: ('preferences' | 'localoverrides')[],
+		additionalParams: ApiParams = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<any> {
+		this.dieIfAnonymous();
+
+		// Validate gprprop
+		if (
+			gprprop.length === 0 ||
+			gprprop.length > 2 ||
+			!gprprop.every(p => p === 'preferences' || p === 'localoverrides')
+		) {
+			throw new MwbotError('fatal', {
+				code: 'internal',
+				info: `Invalid "gprprop": ${JSON.stringify(gprprop)}`
+			});
+		}
+
+		const response = await this.get({
+			...additionalParams,
+			...Mwbot.getActionParams('query'),
+			meta: 'globalpreferences',
+			gprprop: gprprop.join('|')
+		}, requestOptions);
+
+		const path = '"response.query.globalpreferences"';
+		const gp = response.query?.globalpreferences;
+		if (!gp) {
+			Mwbot.dieAsEmpty(true, `(Missing ${path}).`, { response });
+		}
+
+		// Helper to wrap object in Map, ensuring type safety
+		const toMap = <T extends string | OptionPrimitive>(obj: Record<string, T>): Map<string, T> =>
+			new Map(Object.entries(obj));
+
+		// Both properties requested
+		if (gprprop.length === 2) {
+			const { preferences, localoverrides } = gp;
+			if (!preferences || !localoverrides) {
+				Mwbot.dieAsEmpty(true, `(Missing "preferences" and/or "localoverrides" in ${path}).`, { response });
+			}
+			return {
+				preferences: toMap(preferences),
+				localoverrides: toMap(localoverrides)
+			};
+		}
+
+		// Single property requested
+		const prop = gprprop[0];
+		const data = gp[prop];
+		if (!data) {
+			Mwbot.dieAsEmpty(true, `(Missing "${prop}" in ${path}).`, { response });
+		}
+		return toMap(data);
+	}
+
+	/**
+	 * Retrieves global user preferences and local overrides as Map objects.
 	 *
 	 * The returned object contains:
 	 * - `preferences`: A Map of global user preference keys to string values.
@@ -2804,36 +2879,89 @@ export class Mwbot {
 	 *
 	 * @param additionalParams Additional parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to an object with `preferences` and `localoverrides` maps,
-	 * or rejecting with an error.
+	 * @returns A Promise resolving to an object containing `preferences` and `localoverrides` Maps.
 	 * @throws {MwbotError} If the client is anonymous.
 	 */
-	async getGlobalOptions(
+	getGlobalPreferences(
 		additionalParams: ApiParams = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<{
 		preferences: Map<string, string>;
 		localoverrides: Map<string, OptionPrimitive>;
 	}> {
-		this.dieIfAnonymous(); // meta=globalpreferences fails if not logged in
-		const response = await this.get({
-			...additionalParams,
-			...Mwbot.getActionParams('query'),
-			meta: 'globalpreferences',
-			gprprop: 'preferences|localoverrides'
-		}, requestOptions);
-		const { preferences, localoverrides } = response.query?.globalpreferences || {};
-		if (preferences && localoverrides) {
-			return {
-				preferences: new Map(Object.entries(preferences)),
-				localoverrides: new Map(Object.entries(localoverrides))
-			};
-		}
-		Mwbot.dieAsEmpty(
-			true,
-			'("preferences" or "localoverrides" properties are missing in "response.query.globalpreferences").',
-			{ response }
-		);
+		return this._getGlobalPreferences(['preferences', 'localoverrides'], additionalParams, requestOptions);
+	}
+
+	/**
+	 * Retrieves global user preferences as a Map.
+	 *
+	 * This is a variant of {@link getGlobalPreferences} that retrieves only the `preferences` portion.
+	 *
+	 * @param additionalParams Additional parameters to the API.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to a Map of global preference keys to string values.
+	 * @throws {MwbotError} If the client is anonymous.
+	 */
+	getGlobalOptions(
+		additionalParams: ApiParams = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<Map<string, string>> {
+		return this._getGlobalPreferences(['preferences'], additionalParams, requestOptions);
+	}
+
+	/**
+	 * Retrieves the value of a specific global user preference by key.
+	 *
+	 * This is a variant of {@link getGlobalOptions} that returns the value for a single key.
+	 *
+	 * @param key The preference key to retrieve.
+	 * @param additionalParams Additional parameters to the API.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the preference value as a string, or `undefined` if not set.
+	 * @throws {MwbotError} If the client is anonymous.
+	 */
+	async getGlobalOption(
+		key: string,
+		additionalParams: ApiParams = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<string | undefined> {
+		return (await this.getGlobalOptions(additionalParams, requestOptions)).get(key);
+	}
+
+	/**
+	 * Retrieves global preference overrides as a Map.
+	 *
+	 * This is a variant of {@link getGlobalPreferences} that retrieves only the `localoverrides` portion.
+	 *
+	 * @param additionalParams Additional parameters to the API.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to a Map of overridden preference keys to their values.
+	 * @throws {MwbotError} If the client is anonymous.
+	 */
+	getGlobalOptionOverrides(
+		additionalParams: ApiParams = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<Map<string, OptionPrimitive>> {
+		return this._getGlobalPreferences(['localoverrides'], additionalParams, requestOptions);
+	}
+
+	/**
+	 * Retrieves the value of a specific global preference override by key.
+	 *
+	 * This is a variant of {@link getGlobalOptionOverrides} that returns the value for a single key.
+	 *
+	 * @param key The override key to retrieve.
+	 * @param additionalParams Additional parameters to the API.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the overridden value, or `undefined` if not set.
+	 * @throws {MwbotError} If the client is anonymous.
+	 */
+	async getGlobalOptionOverride(
+		key: string,
+		additionalParams: ApiParams = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<OptionPrimitive | undefined> {
+		return (await this.getGlobalOptionOverrides(additionalParams, requestOptions)).get(key);
 	}
 
 	/**
