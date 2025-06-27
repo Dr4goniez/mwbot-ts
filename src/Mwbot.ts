@@ -2721,9 +2721,6 @@ export class Mwbot {
 	/**
 	 * Retrieves user options as a Map object.
 	 *
-	 * Each entry represents a user preference, where the key is a string and the value
-	 * is either a non-null primitive or `null`.
-	 *
 	 * Enforced parameters:
 	 * ```
 	 * {
@@ -2754,7 +2751,7 @@ export class Mwbot {
 		if (options) {
 			return new Map(Object.entries(options));
 		}
-		Mwbot.dieAsEmpty(true, '("response.query.userinfo.options" is missing).', { response });
+		Mwbot.dieAsEmpty(true, '(Missing "response.query.userinfo.options").', { response });
 	}
 
 	/**
@@ -3076,7 +3073,7 @@ export class Mwbot {
 	 * ```
 	 * {
 	 *   action: 'options',
-	 *   change: options, // Auto-formatted string
+	 *   change: options, // Automatically formatted
 	 *   format: 'json',
 	 *   formatversion: '2',
 	 *   // `token` is automatically appended
@@ -3104,7 +3101,7 @@ export class Mwbot {
 	/**
 	 * Saves a single user option. Providing `null` as the value resets the option to its default.
 	 *
-	 * See {@link saveOptions} for enforced parameters.
+	 * This is a variant of {@link saveOptions} which operates on a single option key.
 	 *
 	 * @param key The option key to update.
 	 * @param value The new value to set, or `null` to reset to default.
@@ -3145,7 +3142,7 @@ export class Mwbot {
 	/**
 	 * Saves a single global user option.
 	 *
-	 * This is a variant of {@link saveOption} and instead performs a `action=globalpreferences` request.
+	 * This is a variant of {@link saveGlobalOptions} which operates on a single option key.
 	 *
 	 * @param key
 	 * @param value
@@ -3183,7 +3180,7 @@ export class Mwbot {
 	/**
 	 * Saves a single global user option override.
 	 *
-	 * This is a variant of {@link saveOption} and instead performs a `action=globalpreferenceoverrides` request.
+	 * This is a variant of {@link saveGlobalOptionOverrides} which operates on a single option key.
 	 *
 	 * @param key
 	 * @param value
