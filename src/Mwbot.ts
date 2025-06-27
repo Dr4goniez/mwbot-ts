@@ -352,10 +352,7 @@ export class Mwbot {
 	 */
 	protected static validateCredentials(credentials: Credentials): MwbotCredentials {
 		if (!isPlainObject(credentials)) {
-			throw new MwbotError('fatal', {
-				code: 'typemismatch',
-				info: 'Credentials must be provided as an object.'
-			});
+			Mwbot.dieWithTypeError('plain object', 'credentials', credentials);
 		}
 
 		const keys = Object.keys(credentials);
@@ -753,6 +750,46 @@ export class Mwbot {
 				info: `Expected request method to be "POST", but received "${requestOptions?.method}".`
 			});
 		}
+	}
+
+	/**
+	 * Throws a `typemismatch` fatal error.
+	 *
+	 * Two overloads are supported:
+	 * 
+	 * 1. Provide a custom message directly:
+	 * ```ts
+	 * Mwbot.dieWithTypeError('Invalid value provided.');
+	 * ```
+	 * 
+	 * 2. Provide expected type, variable name, and actual value to auto-generate a message:
+	 * ```ts
+	 * Mwbot.dieWithTypeError('string', 'username', 42);
+	 * // => 'Expected string for \"username\", but got number.'
+	 * ```
+	 */
+	protected static dieWithTypeError(message: string): never;
+	protected static dieWithTypeError(
+		expectedType: string,
+		variableName: string,
+		inputValue: unknown
+	): never;
+	protected static dieWithTypeError(
+		messageOrExpectedType: string,
+		variableName?: string,
+		inputValue?: unknown
+	): never {
+		const formatType = (value: unknown) => {
+			if (Array.isArray(value)) return 'array';
+			if (value === null) return 'null';
+			return value?.constructor?.name ?? typeof value;
+		};
+		throw new MwbotError('fatal', { 
+			code: 'typemismatch',
+			info: variableName
+				? `Expected ${messageOrExpectedType} for "${variableName}", but got ${formatType(inputValue)}.`
+				: messageOrExpectedType
+		});
 	}
 
 	// ****************************** SITE-RELATED CONFIG ******************************
@@ -1931,17 +1968,11 @@ export class Mwbot {
 		let batchValues: string[] | null = null;
 		for (const key of keys) {
 			if (typeof key !== 'string') {
-				throw new MwbotError('fatal', {
-					code: 'typemismatch',
-					info: `Expected a string (element) for "keys", but got ${typeof key}.`
-				});
+				Mwbot.dieWithTypeError('string as element', 'keys', key);
 			}
 			const value = parameters[key];
 			if (!Array.isArray(value)) {
-				throw new MwbotError('fatal', {
-					code: 'typemismatch',
-					info: `Expected an array for the "${key}" parameter, but got ${typeof value}.`
-				});
+				Mwbot.dieWithTypeError('array', `parameters["${key}"]`, value);
 			}
 			if (batchValues === null) {
 				batchValues = [...value] as string[]; // Copy the array
@@ -2217,10 +2248,7 @@ export class Mwbot {
 		const { allowAnonymous = false, allowSpecial = false } = options;
 		this.dieIfAnonymous(!allowAnonymous);
 		if (typeof title !== 'string' && !(title instanceof this.Title)) {
-			throw new MwbotError('fatal', {
-				code: 'typemismatch',
-				info: `"${typeof title}" is not a valid type.`
-			});
+			Mwbot.dieWithTypeError('string or Title', 'title', title);
 		}
 		if (!(title instanceof this.Title)) {
 			const t = this.Title.newFromText(title);
@@ -2428,10 +2456,7 @@ export class Mwbot {
 	): Promise<ApiResponseEditSuccess> {
 
 		if (typeof transform !== 'function') {
-			throw new MwbotError('fatal', {
-				code: 'typemismatch',
-				info: `Expected a function for "transform", but got ${typeof transform}.`
-			});
+			Mwbot.dieWithTypeError('function', 'transform', transform);
 		}
 		// Prevent the client from manupilating the private parameter
 		retry = [0, 1, 2, 3].includes(retry as any) ? retry as number : 0;
@@ -2463,10 +2488,7 @@ export class Mwbot {
 			});
 		}
 		if (!isPlainObject(userParams)) {
-			throw new MwbotError('fatal', {
-				code: 'typemismatch',
-				info: 'The transformation predicate must resolve to a plain object.'
-			}, { transformed: userParams });
+			Mwbot.dieWithTypeError('plain object return', 'tansform', userParams);
 		}
 		const parameters: ApiParamsActionEdit = {
 			title: revision.title,
@@ -2994,10 +3016,7 @@ export class Mwbot {
 		if (isPlainObject(options)) {
 			options = new Map(Object.entries(options));
 		} else if (!(options instanceof Map)) {
-			throw new MwbotError('fatal', {
-				code: 'typemismatch',
-				info: `Expected a plain object or Map for "options", but got ${typeof options}.`
-			});
+			Mwbot.dieWithTypeError('plain object or Map', 'options', options);
 		}
 
 		// Create `key=value` pairs
@@ -3242,10 +3261,7 @@ export class Mwbot {
 		this.dieIfNoRights('block', 'block users');
 
 		if (typeof target !== 'string') {
-			throw new MwbotError('fatal', {
-				code: 'typemismatch',
-				info: `Expected a string for "user", but got ${typeof target}.`
-			});
+			Mwbot.dieWithTypeError('string', 'target', target);
 		}
 
 		const response = await this.postWithCsrfToken({
@@ -3497,10 +3513,7 @@ export class Mwbot {
 		} else if (isObject(levels)) {
 			protections = Object.entries(levels).map(([action, level]) => `${action}=${level}`).join('|');
 		} else {
-			throw new MwbotError('fatal', {
-				code: 'typemismatch',
-				info: 'The "levels" parameter for protect() only accepts a string, string array, or mapped object.'
-			});
+			Mwbot.dieWithTypeError('string, string array, or mapped object', 'levels', levels);
 		}
 
 		const response = await this.postWithCsrfToken({
@@ -3631,10 +3644,7 @@ export class Mwbot {
 			title = this.validateTitle(titleOrId).getPrefixedText();
 		}
 		if (typeof user !== 'string') {
-			throw new MwbotError('fatal', {
-				code: 'typemismatch',
-				info: `Expected a string for "user", but got ${typeof user}.`
-			});
+			Mwbot.dieWithTypeError('string', 'user', user);
 		}
 
 		const response = await this.postWithToken('rollback', {
@@ -3687,10 +3697,7 @@ export class Mwbot {
 		const id = typeof userOrId === 'number' && userOrId;
 		const user = typeof userOrId === 'string' && userOrId;
 		if (id === false && user === false) {
-			throw new MwbotError('fatal', {
-				code: 'typemismatch',
-				info: `Expected a string or number for "userOrId", but got ${typeof userOrId}.`
-			});
+			Mwbot.dieWithTypeError('string or number', 'userOrId', userOrId);
 		}
 
 		const response = await this.postWithCsrfToken({
@@ -4524,10 +4531,7 @@ export class Mwbot {
 
 		// Validate `target`
 		if (typeof target !== 'string') {
-			throw new MwbotError('fatal', {
-				code: 'typemismatch',
-				info: `Expected a string for "target", but got ${typeof target}.`
-			});
+			Mwbot.dieWithTypeError('string', 'target', target);
 		}
 		if (!target.trim()) {
 			throw new MwbotError('fatal', {
@@ -4605,10 +4609,7 @@ export class Mwbot {
 
 		// Validate `target`
 		if (typeof target !== 'string') {
-			throw new MwbotError('fatal', {
-				code: 'typemismatch',
-				info: `Expected a string for "target", but got ${typeof target}.`
-			});
+			Mwbot.dieWithTypeError('string', 'target', target);
 		}
 		if (!target.trim()) {
 			throw new MwbotError('fatal', {
