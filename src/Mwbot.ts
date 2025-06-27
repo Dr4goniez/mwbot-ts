@@ -533,7 +533,7 @@ export class Mwbot {
 			!userinfo || !functionhooks || !general || !magicwords || !namespaces || !namespacealiases
 		) {
 			return retryIfPossible(
-				Mwbot.dieAsEmpty(false, '(check HTTP headers?)'),
+				Mwbot.dieAsEmpty(false, 'check HTTP headers?'),
 				attemptIndex
 			);
 		} else if (userinfo.id === 0 && !this.isAnonymous()) {
@@ -716,28 +716,28 @@ export class Mwbot {
 	}
 
 	/**
-	 * Throws or returns an `api_mwbot: empty` error.
+	 * Throws or returns an `api_mwbot: empty` error indicating an empty API result.
 	 *
 	 * @param die Whether to throw the error (default: `true`). If `false`, the error object
 	 * is returned instead of being thrown.
-	 * @param additionalInfo Optional text to append after `'OK response but empty result'`.
-	 * A space is automatically prepended if provided; otherwise, a period is appended.
-	 * @param data Optional data object to set to the error.
+	 * @param additionalInfo Optional text to insert into the error message.
+	 *
+	 * - If omitted: `"OK response but empty result."`
+	 * - If provided: `"OK response but empty result ($1)."` where `$1` is replaced with `additionalInfo`.
+	 *
+	 * @param data Optional additional data to include with the error.
+	 * @returns If `die` is `false`, returns the constructed error object. Otherwise, never returns (throws).
+	 * @throws {MwbotError<'api_mwbot'>} If `die` is `true`.
 	 */
 	protected static dieAsEmpty(die?: true, additionalInfo?: string, data?: MwbotErrorData): never;
 	protected static dieAsEmpty(die: false, additionalInfo?: string, data?: MwbotErrorData): MwbotError<'api_mwbot'>;
 	protected static dieAsEmpty(die = true, additionalInfo?: string, data?: MwbotErrorData): never | MwbotError<'api_mwbot'> {
-		die ??= true;
-		const info = 'OK response but empty result' + (additionalInfo ? ' ' + additionalInfo : '.');
-		const error = new MwbotError('api_mwbot', {
-			code: 'empty',
-			info
-		}, data);
-		if (die) {
-			throw error;
-		} else {
-			return error;
-		}
+		const info = additionalInfo
+			? `OK response but empty result (${additionalInfo}).`
+			: 'OK response but empty result.';
+		const error = new MwbotError('api_mwbot', { code: 'empty', info }, data);
+		if (die) throw error;
+		return error;
 	}
 
 	/**
@@ -1138,7 +1138,7 @@ export class Mwbot {
 			}
 
 			if (!data) {
-				Mwbot.dieAsEmpty(true, '(check HTTP headers?)', { axios: response });
+				Mwbot.dieAsEmpty(true, 'check HTTP headers?', { axios: response });
 			}
 			if (!isPlainObject(data)) {
 				// In most cases the raw HTML of [[Main page]]
@@ -2751,7 +2751,7 @@ export class Mwbot {
 		if (options) {
 			return new Map(Object.entries(options));
 		}
-		Mwbot.dieAsEmpty(true, '(Missing "response.query.userinfo.options").', { response });
+		Mwbot.dieAsEmpty(true, 'missing "response.query.userinfo.options"', { response });
 	}
 
 	/**
@@ -2825,10 +2825,10 @@ export class Mwbot {
 			gprprop: gprprop.join('|')
 		}, requestOptions);
 
-		const path = '"response.query.globalpreferences"';
+		const path = 'response.query.globalpreferences';
 		const gp = response.query?.globalpreferences;
 		if (!gp) {
-			Mwbot.dieAsEmpty(true, `(Missing ${path}).`, { response });
+			Mwbot.dieAsEmpty(true, `missing "${path}"`, { response });
 		}
 
 		// Helper to wrap object in Map, ensuring type safety
@@ -2839,7 +2839,7 @@ export class Mwbot {
 		if (gprprop.length === 2) {
 			const { preferences, localoverrides } = gp;
 			if (!preferences || !localoverrides) {
-				Mwbot.dieAsEmpty(true, `(Missing "preferences" and/or "localoverrides" in ${path}).`, { response });
+				Mwbot.dieAsEmpty(true, `missing "preferences" and/or "localoverrides" in "${path}"`, { response });
 			}
 			return {
 				preferences: toMap(preferences),
@@ -2851,7 +2851,7 @@ export class Mwbot {
 		const prop = gprprop[0];
 		const data = gp[prop];
 		if (!data) {
-			Mwbot.dieAsEmpty(true, `(Missing "${prop}" in ${path}).`, { response });
+			Mwbot.dieAsEmpty(true, `missing "${prop}" in "${path}"`, { response });
 		}
 		return toMap(data);
 	}
@@ -3048,7 +3048,7 @@ export class Mwbot {
 				if (res[action] === 'success') {
 					return res;
 				}
-				Mwbot.dieAsEmpty(true, `(Expected "response.${action}" to be "success").`, { response: res });
+				Mwbot.dieAsEmpty(true, `expected "response.${action}" to be "success"`, { response: res });
 			});
 
 			// Await each batch sequentially except for the last one
@@ -3260,7 +3260,7 @@ export class Mwbot {
 		if (response.block) {
 			return response.block;
 		}
-		Mwbot.dieAsEmpty(true, '("response.block" is missing).', { response });
+		Mwbot.dieAsEmpty(true, 'missing "response.block"', { response });
 
 	}
 
@@ -3314,7 +3314,7 @@ export class Mwbot {
 		if (response.delete) {
 			return response.delete;
 		}
-		Mwbot.dieAsEmpty(true, '("response.delete" is missing).', { response });
+		Mwbot.dieAsEmpty(true, 'missing "response.delete"', { response });
 
 	}
 
@@ -3340,7 +3340,7 @@ export class Mwbot {
 			maxlag: void 0 // Overwrite maxlag to have this request prioritized
 		}, disableRetryAPI);
 		if (!response.login) {
-			Mwbot.dieAsEmpty(true, '("response.login" is missing).', { response });
+			Mwbot.dieAsEmpty(true, 'missing "response.login"', { response });
 		} else if (response.login.result !== 'Success') {
 			throw new MwbotError('api_mwbot', {
 				code: 'loginfailed',
@@ -3409,7 +3409,7 @@ export class Mwbot {
 		if (response.move) {
 			return response.move;
 		}
-		Mwbot.dieAsEmpty(true, '("response.move" is missing).', { response });
+		Mwbot.dieAsEmpty(true, 'missing "response.move"', { response });
 
 	}
 
@@ -3438,7 +3438,7 @@ export class Mwbot {
 		if (response.parse) {
 			return response.parse;
 		}
-		Mwbot.dieAsEmpty(true, '("response.parse" is missing).', { response });
+		Mwbot.dieAsEmpty(true, 'missing "response.parse"', { response });
 	}
 
 	/**
@@ -3513,7 +3513,7 @@ export class Mwbot {
 		if (response.protect) {
 			return response.protect;
 		}
-		Mwbot.dieAsEmpty(true, '("response.protect" is missing).', { response });
+		Mwbot.dieAsEmpty(true, 'missing "response.protect"', { response });
 
 	}
 
@@ -3583,7 +3583,7 @@ export class Mwbot {
 			// May be good as is, where the client can access properties like "normalized" and "redirects"
 			return response as PartiallyRequired<ApiResponse, 'purge'>;
 		}
-		Mwbot.dieAsEmpty(true, '("response.purge" is missing).', { response });
+		Mwbot.dieAsEmpty(true, 'missing "response.purge"', { response });
 
 	}
 
@@ -3647,7 +3647,7 @@ export class Mwbot {
 		if (response.rollback) {
 			return response.rollback;
 		}
-		Mwbot.dieAsEmpty(true, '("response.rollback" is missing).', { response });
+		Mwbot.dieAsEmpty(true, 'missing "response.rollback"', { response });
 
 	}
 
@@ -3702,7 +3702,7 @@ export class Mwbot {
 		if (response.unblock) {
 			return response.unblock;
 		}
-		Mwbot.dieAsEmpty(true, '("response.unblock" is missing).', { response });
+		Mwbot.dieAsEmpty(true, 'missing "response.unblock"', { response });
 
 	}
 
@@ -3753,7 +3753,7 @@ export class Mwbot {
 		if (response.undelete) {
 			return response.undelete;
 		}
-		Mwbot.dieAsEmpty(true, '("response.undelete" is missing).', { response });
+		Mwbot.dieAsEmpty(true, 'missing "response.undelete"', { response });
 
 	}
 
@@ -3889,7 +3889,7 @@ export class Mwbot {
 			const res = await this.get(params, requestOptions);
 			const pages = res.query?.pages;
 			if (!pages || !pages[0]) {
-				Mwbot.dieAsEmpty(true, '("response.query.pages" is missing).', { title: t });
+				Mwbot.dieAsEmpty(true, 'missing "response.query.pages"', { title: t });
 			}
 			pages[0].title ??= t;
 			const processed = processSinglePage(
@@ -3965,7 +3965,7 @@ export class Mwbot {
 
 			const pages = res.query?.pages;
 			if (!pages) {
-				setToAll(Mwbot.dieAsEmpty(false, '("response.query.pages" is missing).', { response: res }), batchIndex);
+				setToAll(Mwbot.dieAsEmpty(false, 'missing "response.query.pages"', { response: res }), batchIndex);
 				continue;
 			}
 
@@ -4085,7 +4085,7 @@ export class Mwbot {
 			const pages = res.query?.pages;
 			if (!pages) {
 				if (rejectProof) continue;
-				Mwbot.dieAsEmpty(true, '("response.query.pages" is missing).', { response: res });
+				Mwbot.dieAsEmpty(true, 'missing "response.query.pages"', { response: res });
 			}
 			for (const { ns, title, missing } of pages) {
 				if (title && typeof ns === 'number') {
@@ -4176,7 +4176,7 @@ export class Mwbot {
 		const result: Record<string, string[]> = Object.create(null);
 		for (const res of responses) {
 			const pages = res.query?.pages;
-			if (!pages) Mwbot.dieAsEmpty(true, '("response.query.pages" is missing).', { response: res });
+			if (!pages) Mwbot.dieAsEmpty(true, 'missing "response.query.pages"', { response: res });
 			pages.forEach(({ title, categories }) => {
 				if (!title || !categories) return;
 				const stripped = categories.map(c => c.title.replace(CATEGORY_PREFIX, ''));
@@ -4232,7 +4232,7 @@ export class Mwbot {
 		const retSet = new Set<string>();
 		for (const res of responses) {
 			const allpages = res.query?.allpages;
-			if (!allpages) Mwbot.dieAsEmpty(true, '("response.query.allpages" is missing).', { response: res });
+			if (!allpages) Mwbot.dieAsEmpty(true, 'missing "response.query.allpages"', { response: res });
 			allpages.forEach(({ title }) => {
 				retSet.add(title.replace(CATEGORY_PREFIX, ''));
 			});
@@ -4303,7 +4303,7 @@ export class Mwbot {
 		let ret: ApiResponseQueryListCategorymembers[] = [];
 		responses.forEach((res) => {
 			const members = res.query?.categorymembers;
-			if (!members) Mwbot.dieAsEmpty(true, '("response.query.categorymembers" is missing).', { response: res });
+			if (!members) Mwbot.dieAsEmpty(true, 'missing "response.query.categorymembers"', { response: res });
 			ret = ret.concat(members);
 		});
 		return ret;
@@ -4384,7 +4384,7 @@ export class Mwbot {
 		const result: Record<string, ApiResponseQueryPagesPropLinkshere[]> = Object.create(null);
 		for (const res of responses) {
 			const pages = res.query?.pages;
-			if (!pages) Mwbot.dieAsEmpty(true, '("response.query.pages" is missing).', { response: res });
+			if (!pages) Mwbot.dieAsEmpty(true, 'missing "response.query.pages"', { response: res });
 			pages.forEach(({ title, linkshere }) => {
 				if (!title || !linkshere) return;
 				result[title] ||= [];
@@ -4474,7 +4474,7 @@ export class Mwbot {
 		const result: Record<string, ApiResponseQueryPagesPropTranscludedin[]> = Object.create(null);
 		for (const res of responses) {
 			const pages = res.query?.pages;
-			if (!pages) Mwbot.dieAsEmpty(true, '("response.query.pages" is missing).', { response: res });
+			if (!pages) Mwbot.dieAsEmpty(true, 'missing "response.query.pages"', { response: res });
 			pages.forEach(({ title, transcludedin }) => {
 				if (!title || !transcludedin) return;
 				result[title] ||= [];
@@ -4553,10 +4553,10 @@ export class Mwbot {
 		let ret: PartiallyRequired<ApiResponseQuery, 'search'> = Object.create(null);
 		for (const res of responses) {
 			if (!res.query) {
-				Mwbot.dieAsEmpty(true, '("response.query" is missing).', { response: res });
+				Mwbot.dieAsEmpty(true, 'missing "response.query"', { response: res });
 			}
 			if (!res.query.search) {
-				Mwbot.dieAsEmpty(true, '("response.query.search" is missing).', { response: res });
+				Mwbot.dieAsEmpty(true, 'missing "response.query.search"', { response: res });
 			}
 			const query = res.query as PartiallyRequired<ApiResponseQuery, 'search'>;
 			if (responses.length === 1) {
@@ -4642,7 +4642,7 @@ export class Mwbot {
 		let ret: ApiResponseQueryListPrefixsearch[] = [];
 		responses.forEach((res) => {
 			const prefixsearch = res.query?.prefixsearch;
-			if (!prefixsearch) Mwbot.dieAsEmpty(true, '("response.query.prefixsearch" is missing).', { response: res });
+			if (!prefixsearch) Mwbot.dieAsEmpty(true, 'missing "response.query.prefixsearch"', { response: res });
 			ret = ret.concat(prefixsearch);
 		});
 		return ret;
