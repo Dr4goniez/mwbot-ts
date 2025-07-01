@@ -756,12 +756,12 @@ export class Mwbot {
 	 * Throws a `typemismatch` fatal error.
 	 *
 	 * Two overloads are supported:
-	 * 
+	 *
 	 * 1. Provide a custom message directly:
 	 * ```ts
 	 * Mwbot.dieWithTypeError('Invalid value provided.');
 	 * ```
-	 * 
+	 *
 	 * 2. Provide expected type, variable name, and actual value to auto-generate a message:
 	 * ```ts
 	 * Mwbot.dieWithTypeError('string', 'username', 42);
@@ -784,7 +784,7 @@ export class Mwbot {
 			if (value === null) return 'null';
 			return value?.constructor?.name ?? typeof value;
 		};
-		throw new MwbotError('fatal', { 
+		throw new MwbotError('fatal', {
 			code: 'typemismatch',
 			info: variableName
 				? `Expected ${messageOrExpectedType} for "${variableName}", but got ${formatType(inputValue)}.`
@@ -3562,8 +3562,6 @@ export class Mwbot {
 		additionalParams: ApiParams = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<PartiallyRequired<ApiResponse, 'purge'>> {
-
-		this.dieIfNoRights('purge', 'purge pages', true);
 
 		// Check the types of `titles` without using `validateTitle`
 		// The `action=purge` API call does not throw an error for invalid titles
