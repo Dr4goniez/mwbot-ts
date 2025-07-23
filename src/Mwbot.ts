@@ -1100,6 +1100,13 @@ export class Mwbot {
 		// Preprocess the request options
 		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		requestOptions = mergeDeep(Mwbot.defaultRequestOptions, this.userRequestOptions, requestOptions, { params: parameters });
+		if (
+			!this.isAnonymous() && !requestOptions.disableAssert && requestOptions.params &&
+			typeof requestOptions.params.assert !== 'string' && typeof requestOptions.params.assertuser !== 'string'
+		) {
+			// Enforce { assert: 'user' } for logged-in users
+			requestOptions.params.assert = 'user';
+		}
 		const { length, hasLongFields } = this.preprocessParameters(requestOptions.params);
 		if (requestOptions.params?.format !== 'json') {
 			throw new MwbotError('api_mwbot', {
@@ -1396,10 +1403,6 @@ export class Mwbot {
 		const markIfLongField = (value: string): void => {
 			hasLongFields ||= value.length > 8000;
 		};
-		if (!this.isAnonymous()) {
-			// Enforce { assert: 'user' } for logged-in users
-			parameters.assert = 'user';
-		}
 		Object.entries(parameters).forEach(([key, val]) => {
 			if (Array.isArray(val)) {
 				// Multi-value fields must be stringified
@@ -3344,8 +3347,11 @@ export class Mwbot {
 	protected async login(username: string, password: string): Promise<ApiResponse> { // TODO: Make this method public?
 
 		// Fetch a login token
-		const disableRetryAPI = { disableRetryAPI: true };
-		const token = await this.getToken('login', { maxlag: void 0 }, disableRetryAPI);
+		const config: MwbotRequestConfig = {
+			disableRetryAPI: true,
+			disableAssert: true
+		};
+		const token = await this.getToken('login', { maxlag: void 0 }, config);
 
 		// Login
 		const response = await this.post({
@@ -3354,7 +3360,7 @@ export class Mwbot {
 			lgpassword: password,
 			lgtoken: token,
 			maxlag: void 0 // Overwrite maxlag to have this request prioritized
-		}, disableRetryAPI);
+		}, config);
 		if (!response.login) {
 			Mwbot.dieAsEmpty(true, 'missing "response.login"', { response });
 		} else if (response.login.result !== 'Success') {
@@ -4834,6 +4840,16 @@ export interface MwbotRequestConfig extends AxiosRequestConfig {
 	 * By default, all requests are abortable. Set this to `true` to explicitly disable this behavior.
 	 */
 	disableAbort?: boolean;
+	/**
+	 * Whether to disable automatic injection of the `{ assert: 'user' }` parameter.
+	 *
+	 * By default, `mwbot-ts` automatically adds this parameter if:
+	 * - the instance is logged in, and
+	 * - the request parameters include neither an `assert` nor `assertuser` field.
+	 *
+	 * Set this option to `true` to disable this automatic injection.
+	 */
+	disableAssert?: boolean;
 	/**
 	 * Whether to disable automatic retries entirely. If set to `true`, no retries will be attempted
 	 * for any type of failure.
