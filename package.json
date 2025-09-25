@@ -48,7 +48,7 @@
   },
   "homepage": "https://github.com/Dr4goniez/mwbot-ts#readme",
   "dependencies": {
-    "axios": "^1.11.0",
+    "axios": "^1.12.2",
     "axios-cookiejar-support": "^4.0.7",
     "form-data": "^4.0.4",
     "ip-wiki": "^2.0.0",
