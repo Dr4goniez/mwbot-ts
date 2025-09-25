@@ -1046,8 +1046,9 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		}
 		// Sanitize IP for user/user_talk titles
 		// This also allows IPv6 usernames to start with '::'
-		let sanitizedIp;
-		if ((namespace === NS_USER || namespace === NS_USER_TALK) && (sanitizedIp = IPUtil.sanitize(title, true))) {
+		const sanitizedIp = (namespace === NS_USER || namespace === NS_USER_TALK) &&
+			IPUtil.sanitize(title, { capitalize: true });
+		if (sanitizedIp) {
 			title = sanitizedIp;
 		}
 		// Any remaining initial :s are illegal.
@@ -1435,7 +1436,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 				return null;
 			}
 			username = Title.clean(username);
-			const ip = IPUtil.sanitize(username, true);
+			const ip = IPUtil.sanitize(username, { capitalize: true });
 			if (ip) {
 				return ip;
 			}
