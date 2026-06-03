@@ -20,7 +20,11 @@
     "test-build": "ts-node src/test/test_build.ts",
     "build": "node generate-version.mjs && node empty-dir.mjs dist/build && tsc -p . && node generate-index.mjs",
     "docs": "node empty-dir.mjs docs && npx typedoc --options typedoc.json",
-    "update": "update-version.sh"
+    "update": "update-version.sh",
+    "test:setup": "cd tests/docker && bash setup.sh",
+    "test:integration": "npm run test:localwiki && npm run test:testwiki",
+    "test:testwiki": "ts-mocha -p tsconfig.json tests/integration/testwiki/*",
+    "test:localwiki": "ts-mocha -p tsconfig.json tests/integration/localwiki/*"
   },
   "engines": {
     "node": ">=14.18.3"
@@ -57,12 +61,18 @@
     "ts-xor": "^1.3.0"
   },
   "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^22.19.19",
     "@types/tough-cookie": "^4.0.5",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
+    "chai": "^6.2.2",
+    "dotenv": "^17.4.2",
     "eslint": "^8.57.1",
     "markdown-link-check": "^3.14.2",
+    "mocha": "^11.7.6",
+    "ts-mocha": "^11.1.0",
     "ts-node": "^10.9.2",
     "typedoc": "^0.28.19",
     "typescript": "^5.9.3"

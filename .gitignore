@@ -6,3 +6,4 @@ dist/
 logs
 src/regex.txt
 src/test/
+tests/docker/.env

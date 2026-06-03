@@ -1,0 +1,37 @@
+services:
+  mediawiki:
+    image: mediawiki
+    restart: always
+    ports:
+      - '8080:80'
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - /var/www/html/images
+
+  database:
+    image: mariadb
+    restart: always
+    environment:
+      MYSQL_DATABASE: mwbot_ts
+      MYSQL_USER: mwbot_ts
+      MYSQL_PASSWORD: mwbot_ts
+      MYSQL_RANDOM_ROOT_PASSWORD: 'yes'
+    ports:
+      - '3312:3306'
+    healthcheck:
+      test: [
+        "CMD",
+        "mariadb",
+        "-u",
+        "mwbot_ts",
+        "-pmwbot_ts",
+        "-e",
+        "SELECT 1",
+        "mwbot_ts"
+      ]
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 10

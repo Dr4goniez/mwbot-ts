@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/ci-push.yml'
+  pull_request:
+
+jobs:
+  integration-localwiki:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [14.x, 16.x, 18.x, 22.x]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Setup local MediaWiki
+        run: npm run test:setup
+      - name: Run localwiki integration tests
+        run: npm run test:localwiki
+
+  integration-testwiki:
+    runs-on: ubuntu-latest
+    environment: testwiki
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run testwiki integration tests
+        run: npm run test:testwiki
+        env:
+          OAUTH_API: ${{ secrets.OAUTH_API }}
+          OAUTH2_ACCESS_TOKEN: ${{ secrets.OAUTH2_ACCESS_TOKEN }}
+          OAUTH1A_CONSUMER_TOKEN: ${{ secrets.OAUTH1A_CONSUMER_TOKEN }}
+          OAUTH1A_CONSUMER_SECRET: ${{ secrets.OAUTH1A_CONSUMER_SECRET }}
+          OAUTH1A_ACCESS_TOKEN: ${{ secrets.OAUTH1A_ACCESS_TOKEN }}
+          OAUTH1A_ACCESS_SECRET: ${{ secrets.OAUTH1A_ACCESS_SECRET }}
