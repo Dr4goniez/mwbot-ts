@@ -22,9 +22,9 @@
     "docs": "node empty-dir.mjs docs && npx typedoc --options typedoc.json",
     "update": "update-version.sh",
     "test:setup": "cd tests/docker && bash setup.sh",
-    "test:integration": "mocha --require tsx \"./tests/integration/**/*.ts\"",
-    "test:localwiki": "mocha --require tsx \"./tests/integration/localwiki/**/*.ts\"",
-    "test:testwiki": "mocha --require tsx \"./tests/integration/testwiki/**/*.ts\""
+    "test:integration": "mocha tests/integration/**/*.js",
+    "test:localwiki": "mocha tests/integration/localwiki/**/*.js",
+    "test:testwiki": "mocha tests/integration/testwiki/**/*.js"
   },
   "engines": {
     "node": ">=18"
@@ -73,7 +73,6 @@
     "markdown-link-check": "^3.14.2",
     "mocha": "^11.7.6",
     "ts-node": "^10.9.2",
-    "tsx": "^4.22.4",
     "typedoc": "^0.28.19",
     "typescript": "^5.9.3"
   }

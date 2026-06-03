@@ -1,9 +1,12 @@
 import { describe, it } from 'mocha';
 import { assert } from 'chai';
-import { Mwbot } from '../../../src/Mwbot';
+import { Mwbot } from '../../../dist/index.js';
 
-import path from 'path';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import dotenv from 'dotenv';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 dotenv.config({
 	path: path.resolve(__dirname, '../../docker/.env')
 });
@@ -17,7 +20,7 @@ describe('OAuth authentication', function () {
 		OAUTH1A_CONSUMER_SECRET,
 		OAUTH1A_ACCESS_TOKEN,
 		OAUTH1A_ACCESS_SECRET,
-	} = process.env as Record<string, string>;
+	} = /** @type {Record<string, string>} */ (process.env);
 
 	// Ensure the required environment variables are defined
 	const requiredVars = {

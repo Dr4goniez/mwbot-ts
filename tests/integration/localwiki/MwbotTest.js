@@ -1,10 +1,11 @@
 import { describe, it, before } from 'mocha';
 import { assert } from 'chai';
-import { Mwbot } from '../../../src/Mwbot';
+import { Mwbot } from '../../../dist/index.js';
 
 describe('Mwbot with BotPassword', function () {
 
-	let mwbot: Mwbot;
+	/** @type {Mwbot} */
+	let mwbot;
 
 	before(async function () {
 		mwbot = await Mwbot.init({
