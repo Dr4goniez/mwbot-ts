@@ -9,7 +9,7 @@ on:
       - 'tests/**'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/ci-push.yml'
+      - '.github/workflows/ci.yml'
   pull_request:
 
 jobs:
