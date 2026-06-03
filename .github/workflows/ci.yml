@@ -28,10 +28,6 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - run: node -v
-      - run: npm -v
-      - run: npx ts-node --showConfig
-      - run: npm ls ts-mocha ts-node mocha typescript
       - name: Setup local MediaWiki
         run: npm run test:setup
       - name: Run localwiki integration tests
