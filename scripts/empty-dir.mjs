@@ -10,6 +10,9 @@ async function emptyDir(dirPath) {
 	const absolutePath = path.resolve(rootDir, dirPath);
 
 	try {
+		// Create the directory if it doesn't exist
+		await fs.mkdir(absolutePath, { recursive: true });
+
 		const entries = await fs.readdir(absolutePath, { withFileTypes: true });
 
 		for (const entry of entries) {
