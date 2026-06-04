@@ -19,7 +19,7 @@
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { Mwbot } from './Mwbot';
+import type { Mwbot } from './Mwbot.js';
 
 /**
  * Calculate the byte length of a string (accounting for UTF-8).

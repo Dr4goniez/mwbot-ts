@@ -57,11 +57,11 @@
  * @module
  */
 
-import { MwbotError } from './MwbotError';
-import type { Mwbot, MwbotRequestConfig } from './Mwbot';
-import { deepCloneInstance, isClassInstance, mergeDeep } from './Util';
-import { byteLength } from './String';
-import type { Title } from './Title';
+import { MwbotError } from './MwbotError.js';
+import type { Mwbot, MwbotRequestConfig } from './Mwbot.js';
+import { deepCloneInstance, isClassInstance, mergeDeep } from './Util.js';
+import { byteLength } from './String.js';
+import type { Title } from './Title.js';
 import type {
 	ParsedTemplateStatic,
 	ParsedTemplate,
@@ -73,7 +73,7 @@ import type {
 	TemplateParameterHierarchies,
 	ParsedTemplateOptions,
 	ParsedTemplateInitializer
-} from './Template';
+} from './Template.js';
 import type {
 	ParsedWikilinkStatic,
 	ParsedWikilink,
@@ -84,13 +84,13 @@ import type {
 	ParsedFileWikilinkInitializer,
 	ParsedWikilinkInitializer,
 	ParsedRawWikilinkInitializer
-} from './Wikilink';
+} from './Wikilink.js';
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { TemplateStatic, ParserFunctionStatic } from './Template';
+import type { TemplateStatic, ParserFunctionStatic } from './Template.js';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { WikilinkStatic, FileWikilinkStatic, RawWikilinkStatic } from './Wikilink';
+import type { WikilinkStatic, FileWikilinkStatic, RawWikilinkStatic } from './Wikilink.js';
 
 /**
  * @expand

@@ -7,11 +7,11 @@
  * @module
  */
 
-import { Primitive } from './api_types';
+import { Primitive } from './api_types.js';
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { Mwbot } from './Mwbot';
+import type { Mwbot } from './Mwbot.js';
 
 // ********************************* SYNCHRONOUS FUNCTIONS *********************************
 

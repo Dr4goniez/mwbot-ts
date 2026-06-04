@@ -7,15 +7,15 @@
  * @module
  */
 
-import type { ApiResponse, ApiResponseError } from './api_types';
-import { isEmptyObject, isPlainObject } from './Util';
-import type { ConfigData } from './Mwbot';
+import type { ApiResponse, ApiResponseError } from './api_types.js';
+import { isEmptyObject, isPlainObject } from './Util.js';
+import type { ConfigData } from './Mwbot.js';
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { Mwbot } from './Mwbot';
+import type { Mwbot } from './Mwbot.js';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { ModificationPredicate } from './Wikitext';
+import type { ModificationPredicate } from './Wikitext.js';
 
 /**
  * Custom error class for {@link Mwbot}, extending the built-in `Error` class.

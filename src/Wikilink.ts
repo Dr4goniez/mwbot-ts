@@ -18,13 +18,13 @@
  * @module
  */
 
-import { ParamBase } from './baseClasses';
-import type { Mwbot } from './Mwbot';
-import type { TitleStatic, Title } from './Title';
+import { ParamBase } from './baseClasses.js';
+import type { Mwbot } from './Mwbot.js';
+import type { TitleStatic, Title } from './Title.js';
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { Wikitext, SkipTags } from './Wikitext';
+import type { Wikitext, SkipTags } from './Wikitext.js';
 
 /**
  * The base class for {@link WikilinkStatic} and {@link RawWikilinkStatic}.

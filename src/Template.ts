@@ -18,14 +18,14 @@
  */
 
 import { XOR } from 'ts-xor';
-import type { Mwbot } from './Mwbot';
-import { escapeRegExp, isPlainObject, mergeDeep } from './Util';
-import type { TitleStatic, Title } from './Title';
-import { ParamBase } from './baseClasses';
+import type { Mwbot } from './Mwbot.js';
+import { escapeRegExp, isPlainObject, mergeDeep } from './Util.js';
+import type { TitleStatic, Title } from './Title.js';
+import { ParamBase } from './baseClasses.js';
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { Wikitext, SkipTags, ParseTemplatesConfig } from './Wikitext';
+import type { Wikitext, SkipTags, ParseTemplatesConfig } from './Wikitext.js';
 
 /**
  * A list of no-hash functions. The listed members must not have a leading hash to function as a parser function.

@@ -25,10 +25,9 @@
  * @module
  */
 
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { CookieJar } from 'tough-cookie';
 import { wrapper } from 'axios-cookiejar-support';
-wrapper(axios);
 import FormData from 'form-data';
 import { XOR } from 'ts-xor';
 import OAuth from 'oauth-1.0a';
@@ -36,7 +35,7 @@ import crypto from 'crypto';
 import * as http from 'http';
 import * as https from 'https';
 
-import { MWBOT_VERSION } from './version';
+import { MWBOT_VERSION } from './version.js';
 import {
 	MultiValue,
 	OptionPrimitive,
@@ -76,19 +75,19 @@ import {
 	ApiResponseRollback,
 	ApiResponseUnblock,
 	ApiResponseUndelete
-} from './api_types';
-import { MwbotError, MwbotErrorData } from './MwbotError';
-import * as Util from './Util';
+} from './api_types.js';
+import { MwbotError, MwbotErrorData } from './MwbotError.js';
+import * as Util from './Util.js';
 const { mergeDeep, isPlainObject, isObject, sleep, isEmptyObject, arraysEqual, deepCloneInstance } = Util;
-import * as mwString from './String';
-import { TitleFactory, TitleStatic, Title } from './Title';
-import { TemplateFactory, TemplateStatic, ParserFunctionStatic, ParsedTemplate } from './Template';
-import { WikilinkFactory, WikilinkStatic, FileWikilinkStatic, RawWikilinkStatic } from './Wikilink';
-import { WikitextFactory, WikitextStatic, Wikitext } from './Wikitext';
+import * as mwString from './String.js';
+import { TitleFactory, TitleStatic, Title } from './Title.js';
+import { TemplateFactory, TemplateStatic, ParserFunctionStatic, ParsedTemplate } from './Template.js';
+import { WikilinkFactory, WikilinkStatic, FileWikilinkStatic, RawWikilinkStatic } from './Wikilink.js';
+import { WikitextFactory, WikitextStatic, Wikitext } from './Wikitext.js';
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { MwbotErrorCodes } from './MwbotError';
+import type { MwbotErrorCodes } from './MwbotError.js';
 
 /**
  * The core class of the `mwbot-ts` framework. This class provides a robust and extensible interface
@@ -172,18 +171,19 @@ export class Mwbot {
 	/**
 	 * Axios instance for this intance.
 	 */
-	protected readonly axios: axios.AxiosInstance;
+	protected readonly axios: AxiosInstance;
 	/**
 	 * A cookie jar that stores session and login cookies for this instance.
+	 *
+	 * This is `undefined` when using OAuth.
 	 */
-	protected readonly jar: CookieJar;
+	protected readonly jar?: CookieJar;
 	/**
-	 * Custom agents that manage keep-alive connections for HTTP requests.
-	 * These are injected into the request options when using OAuth.
+	 * Keep-alive agents used for OAuth requests. These are injected into the request options to reuse TCP connections.
 	 *
 	 * See [[{@link https://www.mediawiki.org/wiki/Manual:Creating_a_bot#Bot_best_practices | mw:Manual:Creating a bot#Bot best practices}]].
 	 */
-	protected readonly agents: {
+	protected readonly agents?: {
 		http: http.Agent;
 		https: https.Agent;
 	};
@@ -320,12 +320,28 @@ export class Mwbot {
 		}
 
 		// Initialize other class properties
-		this.axios = axios.create();
-		this.jar = new CookieJar();
-		this.agents = {
-			http: new http.Agent({ keepAlive: true }),
-			https: new https.Agent({ keepAlive: true })
-		};
+		let axiosConfig: MwbotRequestConfig;
+		if (this.usingOAuth()) {
+			// Inject httpAgent/httpsAgent to handle TCP connections
+			this.agents = {
+				http: new http.Agent({ keepAlive: true }),
+				https: new https.Agent({ keepAlive: true }),
+			};
+			axiosConfig = {
+				httpAgent: this.agents.http,
+				httpsAgent: this.agents.https,
+			};
+		} else {
+			// Note: axios-cookiejar-support uses its own agents
+			this.jar = new CookieJar();
+			axiosConfig = {
+				jar: this.jar,
+				withCredentials: true,
+			};
+		}
+
+		this.axios = wrapper(axios.create(axiosConfig));
+
 		this.userMwbotOptions = options;
 		this.userRequestOptions = requestOptions;
 		this.abortions = [];
@@ -1049,19 +1065,6 @@ export class Mwbot {
 		if (!requestOptions._cloned) {
 			requestOptions = mergeDeep(requestOptions);
 			requestOptions._cloned = true;
-
-			// Inject httpAgent/httpsAgent to handle TCP connections
-			if (this.usingOAuth()) {
-				requestOptions.httpAgent = this.agents.http;
-				requestOptions.httpsAgent = this.agents.https;
-				// Proxy should be disabled when supplying a custom httpAgent/httpsAgent, per Axios's guidance
-				// See https://axios-http.com/docs/req_config
-				requestOptions.proxy = false;
-			} else {
-				// axios-cookiejar-support uses its own agents
-				requestOptions.jar = this.jar;
-				requestOptions.withCredentials = true;
-			}
 		}
 
 		// Setup AbortController
@@ -1519,12 +1522,7 @@ export class Mwbot {
 	}
 
 	/**
-	 * Applies authentication to the request config.
-	 *
-	 * - Adds an `Authorization` header if OAuth is used.
-	 * - Sets `jar` and `withCredentials` for cookie-based authentication otherwise.
-	 *
-	 * NOTE: `url` and `method` must be set beforehand.
+	 * Applies authentication headers to the request config when using OAuth.
 	 *
 	 * @param requestOptions
 	 */
@@ -1532,15 +1530,10 @@ export class Mwbot {
 		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		requestOptions.headers ||= {};
 		const { oauth2, oauth1 } = this.credentials;
-		const configureKeepAliveAgents = (): void => {
-			requestOptions.httpAgent = this.agents.http;
-			requestOptions.httpsAgent = this.agents.https;
-			requestOptions.proxy = false;
-		};
+
 		if (oauth2) {
 			// OAuth 2.0
 			requestOptions.headers.Authorization = `Bearer ${oauth2}`;
-			configureKeepAliveAgents();
 		} else if (oauth1) {
 			// OAuth 1.0a
 			if (!requestOptions.url || !requestOptions.method) {
@@ -1562,11 +1555,6 @@ export class Mwbot {
 					})
 				)
 			);
-			configureKeepAliveAgents();
-		} else {
-			// Cookie-based authentication
-			requestOptions.jar = this.jar;
-			requestOptions.withCredentials = true;
 		}
 	}
 
@@ -4826,6 +4814,7 @@ export type MwbotCredentials = XOR<
  * method. Higher-priority options override lower ones if they share the same properties.
  */
 export interface MwbotRequestConfig extends AxiosRequestConfig {
+	jar?: CookieJar;
 	/**
 	 * Set to `true` when the `requestOptions` object passed to a method is deep-cloned to avoid
 	 * mutating the caller's original object. Mwbot methods check this property to prevent redundant

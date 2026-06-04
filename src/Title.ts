@@ -17,10 +17,10 @@
  */
 
 import { IPUtil } from 'ip-wiki';
-import type { Mwbot } from './Mwbot';
-import { toUpperMap, toLowerMap } from './phpCharMap';
-import * as mwString from './String';
-import { MwbotError } from './MwbotError';
+import type { Mwbot } from './Mwbot.js';
+import { toUpperMap, toLowerMap } from './phpCharMap.js';
+import * as mwString from './String.js';
+import { MwbotError } from './MwbotError.js';
 
 /**
  * This interface defines the static members of the `Title` class. For instance members,

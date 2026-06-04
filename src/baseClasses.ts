@@ -1,4 +1,4 @@
-import { escapeRegExp } from './Util';
+import { escapeRegExp } from './Util.js';
 
 /**
  * A base class for another class that should have a `params` property that is a string array.
