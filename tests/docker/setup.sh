@@ -26,6 +26,7 @@ esac
 # Recreate the test environment from scratch
 docker compose down -v
 docker compose up -d --build
+mkdir -p secrets
 
 # Wait until MariaDB is ready to accept connections
 until docker compose exec database mariadb \
@@ -138,11 +139,23 @@ get_json_value() {
 create_json_string() {
 	# Alternative to jo
 	node -e '
-		const args = process.argv.slice(1);
+		const parseValue = (rawVal) => {
+			if (rawVal === "true") return true;
+			if (rawVal === "false") return false;
+			if (rawVal === "null") return null;
+			return rawVal;
+		};
 		const obj = Object.fromEntries(
-			args.map(arg => {
+			process.argv.slice(1).map(arg => {
 				const idx = arg.indexOf("=");
-				return [arg.substring(0, idx), arg.substring(idx + 1)];
+				if (idx === -1) {
+					// Treat arguments without "=" as boolean flags
+					return [arg, true];
+				}
+
+				const key = arg.substring(0, idx);
+				const rawVal = arg.substring(idx + 1);
+				return [key, parseValue(rawVal)];
 			})
 		);
 		console.log(JSON.stringify(obj));
@@ -222,7 +235,7 @@ PHP
 		;;
 	anonymous)
 		update_db_schema
-		AUTH_CREDENTIALS=$(create_json_string anonymous=true)
+		AUTH_CREDENTIALS=$(create_json_string anonymous)
 		readonly AUTH_CREDENTIALS
 		;;
 	*)
