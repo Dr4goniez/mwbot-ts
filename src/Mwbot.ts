@@ -196,9 +196,9 @@ export class Mwbot {
 	 */
 	userRequestOptions: MwbotRequestConfig;
 	/**
-	 * An array of `AbortController`s used in {@link abort}.
+	 * A set of `AbortController`s used in {@link abort}.
 	 */
-	protected abortions: AbortController[];
+	protected abortions: Set<AbortController>;
 	/**
 	 * Cashed MediaWiki tokens.
 	 */
@@ -344,7 +344,7 @@ export class Mwbot {
 
 		this.userMwbotOptions = options;
 		this.userRequestOptions = requestOptions;
-		this.abortions = [];
+		this.abortions = new Set();
 		this.tokens = {};
 		this.lastRequestTime = null;
 		this._info = Object.create(null);
@@ -1067,14 +1067,18 @@ export class Mwbot {
 			requestOptions._cloned = true;
 		}
 
-		// Setup AbortController
-		if (!requestOptions.disableAbort) {
-			const controller = new AbortController();
-			requestOptions.signal = controller.signal;
-			this.abortions.push(controller);
+		if (requestOptions.disableAbort || requestOptions.signal) {
+			return this.axios(requestOptions);
 		}
 
-		return this.axios(requestOptions);
+		// Setup AbortController
+		const controller = new AbortController();
+		requestOptions.signal = controller.signal;
+		this.abortions.add(controller);
+
+		return this.axios(requestOptions).finally(() => {
+			this.abortions.delete(controller);
+		});
 
 	}
 
@@ -1650,12 +1654,10 @@ export class Mwbot {
 	 * Aborts all unfinished HTTP requests issued by this instance.
 	 */
 	abort(): this {
-		this.abortions.forEach((controller) => {
-			if (controller) {
-				controller.abort();
-			}
-		});
-		this.abortions = [];
+		for (const controller of this.abortions) {
+			controller.abort();
+		}
+		this.abortions.clear();
 		return this;
 	}
 
