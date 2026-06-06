@@ -1,10 +1,33 @@
 #!/bin/bash
 set -euo pipefail
 
-docker compose down -v
-docker compose up -d
+# Validate the command-line argument
+readonly AUTH_METHOD="${1:-}"
 
-# Ensure the DB is ready before proceeding
+die_with_usage() {
+	echo "Usage: $0 {oauth2|oauth1|botpassword|anonymous}" >&2
+	exit 1
+}
+
+case "$AUTH_METHOD" in
+	oauth2|oauth1|botpassword|anonymous)
+		# Valid input; Noop
+		;;
+	"")
+		echo "Error: Authorization method is required." >&2
+		die_with_usage
+		;;
+	*)
+		echo "Error: Invalid authorization method: '${AUTH_METHOD}'" >&2
+		die_with_usage
+		;;
+esac
+
+# Recreate the test environment from scratch
+docker compose down -v
+docker compose up -d --build
+
+# Wait until MariaDB is ready to accept connections
 until docker compose exec database mariadb \
 	-u mwbot_ts \
 	-pmwbot_ts \
@@ -14,23 +37,206 @@ do
 	sleep 1
 done
 
+# Install MediaWiki
 docker compose exec mediawiki php maintenance/run.php install \
-	--server=http://localhost:8080 \
-	--dbuser=mwbot_ts \
-	--dbpass=mwbot_ts \
-	--dbname=mwbot_ts \
-	--dbserver=database \
-	--dbtype=mysql \
-	--installdbpass=mwbot_ts \
-	--installdbuser=mwbot_ts \
-	--scriptpath="" \
-	--pass=adminpassword \
+	--server http://localhost:8080 \
+	--dbuser mwbot_ts \
+	--dbpass mwbot_ts \
+	--dbname mwbot_ts \
+	--dbserver database \
+	--dbtype mysql \
+	--installdbpass mwbot_ts \
+	--installdbuser mwbot_ts \
+	--scriptpath "" \
+	--pass adminpassword \
 	"mwbot-ts testwiki" Admin
 
-docker compose exec mediawiki php maintenance/run.php update --quick
+MSYS_NO_PATHCONV=1 docker compose exec -T mediawiki cp \
+	/var/www/html/conf/LocalSettings.php \
+	/var/www/html/LocalSettings.php
 
-# Create a bot password for Admin and grant all available permissions
-docker compose exec mediawiki php maintenance/run.php createBotPassword \
-	--appid=adminbot \
-	--grants=basic,blockusers,createaccount,createeditmovepage,delete,editinterface,editmycssjs,editmyoptions,editmywatchlist,editpage,editprotected,editsiteconfig,highvolume,import,mergehistory,oversight,patrol,privateinfo,protect,rollback,sendemail,uploadeditmovefile,uploadfile,viewdeleted,viewmywatchlist,viewrestrictedlogs \
-	Admin 12345678901234567890123456789012
+# Prepare authentication credentials for integration tests
+
+# OAuth and BotPassword permissions used by the test account
+readonly GRANTS="basic,blockusers,createaccount,createeditmovepage,delete,editinterface,editmycssjs,editmyoptions,editmywatchlist,editpage,editprotected,editsiteconfig,highvolume,import,mergehistory,oversight,patrol,privateinfo,protect,rollback,sendemail,uploadeditmovefile,uploadfile,viewdeleted,viewmywatchlist,viewrestrictedlogs"
+
+# Convert the comma-separated permission list into repeated "--grants <permission>" arguments
+IFS=',' read -r -a grant_list <<< "$GRANTS"
+grant_args=()
+for g in "${grant_list[@]}"; do
+	grant_args+=("--grants" "$g")
+done
+
+update_db_schema() {
+	docker compose exec mediawiki php maintenance/run.php update --quick
+}
+
+setup_oauth() {
+	echo "Generating OAuth cryptographic keys..."
+	docker compose exec -T mediawiki mkdir -p secrets
+	docker compose exec -T mediawiki openssl genrsa -out secrets/oauth-private.key 2048
+	docker compose exec -T mediawiki openssl rsa -in secrets/oauth-private.key -pubout -out secrets/oauth-public.key
+	docker compose exec -T mediawiki chown -R www-data:www-data secrets/
+	docker compose exec -T mediawiki chmod 600 secrets/oauth-private.key
+	docker compose exec -T mediawiki chmod 600 secrets/oauth-public.key
+
+	update_db_schema
+
+	# OAuth consumer creation requires a confirmed email address
+	docker compose exec -T mediawiki php maintenance/run.php eval <<'EOF'
+$user = User::newFromName( 'Admin' );
+$user->setEmail( 'mwbot-ts@wikiuser.com' );
+$user->confirmEmail();
+$user->saveSettings();
+EOF
+}
+
+readonly OAUTH_RESULT_JSON="secrets/oauth_result.json"
+create_oauth_consumer() {
+	local -r oauth_version="$1"
+
+	local oauth_extra_args=()
+	if [[ "$oauth_version" == "2" ]]; then
+		oauth_extra_args+=("--oauth2GrantTypes" "client_credentials")
+	fi
+
+	docker compose exec mediawiki php maintenance/run.php ./extensions/OAuth/maintenance/createOAuthConsumer \
+		--name CI-Test-App \
+		--callbackUrl "" \
+		--description Owner-only consumer for CI \
+		--user Admin \
+		--version 1.0.0 \
+		--oauthVersion "$oauth_version" \
+		"${oauth_extra_args[@]}" \
+		"${grant_args[@]}" \
+		--ownerOnly \
+		--approve \
+		--jsonOnSuccess > "$OAUTH_RESULT_JSON"
+}
+
+get_json_value() {
+	# Alternative to jq
+	# shellcheck disable=SC2016
+	node -e '
+		const [file, key] = process.argv.slice(1);
+		try {
+			const fs = require("fs");
+			const content = fs.readFileSync(file, "utf8");
+			const obj = JSON.parse(content);
+			if (!(key in obj)) {
+				console.error(`Key "${key}" not found in ${file}`);
+				process.exit(1);
+			}
+			console.log(obj[key]);
+		} catch (err) {
+			console.error(`Error processing JSON from ${file}: ${err.message}`);
+			process.exit(1);
+		}
+	' "$1" "$2"
+}
+
+create_json_string() {
+	# Alternative to jo
+	node -e '
+		const args = process.argv.slice(1);
+		const obj = Object.fromEntries(
+			args.map(arg => {
+				const idx = arg.indexOf("=");
+				return [arg.substring(0, idx), arg.substring(idx + 1)];
+			})
+		);
+		console.log(JSON.stringify(obj));
+	' "$@"
+}
+
+readonly RESPONSE_JSON="secrets/response.json"
+case "$AUTH_METHOD" in
+	oauth2)
+		setup_oauth
+		create_oauth_consumer "2"
+
+		CLIENT_ID=$(get_json_value "$OAUTH_RESULT_JSON" "key")
+		CLIENT_SECRET=$(get_json_value "$OAUTH_RESULT_JSON" "secret")
+
+		echo "Fetching OAuth2 Access Token via Client Credentials grant..."
+		docker compose exec -T mediawiki curl -fsS -X POST http://localhost/rest.php/oauth2/access_token \
+			-d "grant_type=client_credentials" \
+			-d "client_id=${CLIENT_ID}" \
+			-d "client_secret=${CLIENT_SECRET}" > "$RESPONSE_JSON"
+
+		ACCESS_TOKEN=$(get_json_value "$RESPONSE_JSON" "access_token")
+		AUTH_CREDENTIALS=$(create_json_string oAuth2AccessToken="$ACCESS_TOKEN")
+		readonly AUTH_CREDENTIALS
+
+		rm -f "$OAUTH_RESULT_JSON" "$RESPONSE_JSON"
+		;;
+	oauth1)
+		setup_oauth
+		create_oauth_consumer "1"
+
+		CONSUMER_ID=$(get_json_value "$OAUTH_RESULT_JSON" "id")
+		CONSUMER_KEY=$(get_json_value "$OAUTH_RESULT_JSON" "key")
+		CONSUMER_SECRET=$(get_json_value "$OAUTH_RESULT_JSON" "secret")
+
+		# Note: eval.php is surprisingly sensitive to formatting. Keeping the script simple and
+		# avoiding multiline method chains or complex control structures helps prevent parse errors.
+		# shell.php would be a cleaner alternative, but it requires psy/psysh.
+		echo "Fetching and hashing OAuth1 Access Tokens via MediaWiki database classes..."
+		docker compose exec -T -e CONSUMER_ID="${CONSUMER_ID}" mediawiki php maintenance/run.php eval > "$RESPONSE_JSON" <<'PHP'
+$consumerId = (int)getenv( 'CONSUMER_ID' );
+$dbr = \MediaWiki\MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( \DB_REPLICA );
+$row = $dbr->newSelectQueryBuilder()->fields( [ 'oaac_access_token', 'oaac_access_secret' ] )->table( 'oauth_accepted_consumer' )->where( [ 'oaac_consumer_id' => (int)$consumerId ] )->fetchRow();
+
+$token = null;
+$secret = null;
+if ( $row ) $token = $row->oaac_access_token;
+if ( $row ) $secret = \MediaWiki\Extension\OAuth\Backend\Utils::hmacDBSecret( $row->oaac_access_secret );
+
+echo json_encode( [ 'accessToken' => $token, 'accessTokenSecret' => $secret ] );
+PHP
+
+		ACCESS_TOKEN=$(get_json_value "$RESPONSE_JSON" "accessToken")
+		ACCESS_TOKEN_SECRET=$(get_json_value "$RESPONSE_JSON" "accessTokenSecret")
+		AUTH_CREDENTIALS=$(create_json_string \
+			consumerToken="$CONSUMER_KEY" \
+			consumerSecret="$CONSUMER_SECRET" \
+			accessToken="$ACCESS_TOKEN" \
+			accessSecret="$ACCESS_TOKEN_SECRET"
+		)
+		readonly AUTH_CREDENTIALS
+
+		rm -f "$OAUTH_RESULT_JSON" "$RESPONSE_JSON"
+		;;
+	botpassword)
+		update_db_schema
+
+		# Create a bot password for Admin and grant all available permissions
+		BOT_PASSWORD="12345678901234567890123456789012"
+		docker compose exec mediawiki php maintenance/run.php createBotPassword \
+			--appid adminbot \
+			--grants "$GRANTS" \
+			Admin "$BOT_PASSWORD"
+
+		AUTH_CREDENTIALS=$(create_json_string username="Admin@adminbot" password="$BOT_PASSWORD")
+		readonly AUTH_CREDENTIALS
+		;;
+	anonymous)
+		update_db_schema
+		AUTH_CREDENTIALS=$(create_json_string anonymous=true)
+		readonly AUTH_CREDENTIALS
+		;;
+	*)
+		# Defensive fallback
+		echo "Error: Invalid authorization method: '${AUTH_METHOD}'" >&2
+		die_with_usage
+		;;
+esac
+
+# Write credentials to .env
+readonly ENV_FILE="../integration/localwiki/.env"
+
+cat << EOF > "$ENV_FILE"
+AUTH_CREDENTIALS='${AUTH_CREDENTIALS}'
+AUTH_METHOD='${AUTH_METHOD}'
+EOF
+echo "Setup complete. Credentials saved to ${ENV_FILE}"

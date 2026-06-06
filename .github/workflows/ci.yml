@@ -12,14 +12,27 @@ on:
       - 'package-lock.json'
       - '.github/workflows/ci.yml'
   pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/ci.yml'
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   integration-localwiki:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         node-version: [18.x, 20.x, 22.x]
+        auth-method: [oauth2, oauth1, botpassword, anonymous]
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js ${{ matrix.node-version }}
@@ -29,12 +42,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Setup local MediaWiki
-        run: npm run test:setup
+      - name: Setup local MediaWiki for ${{ matrix.auth-method }} authentication
+        run: npm run test:setup -- ${{ matrix.auth-method }}
       - name: Run localwiki integration tests
         run: npm run test:localwiki
 
   integration-testwiki:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment: testwiki
     steps:
@@ -49,7 +63,6 @@ jobs:
       - name: Run testwiki integration tests
         run: npm run test:testwiki
         env:
-          OAUTH_API: ${{ secrets.OAUTH_API }}
           OAUTH2_ACCESS_TOKEN: ${{ secrets.OAUTH2_ACCESS_TOKEN }}
           OAUTH1A_CONSUMER_TOKEN: ${{ secrets.OAUTH1A_CONSUMER_TOKEN }}
           OAUTH1A_CONSUMER_SECRET: ${{ secrets.OAUTH1A_CONSUMER_SECRET }}

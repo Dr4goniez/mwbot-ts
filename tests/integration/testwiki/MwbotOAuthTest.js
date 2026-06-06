@@ -1,20 +1,15 @@
 import { describe, it } from 'mocha';
 import { assert } from 'chai';
 import { Mwbot } from '../../../dist/index.js';
-
-import { fileURLToPath } from 'node:url';
-import path from 'node:path';
 import dotenv from 'dotenv';
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
 dotenv.config({
-	path: path.resolve(__dirname, '../../docker/.env')
+	path: new URL('./.env', import.meta.url)
 });
 
 describe('OAuth authentication', function () {
 
 	const {
-		OAUTH_API,
 		OAUTH2_ACCESS_TOKEN,
 		OAUTH1A_CONSUMER_TOKEN,
 		OAUTH1A_CONSUMER_SECRET,
@@ -24,7 +19,6 @@ describe('OAuth authentication', function () {
 
 	// Ensure the required environment variables are defined
 	const requiredVars = {
-		OAUTH_API,
 		OAUTH2_ACCESS_TOKEN,
 		OAUTH1A_CONSUMER_TOKEN,
 		OAUTH1A_CONSUMER_SECRET,
@@ -48,20 +42,22 @@ describe('OAuth authentication', function () {
 		return;
 	}
 
+	const apiUrl = 'https://test.wikipedia.org/w/api.php';
+
 	it('authenticates with OAuth 2.0', async function () {
 		const mwbot = await Mwbot.init({
-			apiUrl: OAUTH_API,
+			apiUrl,
 			credentials: {
 				oAuth2AccessToken: OAUTH2_ACCESS_TOKEN,
 			},
 		});
 
-		assert.isTrue(mwbot instanceof Mwbot);
+		assert.instanceOf(mwbot, /** @type {any} */ (Mwbot));
 	});
 
 	it('authenticates with OAuth 1.0a', async function () {
 		const mwbot = await Mwbot.init({
-			apiUrl: OAUTH_API,
+			apiUrl,
 			credentials: {
 				consumerToken: OAUTH1A_CONSUMER_TOKEN,
 				consumerSecret: OAUTH1A_CONSUMER_SECRET,
@@ -70,7 +66,7 @@ describe('OAuth authentication', function () {
 			},
 		});
 
-		assert.isTrue(mwbot instanceof Mwbot);
+		assert.instanceOf(mwbot, /** @type {any} */ (Mwbot));
 	});
 
 });

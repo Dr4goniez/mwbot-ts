@@ -1,6 +1,7 @@
 services:
   mediawiki:
-    image: mediawiki
+    build: .
+    image: mwbot-ts-mediawiki:1.45.3
     restart: always
     ports:
       - '8080:80'
@@ -9,9 +10,13 @@ services:
         condition: service_healthy
     volumes:
       - /var/www/html/images
+      # Mount LocalSettings.php outside the web root so install.php does not terminate
+      # when it detects an existing LocalSettings.php. Later in setup.sh, the mounted
+      # configuration file is copied into the web root.
+      - ./LocalSettings.php:/var/www/html/conf/LocalSettings.php
 
   database:
-    image: mariadb
+    image: mariadb:12.3.2
     restart: always
     environment:
       MYSQL_DATABASE: mwbot_ts
