@@ -30,7 +30,7 @@ typeLines.push(
 
 // Read files in the build directory
 const ignoredFiles = new Set([
-	'phpCharMap.d.ts'
+	'phpCharMap.d.ts',
 ]);
 for (const file of readdirSync(buildDir)) {
 	if (file.endsWith('.d.ts') && !ignoredFiles.has(file)) {

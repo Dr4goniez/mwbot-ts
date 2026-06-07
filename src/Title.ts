@@ -700,9 +700,9 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 * @return
 	 */
 	const getNamespacePrefix = function(namespace: number): string {
-		return namespace === NS_MAIN ?
-			'' :
-			(wgFormattedNamespaces[namespace].replace(/ /g, '_') + ':');
+		return namespace === NS_MAIN
+			? ''
+			: (wgFormattedNamespaces[namespace].replace(/ /g, '_') + ':');
 	};
 	const rUnderscoreTrim = /^_+|_+$/g;
 	const rSplit = /^(.+?)_*:_*(.*)$/;
@@ -735,56 +735,56 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		{
 			pattern: /~{3}/g,
 			replace: '',
-			generalRule: true
+			generalRule: true,
 		},
 		// control characters
 		{
 			pattern: /[\x00-\x1f\x7f]/g,
 			replace: '',
-			generalRule: true
+			generalRule: true,
 		},
 		// URL encoding (possibly)
 		{
 			pattern: /%([\dA-Fa-f]{2})/g,
 			replace: '% $1',
-			generalRule: true
+			generalRule: true,
 		},
 		// HTML-character-entities
 		{
 			pattern: /&(([\dA-Za-z\x80-\xff]+|#\d+|#x[\dA-Fa-f]+);)/g,
 			replace: '& $1',
-			generalRule: true
+			generalRule: true,
 		},
 		// slash, colon (not supported by file systems like NTFS/Windows, Mac OS 9 [:], ext4 [/])
 		{ // TODO: Any way to fetch "wgIllegalFileChars" from the API?
 			pattern: new RegExp('[' + (config.get('wgIllegalFileChars') || ':/\\\\') + ']', 'g'),
 			replace: '-',
-			fileRule: true
+			fileRule: true,
 		},
 		// brackets, greater than
 		{
 			pattern: /[}\]>]/g,
 			replace: ')',
-			generalRule: true
+			generalRule: true,
 		},
 		// brackets, lower than
 		{
 			pattern: /[{[<]/g,
 			replace: '(',
-			generalRule: true
+			generalRule: true,
 		},
 		// everything that wasn't covered yet
 		{
 			pattern: new RegExp(rInvalid.source, 'g'),
 			replace: '-',
-			generalRule: true
+			generalRule: true,
 		},
 		// directory structures
 		{
 			pattern: /^(\.|\.\.|\.\/.*|\.\.\/.*|.*\/\.\/.*|.*\/\.\.\/.*|.*\/\.|.*\/\.\.)$/g,
 			replace: '',
-			generalRule: true
-		}
+			generalRule: true,
+		},
 	];
 	/**
 	 * Checks if an interwiki prefix is valid.
@@ -989,7 +989,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 					fragment: null,
 					colon,
 					interwiki,
-					local_interwiki
+					local_interwiki,
 				};
 				return ret;
 			} else {
@@ -1061,7 +1061,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			fragment,
 			colon,
 			interwiki,
-			local_interwiki
+			local_interwiki,
 		};
 	};
 	/**
@@ -1182,14 +1182,14 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			if (typeof title !== 'string') {
 				throw new MwbotError('fatal', {
 					code: 'typemismatch',
-					info: `"title" for Title.constructor must be a string.`
+					info: `"title" for Title.constructor must be a string.`,
 				}, { title });
 			}
 			const parsed = parse(title, namespace);
 			if (!parsed) {
 				throw new MwbotError('fatal', {
 					code: 'unparsabletitle',
-					info: `Unable to parse the title "${title}".`
+					info: `Unable to parse the title "${title}".`,
 				});
 			}
 			this.namespace = parsed.namespace;
@@ -1209,7 +1209,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			if (typeof title !== 'string') {
 				throw new MwbotError('fatal', {
 					code: 'typemismatch',
-					info: `"title" for Title.newFromText() must be a string.`
+					info: `"title" for Title.newFromText() must be a string.`,
 				}, { title });
 			}
 			const parsed = parse(title, namespace);
@@ -1329,7 +1329,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			} else {
 				throw new MwbotError('fatal', {
 					code: 'typemismatch',
-					info: `"title" for Title.exists() must be either a string or a Title instance.`
+					info: `"title" for Title.exists() must be either a string or a Title instance.`,
 				}, { title });
 			}
 			if (typeof match !== 'boolean') {
@@ -1351,7 +1351,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 					pages[titles[i]] = state;
 				}
 				return true;
-			}
+			},
 		};
 
 		static normalizeExtension(extension: string): string {
@@ -1361,7 +1361,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 				jpeg: 'jpg',
 				mpeg: 'mpg',
 				tiff: 'tif',
-				ogv: 'ogg'
+				ogv: 'ogg',
 			};
 			if (Object.hasOwnProperty.call(normalizations, lower)) {
 				return normalizations[lower as keyof typeof normalizations];
@@ -1388,14 +1388,14 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 
 		static uc(str: string): string {
 			if (rUpperPhpChars.test(str)) {
-				return Array.from(str).reduce((acc, char) => acc += Title.phpCharToUpper(char), '');
+				return Array.from(str, Title.phpCharToUpper).join('');
 			}
 			return str.toUpperCase();
 		}
 
 		static lc(str: string): string {
 			if (rLowerPhpChars.test(str)) {
-				return Array.from(str).reduce((acc, char) => acc += Title.phpCharToLower(char), '');
+				return Array.from(str, Title.phpCharToLower).join('');
 			}
 			return str.toLowerCase();
 		}
@@ -1404,7 +1404,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			if (typeof title !== 'string') {
 				throw new MwbotError('fatal', {
 					code: 'typemismatch',
-					info: `"title" for Title.normalize() must be a string.`
+					info: `"title" for Title.normalize() must be a string.`,
 				}, { title });
 			}
 			const parsed = parse(title, options.namespace ?? NS_MAIN);

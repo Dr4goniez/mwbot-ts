@@ -107,7 +107,7 @@ function trimLength(safeVal: string, newVal: string, length: number, lengthFn: L
 		// and let the user continue.
 		return {
 			newVal: newVal,
-			trimmed: false
+			trimmed: false,
 		};
 	}
 	// Current input is longer than the active limit.
@@ -145,7 +145,7 @@ function trimLength(safeVal: string, newVal: string, length: number, lengthFn: L
 		// Inserted content
 		newVal.slice(startMatches, newVal.length - endMatches),
 		// Same end
-		newVal.slice(newVal.length - endMatches)
+		newVal.slice(newVal.length - endMatches),
 	];
 	// Chop off characters from the end of the "inserted content" string
 	// until the limit is statisfied.
@@ -159,7 +159,7 @@ function trimLength(safeVal: string, newVal: string, length: number, lengthFn: L
 		newVal: inpParts.join(''),
 		// For pathological lengthFn() that always returns a length greater than the limit, we might have
 		// ended up not trimming - check for this case to avoid infinite loops
-		trimmed: newVal !== inpParts.join('')
+		trimmed: newVal !== inpParts.join(''),
 	};
 }
 /**

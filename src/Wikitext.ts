@@ -72,7 +72,7 @@ import type {
 	NewTemplateParameter,
 	TemplateParameterHierarchies,
 	ParsedTemplateOptions,
-	ParsedTemplateInitializer
+	ParsedTemplateInitializer,
 } from './Template.js';
 import type {
 	ParsedWikilinkStatic,
@@ -83,7 +83,7 @@ import type {
 	ParsedRawWikilink,
 	ParsedFileWikilinkInitializer,
 	ParsedWikilinkInitializer,
-	ParsedRawWikilinkInitializer
+	ParsedRawWikilinkInitializer,
 } from './Wikilink.js';
 
 // Imported only for docs
@@ -480,8 +480,8 @@ export function WikitextFactory(
 				// Deprecated HTML tags
 				'center', 'font', 'rb', 'rtc', 'strike', 'tt',
 				// Comment tag, used in mwbot-ts
-				'!--'
-			])
+				'!--',
+			]),
 		],
 		[
 			'mediawiki',
@@ -498,9 +498,9 @@ export function WikitextFactory(
 				// Special MediaWiki inclusion/exclusion tags
 				'includeonly', 'noinclude', 'onlyinclude',
 				// Tags from Extension:Translate
-				'translate', 'tvar'
-			])
-		]
+				'translate', 'tvar',
+			]),
+		],
 	]);
 
 	class Wikitext implements Wikitext {
@@ -523,7 +523,7 @@ export function WikitextFactory(
 			if (typeof content !== 'string') {
 				throw new MwbotError('fatal', {
 					code: 'typemismatch',
-					info: `"${typeof content}" is not a valid type for Wikitext.constructor.`
+					info: `"${typeof content}" is not a valid type for Wikitext.constructor.`,
 				});
 			}
 			this.storage = {
@@ -533,7 +533,7 @@ export function WikitextFactory(
 				sections: null,
 				wikilinks_fuzzy: null,
 				templates: null,
-				wikilinks: null
+				wikilinks: null,
 			};
 
 		}
@@ -640,7 +640,7 @@ export function WikitextFactory(
 					sections: null,
 					wikilinks_fuzzy: null,
 					templates: null,
-					wikilinks: null
+					wikilinks: null,
 				};
 			} else if (key in this.storage) {
 				// Set the passed array
@@ -661,12 +661,12 @@ export function WikitextFactory(
 			if (typeof type !== 'string' || !['tags', 'parameters', 'sections', 'templates', 'wikilinks'].includes(type)) {
 				throw new MwbotError('fatal', {
 					code: 'invalidtype',
-					info: `"${type}" is not a valid expression type for Wikitext.modify.`
+					info: `"${type}" is not a valid expression type for Wikitext.modify.`,
 				});
 			} else if (typeof modificationPredicate !== 'function') {
 				throw new MwbotError('fatal', {
 					code: 'typemismatch',
-					info: 'modificationPredicate must be a function.'
+					info: 'modificationPredicate must be a function.',
 				});
 			}
 
@@ -682,7 +682,7 @@ export function WikitextFactory(
 				if (typeof mod !== 'string' && mod !== null) {
 					throw new MwbotError('fatal', {
 						code: 'typemismatch',
-						info: 'modificationPredicate must return either a string or null.'
+						info: 'modificationPredicate must return either a string or null.',
 					}, { modified: { [i]: mod } });
 				}
 				if (typeof mod === 'string') {
@@ -805,7 +805,7 @@ export function WikitextFactory(
 							name: nodeName,
 							startIndex: i,
 							endIndex: i + m[0].length,
-							selfClosing
+							selfClosing,
 						});
 					}
 
@@ -866,7 +866,7 @@ export function WikitextFactory(
 								skip: false,
 								index: -1,
 								parent: null,
-								children: new Set()
+								children: new Set(),
 							});
 							closedTagCnt++;
 
@@ -907,7 +907,7 @@ export function WikitextFactory(
 					skip: false,
 					index: -1,
 					parent: null,
-					children: new Set()
+					children: new Set(),
 				});
 			});
 
@@ -1028,7 +1028,7 @@ export function WikitextFactory(
 				 * This is not the same as the JavaScript `\s`, which is equivalent to
 				 * `[\t\n\v\f\r\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]`.
 				 */
-				whitespace: /[\t\u0020\u00a0]+/g
+				whitespace: /[\t\u0020\u00a0]+/g,
 			};
 
 			// Extract HTML-style headings (<h1>–<h6>)
@@ -1046,7 +1046,7 @@ export function WikitextFactory(
 						// TODO: Should we handle tags like <span> or [[wikilinks]] within headings?
 						title: mwbot.Title.clean(removeComments(tag.content!)),
 						level: parseInt(m[1]),
-						index: tag.startIndex
+						index: tag.startIndex,
 					});
 				}
 
@@ -1159,7 +1159,7 @@ export function WikitextFactory(
 					text: wikitext.slice(startIndex, endIndex) + newline,
 					title: mwbot.Title.clean(title),
 					level,
-					index: startIndex
+					index: startIndex,
 				});
 
 			}
@@ -1191,7 +1191,7 @@ export function WikitextFactory(
 						return this.heading + this.content;
 					},
 					parent: null,
-					children: new Set()
+					children: new Set(),
 				};
 			});
 			for (const obj of sections) {
@@ -1231,13 +1231,13 @@ export function WikitextFactory(
 			if (typeof startIndex !== 'number') {
 				throw new MwbotError('fatal', {
 					code: 'typemismatch',
-					info: `Expected a number for "startIndex", but got ${typeof startIndex}.`
+					info: `Expected a number for "startIndex", but got ${typeof startIndex}.`,
 				});
 			}
 			if (typeof endIndex !== 'number') {
 				throw new MwbotError('fatal', {
 					code: 'typemismatch',
-					info: `Expected a number for "endIndex", but got ${typeof endIndex}.`
+					info: `Expected a number for "endIndex", but got ${typeof endIndex}.`,
 				});
 			}
 			const sections = this.storageManager('sections');
@@ -1273,7 +1273,7 @@ export function WikitextFactory(
 				twoOrMoreLeftBreaces: /\{{2,}/g,
 				twoOrMoreRightBreaces: /\}{2,}/g,
 				startWithTwoOrMoreRightBreaces: /^\}{2,}/,
-				endWithThreeRightBraces: /\}{3}$/
+				endWithThreeRightBraces: /\}{3}$/,
 			};
 			const wikitext = this.content;
 			let nestLevel = 0;
@@ -1337,7 +1337,7 @@ export function WikitextFactory(
 						nestLevel,
 						skip: isInSkipRange(match.index, regex.params.lastIndex),
 						parent: null,
-						children: new Set()
+						children: new Set(),
 					};
 					params.push(param);
 
@@ -1411,7 +1411,7 @@ export function WikitextFactory(
 					indexMap[startIndex] = {
 						text,
 						type: name === 'gallery' ? 'gallery' : 'tag',
-						inner
+						inner,
 					};
 				}
 			});
@@ -1423,12 +1423,12 @@ export function WikitextFactory(
 					// `inner` is the right operand of the parameter
 					const inner = m && {
 						start: startIndex + m[1].length,
-						end: startIndex + m[1].length + m[2].length
+						end: startIndex + m[1].length + m[2].length,
 					};
 					indexMap[startIndex] = {
 						text,
 						type: 'parameter',
-						inner
+						inner,
 					};
 				});
 			}
@@ -1445,7 +1445,7 @@ export function WikitextFactory(
 					indexMap[startIndex] = {
 						text,
 						type: 'wikilink_fuzzy',
-						inner
+						inner,
 					};
 				});
 			}
@@ -1492,7 +1492,7 @@ export function WikitextFactory(
 			 */
 			const regex = {
 				start: /^\[{2}(?!\[)/,
-				end: /^\]{2}/
+				end: /^\]{2}/,
 			};
 			const links: FuzzyWikilink[] = [];
 			let inLink = false;
@@ -1574,7 +1574,7 @@ export function WikitextFactory(
 						startIndex,
 						endIndex,
 						nestLevel,
-						skip: isInSkipRange(startIndex, endIndex)
+						skip: isInSkipRange(startIndex, endIndex),
 					});
 					if (nestLevel) {
 						// If this was a nested wikilink, resume parsing from the parent wikilink's start index
@@ -1582,7 +1582,7 @@ export function WikitextFactory(
 						indexMap[startIndex] = {
 							text,
 							type: 'wikilink_fuzzy',
-							inner: null // If `inner` is `null`, its content won't be parsed recursively
+							inner: null, // If `inner` is `null`, its content won't be parsed recursively
 						};
 						i = (unprocessed.shift() as number) - 1; // Go back to the start of the nesting wikilink in the next iteration
 					} else {
@@ -1631,7 +1631,7 @@ export function WikitextFactory(
 			let components: Required<NewTemplateParameter>[] = [];
 			const regex = {
 				templateStart: /^\{\{/,
-				templateEnd: /^\}\}/
+				templateEnd: /^\}\}/,
 			};
 
 			// Character-by-character loop
@@ -1739,7 +1739,7 @@ export function WikitextFactory(
 							nestLevel,
 							skip: isInSkipRange(startIndex, endIndex),
 							parent: null,
-							children: new Set()
+							children: new Set(),
 						};
 						let temp: DoubleBracedClasses;
 						try {
@@ -1889,7 +1889,7 @@ export function WikitextFactory(
 				obj._setInitializer({
 					index,
 					parent: obj.parent,
-					children: obj.children
+					children: obj.children,
 				});
 			}
 
@@ -1991,7 +1991,7 @@ export function WikitextFactory(
 						index,
 						parent: null,
 						children: new Set(),
-						...rest
+						...rest,
 					};
 					return new ParsedFileWikilink(initializer);
 				} else if (verifiedTitle) {
@@ -2003,7 +2003,7 @@ export function WikitextFactory(
 						index,
 						parent: null,
 						children: new Set(),
-						...rest
+						...rest,
 					};
 					return new ParsedWikilink(initializer);
 				} else {
@@ -2015,7 +2015,7 @@ export function WikitextFactory(
 						index,
 						parent: null,
 						children: new Set(),
-						...rest
+						...rest,
 					};
 					return new ParsedRawWikilink(initializer);
 				}
@@ -2024,7 +2024,7 @@ export function WikitextFactory(
 				setKinships(obj, links);
 				obj._setInitializer({
 					parent: obj.parent,
-					children: obj.children
+					children: obj.children,
 				});
 			}
 			return links;
@@ -2083,7 +2083,7 @@ export type SkipTags =
  * @param inclusive Whether to use inclusive comparison (`<=`) instead of strict comparison (`<`).
  */
 function setKinships<
-	T extends Tag | Section | Parameter | DoubleBracedClasses | DoubleBracketedClasses
+	T extends Tag | Section | Parameter | DoubleBracedClasses | DoubleBracketedClasses,
 >(obj: T, arr: T[], inclusive = false): void {
 	const getLevel = (x: T): number => 'level' in x ? x.level : x.nestLevel;
 	const precedes = (a: number, b: number) => inclusive ? a <= b : a < b;
@@ -2319,7 +2319,7 @@ function createVoidTagObject(
 		skip,
 		index: -1,
 		parent: null,
-		children: new Set()
+		children: new Set(),
 	};
 }
 
@@ -2619,7 +2619,7 @@ function createTemplateIndexMap(indexMap: IndexMap, obj: DoubleBracedClasses): v
 	indexMap[startIndex] = {
 		text,
 		type: 'template',
-		inner
+		inner,
 	};
 }
 

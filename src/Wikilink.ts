@@ -725,7 +725,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 				}
 				return false;
 			}
-			// @ts-expect-error
+			// @ts-expect-error FIXME: Updating readonly property
 			this.title = title;
 			return true;
 		}
@@ -883,7 +883,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 				}
 				return false;
 			}
-			// @ts-expect-error
+			// @ts-expect-error FIXME: Updating readonly property
 			this.title = title;
 			return true;
 		}
@@ -1064,7 +1064,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		setTitle(title: string): this {
 			if (typeof title === 'string') {
-				// @ts-expect-error
+				// @ts-expect-error FIXME: Updating readonly property
 				this.title = title;
 				return this;
 			} else {
@@ -1220,7 +1220,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		FileWikilink: FileWikilink as FileWikilinkStatic,
 		ParsedFileWikilink: ParsedFileWikilink as ParsedFileWikilinkStatic,
 		RawWikilink: RawWikilink as RawWikilinkStatic,
-		ParsedRawWikilink: ParsedRawWikilink as ParsedRawWikilinkStatic
+		ParsedRawWikilink: ParsedRawWikilink as ParsedRawWikilinkStatic,
 	};
 
 }
@@ -1353,8 +1353,10 @@ export interface ParsedRawWikilinkInitializer extends ParsedWikilinkInitializerB
 	display?: string;
 }
 
+/* eslint-disable @stylistic/indent */
 type InitializerFor<CLS> =
 	CLS extends ParsedWikilink ? ParsedWikilinkInitializer :
 	CLS extends ParsedFileWikilink ? ParsedFileWikilinkInitializer :
 	CLS extends ParsedRawWikilink ? ParsedRawWikilinkInitializer :
 	never;
+/* eslint-enable @stylistic/indent */

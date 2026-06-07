@@ -479,7 +479,7 @@ export interface ParsedTemplateProps<CLS> {
 	 * @hidden
 	 */
 	_getInitializer<
-		K extends keyof ParsedTemplateInitializer
+		K extends keyof ParsedTemplateInitializer,
 	>(key: K): ParsedTemplateInitializer[K];
 	/**
 	 * @hidden
@@ -914,8 +914,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			}
 			const hook = ParserFunction.verify(
 				typeof title === 'string'
-				? title
-				: title.getPrefixedDb({ colon: true, fragment: true })
+					? title
+					: title.getPrefixedDb({ colon: true, fragment: true })
 			);
 			if (hook && asHook) {
 				return hook;
@@ -1019,7 +1019,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				get text() {
 					return '|' + (!this.unnamed ? this.key + '=' : '') + this.value;
 				},
-				unnamed
+				unnamed,
 			};
 			if (duplicates) {
 				ret.duplicates = duplicates;
@@ -1206,7 +1206,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				append,
 				sortPredicate = (param1, param2) => order.indexOf(param1.key) - order.indexOf(param2.key),
 				brPredicateTitle = () => false,
-				brPredicateParam = () => false
+				brPredicateParam = () => false,
 			} = options;
 			const suppressKeys = (options.suppressKeys || []).filter((key) => /^[1-9]\d*$/.test(key));
 			let { prepend } = options;
@@ -1231,10 +1231,14 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			// Process params
 			for (const param of Object.values(this.params).sort(sortPredicate)) {
 				const { key, value, unnamed } = param;
-				const noKey =
-					value.includes('=') ? false : // Always show key if value contains '='
-					suppressKeys.includes(key) ? true : // Suppress key if it's in the list
-					unnamed; // Fallback to the original setting
+				let noKey = unnamed;
+				if (value.includes('=')) {
+					// Always show key if value contains '='
+					noKey = false;
+				} else if (suppressKeys.includes(key)) {
+					// Suppress key if it's in the list
+					noKey = true;
+				}
 				ret.push('|' + (noKey ? '' : key + '=') + value);
 				if (brPredicateParam(param)) {
 					ret.push('\n');
@@ -1293,7 +1297,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		setTitle(title: string | Title, verbose = false): boolean {
 			try {
-				// @ts-expect-error
+				// @ts-expect-error FIXME: Updating readonly property
 				this.title = Template.validateTitle(title);
 				return true;
 			} catch (err) {
@@ -1395,7 +1399,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		_getInitializer<
-			K extends keyof ParsedTemplateInitializer
+			K extends keyof ParsedTemplateInitializer,
 		>(key: K): ParsedTemplateInitializer[K] {
 			return this.#initializer[key];
 		}
@@ -1453,7 +1457,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		setTitle(title: string): this {
-			// @ts-expect-error
+			// @ts-expect-error FIXME: Updating readonly property
 			this.title = title;
 			return this;
 		}
@@ -1506,7 +1510,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		_getInitializer<
-			K extends keyof ParsedTemplateInitializer
+			K extends keyof ParsedTemplateInitializer,
 		>(key: K): ParsedTemplateInitializer[K] {
 			return this.#initializer[key];
 		}
@@ -1564,9 +1568,9 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			if (!verified) {
 				return false;
 			}
-			// @ts-expect-error
+			// @ts-expect-error FIXME: Updating readonly property
 			this.hook = verified.match;
-			// @ts-expect-error
+			// @ts-expect-error FIXME: Updating readonly property
 			this.canonicalHook = verified.canonical;
 			return true;
 		}
@@ -1585,7 +1589,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			const ret = [
 				'{{',
 				prepend,
-				hook
+				hook,
 			];
 			const params = this.params.slice();
 			if (params.length) {
@@ -1685,7 +1689,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 					console.warn({
 						title,
 						rawTitle,
-						hook: verified.match
+						hook: verified.match,
 					});
 					throw new Error('Unable to parse rawTitle.');
 				}
@@ -1749,7 +1753,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		_getInitializer<
-			K extends keyof ParsedTemplateInitializer
+			K extends keyof ParsedTemplateInitializer,
 		>(key: K): ParsedTemplateInitializer[K] {
 			return this.#initializer[key];
 		}
@@ -1775,7 +1779,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		ParsedTemplate: ParsedTemplate as ParsedTemplateStatic,
 		RawTemplate: RawTemplate as RawTemplateStatic,
 		ParserFunction: ParserFunction as ParserFunctionStatic,
-		ParsedParserFunction: ParsedParserFunction as ParsedParserFunctionStatic
+		ParsedParserFunction: ParsedParserFunction as ParsedParserFunctionStatic,
 	};
 
 }

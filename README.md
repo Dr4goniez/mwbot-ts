@@ -337,7 +337,7 @@ All of these methods return a `Promise` that resolves with an [ApiResponseEditSu
 <details>
 <summary>ApiResponseEditSuccess</summary>
 
-```
+```js
 {
   new: true,
   result: 'Success', // This will NEVER be anything but 'Success'
@@ -590,7 +590,7 @@ mwbot.post({
 })
 .catch(console.error);
 ```
-```
+```console
 MwbotError: The "token" parameter must be set.
     at Function.newFromResponse (W:\Programming\Git\home\mwbot-ts\src\MwbotError.ts:119:10)
     at Mwbot._request (W:\Programming\Git\home\mwbot-ts\src\Mwbot.ts:1062:27)
@@ -682,7 +682,7 @@ const text =
 const wikitext = new mwbot.Wikitext(text);
 console.log(wikitext.parseTags());
 ```
-```
+```console
 [
   [Object: null prototype] {
     name: 'b',
@@ -754,7 +754,7 @@ const text =
 const wikitext = new mwbot.Wikitext(text);
 console.log(wikitext.parseSections());
 ```
-```
+```console
 [
   [Object: null prototype] {
     heading: '',
@@ -823,7 +823,7 @@ const text =
 const wikitext = new mwbot.Wikitext(text);
 console.log(wikitext.parseParameters());
 ```
-```
+```console
 [
   [Object: null prototype] {
     key: '1',
@@ -891,7 +891,7 @@ const text =
 const wikitext = new mwbot.Wikitext(text);
 console.dir(wikitext.parseTemplates(), {depth: null});
 ```
-```
+```console
 [
   ParsedTemplate {
     title: Title {
@@ -974,7 +974,7 @@ const text =
 const wikitext = new mwbot.Wikitext(text);
 console.dir(wikitext.parseWikilinks(), {depth: null});
 ```
-```
+```console
 [
   ParsedFileWikilink {
     params: [ 'thumb', 'right', '300px' ],
@@ -1123,7 +1123,7 @@ const content = wikitext.modifySections((section) => {
 });
 console.log(content);
 ```
-```
+```text
 == Foo ==<!--
 -->
 {{Section resolved|1=~~~~}}
@@ -1162,7 +1162,7 @@ const content = wikitext.modifyParameters((parameter) => {
 });
 console.log(content);
 ```
-```
+```text
 {{#if:{{{User|}}}
 |{{{User}}}
 |{{{Ip|Foo}}}
@@ -1220,7 +1220,7 @@ content = wikitext.modifySections((section) => {
 
 console.log(content);
 ```
-```
+```text
 === Global lock for Foo ===
 {{Status|done}}
 *{{LockHide|1=Foo}}
@@ -1257,7 +1257,7 @@ const content = wikitext.modifyWikilinks((link) => {
 });
 console.log(content);
 ```
-```
+```text
 This category belongs to [[:Category:Bar]].
 [[Category:Bar|*]]
 ```

@@ -119,17 +119,17 @@ export function testMwbotProperties(getMwbot, testDomain, authMethod) {
 			headers: {
 				'User-Agent': `mwbot-ts/${MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
 				'Content-Type': 'application/x-www-form-urlencoded',
-				'Accept-Encoding': 'gzip'
+				'Accept-Encoding': 'gzip',
 			},
 			params: {
 				action: 'query',
 				format: 'json',
 				formatversion: '2',
-				maxlag: 5
+				maxlag: 5,
 			},
 			timeout: 60 * 1000, // 60 seconds
 			responseType: 'json',
-			responseEncoding: 'utf8'
+			responseEncoding: 'utf8',
 		});
 	});
 

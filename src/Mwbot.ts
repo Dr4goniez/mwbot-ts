@@ -74,7 +74,7 @@ import {
 	ApiResponseQueryListPrefixsearch,
 	ApiResponseRollback,
 	ApiResponseUnblock,
-	ApiResponseUndelete
+	ApiResponseUndelete,
 } from './api_types.js';
 import { MwbotError, MwbotErrorData } from './MwbotError.js';
 import * as Util from './Util.js';
@@ -151,17 +151,17 @@ export class Mwbot {
 			headers: {
 				'User-Agent': `mwbot-ts/${MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
 				'Content-Type': 'application/x-www-form-urlencoded',
-				'Accept-Encoding': 'gzip'
+				'Accept-Encoding': 'gzip',
 			},
 			params: {
 				action: 'query',
 				format: 'json',
 				formatversion: '2',
-				maxlag: 5
+				maxlag: 5,
 			},
 			timeout: 60 * 1000, // 60 seconds
 			responseType: 'json',
-			responseEncoding: 'utf8'
+			responseEncoding: 'utf8',
 		};
 	}
 	/**
@@ -306,7 +306,7 @@ export class Mwbot {
 		if (!requestOptions.url) {
 			throw new MwbotError('fatal', {
 				code: 'nourl',
-				info: 'No valid API endpoint is provided.'
+				info: 'No valid API endpoint is provided.',
 			});
 		}
 
@@ -377,17 +377,17 @@ export class Mwbot {
 				const { anonymous, oAuth2AccessToken } = credentials;
 				if (anonymous === true) {
 					return {
-						anonymous: true
+						anonymous: true,
 					};
 				}
 				if (typeof oAuth2AccessToken === 'string') {
 					return {
-						oauth2: oAuth2AccessToken
+						oauth2: oAuth2AccessToken,
 					};
 				}
 				throw new MwbotError('fatal', {
 					code: 'invalidcreds',
-					info: `Unexpected value for "${keys[0]}".`
+					info: `Unexpected value for "${keys[0]}".`,
 				});
 			}
 			case 2: {
@@ -396,13 +396,13 @@ export class Mwbot {
 					return {
 						user: {
 							username,
-							password
-						}
+							password,
+						},
 					};
 				}
 				throw new MwbotError('fatal', {
 					code: 'invalidcreds',
-					info: 'Invalid types for username or password.'
+					info: 'Invalid types for username or password.',
 				});
 			}
 			case 4: {
@@ -418,25 +418,25 @@ export class Mwbot {
 						signature_method: 'HMAC-SHA1', // TODO: Make it compatible with the RSA-SHA1 authentication method?
 						hash_function(baseString: crypto.BinaryLike, key: crypto.BinaryLike | crypto.KeyObject) {
 							return crypto.createHmac('sha1', key).update(baseString).digest('base64');
-						}
+						},
 					});
 					return {
 						oauth1: {
 							instance,
 							accessToken,
-							accessSecret
-						}
+							accessSecret,
+						},
 					};
 				}
 				throw new MwbotError('fatal', {
 					code: 'invalidcreds',
-					info: 'Invalid OAuth credentials.'
+					info: 'Invalid OAuth credentials.',
 				});
 			}
 			default:
 				throw new MwbotError('fatal', {
 					code: 'invalidcreds',
-					info: `Invalid credential properties: ${keys.join(', ')}`
+					info: `Invalid credential properties: ${keys.join(', ')}`,
 				});
 		}
 	}
@@ -536,7 +536,7 @@ export class Mwbot {
 			meta: 'userinfo|siteinfo',
 			uiprop: 'rights',
 			siprop: 'functionhooks|general|magicwords|interwikimap|namespaces|namespacealiases',
-			maxlag: void 0
+			maxlag: void 0,
 		});
 
 		// NOTE: interwikimap is built-in since MW v1.44 but was initially an extension
@@ -553,7 +553,7 @@ export class Mwbot {
 			return retryIfPossible(
 				new MwbotError('api_mwbot', {
 					code: 'badauth',
-					info: 'Failed to authenticate the client as a registered user.'
+					info: 'Failed to authenticate the client as a registered user.',
 				}),
 				attemptIndex
 			);
@@ -566,7 +566,7 @@ export class Mwbot {
 			return retryIfPossible(
 				new MwbotError('api_mwbot', {
 					code: 'badvars',
-					info: 'Failed to initialize wg-variables.'
+					info: 'Failed to initialize wg-variables.',
 				}, { keys: failedKeys }),
 				attemptIndex
 			);
@@ -581,7 +581,7 @@ export class Mwbot {
 			interwikimap,
 			namespaces,
 			namespacealiases,
-			user: userinfo as SiteAndUserInfo['user']
+			user: userinfo as SiteAndUserInfo['user'],
 		};
 		this._Title = TitleFactory(
 			// Pass individual properties instead of the instance to avoid redundant deep copies
@@ -627,7 +627,7 @@ export class Mwbot {
 		if (!this.userMwbotOptions.apiUrl) {
 			throw new MwbotError('fatal', {
 				code: 'nourl',
-				info: '"apiUrl" must be retained.'
+				info: '"apiUrl" must be retained.',
 			});
 		}
 		return this;
@@ -698,7 +698,7 @@ export class Mwbot {
 		if (!this.hasRights(rights)) {
 			throw new MwbotError('api_mwbot', {
 				code: 'nopermission',
-				info: `You do not have permission to ${actionDescription}.`
+				info: `You do not have permission to ${actionDescription}.`,
 			});
 		}
 	}
@@ -723,7 +723,7 @@ export class Mwbot {
 		if (condition && this.isAnonymous()) {
 			throw new MwbotError('api_mwbot', {
 				code: 'anonymous',
-				info: 'Anonymous users are limited to non-write requests.'
+				info: 'Anonymous users are limited to non-write requests.',
 			});
 		}
 	}
@@ -763,7 +763,7 @@ export class Mwbot {
 		if (requestOptions?.method !== 'POST') {
 			throw new MwbotError('fatal', {
 				code: 'internal',
-				info: `Expected request method to be "POST", but received "${requestOptions?.method}".`
+				info: `Expected request method to be "POST", but received "${requestOptions?.method}".`,
 			});
 		}
 	}
@@ -804,7 +804,7 @@ export class Mwbot {
 			code: 'typemismatch',
 			info: variableName
 				? `Expected ${messageOrExpectedType} for "${variableName}", but got ${formatType(inputValue)}.`
-				: messageOrExpectedType
+				: messageOrExpectedType,
 		});
 	}
 
@@ -839,7 +839,7 @@ export class Mwbot {
 		'wgUserName',
 		'wgUserRights',
 		'wgVersion',
-		'wgWikiID'
+		'wgWikiID',
 	]);
 
 	/**
@@ -929,7 +929,7 @@ export class Mwbot {
 			},
 			exists: (selection: keyof ConfigData | string) => {
 				return selection in this.configData;
-			}
+			},
 		};
 	}
 
@@ -1013,7 +1013,7 @@ export class Mwbot {
 			set(<K>'wgUserName', userinfo.name),
 			set(<K>'wgUserRights', userinfo.rights),
 			set(<K>'wgVersion', general.generator.replace(/^MediaWiki /, '')),
-			set(<K>'wgWikiID', general.wikiid)
+			set(<K>'wgWikiID', general.wikiid),
 		];
 
 		// Log any failures
@@ -1118,7 +1118,7 @@ export class Mwbot {
 		if (requestOptions.params?.format !== 'json') {
 			throw new MwbotError('api_mwbot', {
 				code: 'invalidformat',
-				info: 'Expected "format=json" in request parameters.'
+				info: 'Expected "format=json" in request parameters.',
 			});
 		}
 		requestOptions.url = this.userMwbotOptions.apiUrl || requestOptions.url;
@@ -1195,7 +1195,7 @@ export class Mwbot {
 				// In most cases the raw HTML of [[Main page]]
 				throw new MwbotError('api_mwbot', {
 					code: 'invalidjson',
-					info: 'No valid JSON response (check the request URL?)'
+					info: 'No valid JSON response (check the request URL?)',
 				}, { axios: response });
 			}
 			if ('error' in data || 'errors' in data) {
@@ -1322,7 +1322,7 @@ export class Mwbot {
 
 			const err = new MwbotError('api_mwbot', {
 				code: 'http',
-				info: 'HTTP request failed.'
+				info: 'HTTP request failed.',
 			}, { axios: error }); // Include the full response for debugging
 
 			// Code-based error handling
@@ -1543,7 +1543,7 @@ export class Mwbot {
 			if (!requestOptions.url || !requestOptions.method) {
 				throw new MwbotError('fatal', {
 					code: 'internal',
-					info: 'OAuth 1.0 requires both "url" and "method" to be set before authentication.'
+					info: 'OAuth 1.0 requires both "url" and "method" to be set before authentication.',
 				});
 			}
 			Object.assign(
@@ -1552,10 +1552,10 @@ export class Mwbot {
 					oauth1.instance.authorize({
 						url: requestOptions.url,
 						method: requestOptions.method,
-						data: requestOptions.data instanceof FormData ? {} : requestOptions.params
+						data: requestOptions.data instanceof FormData ? {} : requestOptions.params,
 					}, {
 						key: oauth1.accessToken,
-						secret: oauth1.accessSecret
+						secret: oauth1.accessSecret,
 					})
 				)
 			);
@@ -1778,7 +1778,7 @@ export class Mwbot {
 		if ((!Number.isInteger(limit) && limit !== Infinity) || limit <= 0) {
 			throw new MwbotError('fatal', {
 				code: 'invalidlimit',
-				info: '"limit" must be a positive integer.'
+				info: '"limit" must be a positive integer.',
 			});
 		}
 
@@ -1820,7 +1820,7 @@ export class Mwbot {
 				const batchString = multiValues.join('|');
 				const batchParams: ApiParams = {
 					...parameters,
-					...Object.fromEntries(multiKeys.map(k => [k, batchString]))
+					...Object.fromEntries(multiKeys.map(k => [k, batchString])),
 				};
 				promise.push(request(batchParams));
 			}
@@ -1882,7 +1882,7 @@ export class Mwbot {
 			const batchArrayStr = multiValues.join('|');
 			batchParams.push({
 				...parameters,
-				...Object.fromEntries(keys.map((key) => [key, batchArrayStr]))
+				...Object.fromEntries(keys.map((key) => [key, batchArrayStr])),
 			});
 		}
 
@@ -1943,7 +1943,7 @@ export class Mwbot {
 			if (!Number.isInteger(batchSize) || batchSize > apilimit || batchSize <= 0) {
 				throw new MwbotError('fatal', {
 					code: 'invalidsize',
-					info: `"batchSize" must be a positive integer less than or equal to ${apilimit}.`
+					info: `"batchSize" must be a positive integer less than or equal to ${apilimit}.`,
 				});
 			}
 		} else {
@@ -1953,7 +1953,7 @@ export class Mwbot {
 		if (!keys.length) {
 			throw new MwbotError('fatal', {
 				code: 'emptyinput',
-				info: '"keys" cannot be empty.'
+				info: '"keys" cannot be empty.',
 			});
 		}
 
@@ -1972,14 +1972,14 @@ export class Mwbot {
 			} else if (!arraysEqual(batchValues, value, true)) {
 				throw new MwbotError('fatal', {
 					code: 'fieldmismatch',
-					info: 'All multi-value fields must be identical.'
+					info: 'All multi-value fields must be identical.',
 				});
 			}
 		}
 		if (!batchValues) {
 			throw new MwbotError('fatal', {
 				code: 'nofields',
-				info: 'No multi-value fields were found.'
+				info: 'No multi-value fields were found.',
 			});
 		}
 
@@ -2014,7 +2014,7 @@ export class Mwbot {
 		return {
 			action,
 			format: 'json',
-			formatversion: '2'
+			formatversion: '2',
 		};
 	}
 
@@ -2049,7 +2049,7 @@ export class Mwbot {
 		this.dieIfAnonymous();
 		const assertParams = {
 			assert: parameters.assert,
-			assertuser: parameters.assertuser
+			assertuser: parameters.assertuser,
 		};
 		parameters.token = await this.getToken(tokenType, assertParams);
 		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
@@ -2115,7 +2115,7 @@ export class Mwbot {
 			...additionalParams,
 			...Mwbot.getActionParams('query'),
 			meta: 'tokens',
-			type: '*'
+			type: '*',
 		}, requestOptions);
 		const tokenMap = response.query?.tokens;
 		if (tokenMap && isEmptyObject(tokenMap) === false) {
@@ -2126,7 +2126,7 @@ export class Mwbot {
 			} else {
 				throw new MwbotError('api_mwbot', {
 					code: 'badnamedtoken',
-					info: 'Could not find a token named "' + tokenType + '" (check for typos?)'
+					info: 'Could not find a token named "' + tokenType + '" (check for typos?)',
 				});
 			}
 		} else {
@@ -2151,7 +2151,7 @@ export class Mwbot {
 			'unblock',
 			'email',
 			'import',
-			'options'
+			'options',
 		]);
 		if (csrfActions.has(action)) {
 			return 'csrf';
@@ -2184,9 +2184,9 @@ export class Mwbot {
 		return this.get({
 			action: 'paraminfo',
 			modules: action,
-			maxlag: void 0
+			maxlag: void 0,
 		}, {
-			disableRetryByCode: ['badtoken']
+			disableRetryByCode: ['badtoken'],
 		}).then((res) => {
 			const paramObj = res.paraminfo?.modules[0].parameters.find((p) => p.name === 'token');
 			return paramObj && paramObj.tokentype || null;
@@ -2248,7 +2248,7 @@ export class Mwbot {
 			if (!t) {
 				throw new MwbotError('api_mwbot', {
 					code: 'invalidtitle',
-					info: `"${title}" is not a valid title.`
+					info: `"${title}" is not a valid title.`,
 				});
 			}
 			title = t;
@@ -2256,19 +2256,19 @@ export class Mwbot {
 		if (!title.getMain()) {
 			throw new MwbotError('api_mwbot', {
 				code: 'emptytitle',
-				info: 'The title is empty.'
+				info: 'The title is empty.',
 			});
 		}
 		if (title.isExternal()) {
 			throw new MwbotError('api_mwbot', {
 				code: 'interwikititle',
-				info: `"${title.getPrefixedText()}" is an interwiki title.`
+				info: `"${title.getPrefixedText()}" is an interwiki title.`,
 			});
 		}
 		if (!allowSpecial && title.getNamespaceId() < 0) {
 			throw new MwbotError('api_mwbot', {
 				code: 'specialtitle',
-				info: `"${title.getPrefixedText()}" is a special-namespace title.`
+				info: `"${title.getPrefixedText()}" is a special-namespace title.`,
 			});
 		}
 		return title;
@@ -2308,7 +2308,7 @@ export class Mwbot {
 		}
 		throw new MwbotError('api_mwbot', {
 			code: 'editfailed',
-			info: 'Edit failed.'
+			info: 'Edit failed.',
 		}, { response: res });
 	}
 
@@ -2477,7 +2477,7 @@ export class Mwbot {
 		if (userParams === null) {
 			throw new MwbotError('api_mwbot', {
 				code: 'aborted',
-				info: 'Edit aborted by the user.'
+				info: 'Edit aborted by the user.',
 			});
 		}
 		if (!isPlainObject(userParams)) {
@@ -2519,7 +2519,7 @@ export class Mwbot {
 		}
 		throw new MwbotError('api_mwbot', {
 			code: 'editfailed',
-			info: 'Edit failed.'
+			info: 'Edit failed.',
 		}, { response: result });
 
 	}
@@ -2556,7 +2556,7 @@ export class Mwbot {
 		const NS_TEMPLATE = config.get('wgNamespaceIds').template;
 		const count = {
 			bots: 0,
-			nobots: 0
+			nobots: 0,
 		};
 		const templates = wikitext.parseTemplates({
 			templatePredicate: (temp) => {
@@ -2585,7 +2585,7 @@ export class Mwbot {
 						return true;
 					default: return false;
 				}
-			}
+			},
 		}) as ParsedTemplate[];
 		if (!templates.length) {
 			return;
@@ -2678,7 +2678,7 @@ export class Mwbot {
 		if (text) {
 			throw new MwbotError('api_mwbot', {
 				code: 'botdenied',
-				info: `Bot edit denied due to "${text}".`
+				info: `Bot edit denied due to "${text}".`,
 			}, { title });
 		}
 
@@ -2760,7 +2760,7 @@ export class Mwbot {
 			...additionalParams,
 			...Mwbot.getActionParams('query'),
 			meta: 'userinfo',
-			uiprop: 'options'
+			uiprop: 'options',
 		}, requestOptions);
 		const options = response.query?.userinfo?.options;
 		if (options) {
@@ -2829,7 +2829,7 @@ export class Mwbot {
 		) {
 			throw new MwbotError('fatal', {
 				code: 'internal',
-				info: `Invalid "gprprop": ${JSON.stringify(gprprop)}`
+				info: `Invalid "gprprop": ${JSON.stringify(gprprop)}`,
 			});
 		}
 
@@ -2837,7 +2837,7 @@ export class Mwbot {
 			...additionalParams,
 			...Mwbot.getActionParams('query'),
 			meta: 'globalpreferences',
-			gprprop: gprprop.join('|')
+			gprprop: gprprop.join('|'),
 		}, requestOptions);
 
 		const path = 'response.query.globalpreferences';
@@ -2858,7 +2858,7 @@ export class Mwbot {
 			}
 			return {
 				preferences: toMap(preferences),
-				localoverrides: toMap(localoverrides)
+				localoverrides: toMap(localoverrides),
 			};
 		}
 
@@ -3055,7 +3055,7 @@ export class Mwbot {
 			this.saveOptionsRequest = this.postWithCsrfToken({
 				...additionalParams,
 				...Mwbot.getActionParams(action),
-				change
+				change,
 			}, requestOptions).then((res) => {
 				if (res[action] === 'success') {
 					return res;
@@ -3264,7 +3264,7 @@ export class Mwbot {
 			autoblock: true,
 			allowusertalk: true,
 			...additionalParams,
-			...Mwbot.getActionParams('block')
+			...Mwbot.getActionParams('block'),
 		}, requestOptions);
 		if (response.block) {
 			return response.block;
@@ -3318,7 +3318,7 @@ export class Mwbot {
 			...additionalParams,
 			...Mwbot.getActionParams('delete'),
 			title,
-			pageid: pageId
+			pageid: pageId,
 		}, requestOptions);
 		if (response.delete) {
 			return response.delete;
@@ -3339,7 +3339,7 @@ export class Mwbot {
 		// Fetch a login token
 		const config: MwbotRequestConfig = {
 			disableRetryAPI: true,
-			disableAssert: true
+			disableAssert: true,
 		};
 		const token = await this.getToken('login', { maxlag: void 0 }, config);
 
@@ -3349,14 +3349,14 @@ export class Mwbot {
 			lgname: username,
 			lgpassword: password,
 			lgtoken: token,
-			maxlag: void 0 // Overwrite maxlag to have this request prioritized
+			maxlag: void 0, // Overwrite maxlag to have this request prioritized
 		}, config);
 		if (!response.login) {
 			Mwbot.dieAsEmpty(true, 'missing "response.login"', { response });
 		} else if (response.login.result !== 'Success') {
 			throw new MwbotError('api_mwbot', {
 				code: 'loginfailed',
-				info: response.login.reason || 'Failed to log in.'
+				info: response.login.reason || 'Failed to log in.',
 			}, { response });
 		} else {
 			this.tokens = {}; // Clear cashed tokens because these can't be used for the newly logged-in user
@@ -3416,7 +3416,7 @@ export class Mwbot {
 			...Mwbot.getActionParams('move'),
 			from: fromTitle,
 			fromid: fromId,
-			to: toTitle
+			to: toTitle,
 		}, requestOptions);
 		if (response.move) {
 			return response.move;
@@ -3445,7 +3445,7 @@ export class Mwbot {
 	async parse(params: ApiParamsActionParse, requestOptions?: MwbotRequestConfig): Promise<ApiResponseParse> {
 		const response = await this.fetch({
 			...params,
-			...Mwbot.getActionParams('parse')
+			...Mwbot.getActionParams('parse'),
 		}, requestOptions);
 		if (response.parse) {
 			return response.parse;
@@ -3517,7 +3517,7 @@ export class Mwbot {
 			...Mwbot.getActionParams('protect'),
 			title,
 			pageid: pageId,
-			protections
+			protections,
 		}, requestOptions);
 		if (response.protect) {
 			return response.protect;
@@ -3576,14 +3576,14 @@ export class Mwbot {
 		if (invalid.length) {
 			throw new MwbotError('fatal', {
 				code: 'typemismatch',
-				info: 'The array passed as the first argument of purge() must only contain strings or Title instances.'
+				info: 'The array passed as the first argument of purge() must only contain strings or Title instances.',
 			}, { invalid });
 		}
 
 		const response = await this.post({
 			...additionalParams,
 			...Mwbot.getActionParams('purge'),
-			titles: [...titleSet]
+			titles: [...titleSet],
 		}, requestOptions);
 		if (response.purge) {
 			// TODO: Should this return the "response.purge" object?
@@ -3646,7 +3646,7 @@ export class Mwbot {
 			...Mwbot.getActionParams('rollback'),
 			title,
 			pageid: pageId,
-			user
+			user,
 		}, requestOptions);
 		if (response.rollback) {
 			return response.rollback;
@@ -3698,7 +3698,7 @@ export class Mwbot {
 			...additionalParams,
 			...Mwbot.getActionParams('unblock'),
 			id,
-			user
+			user,
 		}, requestOptions);
 		if (response.unblock) {
 			return response.unblock;
@@ -3749,7 +3749,7 @@ export class Mwbot {
 		const response = await this.postWithCsrfToken({
 			...additionalParams,
 			...Mwbot.getActionParams('undelete'),
-			title
+			title,
 		}, requestOptions);
 		if (response.undelete) {
 			return response.undelete;
@@ -3846,7 +3846,7 @@ export class Mwbot {
 			prop: 'revisions',
 			rvprop: 'ids|timestamp|user|content',
 			rvslots: 'main',
-			curtimestamp: true
+			curtimestamp: true,
 		};
 
 		const processSinglePage = (
@@ -3857,7 +3857,7 @@ export class Mwbot {
 			if (page.missing || typeof page.pageid !== 'number') {
 				return new MwbotError('api_mwbot', {
 					code: 'pagemissing',
-					info: 'The requested page does not exist.'
+					info: 'The requested page does not exist.',
 				}, { title: page.title });
 			} else if (
 				typeof page.ns !== 'number' ||
@@ -3878,7 +3878,7 @@ export class Mwbot {
 					user: rev.user,
 					basetimestamp: rev.timestamp,
 					starttimestamp: curtimestamp,
-					content: rev.slots.main.content
+					content: rev.slots.main.content,
 				};
 			}
 		};
@@ -3992,7 +3992,7 @@ export class Mwbot {
 		if (emptyIndexes.length) {
 			throw new MwbotError('fatal', {
 				code: 'internal',
-				info: `"ret" has empty slots at index ${emptyIndexes.join(', ')}.`
+				info: `"ret" has empty slots at index ${emptyIndexes.join(', ')}.`,
 			});
 		}
 
@@ -4073,7 +4073,7 @@ export class Mwbot {
 		// Query the API for title existence
 		const responses = await this.massRequest({
 			...Mwbot.getActionParams('query'),
-			titles: Array.from(targets)
+			titles: Array.from(targets),
 		}, 'titles', void 0, requestOptions);
 
 		// Process responses and populate existence map
@@ -4152,7 +4152,7 @@ export class Mwbot {
 		if (!titleSet.size) {
 			throw new MwbotError('fatal', {
 				code: 'emptyinput',
-				info: '"titles" cannot be empty.'
+				info: '"titles" cannot be empty.',
 			});
 		}
 
@@ -4163,10 +4163,10 @@ export class Mwbot {
 			titles: validatedTitles,
 			prop: 'categories',
 			clshow: hidden ? 'hidden' : hidden === false ? '!hidden' : undefined,
-			cllimit: 'max'
+			cllimit: 'max',
 		}, {
 			limit: Infinity,
-			multiValues: 'titles'
+			multiValues: 'titles',
 		}, requestOptions);
 
 		// Process the responses and format categories
@@ -4214,7 +4214,7 @@ export class Mwbot {
 		if ((!Number.isInteger(limit) && limit !== Infinity) || limit <= 0) {
 			throw new MwbotError('fatal', {
 				code: 'invalidlimit',
-				info: '"limit" must be a positive integer.'
+				info: '"limit" must be a positive integer.',
 			});
 		}
 
@@ -4227,7 +4227,7 @@ export class Mwbot {
 			list: 'allpages',
 			apprefix: prefix,
 			apnamespace: NS_CATEGORY,
-			aplimit: 'max'
+			aplimit: 'max',
 		}, { limit }, requestOptions);
 
 		const retSet = new Set<string>();
@@ -4285,7 +4285,7 @@ export class Mwbot {
 			if (title.getNamespaceId() !== NS_CATEGORY) {
 				throw new MwbotError('api_mwbot', {
 					code: 'invalidtitle',
-					info: `"${titleOrId}" is not a category title.`
+					info: `"${titleOrId}" is not a category title.`,
 				});
 			}
 		}
@@ -4297,7 +4297,7 @@ export class Mwbot {
 			list: 'categorymembers',
 			cmtitle: title && title.getPrefixedText(),
 			cmpageid: pageId,
-			cmlimit: 'max'
+			cmlimit: 'max',
 		}, { limit: Infinity }, requestOptions);
 
 		// Format the responses and return them as an array
@@ -4364,7 +4364,7 @@ export class Mwbot {
 		if (!titleSet.size) {
 			throw new MwbotError('fatal', {
 				code: 'emptyinput',
-				info: '"titles" cannot be empty.'
+				info: '"titles" cannot be empty.',
 			});
 		}
 
@@ -4375,10 +4375,10 @@ export class Mwbot {
 			...Mwbot.getActionParams('query'),
 			titles: validatedTitles,
 			prop: 'linkshere',
-			lhlimit: 'max'
+			lhlimit: 'max',
 		}, {
 			limit: Infinity,
-			multiValues: 'titles'
+			multiValues: 'titles',
 		}, requestOptions);
 
 		// Process the responses and return them
@@ -4454,7 +4454,7 @@ export class Mwbot {
 		if (!titleSet.size) {
 			throw new MwbotError('fatal', {
 				code: 'emptyinput',
-				info: '"titles" cannot be empty.'
+				info: '"titles" cannot be empty.',
 			});
 		}
 
@@ -4465,10 +4465,10 @@ export class Mwbot {
 			...Mwbot.getActionParams('query'),
 			titles: validatedTitles,
 			prop: 'transcludedin',
-			tilimit: 'max'
+			tilimit: 'max',
 		}, {
 			limit: Infinity,
-			multiValues: 'titles'
+			multiValues: 'titles',
 		}, requestOptions);
 
 		// Process the responses and return them
@@ -4530,7 +4530,7 @@ export class Mwbot {
 		if (!target.trim()) {
 			throw new MwbotError('fatal', {
 				code: 'emptyinput',
-				info: '"target" cannot be empty.'
+				info: '"target" cannot be empty.',
 			});
 		}
 
@@ -4540,7 +4540,7 @@ export class Mwbot {
 			...Mwbot.getActionParams('query'),
 			list: 'search',
 			srsearch: target,
-			srlimit: 'max'
+			srlimit: 'max',
 		}, { limit: Infinity }, requestOptions);
 		if (!responses.length) {
 			// `responses` is never expected to be an empty array but just in case
@@ -4608,7 +4608,7 @@ export class Mwbot {
 		if (!target.trim()) {
 			throw new MwbotError('fatal', {
 				code: 'emptyinput',
-				info: '"target" cannot be empty.'
+				info: '"target" cannot be empty.',
 			});
 		}
 
@@ -4616,7 +4616,7 @@ export class Mwbot {
 		if ((!Number.isInteger(limit) && limit !== Infinity) || limit <= 0) {
 			throw new MwbotError('fatal', {
 				code: 'invalidlimit',
-				info: '"limit" must be a positive integer.'
+				info: '"limit" must be a positive integer.',
 			});
 		}
 
@@ -4626,7 +4626,7 @@ export class Mwbot {
 			...Mwbot.getActionParams('query'),
 			list: 'prefixsearch',
 			pssearch: target,
-			pslimit: 'max'
+			pslimit: 'max',
 		}, { limit }, requestOptions);
 		if (!responses.length) {
 			// `responses` is never expected to be an empty array but just in case

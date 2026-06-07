@@ -14,7 +14,7 @@ import { XOR } from 'ts-essentials';
  * Equivalent to `Partial<Record<K, T>>`.
  */
 export type PartialRecord<K extends keyof any, T> = {
-	[P in K]?: T;
+	[_P in K]?: T;
 };
 
 /**
@@ -33,8 +33,8 @@ export type PartialRecord<K extends keyof any, T> = {
  */
 export type OnlyOneRecord<K extends string, V = any> = {
 	[P in K]: (Record<P, V> & Partial<Record<Exclude<K, P>, never>>) extends infer O
-	? { [Q in keyof O]: O[Q] }
-	: never
+		? { [Q in keyof O]: O[Q] }
+		: never
 }[K];
 
 /**
@@ -1235,6 +1235,7 @@ export interface ApiResponseParse { // Fully checked (source code level)
 	 * `prop=sections`
 	 */
 	sections?: ApiResponseParsePropSections[];
+	// eslint-disable-next-line @stylistic/indent
 		showtoc?: boolean;
 	/**
 	 * `prop=parsewarnings`
@@ -1265,9 +1266,11 @@ export interface ApiResponseParse { // Fully checked (source code level)
 	 * `prop=modules`
 	 */
 	modules?: string[];
+	/* eslint-disable @stylistic/indent */
 		/** @deprecated */
 		modulescripts?: never[];
 		modulestyles?: string[];
+	/* eslint-enable @stylistic/indent */
 	/**
 	 * `prop=jsconfigvars`
 	 */
@@ -1288,6 +1291,7 @@ export interface ApiResponseParse { // Fully checked (source code level)
 	 * `prop=wikitext`
 	 */
 	wikitext?: string;
+	// eslint-disable-next-line @stylistic/indent
 		psttext?: string;
 	/**
 	 * `prop=properties`
@@ -1589,6 +1593,7 @@ export interface ApiResponseQuery { // Check completed
 	linterrors?: ApiResponseQueryListLinterrors[];
 	logevents?: ApiResponseQueryListLogevents[];
 	messagecollection?: ApiResponseQueryListMessagecollection[];
+	// eslint-disable-next-line @stylistic/indent
 		metadata?: ApiResponseQueryListMessagecollectionMetadata;
 	mostviewed?: ApiResponseQueryListMostviewed[];
 	mystashedfiles?: ApiResponseQueryListMystashedfiles[];
@@ -1600,11 +1605,13 @@ export interface ApiResponseQuery { // Check completed
 	random?: ApiResponseQueryListRandom[];
 	recentchanges?: ApiResponseQueryListRecentchanges[];
 	search?: ApiResponseQueryListSearch[];
+	/* eslint-disable @stylistic/indent */
 		searchinfo?: ApiResponseQueryListSearchInfo;
 		additionalsearch?: { [iwprefix: string]: ApiResponseQueryListSearchInterwikisearch[] };
 		additionalsearchinfo?: ApiResponseQueryListSearchInfoInterwiki;
 		interwikisearch?: { [iwprefix: string]: ApiResponseQueryListSearchInterwikisearch[] };
 		interwikisearchinfo?: ApiResponseQueryListSearchInfoInterwiki;
+	/* eslint-enable @stylistic/indent */
 	tags?: ApiResponseQueryListTags[];
 	threads?: { [thread_id: string]: ApiResponseQueryListThreads };
 	usercontribs?: ApiResponseQueryListUsercontribs[];
@@ -1641,8 +1648,10 @@ export interface ApiResponseQueryPages extends // Fully checked (source code lev
 	fileusage?: ApiResponseQueryPagesPropFileusage[];
 	globalusage?: ApiResponseQueryPagesPropGlobalusage[];
 	imageinfo?: ApiResponseQueryPagesPropImageinfo[];
+	/* eslint-disable @stylistic/indent */
 		imagerepository?: string;
 		badfile?: boolean;
+	/* eslint-enable @stylistic/indent */
 	images?: ApiResponseQueryPagesPropImages[];
 	// info?: ApiResponseQueryPagesPropInfo // Handled by interface extension
 	iwlinks?: ApiResponseQueryPagesPropIwlinks[];
@@ -1782,8 +1791,10 @@ export interface ApiResponseQueryPagesPropInfo { // Fully checked (source code l
 
 	// inprop-independent properties (sorted as in ApiQueryInfo.php)
 	protection?: ApiResponseQueryPagesPropInfoProtection[];
+	// eslint-disable-next-line @stylistic/indent
 		restrictiontypes?: string[];
 	watched?: boolean;
+	// eslint-disable-next-line @stylistic/indent
 		watchlistexpiry?: string;
 	watchers?: number;
 	visitingwatchers?: number;
@@ -1809,6 +1820,7 @@ export interface ApiResponseQueryPagesPropInfo { // Fully checked (source code l
 		contentformat: string;
 		content: string;
 	};
+	// eslint-disable-next-line @stylistic/indent
 		preloadisdefault?: boolean;
 	editintro?: { [key: string]: string };
 	displaytitle?: string;
@@ -2699,6 +2711,7 @@ export interface ApiResponseQueryMetaUserinfo extends // Fully checked (source c
 	 * `uiprop=email`
 	 */
 	email?: string;
+	// eslint-disable-next-line @stylistic/indent
 		emailauthenticated?: string; // ISO timestamp
 	/**
 	 * `uiprop=registrationdate`
@@ -2724,6 +2737,7 @@ export interface ApiResponseQueryMetaUserinfo extends // Fully checked (source c
 	 * `uiprop=cancreateaccount`
 	 */
 	cancreateaccount?: boolean;
+	// eslint-disable-next-line @stylistic/indent
 		cancreateaccounterror?: unknown; // Probably the same as ApiResponseErrors
 }
 export interface ApiResponseQueryMetaUserinfoGroupmemberships {
@@ -3433,6 +3447,7 @@ export interface ApiResponseQueryListThreads { // Fully checked (source code lev
 	id?: string;
 	modified?: string;
 	pagens?: number;
+	// eslint-disable-next-line @stylistic/indent
 		pagetitle?: string;
 	parent?: string | null;
 	rootid?: string;

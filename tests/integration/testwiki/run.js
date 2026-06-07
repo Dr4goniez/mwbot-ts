@@ -103,7 +103,7 @@ try {
 			mochaPath,
 			'--timeout',
 			'30000',
-			testFile
+			testFile,
 		],
 		{
 			stdio: 'inherit',
@@ -113,7 +113,9 @@ try {
 			},
 		}
 	);
-	exitCode = result.status ?? 1;
+	if (result.status !== null) {
+		exitCode = result.status;
+	}
 } finally {
 	if (createdCredentialsFile) {
 		rmSync(credsJson, { force: true });
