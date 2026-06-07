@@ -17,7 +17,7 @@
  * @module
  */
 
-import { XOR } from 'ts-xor';
+import { XOR } from 'ts-essentials';
 import type { Mwbot } from './Mwbot.js';
 import { escapeRegExp, isPlainObject, mergeDeep } from './Util.js';
 import type { TitleStatic, Title } from './Title.js';

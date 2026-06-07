@@ -29,7 +29,7 @@ import axios, { AxiosInstance, AxiosError, AxiosRequestConfig, AxiosResponse } f
 import { CookieJar } from 'tough-cookie';
 import { wrapper } from 'axios-cookiejar-support';
 import FormData from 'form-data';
-import { XOR } from 'ts-xor';
+import { XOR } from 'ts-essentials';
 import OAuth from 'oauth-1.0a';
 import crypto from 'crypto';
 import * as http from 'http';

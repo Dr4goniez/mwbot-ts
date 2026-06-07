@@ -4,7 +4,7 @@
  * @module
  */
 
-import { XOR } from 'ts-xor';
+import { XOR } from 'ts-essentials';
 
 // ************************************** General types **************************************
 
