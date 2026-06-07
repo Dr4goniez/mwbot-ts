@@ -2,6 +2,7 @@ import { describe, it, before } from 'mocha';
 import { assert } from 'chai';
 import { Mwbot } from '../../../dist/index.js';
 import { getApiUrl, getAuthCredentials, getAuthMethod } from '../provider.js';
+import { testMwbotProperties } from '../MwbotTest-properties.js';
 
 const domain = 'testwiki';
 const authMethod = getAuthMethod(domain);
@@ -28,5 +29,7 @@ describe(`Mwbot via ${authMethod} authentication`, function () {
 	it('should authenticate successfully', function () {
 		assert.instanceOf(mwbot, /** @type {any} */ (Mwbot));
 	});
+
+	testMwbotProperties(() => mwbot, domain, authMethod);
 
 });
