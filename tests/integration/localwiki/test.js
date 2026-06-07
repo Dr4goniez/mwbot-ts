@@ -4,11 +4,11 @@ import { Mwbot } from '../../../dist/index.js';
 import { getApiUrl, getAuthCredentials, getAuthMethod } from '../provider.js';
 
 const domain = 'localwiki';
-const AUTH_METHOD = getAuthMethod(domain);
+const authMethod = getAuthMethod(domain);
 
-describe(`Mwbot via ${AUTH_METHOD} authentication`, function () {
+describe(`Mwbot via ${authMethod} authentication`, function () {
 
-	const credentials = getAuthCredentials(domain, AUTH_METHOD);
+	const credentials = getAuthCredentials(domain, authMethod);
 
 	/** @type {Mwbot} */
 	let mwbot;

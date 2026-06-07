@@ -64,10 +64,10 @@ switch (authMethod) {
 					json.oAuth2AccessToken = getEnvironmentVariable('OAUTH2_ACCESS_TOKEN', missingVars);
 					break;
 				case 'oauth1':
-					json.consumerToken = getEnvironmentVariable('OAUTH1A_CONSUMER_TOKEN', missingVars);
-					json.consumerSecret = getEnvironmentVariable('OAUTH1A_CONSUMER_SECRET', missingVars);
-					json.accessToken = getEnvironmentVariable('OAUTH1A_ACCESS_TOKEN', missingVars);
-					json.accessSecret = getEnvironmentVariable('OAUTH1A_ACCESS_SECRET', missingVars);
+					json.consumerToken = getEnvironmentVariable('OAUTH1_CONSUMER_TOKEN', missingVars);
+					json.consumerSecret = getEnvironmentVariable('OAUTH1_CONSUMER_SECRET', missingVars);
+					json.accessToken = getEnvironmentVariable('OAUTH1_ACCESS_TOKEN', missingVars);
+					json.accessSecret = getEnvironmentVariable('OAUTH1_ACCESS_SECRET', missingVars);
 					break;
 				case 'botpassword':
 					json.username = getEnvironmentVariable('BOT_USERNAME', missingVars);
