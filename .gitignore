@@ -7,4 +7,5 @@ logs
 src/regex.txt
 src/test/
 **/.env
+**/credentials.json
 tests/docker/secrets

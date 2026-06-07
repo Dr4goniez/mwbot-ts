@@ -24,9 +24,8 @@
     "docs": "node scripts/empty-dir.mjs docs && npx typedoc --options typedoc.json",
     "update": "update-version.sh",
     "test:setup": "cd tests/docker && bash setup.sh",
-    "test:integration": "mocha tests/integration/**/*.js",
-    "test:localwiki": "mocha tests/integration/localwiki/**/*.js",
-    "test:testwiki": "mocha tests/integration/testwiki/**/*.js"
+    "test:localwiki": "mocha tests/integration/localwiki/test.js",
+    "test:testwiki": "node tests/integration/testwiki/run.js"
   },
   "engines": {
     "node": ">=18"

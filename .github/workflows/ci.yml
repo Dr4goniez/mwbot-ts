@@ -49,8 +49,13 @@ jobs:
 
   integration-testwiki:
     if: github.event_name != 'pull_request'
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     environment: testwiki
+    strategy:
+      fail-fast: false
+      matrix:
+        auth-method: [oauth2, oauth1, botpassword, anonymous]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js
@@ -60,11 +65,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Run testwiki integration tests
-        run: npm run test:testwiki
+      - name: Run testwiki integration tests for ${{ matrix.auth-method }} authentication
+        run: npm run test:testwiki -- ${{ matrix.auth-method }}
         env:
+          AUTH_METHOD: ${{ matrix.auth-method }}
           OAUTH2_ACCESS_TOKEN: ${{ secrets.OAUTH2_ACCESS_TOKEN }}
-          OAUTH1A_CONSUMER_TOKEN: ${{ secrets.OAUTH1A_CONSUMER_TOKEN }}
-          OAUTH1A_CONSUMER_SECRET: ${{ secrets.OAUTH1A_CONSUMER_SECRET }}
-          OAUTH1A_ACCESS_TOKEN: ${{ secrets.OAUTH1A_ACCESS_TOKEN }}
-          OAUTH1A_ACCESS_SECRET: ${{ secrets.OAUTH1A_ACCESS_SECRET }}
+          OAUTH1_CONSUMER_TOKEN: ${{ secrets.OAUTH1_CONSUMER_TOKEN }}
+          OAUTH1_CONSUMER_SECRET: ${{ secrets.OAUTH1_CONSUMER_SECRET }}
+          OAUTH1_ACCESS_TOKEN: ${{ secrets.OAUTH1_ACCESS_TOKEN }}
+          OAUTH1_ACCESS_SECRET: ${{ secrets.OAUTH1_ACCESS_SECRET }}
+          BOT_USERNAME: ${{ secrets.BOT_USERNAME }}
+          BOT_PASSWORD: ${{ secrets.BOT_PASSWORD }}
