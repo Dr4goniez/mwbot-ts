@@ -21,18 +21,17 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 ## Uncomment this to disable output compression
 # $wgDisableOutputCompression = true;
 
-$wgSitename = "mwbot-ts testwiki";
-$wgMetaNamespace = "Mwbot-ts_testwiki";
+$wgSitename = 'Wikipedia';
 
 ## The URL base path to the directory containing the wiki;
 ## defaults for all runtime URL paths are based off of this.
 ## For more information on customizing the URLs
 ## (like /w/index.php/Page_title to /wiki/Page_title) please see:
 ## https://www.mediawiki.org/wiki/Manual:Short_URL
-$wgScriptPath = "";
+$wgScriptPath = '';
 
 ## The protocol and server name to use in fully-qualified URLs
-$wgServer = "http://localhost:8080";
+$wgServer = 'http://localhost:8080';
 
 ## The URL path to static resources (images, scripts, etc.)
 $wgResourceBasePath = $wgScriptPath;
@@ -49,30 +48,30 @@ $wgLogos = [
 $wgEnableEmail = true;
 $wgEnableUserEmail = true; # UPO
 
-$wgEmergencyContact = "";
-$wgPasswordSender = "";
+$wgEmergencyContact = '';
+$wgPasswordSender = '';
 
 $wgEnotifUserTalk = false; # UPO
 $wgEnotifWatchlist = false; # UPO
 $wgEmailAuthentication = true;
 
 ## Database settings
-$wgDBtype = "mysql";
-$wgDBserver = "database";
-$wgDBname = "mwbot_ts";
-$wgDBuser = "mwbot_ts";
-$wgDBpassword = "mwbot_ts";
+$wgDBtype = 'mysql';
+$wgDBserver = 'database';
+$wgDBname = 'mwbot_ts';
+$wgDBuser = 'mwbot_ts';
+$wgDBpassword = 'mwbot_ts';
 
 # MySQL specific settings
-$wgDBprefix = "";
+$wgDBprefix = '';
 $wgDBssl = false;
 
 # MySQL table options to use during installation or update
-$wgDBTableOptions = "ENGINE=InnoDB, DEFAULT CHARSET=binary";
+$wgDBTableOptions = 'ENGINE=InnoDB, DEFAULT CHARSET=binary';
 
 # Shared database table
 # This has no effect unless $wgSharedDB is also set.
-$wgSharedTables[] = "actor";
+$wgSharedTables[] = 'actor';
 
 ## Shared memory settings
 $wgMainCacheType = CACHE_ACCEL;
@@ -82,7 +81,7 @@ $wgMemCachedServers = [];
 ## is writable, then set this to true:
 $wgEnableUploads = false;
 $wgUseImageMagick = true;
-$wgImageMagickConvertCommand = "/usr/bin/convert";
+$wgImageMagickConvertCommand = '/usr/bin/convert';
 
 # InstantCommons allows wiki to use images from https://commons.wikimedia.org
 $wgUseInstantCommons = false;
@@ -93,39 +92,39 @@ $wgUseInstantCommons = false;
 $wgPingback = false;
 
 # Site language code, should be one of the list in ./includes/languages/data/Names.php
-$wgLanguageCode = "en";
+$wgLanguageCode = 'en';
 
 # Time zone
-$wgLocaltimezone = "UTC";
+$wgLocaltimezone = 'UTC';
 
 ## Set $wgCacheDirectory to a writable directory on the web server
 ## to make your wiki go slightly faster. The directory should not
 ## be publicly accessible from the web.
 #$wgCacheDirectory = "$IP/cache";
 
-$wgSecretKey = "822dc936fe2653298841b6202ddca5456bc908eb21dd98b9726265b441fcc9ee";
+$wgSecretKey = '822dc936fe2653298841b6202ddca5456bc908eb21dd98b9726265b441fcc9ee';
 
 # Changing this will log out all existing sessions.
-$wgAuthenticationTokenVersion = "1";
+$wgAuthenticationTokenVersion = '1';
 
 # Site upgrade key. Must be set to a string (default provided) to turn on the
 # web installer while LocalSettings.php is in place
-$wgUpgradeKey = "e8c9a4ad6727b272";
+$wgUpgradeKey = 'e8c9a4ad6727b272';
 
 ## For attaching licensing metadata to pages, and displaying an
 ## appropriate copyright notice / icon. GNU Free Documentation
 ## License and Creative Commons licenses are supported so far.
-$wgRightsPage = ""; # Set to the title of a wiki page that describes your license/copyright
-$wgRightsUrl = "";
-$wgRightsText = "";
-$wgRightsIcon = "";
+$wgRightsPage = ''; # Set to the title of a wiki page that describes your license/copyright
+$wgRightsUrl = '';
+$wgRightsText = '';
+$wgRightsIcon = '';
 
 # Path to the GNU diff3 utility. Used for conflict resolution.
-$wgDiff3 = "/usr/bin/diff3";
+$wgDiff3 = '/usr/bin/diff3';
 
 ## Default skin: you can change the default skin. Use the internal symbolic
 ## names, e.g. 'vector' or 'monobook':
-$wgDefaultSkin = "vector-2022";
+$wgDefaultSkin = 'vector-2022';
 
 # Enabled skins.
 # The following skins were automatically enabled:

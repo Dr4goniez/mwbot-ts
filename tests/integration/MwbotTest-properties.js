@@ -8,20 +8,14 @@ import * as http from 'http';
 import * as https from 'https';
 
 /**
- * @param {() => Mwbot} getMwbot
- * @param {import('./provider-types.js').TestDomain} testDomain
- * @param {import('./provider-types.js').AuthMethod} authMethod
- * @returns {void}
+ * @type {import('./provider-types.js').MwbotTestSuite}
  */
 export function testMwbotProperties(getMwbot, testDomain, authMethod) {
 	describe('Mwbot properties', () => run(getMwbot, testDomain, authMethod));
 }
 
 /**
- * @param {() => Mwbot} getMwbot
- * @param {import('./provider-types.js').TestDomain} testDomain
- * @param {import('./provider-types.js').AuthMethod} authMethod
- * @returns {void}
+ * @type {import('./provider-types.js').MwbotTestSuite}
  */
 function run(getMwbot, testDomain, authMethod) {
 

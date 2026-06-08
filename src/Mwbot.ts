@@ -862,6 +862,8 @@ export class Mwbot {
 	 * * If a key does not exist, `fallback` is returned. This also applies when `selection`
 	 * is an array: missing keys will be mapped to `fallback` in the returned object.
 	 * * An explicit `undefined` for `fallback` results in `null` (unlike the native `mw.config`).
+	 * * Under anonymous authentication, `wgUserId` returns `0` and `wgUserName` returns the client's
+	 * IP address, unlike `mw.config` in MediaWiki core which returns `null` for both values.
 	 *
 	 * ```ts
 	 * set(selection?: string | object, value?: any): boolean;
@@ -875,7 +877,7 @@ export class Mwbot {
 	 * ```ts
 	 * exists(selection: string): boolean;
 	 * ```
-	 * * Returns `true` if `selection` exists as a key with a defined value.
+	 * * Returns `true` if `selection` exists as a key.
 	 */
 	get config(): MwConfig<ConfigData> {
 		return {
@@ -900,11 +902,8 @@ export class Mwbot {
 				}
 			},
 			set: <K extends keyof ConfigData, U extends Partial<ConfigData> & Record<string, TX>, TX>(selection: K | string | U, value?: TX) => {
-				const warn = (variable: string): void => {
-					console.warn(`Warning: The pre-set wg-configuration variables are read-only (detected an attempt to update "${variable}").`);
-				};
 				if (typeof selection === 'string' && this.configKeys.has(selection as K)) {
-					warn(selection);
+					console.warn(`Warning: Cannot modify read-only wg-configuration variable "${selection}".`);
 					return false;
 				} else if (typeof selection === 'string' && value !== void 0) {
 					this.configData[selection as string] = value;
@@ -921,7 +920,7 @@ export class Mwbot {
 						}
 					}
 					if (wgVars.size) {
-						warn(Array.from(wgVars).join(', '));
+						console.warn(`Warning: Cannot modify read-only wg-configuration variable(s): ${Array.from(wgVars).join(', ')}`);
 					}
 					return !!registered;
 				}

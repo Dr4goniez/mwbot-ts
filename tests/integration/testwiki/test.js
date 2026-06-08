@@ -3,6 +3,7 @@ import { assert } from 'chai';
 import { Mwbot } from '../../../dist/index.js';
 import { getApiUrl, getAuthCredentials, getAuthMethod } from '../provider.js';
 import { testMwbotProperties } from '../MwbotTest-properties.js';
+import { testMwbotConfig } from '../MwbotTest-config.js';
 
 const domain = 'testwiki';
 const authMethod = getAuthMethod(domain);
@@ -31,5 +32,6 @@ describe(`Mwbot via ${authMethod} authentication`, function () {
 	});
 
 	testMwbotProperties(() => mwbot, domain, authMethod);
+	testMwbotConfig(() => mwbot, domain, authMethod);
 
 });

@@ -50,7 +50,7 @@ docker compose exec mediawiki php maintenance/run.php install \
 	--installdbuser mwbot_ts \
 	--scriptpath "" \
 	--pass adminpassword \
-	"mwbot-ts testwiki" Admin
+	Wikipedia Admin
 
 MSYS_NO_PATHCONV=1 docker compose exec -T mediawiki cp \
 	/var/www/html/conf/LocalSettings.php \
