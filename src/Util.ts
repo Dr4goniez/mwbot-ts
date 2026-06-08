@@ -61,6 +61,8 @@ export function mergeDeep<T extends object[]>(...objects: T): UnionToIntersectio
 					: oVal.map(el => (isObject(el) ? mergeDeep(el) : el));
 			} else if (isPlainObject(aVal) && isPlainObject(oVal)) {
 				result[key] = mergeDeep(aVal, oVal);
+			} else if (isPlainObject(oVal)) {
+				result[key] = mergeDeep(oVal);
 			} else {
 				result[key] = oVal;
 			}
