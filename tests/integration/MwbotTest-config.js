@@ -270,7 +270,7 @@ function run(getMwbot, testDomain, authMethod) {
 
 		it('should return true for keys with null values', function () {
 			const config = getMwbot().config;
-			const key = crypto.randomUUID();
+			const key = testKey();
 
 			assert.isTrue(config.set(key, null));
 			assert.isTrue(config.exists(key));
@@ -282,7 +282,7 @@ function run(getMwbot, testDomain, authMethod) {
 	describe('set()', function () {
 		it('should set a custom key', function () {
 			const config = getMwbot().config;
-			const key = crypto.randomUUID();
+			const key = testKey();
 
 			assert.isTrue(config.set(key, 123));
 			assert.strictEqual(config.get(key), 123);
@@ -290,8 +290,8 @@ function run(getMwbot, testDomain, authMethod) {
 
 		it('should set multiple custom keys', function () {
 			const config = getMwbot().config;
-			const key1 = crypto.randomUUID();
-			const key2 = crypto.randomUUID();
+			const key1 = testKey();
+			const key2 = testKey();
 
 			assert.isTrue(
 				config.set({
@@ -305,7 +305,7 @@ function run(getMwbot, testDomain, authMethod) {
 
 		it('should ignore undefined values', function () {
 			const config = getMwbot().config;
-			const key = crypto.randomUUID();
+			const key = testKey();
 
 			assert.isFalse(config.set(key, undefined));
 			assert.isFalse(config.exists(key));
@@ -313,8 +313,8 @@ function run(getMwbot, testDomain, authMethod) {
 
 		it('should ignore undefined values in object form', function () {
 			const config = getMwbot().config;
-			const key1 = crypto.randomUUID();
-			const key2 = crypto.randomUUID();
+			const key1 = testKey();
+			const key2 = testKey();
 
 			assert.isTrue(
 				config.set({
@@ -339,7 +339,7 @@ function run(getMwbot, testDomain, authMethod) {
 
 		it('should not overwrite built-in wg variables in object form', function () {
 			const config = getMwbot().config;
-			const key = crypto.randomUUID();
+			const key = testKey();
 			const original = config.get('wgSiteName');
 			const logSpy = mock.method(console, 'warn');
 
@@ -373,4 +373,10 @@ function run(getMwbot, testDomain, authMethod) {
 
 	});
 
+}
+
+let counter = 0;
+
+function testKey() {
+	return `test_key_${counter++}`;
 }
