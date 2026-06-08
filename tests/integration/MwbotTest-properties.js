@@ -1,5 +1,5 @@
 import { Mwbot, MWBOT_VERSION } from '../../dist/index.js';
-import { it } from 'mocha';
+import { describe, it } from 'mocha';
 import { assert } from 'chai';
 import { getApiUrl, getAuthCredentials } from './provider.js';
 import OAuth from 'oauth-1.0a';
@@ -14,13 +14,23 @@ import * as https from 'https';
  * @returns {void}
  */
 export function testMwbotProperties(getMwbot, testDomain, authMethod) {
+	describe('Mwbot properties', () => run(getMwbot, testDomain, authMethod));
+}
+
+/**
+ * @param {() => Mwbot} getMwbot
+ * @param {import('./provider-types.js').TestDomain} testDomain
+ * @param {import('./provider-types.js').AuthMethod} authMethod
+ * @returns {void}
+ */
+function run(getMwbot, testDomain, authMethod) {
 
 	it('should initialize credentials correctly', function () {
 		const mwbot = getMwbot();
 
 		// @ts-expect-error - Protected property
-		const prop_creds = mwbot.credentials;
-		assert.isObject(prop_creds);
+		const internalCredentials = mwbot.credentials;
+		assert.isObject(internalCredentials);
 		const creds = getAuthCredentials(testDomain, authMethod);
 
 		// @ts-expect-error - Protected method
@@ -29,13 +39,13 @@ export function testMwbotProperties(getMwbot, testDomain, authMethod) {
 		const jar = mwbot.jar;
 
 		/**
-		 * @param {boolean} shouldExist
+		 * @param {boolean} expected
 		 */
-		const assertAgents = (shouldExist) => {
+		const assertAgents = (expected) => {
 			// @ts-expect-error - Protected property
 			const agents = mwbot.agents;
 
-			if (shouldExist) {
+			if (expected) {
 				assert.isObject(agents);
 				assert.instanceOf(agents?.http, http.Agent);
 				assert.instanceOf(agents?.https, https.Agent);
@@ -46,35 +56,35 @@ export function testMwbotProperties(getMwbot, testDomain, authMethod) {
 
 		switch (authMethod) {
 			case 'oauth2':
-				assert.isString(prop_creds.oauth2);
-				assert.strictEqual(prop_creds.oauth2, creds.oAuth2AccessToken);
+				assert.isString(internalCredentials.oauth2);
+				assert.strictEqual(internalCredentials.oauth2, creds.oAuth2AccessToken);
 				assert.isFalse(isAnonymous);
 				assert.notExists(jar);
 				assertAgents(true);
 				break;
 			case 'oauth1':
-				assert.isObject(prop_creds.oauth1);
-				assert.instanceOf(prop_creds.oauth1?.instance, OAuth);
-				assert.isString(prop_creds.oauth1?.accessToken);
-				assert.strictEqual(prop_creds.oauth1?.accessToken, creds.accessToken);
-				assert.isString(prop_creds.oauth1?.accessSecret);
-				assert.strictEqual(prop_creds.oauth1?.accessSecret, creds.accessSecret);
+				assert.isObject(internalCredentials.oauth1);
+				assert.instanceOf(internalCredentials.oauth1?.instance, OAuth);
+				assert.isString(internalCredentials.oauth1?.accessToken);
+				assert.strictEqual(internalCredentials.oauth1?.accessToken, creds.accessToken);
+				assert.isString(internalCredentials.oauth1?.accessSecret);
+				assert.strictEqual(internalCredentials.oauth1?.accessSecret, creds.accessSecret);
 				assert.isFalse(isAnonymous);
 				assert.notExists(jar);
 				assertAgents(true);
 				break;
 			case 'botpassword':
-				assert.isObject(prop_creds.user);
-				assert.isString(prop_creds.user?.username);
-				assert.strictEqual(prop_creds.user?.username, creds.username);
-				assert.isString(prop_creds.user?.password);
-				assert.strictEqual(prop_creds.user?.password, creds.password);
+				assert.isObject(internalCredentials.user);
+				assert.isString(internalCredentials.user?.username);
+				assert.strictEqual(internalCredentials.user?.username, creds.username);
+				assert.isString(internalCredentials.user?.password);
+				assert.strictEqual(internalCredentials.user?.password, creds.password);
 				assert.isFalse(isAnonymous);
 				assert.instanceOf(jar, CookieJar);
 				assertAgents(false);
 				break;
 			case 'anonymous':
-				assert.isTrue(prop_creds.anonymous);
+				assert.isTrue(internalCredentials.anonymous);
 				assert.isTrue(isAnonymous);
 				assert.instanceOf(jar, CookieJar);
 				assertAgents(false);
@@ -88,7 +98,7 @@ export function testMwbotProperties(getMwbot, testDomain, authMethod) {
 		assert.isFunction(axios?.request);
 	});
 
-	it('should preserve user request configuration', function () {
+	it('should preserve user-provided configuration', function () {
 		const mwbot = getMwbot();
 		const userMwbotOptions = mwbot.userMwbotOptions;
 		const userRequestOptions = mwbot.userRequestOptions;
@@ -146,7 +156,7 @@ export function testMwbotProperties(getMwbot, testDomain, authMethod) {
 		assert.exists(Mwbot.String);
 	});
 
-	it('should expose populated site information', function () {
+	it('should expose initialized site information', function () {
 		const mwbot = getMwbot();
 
 		// @ts-expect-error - Protected property
