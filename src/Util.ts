@@ -108,19 +108,20 @@ export function isPlainObject(value: unknown): value is Record<string | number |
 }
 
 /**
- * Checks whether the given object is empty.
+ * Checks whether the given plain object has no own properties.
+ *
+ * String keys, symbol keys, and non-enumerable properties are all considered.
+ * Values that are not plain objects return `null`.
  *
  * @param object
- * @returns A boolean indicating whether the object has no properties. `null` if the input is not an object.
+ * @returns `true` if the object has no own properties, `false` otherwise,
+ * or `null` if the input is not a plain object.
  */
 export function isEmptyObject(object: unknown): boolean | null {
-	if (!isObject(object)) {
+	if (!isPlainObject(object)) {
 		return null;
 	}
-	for (const _key in object) {
-		return false;
-	}
-	return true;
+	return Reflect.ownKeys(object).length === 0;
 }
 
 /**
