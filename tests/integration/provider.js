@@ -6,10 +6,10 @@ import dotenv from 'dotenv';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /**
- * @typedef {'localwiki' | 'testwiki'} TestDomain
+ * @typedef {import('./provider-types.js').TestDomain} TestDomain
  */
 /**
- * @typedef {'oauth2' | 'oauth1' | 'botpassword' | 'anonymous'} AuthMethod
+ * @typedef {import('./provider-types.js').AuthMethod} AuthMethod
  */
 /**
  * @param {TestDomain} testDomain

@@ -9,8 +9,8 @@ import * as https from 'https';
 
 /**
  * @param {() => Mwbot} getMwbot
- * @param {'localwiki' | 'testwiki'} testDomain
- * @param {'oauth2' | 'oauth1' | 'botpassword' | 'anonymous'} authMethod
+ * @param {import('./provider-types.js').TestDomain} testDomain
+ * @param {import('./provider-types.js').AuthMethod} authMethod
  * @returns {void}
  */
 export function testMwbotProperties(getMwbot, testDomain, authMethod) {
