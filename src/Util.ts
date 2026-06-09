@@ -260,11 +260,33 @@ export function escapeRegExp(str: string): string {
  * @returns
  */
 export function arraysEqual(array1: Primitive[], array2: Primitive[], orderInsensitive = false): boolean {
-	if (orderInsensitive) {
-		return array1.length === array2.length && array1.every(el => array2.includes(el));
-	} else {
-		return array1.length === array2.length && array1.every((el, i) => array2[i] === el);
+	if (array1.length !== array2.length) {
+		return false;
 	}
+
+	if (!orderInsensitive) {
+		return array1.every((v, i) => Object.is(v, array2[i]));
+	}
+
+	/** @type {Map<Primitive, number>} */
+	const counts = new Map();
+	for (const v of array1) {
+		counts.set(v, (counts.get(v) || 0) + 1);
+	}
+
+	for (const v of array2) {
+		let count = counts.get(v);
+		if (count === undefined) {
+			return false;
+		}
+		if (--count === 0) {
+			counts.delete(v);
+		} else {
+			counts.set(v, count);
+		}
+	}
+
+	return counts.size === 0;
 }
 
 // ********************************* ASYNCHRONOUS FUNCTIONS *********************************
