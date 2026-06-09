@@ -23,6 +23,7 @@
     "build": "npm run version && node scripts/empty-dir.mjs dist/build && tsc -p . && node scripts/generate-index.mjs",
     "docs": "node scripts/empty-dir.mjs docs && npx typedoc --options typedoc.json",
     "update": "update-version.sh",
+    "test:unit": "mocha tests/unit/*Test.js",
     "test:setup": "cd tests/docker && bash setup.sh",
     "test:localwiki": "mocha tests/integration/localwiki/test.js",
     "test:testwiki": "node tests/integration/testwiki/run.js"
@@ -69,6 +70,7 @@
     "@types/chai": "^5.2.3",
     "@types/mocha": "^10.0.10",
     "@types/node": "^25.9.2",
+    "@types/sinon": "^21.0.1",
     "@types/tough-cookie": "^4.0.5",
     "chai": "^6.2.2",
     "dotenv": "^17.4.2",
@@ -76,6 +78,7 @@
     "globals": "^17.6.0",
     "markdown-link-check": "^3.14.2",
     "mocha": "^11.7.6",
+    "sinon": "^22.0.0",
     "ts-node": "^10.9.2",
     "typedoc": "^0.28.19",
     "typescript": "^5.9.3",

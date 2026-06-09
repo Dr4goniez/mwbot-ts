@@ -2,8 +2,6 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
     paths:
       - 'src/**'
       - 'tests/**'
@@ -11,6 +9,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/ci.yml'
+
   pull_request:
     paths:
       - 'src/**'
@@ -25,6 +24,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  unit:
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18.x, 20.x, 22.x, 24.x]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Run unit tests
+        run: npm run test:unit
+
   integration-localwiki:
     timeout-minutes: 15
     runs-on: ubuntu-latest
