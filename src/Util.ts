@@ -34,15 +34,22 @@ export function mergeDeep<T extends object[]>(...objects: T): UnionToIntersectio
 		if (!obj) continue;
 
 		for (const key of Reflect.ownKeys(obj)) {
-			const descriptor = Object.getOwnPropertyDescriptor(obj, key); // Get full descriptor
-			const aVal = result[key];
-			let oVal = (obj as any)[key];
+			const sourceDescriptor = Object.getOwnPropertyDescriptor(obj, key);
 
 			// Preserve getters/setters
-			if (descriptor?.get || descriptor?.set) {
-				Object.defineProperty(result, key, descriptor);
+			if (sourceDescriptor?.get || sourceDescriptor?.set) {
+				Object.defineProperty(result, key, sourceDescriptor);
 				continue;
 			}
+
+			// Prevent overwriting existing getters/setters in the merging target
+			const targetDescriptor = Object.getOwnPropertyDescriptor(result, key);
+			if (targetDescriptor?.get || targetDescriptor?.set) {
+				continue;
+			}
+
+			const aVal = result[key];
+			let oVal = (obj as any)[key];
 
 			// Handle special cases
 			if (oVal instanceof Date) {
