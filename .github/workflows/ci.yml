@@ -69,7 +69,6 @@ jobs:
     if: github.event_name != 'pull_request'
     timeout-minutes: 15
     runs-on: ubuntu-latest
-    environment: testwiki
     strategy:
       fail-fast: false
       matrix:
