@@ -217,8 +217,14 @@ export class Mwbot {
 	/**
 	 * See {@link MwbotOptions.intervalActions}.
 	 */
-	protected static get defaultIntervalActions(): ApiParamsAction[] {
+	protected static getDefaultIntervalActions(): ApiParamsAction[] {
 		return ['edit', 'move', 'upload'];
+	}
+	/**
+	 * @deprecated Use {@link getDefaultIntervalActions} instead.
+	 */
+	protected static get defaultIntervalActions(): ApiParamsAction[] {
+		return this.getDefaultIntervalActions();
 	}
 	/**
 	 * `Util` library with convenient functions.
@@ -1181,7 +1187,7 @@ export class Mwbot {
 		}
 
 		// Enforce an interval if necessary
-		const { interval, intervalActions = Mwbot.defaultIntervalActions } = this.userMwbotOptions;
+		const { interval, intervalActions = Mwbot.getDefaultIntervalActions() } = this.userMwbotOptions;
 		const requiresInterval = !!(clonedParams.action && intervalActions.includes(clonedParams.action));
 		if (requiresInterval && this.lastRequestTime && (interval === void 0 || +interval > 0)) {
 			const sleepDuration = (typeof interval === 'number' ? interval : 4800) - (Date.now() - this.lastRequestTime);

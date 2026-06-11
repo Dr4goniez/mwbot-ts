@@ -159,7 +159,7 @@ export function testMwbotProperties(getMwbot, testDomain, authMethod) {
 			it('should expose default interval actions', function () {
 				assert.deepEqual(
 					// @ts-expect-error - Protected getter
-					Mwbot.defaultIntervalActions,
+					Mwbot.getDefaultIntervalActions(),
 					['edit', 'move', 'upload']
 				);
 			});
