@@ -781,7 +781,7 @@ export class Mwbot {
 	 * 2. Provide expected type, variable name, and actual value to auto-generate a message:
 	 * ```ts
 	 * Mwbot.dieWithTypeError('string', 'username', 42);
-	 * // => 'Expected string for \"username\", but got number.'
+	 * // => 'Expected string for "username", but got number.'
 	 * ```
 	 */
 	protected static dieWithTypeError(message: string): never;
@@ -795,14 +795,9 @@ export class Mwbot {
 		variableName?: string,
 		inputValue?: unknown
 	): never {
-		const formatType = (value: unknown) => {
-			if (Array.isArray(value)) return 'array';
-			if (value === null) return 'null';
-			return value?.constructor?.name ?? typeof value;
-		};
 		throw new MwbotError('fatal', {
 			code: 'typemismatch',
-			info: variableName
+			info: variableName !== undefined
 				? `Expected ${messageOrExpectedType} for "${variableName}", but got ${formatType(inputValue)}.`
 				: messageOrExpectedType,
 		});
@@ -4931,6 +4926,22 @@ export interface SiteAndUserInfo {
 	namespaces: ApiResponseQueryMetaSiteinfoNamespaces;
 	namespacealiases: ApiResponseQueryMetaSiteinfoNamespacealiases[];
 	user: Required<Pick<ApiResponseQueryMetaUserinfo, 'id' | 'name' | 'rights'>>;
+}
+
+function formatType(value: unknown): string {
+	if (Array.isArray(value)) return 'array';
+	if (value === null) return 'null';
+
+	// Prioritize primitive types
+	const primitiveType = typeof value;
+	if (primitiveType !== 'object' && primitiveType !== 'function') {
+		return primitiveType;
+	}
+
+	// Return a class name for objects and custom class instances.
+	// Functions are normalized to 'function'.
+	const typeName = value?.constructor?.name || primitiveType;
+	return typeName === 'Function' ? 'function' : typeName;
 }
 
 /**
