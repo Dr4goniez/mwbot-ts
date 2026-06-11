@@ -1,9 +1,51 @@
 import { describe, it } from 'mocha';
 import { assert } from 'chai';
-import { Mwbot, MwbotError } from '../../dist/index.js';
+import { Mwbot, MwbotError, MWBOT_VERSION } from '../../dist/index.js';
 import OAuth from 'oauth-1.0a';
 
 describe('Mwbot', function() {
+
+	describe('getDefaultRequestOptions()', function () {
+		it('should match defined defaults', function () {
+			assert.deepEqual(Mwbot.getDefaultRequestOptions(), {
+				method: 'GET',
+				headers: {
+					'User-Agent': `mwbot-ts/${MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
+					'Content-Type': 'application/x-www-form-urlencoded',
+					'Accept-Encoding': 'gzip',
+				},
+				params: {
+					action: 'query',
+					format: 'json',
+					formatversion: '2',
+					maxlag: 5,
+				},
+				timeout: 60 * 1000, // 60 seconds
+				responseType: 'json',
+				responseEncoding: 'utf8',
+			});
+		});
+	});
+
+	describe('getDefaultIntervalActions()', function () {
+		it('should match defined defaults', function () {
+			assert.deepEqual(
+				// @ts-expect-error - Protected method
+				Mwbot.getDefaultIntervalActions(),
+				['edit', 'move', 'upload']
+			);
+		});
+	});
+
+	describe('Static modules', function () {
+		it('should expose Util module', function () {
+			assert.exists(Mwbot.Util);
+		});
+
+		it('should expose String module', function () {
+			assert.exists(Mwbot.String);
+		});
+	});
 
 	describe('validateCredentials()', function () {
 		// @ts-expect-error - Protected method
