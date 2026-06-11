@@ -8,7 +8,7 @@
  */
 
 import type { ApiResponse, ApiResponseError } from './api_types.js';
-import { isEmptyObject, isPlainObject } from './Util.js';
+import { isPlainObject } from './Util.js';
 import type { ConfigData } from './Mwbot.js';
 
 // Imported only for docs
@@ -42,13 +42,6 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 	 */
 	info: string;
 	/**
-	 * Returns the {@link info} property. This property is only for compatibility
-	 * with the parent Error class.
-	 */
-	override get message(): string {
-		return this.info;
-	}
-	/**
 	 * Additional data of the error.
 	 */
 	data?: MwbotErrorData;
@@ -69,29 +62,21 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 			: Omit<ApiResponseError, 'code'> & { code: keyof MwbotErrorCodes[K] },
 		data?: MwbotErrorData
 	) {
-
 		if (!isPlainObject(config)) {
-			throw TypeError('MwbotError.constructor only accepts a plain object.');
+			throw new TypeError('MwbotError.constructor only accepts a plain object.');
 		}
 
-		super();
-		const { code, info, ...rest } = config;
+		super(config.info);
 		this.name = 'MwbotError';
 		this.type = type;
-		this.code = code;
-		this.info = info;
-		if (isEmptyObject(data) === false) {
-			this.data = Object.assign({}, data);
-		}
-		if (isEmptyObject(rest) === false) {
-			this.data = Object.assign(this.data || {}, { error: rest });
-		}
+		this.code = config.code;
+		this.info = config.info;
+		this.data = data;
 
 		// Ensure proper stack trace capture
 		if (Error.captureStackTrace) {
 			Error.captureStackTrace(this, MwbotError);
 		}
-
 	}
 
 	/**
@@ -103,20 +88,36 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 	static newFromResponse(
 		response: Required<Pick<ApiResponse, 'error'>> | Required<Pick<ApiResponse, 'errors'>>
 	): MwbotError<'api'> {
-		let error: ApiResponseError;
+		// Construct a `config` object for the constructor, which must include `code` and `info`
+		let config: ApiResponseError;
+
 		if ('errors' in response) {
+			const firstError = response.errors?.[0];
 			const info =
-				response.errors[0]['*'] || // formatversion=1
-				response.errors[0].html || // errorformat=html
-				response.errors[0].text || // errorformat=wikitext, errorformat=plaintext
-				response.errors[0].key || // errorformat=raw
+				firstError?.['*'] || // formatversion=1
+				// formatversion=2
+				firstError?.text || // errorformat=wikitext, errorformat=plaintext
+				firstError?.html || // errorformat=html
+				firstError?.key || // errorformat=raw
 				'Unknown error.';
-			const { errors, ...rest } = response;
-			error = Object.assign({ info }, errors[0], rest);
+
+			// TODO: This is in fact `ApiResponseErrors & { info: string }`. Only extract code
+			// and info when we drop support for MwbotErrorData.error.
+			config = Object.assign({}, firstError, { info });
 		} else {
-			error = response.error;
+			config = response.error;
 		}
-		return new MwbotError('api', error);
+
+		// Ensure code and info are always defined. Although MediaWiki API error
+		// responses normally include both fields, malformed responses may not.
+		// The fallback values below are used by the MediaWiki Action API itself.
+		config.code ??= 'unknownerror-nocode';
+		config.info ??= 'Unknown error.';
+
+		return new MwbotError('api', config, {
+			response,
+			error: config, // deprecated
+		});
 	}
 
 	/**
@@ -140,6 +141,7 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 	 */
 	setInfo(info: string): this {
 		this.info = info;
+		this.message = info;
 		return this;
 	}
 
@@ -221,9 +223,13 @@ export interface MwbotErrorCodes {
  */
 export interface MwbotErrorData {
 	/**
-	 * Additional properties in the response of a failed API request, excluding `code` and `info`.
+	 * @deprecated Use {@link response} instead.
 	 */
 	error?: Record<string, any>;
+	/**
+	 * Full API response associated with the error.
+	 */
+	response?: ApiResponse;
 	/**
 	 * Present when {@link Mwbot.init} fails to initialize certain `wg`-variables.
 	 */
@@ -241,10 +247,6 @@ export interface MwbotErrorData {
 	 * Present when the callback return value from {@link Mwbot.edit} is invalid.
 	 */
 	transformed?: unknown;
-	/**
-	 * Present when the API response includes an error that the framework cannot process.
-	 */
-	response?: Record<string, any>;
 	/**
 	 * Present when a method receives an array parameter (e.g., {@link Mwbot.purge}) containing
 	 * values of incorrect types.

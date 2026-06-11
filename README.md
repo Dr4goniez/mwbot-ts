@@ -573,6 +573,9 @@ class Mwbot2 extends Mwbot {
 > **Tip**: When extending the class, always choose unique method names. Avoid overriding built-in methods, as some rely on others internally.<br>If you're using TypeScript, it's highly recommended to enable the `noImplicitOverride` option in your `tsconfig.json`. This ensures you’ll get a compile-time error if you accidentally reuse a name that already exists, or is added in a version update.
 
 ## Error handling
+
+> **Note**: `mwbot-ts` is optimized for `errorformat=bc` and using other error formats is discouraged.
+
 `mwbot-ts` uses a custom error class named [MwbotError](https://dr4goniez.github.io/mwbot-ts/classes/MwbotError.MwbotError.html) to standardize error handling. When [Mwbot](https://dr4goniez.github.io/mwbot-ts/classes/Mwbot.Mwbot.html)'s request methods reject with an error, they **always** return an instance of `MwbotError` with a full stack trace.
 
 This design addresses a key shortcoming of the original `mwbot` framework — that is, it was often unclear what properties an error object would contain. In contrast, `MwbotError` instances always include a `code` and `info` property, closely mirroring the error structure used by MediaWiki’s built-in `mediawiki.Api` module when returning API error responses.

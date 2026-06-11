@@ -546,7 +546,7 @@ export class Mwbot {
 			!userinfo || !functionhooks || !general || !magicwords || !namespaces || !namespacealiases
 		) {
 			return retryIfPossible(
-				Mwbot.dieAsEmpty(false, 'check HTTP headers?'),
+				Mwbot.dieAsEmpty(false, 'check HTTP headers?', { response: res }),
 				attemptIndex
 			);
 		} else if (userinfo.id === 0 && !this.isAnonymous()) {
@@ -554,7 +554,7 @@ export class Mwbot {
 				new MwbotError('api_mwbot', {
 					code: 'badauth',
 					info: 'Failed to authenticate the client as a registered user.',
-				}),
+				}, { response: res }),
 				attemptIndex
 			);
 		}
@@ -567,7 +567,7 @@ export class Mwbot {
 				new MwbotError('api_mwbot', {
 					code: 'badvars',
 					info: 'Failed to initialize wg-variables.',
-				}, { keys: failedKeys }),
+				}, { keys: failedKeys, response: res }),
 				attemptIndex
 			);
 		}
@@ -2126,7 +2126,7 @@ export class Mwbot {
 				throw new MwbotError('api_mwbot', {
 					code: 'badnamedtoken',
 					info: 'Could not find a token named "' + tokenType + '" (check for typos?)',
-				});
+				}, { response });
 			}
 		} else {
 			Mwbot.dieAsEmpty(true, void 0, { response });
