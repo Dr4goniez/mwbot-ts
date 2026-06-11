@@ -30,7 +30,7 @@ To install the package, run:
 npm install mwbot-ts
 ```
 
-[![Download stats](https://nodei.co/npm/mwbot-ts.png?downloads=true&downloadRank=true)](https://nodei.co/npm/mwbot-ts/)
+[![Download stats](https://nodei.co/npm/mwbot-ts.png?downloads=true&downloadRank=true)](https://www.npmjs.com/package/mwbot-ts)
 
 <details>
 <summary><big><b>Table of contents:</b></big></summary>
