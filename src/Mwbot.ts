@@ -309,7 +309,6 @@ export class Mwbot {
 	 * * The user credentials are malformed. (`invalidcreds`)
 	 */
 	protected constructor(mwbotInitOptions: MwbotInitOptions, requestOptions: MwbotRequestConfig) {
-
 		const { credentials, ...options } = mergeDeep(mwbotInitOptions);
 		requestOptions = mergeDeep(requestOptions);
 
@@ -367,7 +366,6 @@ export class Mwbot {
 		this._FileWikilink = Object.create(null);
 		this._RawWikilink = Object.create(null);
 		this._Wikitext = Object.create(null);
-
 	}
 
 	/**
@@ -534,16 +532,13 @@ export class Mwbot {
 	 * @returns A Promise resolving to the current instance, or rejecting with an error.
 	 */
 	protected async _init(attemptIndex: number): Promise<this> {
-
 		const retryIfPossible = async (error: MwbotError, index: number): Promise<this> => {
 			if (index < 2) {
-				console.dir(error, { depth: 3 });
-				console.log('Mwbot.init failed. Retrying once again in 5 seconds...');
+				console.warn('Mwbot.init failed. Retrying in 5 seconds...');
 				await sleep(5000);
 				return this._init(index + 1);
-			} else {
-				throw error;
 			}
+			throw error;
 		};
 
 		// Log in if necessary
@@ -573,10 +568,14 @@ export class Mwbot {
 			);
 		} else if (userinfo.id === 0 && !this.isAnonymous()) {
 			return retryIfPossible(
-				new MwbotError('api_mwbot', {
-					code: 'badauth',
-					info: 'Failed to authenticate the client as a registered user.',
-				}, { response: res }),
+				new MwbotError(
+					'api_mwbot',
+					{
+						code: 'badauth',
+						info: 'Failed to authenticate the client as a registered user.',
+					},
+					{ response: res }
+				),
 				attemptIndex
 			);
 		}
@@ -586,10 +585,14 @@ export class Mwbot {
 		if (failedKeys.length) {
 			// Ensure that all the dependent config values are fetched successfully
 			return retryIfPossible(
-				new MwbotError('api_mwbot', {
-					code: 'badvars',
-					info: 'Failed to initialize wg-variables.',
-				}, { keys: failedKeys, response: res }),
+				new MwbotError(
+					'api_mwbot',
+					{
+						code: 'badvars',
+						info: 'Failed to initialize wg-variables.',
+					},
+					{ keys: failedKeys, response: res }
+				),
 				attemptIndex
 			);
 		}
@@ -622,7 +625,6 @@ export class Mwbot {
 
 		console.log('Connection established: ' + config.get('wgServerName'));
 		return this;
-
 	}
 
 	/**
