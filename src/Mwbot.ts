@@ -755,7 +755,7 @@ export class Mwbot {
 	protected static dieAsEmpty(die?: true, additionalInfo?: string, data?: MwbotErrorData): never;
 	protected static dieAsEmpty(die: false, additionalInfo?: string, data?: MwbotErrorData): MwbotError<'api_mwbot'>;
 	protected static dieAsEmpty(die = true, additionalInfo?: string, data?: MwbotErrorData): never | MwbotError<'api_mwbot'> {
-		const info = additionalInfo
+		const info = typeof additionalInfo === 'string'
 			? `OK response but empty result (${additionalInfo}).`
 			: 'OK response but empty result.';
 		const error = new MwbotError('api_mwbot', { code: 'empty', info }, data);
@@ -769,7 +769,7 @@ export class Mwbot {
 	 * @param requestOptions The request configuration object to check.
 	 * @throws {MwbotError} If the request method is missing or not "POST". (`internal`)
 	 */
-	protected static dieIfNotPost(requestOptions: MwbotRequestConfig): never | void {
+	protected static dieIfNotPost(requestOptions: MwbotRequestConfig): void {
 		if (requestOptions?.method !== 'POST') {
 			throw new MwbotError('fatal', {
 				code: 'internal',
