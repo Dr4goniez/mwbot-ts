@@ -2,8 +2,193 @@ import { describe, it } from 'mocha';
 import { assert } from 'chai';
 import { Mwbot, MwbotError, MWBOT_VERSION } from '../../dist/index.js';
 import OAuth from 'oauth-1.0a';
+import { getFakeSiteAndUserInfo } from './MwbotTest-fixtures.js';
+import sinon from 'sinon';
 
 describe('Mwbot', function() {
+
+	describe('init() including constructor', function () {
+
+		/**
+		 * @type {'empty' | 'always_empty' | 'userId' | 'articlepath' | false}
+		 */
+		let causeGetError = false;
+		/**
+		 * @type {boolean}
+		 */
+		let causeLoginError = false;
+
+		class TestMwbot extends Mwbot {
+			/**
+			 * @override
+			 */
+			async get() {
+				switch (causeGetError) {
+					case 'empty':
+						causeGetError = false;
+						return {};
+					case 'always_empty':
+						return {};
+					case 'userId': {
+						causeGetError = false;
+						const ret = getFakeSiteAndUserInfo();
+						ret.query.userinfo.id = 0;
+						return ret;
+					}
+					case 'articlepath': {
+						causeGetError = false;
+						const ret = getFakeSiteAndUserInfo();
+						// @ts-expect-error - Delting a non-optional property
+						delete ret.query.general.articlepath;
+						return ret;
+					}
+					default: return getFakeSiteAndUserInfo();
+				}
+			}
+
+			/**
+			 * @param {string} _username
+			 * @param {string} _password
+			 * @returns {Promise<import('../../dist/index.js').ApiResponse>}
+			 * @override
+			 */
+			async login(_username, _password) {
+				if (!causeLoginError) {
+					return /** @type {any} */ ({ login: { result: 'Success', lguserid: 2, lgusername: 'Admin' } });
+				}
+				causeLoginError = false;
+				throw new MwbotError('api_mwbot', {
+					code: 'loginfailed',
+					info: 'Failed to log in.',
+				});
+			}
+		}
+
+		const mwbotInitOptions = {
+			apiUrl: 'http://localhost:8080',
+			credentials: {
+				username: 'Admin@adminbot',
+				password: '12345678901234567890123456789012',
+			},
+		};
+
+		it('should throw "nourl" error if API endpoint is not provided', async function () {
+			try {
+				// @ts-expect-error - Testing missing optional/required parameters
+				await TestMwbot.init( {
+					credentials: { anonymous: true },
+				});
+
+				assert.fail('Expected init() to reject');
+			} catch (err) {
+				assert.instanceOf(err, MwbotError);
+				assert.strictEqual(err.code, 'nourl');
+				assert.strictEqual(err.info, 'No valid API endpoint is provided.');
+			}
+		});
+
+		it('should retry once when receiving an empty response', async function () {
+			causeGetError = 'empty';
+			const clock = sinon.useFakeTimers();
+			const warnSpy = sinon.spy(console, 'warn');
+
+			try {
+				const promise = TestMwbot.init(mwbotInitOptions);
+				await Promise.resolve();
+				await clock.tickAsync(5000);
+				const mwbot = await promise;
+
+				// @ts-expect-error - Protected constructor
+				assert.instanceOf(mwbot, TestMwbot);
+				assert.strictEqual(warnSpy.callCount, 1);
+				assert.match(
+					warnSpy.firstCall.args[0],
+					/Mwbot\.init failed\. Retrying in 5 seconds/
+				);
+			} finally {
+				warnSpy.restore();
+				clock.restore();
+			}
+		});
+
+		it('should throw an error if initialization fails even after retrying', async function () {
+			causeGetError = 'always_empty';
+			const clock = sinon.useFakeTimers();
+			const warnSpy = sinon.spy(console, 'warn');
+
+			try {
+				const promise = TestMwbot.init(mwbotInitOptions);
+				await Promise.resolve();
+				await clock.tickAsync(5000);
+
+				await promise;
+
+				assert.fail('Expected init() to reject');
+			} catch (err) {
+				assert.instanceOf(err, MwbotError);
+				assert.strictEqual(err.code, 'empty');
+				assert.strictEqual(warnSpy.callCount, 1);
+			} finally {
+				causeGetError = false;
+				warnSpy.restore();
+				clock.restore();
+			}
+		});
+
+		it('should retry once when userinfo.id is 0 for authenticated users', async function () {
+			causeGetError = 'userId';
+			const clock = sinon.useFakeTimers();
+
+			try {
+				const promise = TestMwbot.init(mwbotInitOptions);
+				await Promise.resolve();
+				await clock.tickAsync(5000);
+				const mwbot = await promise;
+
+				// @ts-expect-error - Protected constructor
+				assert.instanceOf(mwbot, TestMwbot);
+			} finally {
+				clock.restore();
+			}
+		});
+
+		it('should reject immediately when login fails', async function () {
+			causeLoginError = true;
+
+			try {
+				await TestMwbot.init(mwbotInitOptions);
+
+				assert.fail('Expected init() to reject');
+			} catch (err) {
+				assert.instanceOf(err, MwbotError);
+				assert.strictEqual(err.code, 'loginfailed');
+			}
+		});
+
+		it('should retry when initConfigData returns failed keys', async function () {
+			causeGetError = 'articlepath';
+			const clock = sinon.useFakeTimers();
+			const warnSpy = sinon.spy(console, 'warn');
+
+			try {
+				const promise = TestMwbot.init(mwbotInitOptions);
+				await Promise.resolve();
+				await clock.tickAsync(5000);
+				const mwbot = await promise;
+
+				// @ts-expect-error - Protected constructor
+				assert.instanceOf(mwbot, TestMwbot);
+				assert.strictEqual(warnSpy.callCount, 1);
+				assert.match(
+					warnSpy.firstCall.args[0],
+					/Mwbot\.init failed\. Retrying in 5 seconds/
+				);
+			} finally {
+				warnSpy.restore();
+				clock.restore();
+			}
+		});
+	});
 
 	describe('getDefaultRequestOptions()', function () {
 		it('should match defined defaults', function () {
