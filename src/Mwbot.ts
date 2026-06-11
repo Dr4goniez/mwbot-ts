@@ -372,73 +372,83 @@ export class Mwbot {
 		}
 
 		const keys = Object.keys(credentials);
-		switch (keys.length) {
-			case 1: {
-				const { anonymous, oAuth2AccessToken } = credentials;
-				if (anonymous === true) {
-					return {
-						anonymous: true,
-					};
-				}
-				if (typeof oAuth2AccessToken === 'string') {
-					return {
-						oauth2: oAuth2AccessToken,
-					};
-				}
+
+		// Validate anonymous authentication
+		if ('anonymous' in credentials) {
+			if (keys.length !== 1 || credentials.anonymous !== true) {
 				throw new MwbotError('fatal', {
 					code: 'invalidcreds',
-					info: `Unexpected value for "${keys[0]}".`,
+					info: 'Anonymous credentials must only contain "anonymous: true".',
 				});
 			}
-			case 2: {
-				const { username, password } = credentials;
-				if (typeof username === 'string' && typeof password === 'string') {
-					return {
-						user: {
-							username,
-							password,
-						},
-					};
-				}
-				throw new MwbotError('fatal', {
-					code: 'invalidcreds',
-					info: 'Invalid types for username or password.',
-				});
-			}
-			case 4: {
-				const { consumerToken, consumerSecret, accessToken, accessSecret } = credentials;
-				if (
-					typeof consumerToken === 'string' &&
-					typeof consumerSecret === 'string' &&
-					typeof accessToken === 'string' &&
-					typeof accessSecret === 'string'
-				) {
-					const instance = new OAuth({
-						consumer: { key: consumerToken, secret: consumerSecret },
-						signature_method: 'HMAC-SHA1', // TODO: Make it compatible with the RSA-SHA1 authentication method?
-						hash_function(baseString: crypto.BinaryLike, key: crypto.BinaryLike | crypto.KeyObject) {
-							return crypto.createHmac('sha1', key).update(baseString).digest('base64');
-						},
-					});
-					return {
-						oauth1: {
-							instance,
-							accessToken,
-							accessSecret,
-						},
-					};
-				}
-				throw new MwbotError('fatal', {
-					code: 'invalidcreds',
-					info: 'Invalid OAuth credentials.',
-				});
-			}
-			default:
-				throw new MwbotError('fatal', {
-					code: 'invalidcreds',
-					info: `Invalid credential properties: ${keys.join(', ')}`,
-				});
+			return { anonymous: true };
 		}
+
+		// Validate OAuth2 authentication
+		if ('oAuth2AccessToken' in credentials) {
+			if (keys.length !== 1 || !isNonEmptyString(credentials.oAuth2AccessToken)) {
+				throw new MwbotError('fatal', {
+					code: 'invalidcreds',
+					info: 'OAuth2 credentials must only contain a string "oAuth2AccessToken".',
+				});
+			}
+			return { oauth2: credentials.oAuth2AccessToken };
+		}
+
+		// Validate BotPassword authentication
+		if ('username' in credentials || 'password' in credentials) {
+			const { username, password, ...rest } = credentials;
+			if (isNonEmptyString(username) && isNonEmptyString(password) && Object.keys(rest).length === 0) {
+				return {
+					user: { username, password },
+				};
+			}
+			throw new MwbotError('fatal', {
+				code: 'invalidcreds',
+				info: 'Invalid username/password credentials, or unexpected extra properties.',
+			});
+		}
+
+		// Validate OAuth1 authentication
+		if (
+			'consumerToken' in credentials ||
+			'consumerSecret' in credentials ||
+			'accessToken' in credentials ||
+			'accessSecret' in credentials
+		) {
+			const { consumerToken, consumerSecret, accessToken, accessSecret, ...rest } = credentials;
+			if (
+				isNonEmptyString(consumerToken) &&
+				isNonEmptyString(consumerSecret) &&
+				isNonEmptyString(accessToken) &&
+				isNonEmptyString(accessSecret) &&
+				Object.keys(rest).length === 0
+			) {
+				const instance = new OAuth({
+					consumer: { key: consumerToken, secret: consumerSecret },
+					signature_method: 'HMAC-SHA1', // TODO: Make it compatible with the RSA-SHA1 authentication method?
+					hash_function(baseString: crypto.BinaryLike, key: crypto.BinaryLike | crypto.KeyObject) {
+						return crypto.createHmac('sha1', key).update(baseString).digest('base64');
+					},
+				});
+				return {
+					oauth1: {
+						instance,
+						accessToken,
+						accessSecret,
+					},
+				};
+			}
+			throw new MwbotError('fatal', {
+				code: 'invalidcreds',
+				info: 'Invalid OAuth1 credentials, or unexpected extra properties.',
+			});
+		}
+
+		throw new MwbotError('fatal', {
+			code: 'invalidcreds',
+			info: `Invalid credential properties: ${keys.join(', ')}`,
+		});
 	}
 
 	/**
@@ -4793,6 +4803,10 @@ export type MwbotCredentials = XOR<
 		anonymous: true;
 	}
 >;
+
+function isNonEmptyString(value: unknown): value is string {
+	return typeof value === 'string' && !!value;
+}
 
 /**
  * Configuration options for {@link Mwbot}'s request methods, extending
