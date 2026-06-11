@@ -145,7 +145,7 @@ export class Mwbot {
 	 * }
 	 * ```
 	 */
-	static get defaultRequestOptions() {
+	static getDefaultRequestOptions() {
 		return {
 			method: 'GET',
 			headers: {
@@ -163,6 +163,12 @@ export class Mwbot {
 			responseType: 'json',
 			responseEncoding: 'utf8',
 		};
+	}
+	/**
+	 * @deprecated Use {@link getDefaultRequestOptions} instead.
+	 */
+	static get defaultRequestOptions() {
+		return this.getDefaultRequestOptions();
 	}
 	/**
 	 * User credentials.
@@ -1110,7 +1116,7 @@ export class Mwbot {
 
 		// Preprocess the request options
 		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
-		requestOptions = mergeDeep(Mwbot.defaultRequestOptions, this.userRequestOptions, requestOptions, { params: parameters });
+		requestOptions = mergeDeep(Mwbot.getDefaultRequestOptions(), this.userRequestOptions, requestOptions, { params: parameters });
 		if (
 			!this.isAnonymous() && !requestOptions.disableAssert && requestOptions.params &&
 			typeof requestOptions.params.assert !== 'string' && typeof requestOptions.params.assertuser !== 'string'
@@ -4818,7 +4824,7 @@ function isNonEmptyString(value: unknown): value is string {
  *
  * When passed to a request method, these options are recursively merged with default options.
  * The priority order is:
- * * {@link Mwbot.defaultRequestOptions} < {@link Mwbot.userRequestOptions} < Per-method request options
+ * * {@link Mwbot.getDefaultRequestOptions} < {@link Mwbot.userRequestOptions} < Per-method request options
  *
  * where `userRequestOptions` is the options set by the user with the constructor or the `setRequestOptions`
  * method. Higher-priority options override lower ones if they share the same properties.

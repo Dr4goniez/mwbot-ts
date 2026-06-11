@@ -137,7 +137,7 @@ export function testMwbotProperties(getMwbot, testDomain, authMethod) {
 
 		describe('Static Properties & Utilities', function () {
 			it('should expose request defaults', function () {
-				assert.deepEqual(Mwbot.defaultRequestOptions, {
+				assert.deepEqual(Mwbot.getDefaultRequestOptions(), {
 					method: 'GET',
 					headers: {
 						'User-Agent': `mwbot-ts/${MWBOT_VERSION} (https://github.com/Dr4goniez/mwbot-ts)`,
