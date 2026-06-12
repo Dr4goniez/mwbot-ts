@@ -1353,10 +1353,8 @@ export interface ParsedRawWikilinkInitializer extends ParsedWikilinkInitializerB
 	display?: string;
 }
 
-/* eslint-disable @stylistic/indent */
 type InitializerFor<CLS> =
 	CLS extends ParsedWikilink ? ParsedWikilinkInitializer :
 	CLS extends ParsedFileWikilink ? ParsedFileWikilinkInitializer :
 	CLS extends ParsedRawWikilink ? ParsedRawWikilinkInitializer :
 	never;
-/* eslint-enable @stylistic/indent */

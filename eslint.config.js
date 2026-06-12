@@ -45,11 +45,7 @@ export default defineConfig([
 				"tuples": "always-multiline",
 			}],
 			"@stylistic/indent": ["warn", "tab", {
-				"offsetTernaryExpressions": {
-					"CallExpression": false,
-					"AwaitExpression": false,
-					"NewExpression": false,
-				},
+				"flatTernaryExpressions": true,
 			}],
 			"@stylistic/no-trailing-spaces": "warn",
 			"json/no-empty-keys": "off",
