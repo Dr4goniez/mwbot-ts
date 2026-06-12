@@ -835,9 +835,9 @@ export class Mwbot {
 	protected readonly configData: ConfigData = Object.create(null);
 
 	/**
-	 * The `wg`-keys of {@link ConfigData}, used in {@link config} to verify their existence.
+	 * Built-in read-only `wg` variables. See also {@link ConfigData}.
 	 */
-	protected readonly configKeys: Set<keyof ConfigData> = new Set([
+	protected static readonly CONFIG_KEYS: Set<keyof ConfigData> = new Set([
 		'wgArticlePath',
 		'wgCaseSensitiveNamespaces',
 		'wgContentLanguage',
@@ -921,7 +921,7 @@ export class Mwbot {
 				}
 			},
 			set: <K extends keyof ConfigData, U extends Partial<ConfigData> & Record<string, TX>, TX>(selection: K | string | U, value?: TX) => {
-				if (typeof selection === 'string' && this.configKeys.has(selection as K)) {
+				if (typeof selection === 'string' && Mwbot.CONFIG_KEYS.has(selection as K)) {
 					console.warn(`Warning: Cannot modify read-only wg-configuration variable "${selection}".`);
 					return false;
 				} else if (typeof selection === 'string' && value !== void 0) {
@@ -931,7 +931,7 @@ export class Mwbot {
 					let registered = 0;
 					const wgVars = new Set<string>();
 					for (const [k, v] of Object.entries(<U>selection)) {
-						if (this.configKeys.has(k)) {
+						if (Mwbot.CONFIG_KEYS.has(k)) {
 							wgVars.add(k);
 						} else if (v !== void 0) {
 							this.configData[k] = v;

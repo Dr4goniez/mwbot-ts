@@ -868,7 +868,8 @@ describe('Mwbot', function() {
 				const all = config.get();
 
 				assert.isObject(all);
-				assert.strictEqual(Object.keys(all).length, 18);
+				// @ts-expect-error - Accessing a protected property
+				assert.strictEqual(Object.keys(all).length, TestMwbotFactory().CONFIG_KEYS.size);
 				assert.isString(all.wgArticlePath);
 				assert.isArray(all.wgCaseSensitiveNamespaces);
 				assert.propertyVal(all, 'wgContentLanguage', 'en');
