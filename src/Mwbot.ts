@@ -204,16 +204,16 @@ export class Mwbot {
 	/**
 	 * A set of `AbortController`s used in {@link abort}.
 	 */
-	protected abortions: Set<AbortController>;
+	protected abortions: Set<AbortController> = new Set();
 	/**
 	 * Cashed MediaWiki tokens.
 	 */
-	protected tokens: ApiResponseQueryMetaTokens;
+	protected tokens: ApiResponseQueryMetaTokens = Object.create(null);
 	/**
 	 * The timestamp (in milliseconds since the UNIX epoch) of the last successful request.
 	 * This is updated only for API actions specified in {@link MwbotOptions.intervalActions}.
 	 */
-	protected lastRequestTime: number | null;
+	protected lastRequestTime: number | null = null;
 	/**
 	 * See {@link MwbotOptions.intervalActions}.
 	 */
@@ -238,56 +238,56 @@ export class Mwbot {
 	static get String(): typeof mwString {
 		return mwString;
 	}
-	protected _info: SiteAndUserInfo;
+	protected _info: SiteAndUserInfo = Object.create(null);
 	/**
 	 * Returns (a deep copy of) the site and user information fetched by {@link init}.
 	 */
 	get info(): SiteAndUserInfo {
 		return mergeDeep(this._info);
 	}
-	protected _Title: TitleStatic;
+	protected _Title: TitleStatic = Object.create(null);
 	/**
 	 * Title class for this instance.
 	 */
 	get Title(): TitleStatic {
 		return this._Title;
 	}
-	protected _Template: TemplateStatic;
+	protected _Template: TemplateStatic = Object.create(null);
 	/**
 	 * Template class for this instance.
 	 */
 	get Template(): TemplateStatic {
 		return this._Template;
 	}
-	protected _ParserFunction: ParserFunctionStatic;
+	protected _ParserFunction: ParserFunctionStatic = Object.create(null);
 	/**
 	 * ParserFunction class for this instance.
 	 */
 	get ParserFunction(): ParserFunctionStatic {
 		return this._ParserFunction;
 	}
-	protected _Wikilink: WikilinkStatic;
+	protected _Wikilink: WikilinkStatic = Object.create(null);
 	/**
 	 * Wikilink class for this instance.
 	 */
 	get Wikilink(): WikilinkStatic {
 		return this._Wikilink;
 	}
-	protected _FileWikilink: FileWikilinkStatic;
+	protected _FileWikilink: FileWikilinkStatic = Object.create(null);
 	/**
 	 * FileWikilink class for this instance.
 	 */
 	get FileWikilink(): FileWikilinkStatic {
 		return this._FileWikilink;
 	}
-	protected _RawWikilink: RawWikilinkStatic;
+	protected _RawWikilink: RawWikilinkStatic = Object.create(null);
 	/**
 	 * RawWikilink class for this instance.
 	 */
 	get RawWikilink(): RawWikilinkStatic {
 		return this._RawWikilink;
 	}
-	protected _Wikitext: WikitextStatic;
+	protected _Wikitext: WikitextStatic = Object.create(null);
 	/**
 	 * Wikitext class for this instance.
 	 */
@@ -352,20 +352,8 @@ export class Mwbot {
 		}
 
 		this.axios = wrapper(axios.create(axiosConfig));
-
 		this.userMwbotOptions = options;
 		this.userRequestOptions = requestOptions;
-		this.abortions = new Set();
-		this.tokens = {};
-		this.lastRequestTime = null;
-		this._info = Object.create(null);
-		this._Title = Object.create(null);
-		this._Template = Object.create(null);
-		this._ParserFunction = Object.create(null);
-		this._Wikilink = Object.create(null);
-		this._FileWikilink = Object.create(null);
-		this._RawWikilink = Object.create(null);
-		this._Wikitext = Object.create(null);
 	}
 
 	/**
@@ -3375,7 +3363,7 @@ export class Mwbot {
 				info: response.login.reason || 'Failed to log in.',
 			}, { response });
 		} else {
-			this.tokens = {}; // Clear cashed tokens because these can't be used for the newly logged-in user
+			this.tokens = Object.create(null); // Clear cashed tokens because these can't be used for the newly logged-in user
 			return response;
 		}
 
