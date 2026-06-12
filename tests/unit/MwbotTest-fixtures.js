@@ -1,22 +1,207 @@
-export function getFakeSiteAndUserInfo() {
+import { Mwbot, MwbotError } from '../../dist/index.js';
+
+/**
+ * Creates a Mwbot subclass for testing init().
+ *
+ * @param {'empty' | 'userId' | 'articlepath' | false} [initError]
+ * * `false` - Causes no initialization errors (default).
+ * * `'empty'` - Causes an `empty` error upon fetching user and site metadata.
+ * * `'userId'` - Forcibly sets the user ID to 0 in the fetched user metadata.
+ *   **This has no effect if the authentication method itself is anonymous.**
+ * * `'articlepath'` - Deletes the `articlepath` property in the fetched site metadata
+ *   to simulate a configuration object initialization error.
+ * @param {number} [errorCount=1]
+ * Number of times the simulated initialization error should occur.
+ * Use `Infinity` to make every initialization attempt fail.
+ * @param {boolean} [loginError=false] Whether to cause a login error.
+ */
+export function TestMwbotFactory(initError = false, errorCount = 1, loginError = false) {
+
+	let remainingInitErrors = errorCount;
+
+	return class TestMwbot extends Mwbot {
+
+		/**
+		 * @override
+		 */
+		async get() {
+			const shouldFail =
+				initError !== false &&
+				(remainingInitErrors === Infinity || remainingInitErrors > 0);
+			const isAnon = this.isAnonymous();
+
+			if (shouldFail) {
+
+				if (remainingInitErrors !== Infinity) {
+					remainingInitErrors--;
+				}
+
+				switch (initError) {
+					case 'empty':
+						return {};
+					case 'userId': {
+						const ret = getFakeSiteAndUserInfo(isAnon);
+						ret.query.userinfo.id = 0;
+						return ret;
+					}
+					case 'articlepath': {
+						const ret = getFakeSiteAndUserInfo(isAnon);
+						// @ts-expect-error - Testing invalid siteinfo data
+						delete ret.query.general.articlepath;
+						return ret;
+					}
+				}
+			}
+
+			return getFakeSiteAndUserInfo(isAnon);
+		}
+
+		/**
+		 * @param {string} _username
+		 * @param {string} _password
+		 * @override
+		 */
+		async login(_username, _password) {
+			if (loginError) {
+				throw new MwbotError('api_mwbot', {
+					code: 'loginfailed',
+					info: 'Failed to log in.',
+				});
+			}
+			return /** @type {any} */ ({
+				login: {
+					result: 'Success',
+					lguserid: 2,
+					lgusername: 'Admin',
+				},
+			});
+		}
+	};
+}
+
+/**
+ * @param {'named' | 'anon'} userType
+ * @returns {import('../../dist/index.js').MwbotInitOptions}
+ */
+export function getMwbotInitOptionsBase(userType) {
+	let credentials;
+	switch (userType) {
+		case 'named':
+			credentials = {
+				username: 'Admin@adminbot',
+				password: '12345678901234567890123456789012',
+			};
+			break;
+		case 'anon':
+			credentials = { anonymous: /** @type {const} */ (true) };
+			break;
+		default:
+			throw new Error('Invalid user type: ' + userType);
+	}
+
+	return {
+		apiUrl: 'http://localhost:8080',
+		credentials,
+	};
+}
+
+/**
+ * @param {boolean} anonymous
+ * @returns
+ */
+function getFakeSiteAndUserInfo(anonymous) {
 	/* eslint-disable @stylistic/comma-dangle */
+	const userinfo = anonymous
+		? {
+			"id": 0,
+			"name": "172.18.0.1",
+			"rights": [
+				"createaccount",
+				"read",
+				"edit",
+				"createpage",
+				"createtalk",
+				"viewmyprivateinfo",
+				"editmyprivateinfo",
+				"editmyoptions"
+			]
+		}
+		: {
+			"id": 2,
+			"name": "Admin",
+			"rights": [
+				"userrights",
+				"noratelimit",
+				"renameuser",
+				"editinterface",
+				"editsitecss",
+				"editsitejson",
+				"editsitejs",
+				"editusercss",
+				"edituserjson",
+				"edituserjs",
+				"block",
+				"createaccount",
+				"delete",
+				"bigdelete",
+				"deletedhistory",
+				"deletedtext",
+				"undelete",
+				"editcontentmodel",
+				"import",
+				"importupload",
+				"move",
+				"move-subpages",
+				"move-rootuserpages",
+				"move-categorypages",
+				"patrol",
+				"autopatrol",
+				"protect",
+				"editprotected",
+				"rollback",
+				"upload",
+				"reupload",
+				"reupload-shared",
+				"unwatchedpages",
+				"autoconfirmed",
+				"editsemiprotected",
+				"ipblock-exempt",
+				"blockemail",
+				"markbotedits",
+				"apihighlimits",
+				"browsearchive",
+				"movefile",
+				"unblockself",
+				"suppressredirect",
+				"mergehistory",
+				"managechangetags",
+				"deletechangetags",
+				"mwoauthproposeconsumer",
+				"mwoauthmanageconsumer",
+				"read",
+				"edit",
+				"createpage",
+				"createtalk",
+				"viewmyprivateinfo",
+				"editmyprivateinfo",
+				"editmyoptions",
+				"minoredit",
+				"editmyusercss",
+				"editmyuserjson",
+				"editmyuserjs",
+				"editmyuserjsredirect",
+				"sendemail",
+				"applychangetags",
+				"changetags",
+				"viewmywatchlist",
+				"editmywatchlist",
+				"mwoauthmanagemygrants"
+			]
+		};
 	return {
 		"batchcomplete": true,
 		"query": {
-			"userinfo": {
-				"id": 2,
-				"name": "Admin",
-				"rights": [
-					"createaccount",
-					"read",
-					"edit",
-					"createpage",
-					"createtalk",
-					"viewmyprivateinfo",
-					"editmyprivateinfo",
-					"editmyoptions"
-				]
-			},
+			"userinfo": userinfo,
 			"functionhooks": [
 				"ns",
 				"nse",
