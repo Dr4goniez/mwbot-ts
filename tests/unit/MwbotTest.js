@@ -7,168 +7,6 @@ import sinon from 'sinon';
 
 describe('Mwbot', function() {
 
-	describe('init() including constructor', function () {
-
-		it('should throw "nourl" error if API endpoint is not provided', async function () {
-			try {
-				const TestMwbot = TestMwbotFactory();
-				// @ts-expect-error - Testing missing optional/required parameters
-				await TestMwbot.init({
-					credentials: { anonymous: true },
-				});
-
-				assert.fail('Expected init() to reject');
-			} catch (err) {
-				assert.instanceOf(err, MwbotError);
-				assert.strictEqual(err.code, 'nourl');
-				assert.strictEqual(err.info, 'No valid API endpoint is provided.');
-			}
-		});
-
-		it('should retry once when receiving an empty response', async function () {
-			const clock = sinon.useFakeTimers();
-			const warnSpy = sinon.spy(console, 'warn');
-
-			try {
-				const TestMwbot = TestMwbotFactory('empty');
-				const mwbotInitOptions = getMwbotInitOptionsBase('named');
-				const promise = TestMwbot.init(mwbotInitOptions);
-				await Promise.resolve();
-				await clock.tickAsync(5000);
-				const mwbot = await promise;
-
-				// @ts-expect-error - Protected constructor
-				assert.instanceOf(mwbot, TestMwbot);
-				assert.strictEqual(warnSpy.callCount, 1);
-				assert.match(
-					warnSpy.firstCall.args[0],
-					/Mwbot\.init failed\. Retrying in 5 seconds/
-				);
-			} finally {
-				warnSpy.restore();
-				clock.restore();
-			}
-		});
-
-		it('should throw an error when the retry also receives an empty response', async function () {
-			const clock = sinon.useFakeTimers();
-			const warnSpy = sinon.spy(console, 'warn');
-
-			const TestMwbot = TestMwbotFactory('empty', Infinity);
-			const mwbotInitOptions = getMwbotInitOptionsBase('named');
-			const promise = TestMwbot.init(mwbotInitOptions).catch(eer => eer);
-			await Promise.resolve();
-			await clock.tickAsync(5000);
-
-			const err = await promise;
-
-			assert.instanceOf(err, MwbotError);
-			assert.strictEqual(err.code, 'empty');
-			assert.strictEqual(warnSpy.callCount, 1);
-
-			warnSpy.restore();
-			clock.restore();
-		});
-
-		it('should retry once when userinfo.id is 0 for authenticated users', async function () {
-			const clock = sinon.useFakeTimers();
-
-			try {
-				const TestMwbot = TestMwbotFactory('userId');
-				const mwbotInitOptions = getMwbotInitOptionsBase('named');
-				const promise = TestMwbot.init(mwbotInitOptions);
-				await Promise.resolve();
-				await clock.tickAsync(5000);
-				const mwbot = await promise;
-
-				// @ts-expect-error - Protected constructor
-				assert.instanceOf(mwbot, TestMwbot);
-			} finally {
-				clock.restore();
-			}
-		});
-
-		it('should throw badauth when userinfo.id remains 0 after a retry', async function () {
-			const clock = sinon.useFakeTimers();
-			const warnSpy = sinon.spy(console, 'warn');
-
-			const TestMwbot = TestMwbotFactory('userId', Infinity);
-			const mwbotInitOptions = getMwbotInitOptionsBase('named');
-			const promise = TestMwbot.init(mwbotInitOptions).catch(eer => eer);
-			await Promise.resolve();
-			await clock.tickAsync(5000);
-
-			const err = await promise;
-
-			assert.instanceOf(err, MwbotError);
-			assert.strictEqual(err.code, 'badauth');
-			assert.strictEqual(warnSpy.callCount, 1);
-
-			warnSpy.restore();
-			clock.restore();
-		});
-
-		it('should reject immediately when login fails', async function () {
-			try {
-				const TestMwbot = TestMwbotFactory(false, 1, true);
-				const mwbotInitOptions = getMwbotInitOptionsBase('named');
-				await TestMwbot.init(mwbotInitOptions);
-
-				assert.fail('Expected init() to reject');
-			} catch (err) {
-				assert.instanceOf(err, MwbotError);
-				assert.strictEqual(err.code, 'loginfailed');
-			}
-		});
-
-		it('should retry when initConfigData returns failed keys', async function () {
-			const clock = sinon.useFakeTimers();
-			const warnSpy = sinon.spy(console, 'warn');
-
-			try {
-				const TestMwbot = TestMwbotFactory('articlepath');
-				const mwbotInitOptions = getMwbotInitOptionsBase('named');
-				const promise = TestMwbot.init(mwbotInitOptions);
-				await Promise.resolve();
-				await clock.tickAsync(5000);
-				const mwbot = await promise;
-
-				// @ts-expect-error - Protected constructor
-				assert.instanceOf(mwbot, TestMwbot);
-				assert.strictEqual(warnSpy.callCount, 1);
-				assert.match(
-					warnSpy.firstCall.args[0],
-					/Mwbot\.init failed\. Retrying in 5 seconds/
-				);
-			} finally {
-				warnSpy.restore();
-				clock.restore();
-			}
-		});
-
-		it('should throw badvars when initConfigData still returns failed keys after a retry', async function () {
-			const clock = sinon.useFakeTimers();
-			const warnSpy = sinon.spy(console, 'warn');
-
-			const TestMwbot = TestMwbotFactory('articlepath', Infinity);
-			const mwbotInitOptions = getMwbotInitOptionsBase('named');
-			const promise = TestMwbot.init(mwbotInitOptions).catch(eer => eer);
-			await Promise.resolve();
-			await clock.tickAsync(5000);
-
-			const err = await promise;
-
-			assert.instanceOf(err, MwbotError);
-			assert.strictEqual(err.code, 'badvars');
-			assert.isArray(err.data?.keys);
-			assert.include(err.data?.keys ?? [], 'wgArticlePath');
-			assert.strictEqual(warnSpy.callCount, 1);
-
-			warnSpy.restore();
-			clock.restore();
-		});
-	});
-
 	describe('getDefaultRequestOptions()', function () {
 		it('should match defined defaults', function () {
 			assert.deepEqual(Mwbot.getDefaultRequestOptions(), {
@@ -401,6 +239,168 @@ describe('Mwbot', function() {
 					'Invalid credential properties: unknownKey1, unknownKey2'
 				);
 			});
+		});
+	});
+
+	describe('init() including constructor', function () {
+
+		it('should throw "nourl" error if API endpoint is not provided', async function () {
+			try {
+				const TestMwbot = TestMwbotFactory();
+				// @ts-expect-error - Testing missing optional/required parameters
+				await TestMwbot.init({
+					credentials: { anonymous: true },
+				});
+
+				assert.fail('Expected init() to reject');
+			} catch (err) {
+				assert.instanceOf(err, MwbotError);
+				assert.strictEqual(err.code, 'nourl');
+				assert.strictEqual(err.info, 'No valid API endpoint is provided.');
+			}
+		});
+
+		it('should retry once when receiving an empty response', async function () {
+			const clock = sinon.useFakeTimers();
+			const warnSpy = sinon.spy(console, 'warn');
+
+			try {
+				const TestMwbot = TestMwbotFactory('empty');
+				const mwbotInitOptions = getMwbotInitOptionsBase('named');
+				const promise = TestMwbot.init(mwbotInitOptions);
+				await Promise.resolve();
+				await clock.tickAsync(5000);
+				const mwbot = await promise;
+
+				// @ts-expect-error - Protected constructor
+				assert.instanceOf(mwbot, TestMwbot);
+				assert.strictEqual(warnSpy.callCount, 1);
+				assert.match(
+					warnSpy.firstCall.args[0],
+					/Mwbot\.init failed\. Retrying in 5 seconds/
+				);
+			} finally {
+				warnSpy.restore();
+				clock.restore();
+			}
+		});
+
+		it('should throw an error when the retry also receives an empty response', async function () {
+			const clock = sinon.useFakeTimers();
+			const warnSpy = sinon.spy(console, 'warn');
+
+			const TestMwbot = TestMwbotFactory('empty', Infinity);
+			const mwbotInitOptions = getMwbotInitOptionsBase('named');
+			const promise = TestMwbot.init(mwbotInitOptions).catch(eer => eer);
+			await Promise.resolve();
+			await clock.tickAsync(5000);
+
+			const err = await promise;
+
+			assert.instanceOf(err, MwbotError);
+			assert.strictEqual(err.code, 'empty');
+			assert.strictEqual(warnSpy.callCount, 1);
+
+			warnSpy.restore();
+			clock.restore();
+		});
+
+		it('should retry once when userinfo.id is 0 for authenticated users', async function () {
+			const clock = sinon.useFakeTimers();
+
+			try {
+				const TestMwbot = TestMwbotFactory('userId');
+				const mwbotInitOptions = getMwbotInitOptionsBase('named');
+				const promise = TestMwbot.init(mwbotInitOptions);
+				await Promise.resolve();
+				await clock.tickAsync(5000);
+				const mwbot = await promise;
+
+				// @ts-expect-error - Protected constructor
+				assert.instanceOf(mwbot, TestMwbot);
+			} finally {
+				clock.restore();
+			}
+		});
+
+		it('should throw badauth when userinfo.id remains 0 after a retry', async function () {
+			const clock = sinon.useFakeTimers();
+			const warnSpy = sinon.spy(console, 'warn');
+
+			const TestMwbot = TestMwbotFactory('userId', Infinity);
+			const mwbotInitOptions = getMwbotInitOptionsBase('named');
+			const promise = TestMwbot.init(mwbotInitOptions).catch(eer => eer);
+			await Promise.resolve();
+			await clock.tickAsync(5000);
+
+			const err = await promise;
+
+			assert.instanceOf(err, MwbotError);
+			assert.strictEqual(err.code, 'badauth');
+			assert.strictEqual(warnSpy.callCount, 1);
+
+			warnSpy.restore();
+			clock.restore();
+		});
+
+		it('should reject immediately when login fails', async function () {
+			try {
+				const TestMwbot = TestMwbotFactory(false, 1, true);
+				const mwbotInitOptions = getMwbotInitOptionsBase('named');
+				await TestMwbot.init(mwbotInitOptions);
+
+				assert.fail('Expected init() to reject');
+			} catch (err) {
+				assert.instanceOf(err, MwbotError);
+				assert.strictEqual(err.code, 'loginfailed');
+			}
+		});
+
+		it('should retry when initConfigData returns failed keys', async function () {
+			const clock = sinon.useFakeTimers();
+			const warnSpy = sinon.spy(console, 'warn');
+
+			try {
+				const TestMwbot = TestMwbotFactory('articlepath');
+				const mwbotInitOptions = getMwbotInitOptionsBase('named');
+				const promise = TestMwbot.init(mwbotInitOptions);
+				await Promise.resolve();
+				await clock.tickAsync(5000);
+				const mwbot = await promise;
+
+				// @ts-expect-error - Protected constructor
+				assert.instanceOf(mwbot, TestMwbot);
+				assert.strictEqual(warnSpy.callCount, 1);
+				assert.match(
+					warnSpy.firstCall.args[0],
+					/Mwbot\.init failed\. Retrying in 5 seconds/
+				);
+			} finally {
+				warnSpy.restore();
+				clock.restore();
+			}
+		});
+
+		it('should throw badvars when initConfigData still returns failed keys after a retry', async function () {
+			const clock = sinon.useFakeTimers();
+			const warnSpy = sinon.spy(console, 'warn');
+
+			const TestMwbot = TestMwbotFactory('articlepath', Infinity);
+			const mwbotInitOptions = getMwbotInitOptionsBase('named');
+			const promise = TestMwbot.init(mwbotInitOptions).catch(eer => eer);
+			await Promise.resolve();
+			await clock.tickAsync(5000);
+
+			const err = await promise;
+
+			assert.instanceOf(err, MwbotError);
+			assert.strictEqual(err.code, 'badvars');
+			assert.isArray(err.data?.keys);
+			assert.include(err.data?.keys ?? [], 'wgArticlePath');
+			assert.strictEqual(warnSpy.callCount, 1);
+
+			warnSpy.restore();
+			clock.restore();
 		});
 	});
 
