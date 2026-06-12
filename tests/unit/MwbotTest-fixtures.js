@@ -106,6 +106,15 @@ export function getMwbotInitOptionsBase(userType) {
 }
 
 /**
+ * @param {'named' | 'anon'} userType
+ * @returns
+ */
+export function getTestMwbot(userType) {
+	const mwbotInitOptions = getMwbotInitOptionsBase(userType);
+	return TestMwbotFactory().init(mwbotInitOptions);
+}
+
+/**
  * @param {boolean} anonymous
  * @returns
  */

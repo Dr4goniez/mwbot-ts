@@ -2,7 +2,7 @@ import { describe, it } from 'mocha';
 import { assert } from 'chai';
 import { Mwbot, MwbotError, MWBOT_VERSION } from '../../dist/index.js';
 import OAuth from 'oauth-1.0a';
-import { getMwbotInitOptionsBase, TestMwbotFactory } from './MwbotTest-fixtures.js';
+import { getMwbotInitOptionsBase, getTestMwbot, TestMwbotFactory } from './MwbotTest-fixtures.js';
 import sinon from 'sinon';
 
 describe('Mwbot', function() {
@@ -401,6 +401,198 @@ describe('Mwbot', function() {
 
 			warnSpy.restore();
 			clock.restore();
+		});
+	});
+
+	describe('setMwbotOptions()', function () {
+		it('should deeply merge options when merge is true (default)', async function () {
+			const mwbot = await getTestMwbot('named');
+			const intervalActions = [/** @type {const} */ ('edit')];
+			mwbot.userMwbotOptions.intervalActions = intervalActions;
+
+			mwbot.setMwbotOptions({ userAgent: 'new-agent' });
+
+			assert.strictEqual(mwbot.userMwbotOptions.apiUrl, 'http://localhost:8080');
+			assert.strictEqual(mwbot.userMwbotOptions.userAgent, 'new-agent');
+			assert.deepEqual(mwbot.userMwbotOptions.intervalActions, intervalActions);
+			assert.notStrictEqual(mwbot.userMwbotOptions.intervalActions, intervalActions); // Test deep copy
+		});
+
+		it('should clear old options except apiUrl when merge is false', async function () {
+			const mwbot = await getTestMwbot('named');
+			mwbot.userMwbotOptions.intervalActions = ['edit'];
+
+			mwbot.setMwbotOptions({ userAgent: 'new-agent' }, false);
+
+			assert.strictEqual(mwbot.userMwbotOptions.apiUrl, 'http://localhost:8080');
+			assert.strictEqual(mwbot.userMwbotOptions.userAgent, 'new-agent');
+			assert.notExists(mwbot.userMwbotOptions.intervalActions);
+		});
+
+		it('should throw "nourl" fatal error if apiUrl is missing after update', async function () {
+			const mwbot = await getTestMwbot('named');
+
+			assert.throws(
+				() => mwbot.setMwbotOptions({ apiUrl: '' }), // Overwrite
+				MwbotError,
+				'"apiUrl" must be retained.'
+			);
+		});
+	});
+
+	describe('setRequestOptions()', function () {
+		it('should deeply merge options when merge is true (default)', async function () {
+			const mwbot = await getTestMwbot('named');
+			mwbot.userRequestOptions.headers ??= {};
+			mwbot.userRequestOptions.headers['X-Retained'] = '1';
+
+			mwbot.setRequestOptions({ headers: { 'X-Test': '1' }, timeout: 1000 });
+
+			// Constructor sets up `url` in all cases: it should be retained
+			assert.strictEqual(mwbot.userRequestOptions.url, 'http://localhost:8080');
+			assert.strictEqual(mwbot.userRequestOptions.timeout, 1000);
+			assert.strictEqual(mwbot.userRequestOptions.headers?.['X-Retained'], '1');
+			assert.strictEqual(mwbot.userRequestOptions.headers?.['X-Test'], '1');
+		});
+
+		it('should clear old options when merge is false', async function () {
+			const mwbot = await getTestMwbot('named');
+
+			mwbot.setRequestOptions({ headers: { 'X-Test': '1' } }, false);
+
+			assert.isUndefined(mwbot.userRequestOptions.url);
+			assert.deepEqual(mwbot.userRequestOptions.headers, { 'X-Test': '1' });
+		});
+	});
+
+	describe('apilimit', function () {
+		it('should return 500 if the user has "apihighlimits" right', async function () {
+			const mwbot = await getTestMwbot('named');
+			assert.strictEqual(mwbot.apilimit, 500);
+		});
+
+		it('should return 50 if the user lacks "apihighlimits" right', async function () {
+			const mwbot = await getTestMwbot('anon');
+			assert.strictEqual(mwbot.apilimit, 50);
+		});
+	});
+
+	describe('hasRights()', function () {
+		it('should return true if the user has the specified single right', async function () {
+			const mwbot = await getTestMwbot('anon');
+			assert.isTrue(mwbot.hasRights('edit'));
+		});
+
+		it('should return false if the user lacks the specified single right', async function () {
+			const mwbot = await getTestMwbot('anon');
+			assert.isFalse(mwbot.hasRights('delete'));
+		});
+
+		it('should return true if requireAll is true and user has ALL rights', async function () {
+			const mwbot = await getTestMwbot('named');
+			assert.isTrue(mwbot.hasRights(['read', 'delete'], true));
+		});
+
+		it('should return false if requireAll is true and user lacks ANY right', async function () {
+			const mwbot = await getTestMwbot('anon');
+			assert.isFalse(mwbot.hasRights(['read', 'delete'], true));
+		});
+
+		it('should return true for an empty rights array when requireAll is true', async function () {
+			const mwbot = await getTestMwbot('anon');
+			assert.isTrue(mwbot.hasRights([], true));
+		});
+
+		it('should return true if requireAll is false and user has AT LEAST ONE right', async function () {
+			const mwbot = await getTestMwbot('anon');
+			assert.isTrue(mwbot.hasRights(['edit', 'delete'], false));
+		});
+
+		it('should return false if requireAll is false and user lacks ALL rights', async function () {
+			const mwbot = await getTestMwbot('anon');
+			assert.isFalse(mwbot.hasRights(['delete', 'block'], false));
+		});
+	});
+
+	describe('isAnonymous()', function () {
+		it('should return true if instantiated as anonymous', async function () {
+			const mwbot = await getTestMwbot('anon');
+			// @ts-expect-error - Protected method
+			assert.isTrue(mwbot.isAnonymous());
+		});
+
+		it('should return false if instantiated as a named user', async function () {
+			const mwbot = await getTestMwbot('named');
+			// @ts-expect-error - Protected method
+			assert.isFalse(mwbot.isAnonymous());
+		});
+	});
+
+	describe('dieIfAnonymous()', function () {
+		it('should throw "anonymous" error if user is anonymous and condition is true', async function () {
+			const mwbot = await getTestMwbot('anon');
+			assert.throws(
+				// @ts-expect-error - Protected method
+				() => mwbot.dieIfAnonymous(),
+				MwbotError,
+				'Anonymous users are limited to non-write requests.'
+			);
+		});
+
+		it('should not throw if user is anonymous but condition is false', async function () {
+			const mwbot = await getTestMwbot('anon');
+			assert.doesNotThrow(
+				// @ts-expect-error - Protected method
+				() => mwbot.dieIfAnonymous(false)
+			);
+		});
+
+		it('should not throw if user is registered, regardless of condition', async function () {
+			const mwbot = await getTestMwbot('named');
+			assert.doesNotThrow(
+				// @ts-expect-error - Protected method
+				() => mwbot.dieIfAnonymous(true)
+			);
+		});
+	});
+
+	describe('dieIfNoRights()', function () {
+		it('should do nothing if user has required rights and is registered', async function () {
+			const mwbot = await getTestMwbot('named');
+			// @ts-expect-error - Protected method
+			assert.doesNotThrow(() => mwbot.dieIfNoRights('delete', 'delete the page'));
+		});
+
+		it('should throw "nopermission" error if registered user lacks rights', async function () {
+			const mwbot = await getTestMwbot('named');
+			assert.throws(
+				// @ts-expect-error - Protected method
+				() => mwbot.dieIfNoRights('superadmin', 'do something weird'),
+				MwbotError,
+				'You do not have permission to do something weird.'
+			);
+		});
+
+		it('should throw "anonymous" error if user is anonymous and allowAnonymous is false', async function () {
+			const mwbot = await getTestMwbot('anon');
+			assert.throws(
+				// @ts-expect-error - Protected method
+				() => mwbot.dieIfNoRights('read', 'read the page'),
+				MwbotError,
+				'Anonymous users are limited to non-write requests.'
+			);
+		});
+
+		it('should check rights correctly if user is anonymous but allowAnonymous is true', async function () {
+			const mwbot = await getTestMwbot('anon');
+			// @ts-expect-error - Protected method
+			assert.doesNotThrow(() =>mwbot.dieIfNoRights('read', 'read the page', true));
+			assert.throws(
+				// @ts-expect-error - Protected method
+				() => mwbot.dieIfNoRights('delete', 'delete the page', true),
+				MwbotError,
+				'You do not have permission to delete the page.'
+			);
 		});
 	});
 
