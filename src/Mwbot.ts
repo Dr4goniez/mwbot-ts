@@ -966,7 +966,6 @@ export class Mwbot {
 		namespaces: ApiResponseQueryMetaSiteinfoNamespaces,
 		namespacealiases: ApiResponseQueryMetaSiteinfoNamespacealiases[]
 	): K[] {
-
 		/**
 		 * Helper function to set a value to a configuration key.
 		 *
@@ -982,21 +981,22 @@ export class Mwbot {
 			return configName;
 		};
 
-		// Deal with data that need to be formatted
+		const wgNamespaceIds: Record<string, number> = Object.create(null);
+		for (const { id, alias } of namespacealiases) {
+			const normalized = alias.toLowerCase().replace(/ /g, '_');
+			wgNamespaceIds[normalized] = id;
+		}
+
 		const wgCaseSensitiveNamespaces: number[] = [];
 		const wgContentNamespaces: number[] = [];
-		const wgFormattedNamespaces: Record<string, string> = {};
-		const wgNamespaceIds = namespacealiases.reduce((acc: Record<string, number>, { id, alias }) => {
-			acc[alias.toLowerCase().replace(/ /g, '_')] = id;
-			return acc;
-		}, {});
+		const wgFormattedNamespaces: Record<string, string> = Object.create(null);
 
-		for (const nsId in namespaces) {
-			const obj = namespaces[nsId];
+		for (const [nsId, obj] of Object.entries(namespaces)) {
 			if (obj.case === 'case-sensitive') {
-				wgCaseSensitiveNamespaces.push(parseInt(nsId));
-			} else if (obj.content) {
-				wgContentNamespaces.push(parseInt(nsId));
+				wgCaseSensitiveNamespaces.push(+nsId);
+			}
+			if (obj.content) {
+				wgContentNamespaces.push(+nsId);
 			}
 			wgFormattedNamespaces[nsId] = obj.name;
 			const nsName = obj.name.toLowerCase().replace(/ /g, '_');
@@ -1034,9 +1034,7 @@ export class Mwbot {
 			set(<K>'wgWikiID', general.wikiid),
 		];
 
-		// Log any failures
 		return valSetMap.filter(val => val !== false);
-
 	}
 
 	// ****************************** CORE REQUEST METHODS ******************************
