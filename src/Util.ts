@@ -16,67 +16,347 @@ import type { Mwbot } from './Mwbot.js';
 // ********************************* SYNCHRONOUS FUNCTIONS *********************************
 
 /**
- * Performs a deep merge of objects and returns a new object.
- * - Arrays are concatenated.
- * - Plain objects are recursively merged.
- * - Class instances are cloned but overwritten by later instances.
- * (Note: This cloning is not perfect.)
- * - Getters and setters are preserved.
- * - `Map`, `Set`, and `Date` instances are correctly cloned.
+ * Configuration object for {@link CloneConfig}.
+ */
+export interface CloneConfigOptions {
+	/**
+	 * Strategy for merging arrays:
+	 * - `'concat'`: Appends elements to the existing array. (default)
+	 * - `'replace'`: Overwrites the existing array with the new one.
+	 * - `'mergeByIndex'`: Recursively merges elements at the same index.
+	 */
+	arrayStrategy?: 'concat' | 'replace' | 'mergeByIndex';
+	/**
+	 * Strategy for cloning Sets:
+	 * - `'shallow'`: Creates a new Set but keeps references to the stored values.
+	 * - `'deep'`: Deeply clones the values stored in the Set. (default)
+	 */
+	setStrategy?: 'shallow' | 'deep';
+	/**
+	 * Strategy for cloning Maps:
+	 * - `'shallow'`: Creates a new Map but keeps references to the stored values.
+	 * - `'deep'`: Deeply clones the values stored in the Map. (default)
+	 * - `'deep-aggressive'`: Deeply clones both the keys and the values stored in the Map.
+	 */
+	mapStrategy?: 'shallow' | 'deep' | 'deep-aggressive';
+	/**
+     * Strategy for getters and setters:
+     * - `'preserve'`: Copies the property descriptors (get/set). (default)
+     * - `'resolve'`: Invokes the getter to obtain the computed value and clones it as a normal property.
+     */
+	getterSetterStrategy?: 'preserve' | 'resolve';
+	/**
+	 * Whether to deeply clone custom class instances. (Default: `false`)
+	 */
+	cloneClassInstances?: boolean;
+}
+
+/**
+ * Class that dictates cloning strategies for {@link mergeDeep} and {@link cloneDeep}.
  *
- * @param objects
+ * See {@link CloneConfigOptions} for the default configuration.
+ */
+export class CloneConfig implements Required<CloneConfigOptions> {
+
+	readonly arrayStrategy: 'concat' | 'replace' | 'mergeByIndex';
+	readonly setStrategy: 'shallow' | 'deep';
+	readonly mapStrategy: 'shallow' | 'deep' | 'deep-aggressive';
+	readonly getterSetterStrategy: 'preserve' | 'resolve';
+	readonly cloneClassInstances: boolean;
+
+	/**
+	 * @param options Clone config options to initialize the instance with.
+	 */
+	constructor(options: CloneConfigOptions = {}) {
+		this.arrayStrategy = options.arrayStrategy ?? 'concat';
+		this.setStrategy = options.setStrategy ?? 'deep';
+		this.mapStrategy = options.mapStrategy ?? 'deep';
+		this.getterSetterStrategy = options.getterSetterStrategy ?? 'preserve';
+		this.cloneClassInstances = options.cloneClassInstances ?? false;
+	}
+}
+
+const DEFAULT_CLONE_CONFIG = new CloneConfig();
+
+/**
+ * Performs a deep merge of objects and returns a new object, respecting {@link CloneConfig}
+ * strategies.
+ *
+ * @param config A {@link CloneConfig} instance to dictate cloning strategies.
+ * @param objects Objects to deep-merge. The returned object inherits the prototype
+ * of the first valid object.
  * @returns The merged object.
  */
-export function mergeDeep<T extends object[]>(...objects: T): UnionToIntersection<T[number]> {
-	const result = Object.create(null) as any;
+export function mergeDeep<T extends object[]>(config: CloneConfig, ...objects: T): UnionToIntersection<T[number]>;
+/**
+ * Performs a deep merge of objects and returns a new object.
+ *
+ * See also {@link CloneConfig} for the default merge behaviors.
+ *
+ * @param objects Objects to deep-merge. The returned object inherits the prototype
+ * of the first valid object.
+ * @returns The merged object.
+ */
+export function mergeDeep<T extends object[]>(...objects: T): UnionToIntersection<T[number]>;
+export function mergeDeep(...args: any[]): any {
+	let config: CloneConfig;
+	let objects: any[];
+
+	if (args[0] instanceof CloneConfig) {
+		config = args[0];
+		objects = args.slice(1);
+	} else {
+		config = DEFAULT_CLONE_CONFIG;
+		objects = args;
+	}
+
+	return internalMerge(objects, config);
+}
+
+function internalMerge(
+	objects: any[],
+	config: CloneConfig,
+	seen: WeakMap<any, any> = new WeakMap()
+): any {
+	// Inherit the prototype of the first valid object, or fall back to a null
+	// prototype object. This ensures prototype parity between `mergeDeep(obj)`
+	// and `cloneDeep(obj)`.
+	const firstValidObj = objects.find(obj => obj && typeof obj === 'object');
+	const result = firstValidObj
+		? Object.create(Object.getPrototypeOf(firstValidObj))
+		: Object.create(null);
 
 	for (const obj of objects) {
-		if (!obj) continue;
+		if (!obj || typeof obj !== 'object') {
+			continue;
+		}
 
 		for (const key of Reflect.ownKeys(obj)) {
 			const sourceDescriptor = Object.getOwnPropertyDescriptor(obj, key);
 
-			// Preserve getters/setters
+			// Check the entire prototype chain of the merge target to avoid
+			// assigning to inherited getter-only properties, which would
+			// otherwise throw a TypeError.
+			const targetDescriptor = getPropertyDescriptorDeep(result, key);
+
+			// Preserve getters and setters (if strategy is 'preserve')
 			if (sourceDescriptor?.get || sourceDescriptor?.set) {
-				Object.defineProperty(result, key, sourceDescriptor);
-				continue;
+				if (config.getterSetterStrategy === 'preserve') {
+					// Only define if the target doesn't already have a getter/setter
+					// to prevent overwriting.
+					if (!targetDescriptor?.get && !targetDescriptor?.set) {
+						Object.defineProperty(result, key, sourceDescriptor);
+					}
+					continue;
+				}
+				// Fall through if strategy is 'resolve' (obj[key] ignites getter)
 			}
 
-			// Prevent overwriting existing getters/setters in the merging target
-			const targetDescriptor = Object.getOwnPropertyDescriptor(result, key);
+			// If the target already has a getter/setter and the strategy is
+			// 'preserve', skip normal property assignment to prevent throwing
+			// a TypeError.
 			if (targetDescriptor?.get || targetDescriptor?.set) {
-				continue;
+				if (config.getterSetterStrategy === 'preserve') {
+					continue;
+				}
 			}
 
 			const aVal = result[key];
-			let oVal = (obj as any)[key];
+			const oVal = obj[key as keyof typeof obj];
 
-			// Handle special cases
-			if (oVal instanceof Date) {
-				oVal = new Date(oVal.getTime());
-			} else if (oVal instanceof Map) {
-				oVal = new Map([...oVal.entries()].map(([k, v]) => [k, isObject(v) ? mergeDeep(v) : v]));
-			} else if (oVal instanceof Set) {
-				oVal = new Set([...oVal].map(v => (isObject(v) ? mergeDeep(v) : v)));
-			} else if (isClassInstance(oVal)) {
-				oVal = deepCloneInstance(oVal);
+			// Handle merging arrays
+			if (Array.isArray(aVal) && Array.isArray(oVal)) {
+				if (config.arrayStrategy === 'replace') {
+					defineValue(result, key, internalClone(oVal, config, seen), sourceDescriptor);
+				} else if (config.arrayStrategy === 'mergeByIndex') {
+					const maxLen = Math.max(aVal.length, oVal.length);
+					const mergedArr = [];
+					for (let i = 0; i < maxLen; i++) {
+						if (isPlainObject(aVal[i]) && isPlainObject(oVal[i])) {
+							mergedArr.push(internalMerge([aVal[i], oVal[i]], config, seen));
+						} else {
+							mergedArr.push(
+								oVal[i] !== undefined
+									? internalClone(oVal[i], config, seen)
+									: internalClone(aVal[i], config, seen)
+							);
+						}
+					}
+					defineValue(result, key, mergedArr, sourceDescriptor);
+				} else {
+					// Default strategy: 'concat'
+					defineValue(result, key, [...aVal, ...internalClone(oVal, config, seen)], sourceDescriptor);
+				}
+				continue;
 			}
 
-			if (Array.isArray(oVal)) {
-				result[key] = Array.isArray(aVal)
-					? [...aVal, ...oVal.map(el => (isObject(el) ? mergeDeep(el) : el))]
-					: oVal.map(el => (isObject(el) ? mergeDeep(el) : el));
-			} else if (isPlainObject(aVal) && isPlainObject(oVal)) {
-				result[key] = mergeDeep(aVal, oVal);
-			} else if (isPlainObject(oVal)) {
-				result[key] = mergeDeep(oVal);
-			} else {
-				result[key] = oVal;
+			// Recursively merge plain objects
+			if (isPlainObject(aVal) && isPlainObject(oVal)) {
+				defineValue(result, key, internalMerge([aVal, oVal], config, seen), sourceDescriptor);
+				continue;
 			}
+
+			// Handle other values (Deep clone using the internal engine)
+			defineValue(result, key, internalClone(oVal, config, seen), sourceDescriptor);
 		}
 	}
 
 	return result;
+}
+
+/**
+ * Retrieves a property descriptor from an object or any object in its prototype chain.
+ *
+ * @param obj The object whose prototype chain to traverse.
+ * @param key The property key to look up.
+ * @returns The first matching property descriptor, or `undefined` if not found.
+ */
+function getPropertyDescriptorDeep(
+	obj: object | null,
+	key: string | symbol
+): PropertyDescriptor | undefined {
+	while (obj) {
+		const descriptor = Object.getOwnPropertyDescriptor(obj, key);
+		if (descriptor) {
+			return descriptor;
+		}
+		obj = Object.getPrototypeOf(obj);
+	}
+	return undefined;
+}
+
+function defineValue(
+	object: any,
+	key: string | symbol,
+	value: any,
+	descriptor?: PropertyDescriptor
+) {
+	Object.defineProperty(object, key, {
+		value,
+		writable: descriptor?.writable ?? true,
+		enumerable: descriptor?.enumerable ?? true,
+		configurable: descriptor?.configurable ?? true,
+	});
+}
+
+function internalClone(
+	val: any,
+	config: CloneConfig = DEFAULT_CLONE_CONFIG,
+	seen: WeakMap<any, any> = new WeakMap()
+): any {
+	if (val === null || typeof val !== 'object') {
+		return val;
+	}
+
+	// Handle cyclic references
+	if (seen.has(val)) {
+		return seen.get(val);
+	}
+
+	// Support custom _clone(seen) method if defined on the object
+	if (typeof (val as any)._clone === 'function') {
+		const customClone = (val as any)._clone(seen);
+		seen.set(val, customClone);
+		return customClone;
+	}
+
+	// Handle Built-in Objects
+	if (val instanceof Date) {
+		const cloned = new Date(val.getTime());
+		seen.set(val, cloned);
+		return cloned;
+	}
+
+	if (val instanceof RegExp) {
+		const cloned = new RegExp(val.source, val.flags);
+		seen.set(val, cloned);
+		return cloned;
+	}
+
+	if (val instanceof Map) {
+		const cloned = new Map();
+		seen.set(val, cloned);
+		for (const [k, v] of val.entries()) {
+			const clonedKey = config.mapStrategy === 'deep-aggressive'
+				? internalClone(k, config, seen)
+				: k;
+			const clonedVal = config.mapStrategy === 'shallow'
+				? v
+				: internalClone(v, config, seen);
+			cloned.set(clonedKey, clonedVal);
+		}
+		return cloned;
+	}
+
+	if (val instanceof Set) {
+		const cloned = new Set();
+		seen.set(val, cloned);
+		for (const v of val) {
+			cloned.add(
+				config.setStrategy === 'deep'
+					? internalClone(v, config, seen)
+					: v
+			);
+		}
+		return cloned;
+	}
+
+	if (Array.isArray(val)) {
+		const cloned: any[] = [];
+		seen.set(val, cloned);
+		for (const item of val) {
+			cloned.push(internalClone(item, config, seen));
+		}
+		return cloned;
+	}
+
+	// Class Instance skipping check
+	const isClass = !isPlainObject(val);
+	if (isClass && !config.cloneClassInstances) {
+		return val;
+	}
+
+	// Create a new instance preserving the exact prototype chain
+	const cloned = Object.create(Object.getPrototypeOf(val));
+	seen.set(val, cloned);
+
+	// Deep clone ONLY own properties (prevents prototype flattening)
+	const descriptors = Object.getOwnPropertyDescriptors(val);
+	for (const key of Reflect.ownKeys(descriptors)) {
+		const desc = descriptors[key as any];
+
+		// Evaluate getter and assign a static value if strategy is 'resolve'
+		if ((desc.get || desc.set) && config.getterSetterStrategy === 'resolve') {
+			defineValue(cloned, key, internalClone(val[key], config, seen), desc);
+			continue;
+		}
+
+		if ('value' in desc) {
+			desc.value = internalClone(desc.value, config, seen);
+		}
+
+		Object.defineProperty(cloned, key, desc);
+	}
+
+	return cloned;
+}
+
+/**
+ * Deeply clones plain objects, arrays, Maps, Sets, Dates, RegExps, and other supported
+ * built-in types.
+ *
+ * NOTE: Custom class instances are preserved by reference unless
+ * {@link CloneConfigOptions.cloneClassInstances | cloneClassInstances} is enabled.
+ *
+ * @param val The value to clone.
+ *
+ * If the value is an object and a `_clone` function is defined in it as a property,
+ * it is used instead to perform the cloning.
+ * @param config Optional {@link CloneConfig} instance to dictate cloning strategies.
+ * @returns A deeply cloned instance.
+ */
+export function cloneDeep<T>(val: T, config?: CloneConfig): T {
+	return internalClone(val, config);
 }
 
 /**
