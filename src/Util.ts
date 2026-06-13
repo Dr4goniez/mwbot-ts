@@ -76,6 +76,13 @@ export class CloneConfig implements Required<CloneConfigOptions> {
 	}
 }
 
+/**
+ * Converts a union of objects into an intersection of their properties.
+ *
+ * @private
+ */
+export type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
+
 const DEFAULT_CLONE_CONFIG = new CloneConfig();
 
 /**
@@ -359,12 +366,14 @@ export function cloneDeep<T>(val: T, config?: CloneConfig): T {
 	return internalClone(val, config);
 }
 
+const DEFAULT_CLONE_INSTANCE_CONFIG = new CloneConfig({ cloneClassInstances: true });
+
 /**
- * Converts a union of objects into an intersection of their properties.
- *
- * @private
+ * @deprecated Use {@link cloneDeep} instead.
  */
-export type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
+export function deepCloneInstance<T extends object>(obj: T): T {
+	return cloneDeep(obj, DEFAULT_CLONE_INSTANCE_CONFIG);
+}
 
 /**
  * Checks whether a value is an object. Arrays and `null` are not considered objects.
@@ -424,97 +433,6 @@ export function isClassInstance(value: unknown): boolean {
 	const proto = Object.getPrototypeOf(value);
 	// Ensure it has a prototype that is neither null nor Object.prototype
 	return proto !== null && proto !== Object.prototype && typeof value.constructor === 'function';
-}
-
-/**
- * Deeply clones a class instance, preserving its prototype, inherited properties,
- * and special object types like Map, Set, Date, and RegExp. Also handles cyclic references.
- *
- * **Features**:
- * - Retains the entire prototype chain, ensuring methods like `toString()` work as expected.
- * - Recursively clones objects, including nested structures.
- * - Supports special objects (`Date`, `RegExp`, `Map`, `Set`).
- * - Handles cyclic references to prevent infinite loops.
- * - Supports a custom `_clone(seen)` method if defined on the object. This allows classes to override
- *   the default cloning behavior and perform specialized cloning while still participating in cycle handling.
- *
- * **Limitations**:
- * - WeakMap & WeakSet: Cannot be cloned because their entries are weakly held.
- * - Functions & Closures: Functions are copied by reference; closures are not recreated.
- * - DOM Elements & Buffers: Not supported, as they require specialized handling.
- *
- * @param obj The class instance to clone.
- * @param seen (Internal) A WeakMap to track visited objects for cyclic reference handling.
- * @returns A deep-cloned instance of the given object.
- */
-export function deepCloneInstance<T extends object>(obj: T, /** @private */ seen = new WeakMap<object, any>()): T {
-	if (obj === null || typeof obj !== 'object') {
-		return obj;
-	}
-
-	// Handle cyclic references
-	if (seen.has(obj)) {
-		return seen.get(obj) as T;
-	}
-
-	// Use custom _clone(seen) method if defined
-	if (typeof (obj as any)._clone === 'function') {
-		const customClone = (obj as any)._clone(seen);
-		seen.set(obj, customClone);
-		return customClone;
-	}
-
-	// Handle built-in objects
-	if (obj instanceof Date) {
-		return new Date(obj.getTime()) as T;
-	}
-	if (obj instanceof RegExp) {
-		return new RegExp(obj.source, obj.flags) as T;
-	}
-	if (obj instanceof Map) {
-		const mapClone = new Map();
-		seen.set(obj, mapClone);
-		obj.forEach((value, key) => {
-			mapClone.set(deepCloneInstance(key, seen), deepCloneInstance(value, seen));
-		});
-		return mapClone as T;
-	}
-	if (obj instanceof Set) {
-		const setClone = new Set();
-		seen.set(obj, setClone);
-		obj.forEach((value) => {
-			setClone.add(deepCloneInstance(value, seen));
-		});
-		return setClone as T;
-	}
-
-	// Create a new instance preserving the prototype
-	const clone = Object.create(Object.getPrototypeOf(obj));
-	seen.set(obj, clone);
-
-	// Collect property descriptors from the entire prototype chain
-	let currentObj: object | null = obj;
-	const descriptors: PropertyDescriptorMap = {};
-	while (currentObj !== null) {
-		Object.assign(descriptors, Object.getOwnPropertyDescriptors(currentObj));
-		currentObj = Object.getPrototypeOf(currentObj);
-	}
-
-	// Deep clone properties
-	for (const key of Object.keys(descriptors)) {
-		const desc = descriptors[key];
-		if ('value' in desc) {
-			desc.value = deepCloneInstance(desc.value, seen);
-		}
-	}
-
-	// Apply descriptors to clone
-	Object.defineProperties(clone, descriptors);
-
-	// Ensure prototype methods like toString() remain intact
-	Object.setPrototypeOf(clone, Object.getPrototypeOf(obj));
-
-	return clone as T;
 }
 
 /**
