@@ -2,7 +2,7 @@ import { describe, it, before } from 'mocha';
 import { assert } from 'chai';
 import { Mwbot } from '../../../dist/index.js';
 import { getApiUrl, getAuthCredentials, getAuthMethod } from '../provider.js';
-import { testMwbotProperties } from '../MwbotTest-properties.js';
+import { testMwbotAuthentication } from '../MwbotTest-authentication.js';
 import { testMwbotConfig } from '../MwbotTest-config.js';
 
 const domain = 'localwiki';
@@ -31,7 +31,7 @@ describe(`Mwbot via ${authMethod} authentication`, function () {
 		assert.instanceOf(mwbot, /** @type {any} */ (Mwbot));
 	});
 
-	testMwbotProperties(() => mwbot, domain, authMethod);
+	testMwbotAuthentication(() => mwbot, domain, authMethod);
 	testMwbotConfig(() => mwbot, domain, authMethod);
 
 });

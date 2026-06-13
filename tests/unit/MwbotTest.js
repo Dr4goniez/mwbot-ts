@@ -5,7 +5,7 @@ import OAuth from 'oauth-1.0a';
 import { getMwbotInitOptionsBase, getTestMwbot, TestMwbotFactory } from './MwbotTest-fixtures.js';
 import sinon from 'sinon';
 
-describe('Mwbot', function() {
+describe('Mwbot', function () {
 
 	describe('getDefaultRequestOptions()', function () {
 		it('should match defined defaults', function () {
@@ -46,6 +46,131 @@ describe('Mwbot', function() {
 
 		it('should expose String module', function () {
 			assert.exists(Mwbot.String);
+		});
+	});
+
+	describe('Instance properties', function () {
+		/**
+		 * @type {Awaited<ReturnType<typeof getTestMwbot>>}
+		 * @readonly
+		 */
+		let mwbot;
+
+		before(async function () {
+			mwbot = await getTestMwbot('named');
+		});
+
+		it('should expose the base credentials object', function () {
+			// @ts-expect-error - Protected property
+			assert.isObject(mwbot.credentials);
+		});
+
+		it('should expose Axios client', function () {
+			// @ts-expect-error - Protected property
+			assert.isFunction(mwbot.axios?.request);
+		});
+
+		it('should expose abort controllers as an empty Set', function () {
+			// @ts-expect-error - Protected property
+			const abortions = mwbot.abortions;
+
+			assert.instanceOf(abortions, Set);
+			assert.isEmpty(abortions);
+		});
+
+		it('should expose tokens as an empty object', function () {
+			// @ts-expect-error - Protected property
+			assert.deepEqual(mwbot.tokens, Object.create(null));
+		});
+
+		it('should expose lastRequestTime as null', function () {
+			// @ts-expect-error - Protected property
+			assert.isNull(mwbot.lastRequestTime);
+		});
+	});
+
+	describe('info', function () {
+		/**
+		 * @type {Awaited<ReturnType<typeof getTestMwbot>>}
+		 * @readonly
+		 */
+		let mwbot;
+
+		before(async function () {
+			mwbot = await getTestMwbot('named');
+		});
+
+		it('should mirror internal _info state to public info getter', function () {
+			// @ts-expect-error - Protected property
+			const _info = mwbot._info;
+
+			assert.isObject(_info);
+			assert.isNotEmpty(_info);
+			assert.isObject(mwbot.info);
+			assert.isNotEmpty(mwbot.info);
+			assert.deepEqual(_info, mwbot.info);
+		});
+
+		it('should expose functionhooks array', function () {
+			assert.isArray(mwbot.info.functionhooks);
+			assert.isNotEmpty(mwbot.info.functionhooks);
+		});
+
+		it('should expose general object', function () {
+			assert.isObject(mwbot.info.general);
+			assert.isNotEmpty(mwbot.info.general);
+		});
+
+		it('should expose magicwords array', function () {
+			assert.isArray(mwbot.info.magicwords);
+			assert.isNotEmpty(mwbot.info.magicwords);
+		});
+
+		it('should expose interwikimap array', function () {
+			assert.isArray(mwbot.info.interwikimap);
+			assert.isNotEmpty(mwbot.info.interwikimap);
+		});
+
+		it('should expose namespaces object', function () {
+			assert.isObject(mwbot.info.namespaces);
+			assert.isNotEmpty(mwbot.info.namespaces);
+		});
+
+		it('should expose namespacealiases array', function () {
+			assert.isArray(mwbot.info.namespacealiases);
+			assert.isNotEmpty(mwbot.info.namespacealiases);
+		});
+
+		it('should expose user object', function () {
+			assert.isObject(mwbot.info.user);
+			assert.isNotEmpty(mwbot.info.user);
+		});
+	});
+
+	describe('Parser classes', function () {
+		/**
+		 * @type {Awaited<ReturnType<typeof getTestMwbot>>}
+		 * @readonly
+		 */
+		let mwbot;
+
+		before(async function () {
+			mwbot = await getTestMwbot('named');
+		});
+
+		/** @type {const} */ ([
+			'Title',
+			'Template',
+			'ParserFunction',
+			'Wikilink',
+			'FileWikilink',
+			'RawWikilink',
+			'Wikitext',
+		]).forEach((name) => {
+			it(`should expose ${name} class`, function () {
+				assert.strictEqual(mwbot[`_${name}`].name, name);
+				assert.strictEqual(mwbot[name].name, name);
+			});
 		});
 	});
 
@@ -810,7 +935,7 @@ describe('Mwbot', function() {
 		});
 	});
 
-	describe('config', function() {
+	describe('config', function () {
 
 		/**
 		 * @type {Awaited<ReturnType<typeof getTestMwbot>>['config']}
@@ -821,7 +946,7 @@ describe('Mwbot', function() {
 		let counter = 0;
 		const testKey = () => `test_key_${counter++}`;
 
-		before(async function() {
+		before(async function () {
 			config = (await getTestMwbot('named')).config;
 		});
 
