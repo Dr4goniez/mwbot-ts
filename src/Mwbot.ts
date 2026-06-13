@@ -78,7 +78,7 @@ import {
 } from './api_types.js';
 import { MwbotError, MwbotErrorData } from './MwbotError.js';
 import * as Util from './Util.js';
-const { mergeDeep, isPlainObject, isObject, sleep, isEmptyObject, arraysEqual, deepCloneInstance } = Util;
+const { mergeDeep, cloneDeep, isPlainObject, isObject, sleep, isEmptyObject, arraysEqual } = Util;
 import * as mwString from './String.js';
 import { TitleFactory, TitleStatic, Title } from './Title.js';
 import { TemplateFactory, TemplateStatic, ParserFunctionStatic, ParsedTemplate } from './Template.js';
@@ -243,7 +243,7 @@ export class Mwbot {
 	 * Returns (a deep copy of) the site and user information fetched by {@link init}.
 	 */
 	get info(): SiteAndUserInfo {
-		return mergeDeep(this._info);
+		return cloneDeep(this._info);
 	}
 	protected _Title: TitleStatic = Object.create(null);
 	/**
@@ -309,8 +309,8 @@ export class Mwbot {
 	 * * The user credentials are malformed. (`invalidcreds`)
 	 */
 	protected constructor(mwbotInitOptions: MwbotInitOptions, requestOptions: MwbotRequestConfig) {
-		const { credentials, ...options } = mergeDeep(mwbotInitOptions);
-		requestOptions = mergeDeep(requestOptions);
+		const { credentials, ...options } = cloneDeep(mwbotInitOptions);
+		requestOptions = cloneDeep(requestOptions);
 
 		// Ensure that a valid URL is provided
 		requestOptions.url ||= options.apiUrl;
@@ -659,7 +659,7 @@ export class Mwbot {
 		if (merge) {
 			this.userRequestOptions = mergeDeep(this.userRequestOptions, options);
 		} else {
-			this.userRequestOptions = mergeDeep(options);
+			this.userRequestOptions = cloneDeep(options);
 		}
 		return this;
 	}
@@ -889,7 +889,7 @@ export class Mwbot {
 	get config(): MwConfig<ConfigData> {
 		return {
 			get: <K extends keyof ConfigData, TD>(configName?: string | string[], fallback?: TD) => {
-				const data = mergeDeep(this.configData); // Deep copy
+				const data = cloneDeep(this.configData);
 				if (!configName) {
 					return data;
 				} else if (Array.isArray(configName)) {
@@ -1035,7 +1035,7 @@ export class Mwbot {
 	 * returned immediately to avoid unnecessary cloning.
 	 *
 	 * If the `_cloned` flag is already present and truthy, the original object is returned as-is.
-	 * Otherwise, the object is deeply cloned via `mergeDeep()`, and `_cloned` is set to `true`
+	 * Otherwise, the object is deeply cloned via `cloneDeep()`, and `_cloned` is set to `true`
 	 * on the resulting object to prevent redundant cloning on future calls.
 	 *
 	 * @param requestOptions The request options to check and clone if needed.
@@ -1048,7 +1048,7 @@ export class Mwbot {
 		if (requestOptions._cloned) {
 			return requestOptions;
 		}
-		requestOptions = mergeDeep(requestOptions);
+		requestOptions = cloneDeep(requestOptions);
 		requestOptions._cloned = true;
 		return requestOptions;
 	}
@@ -1067,7 +1067,7 @@ export class Mwbot {
 		// If `_cloned` is not set, assume this method is being called externally
 		// Clone the config and inject necessary instance-specific settings
 		if (!requestOptions._cloned) {
-			requestOptions = mergeDeep(requestOptions);
+			requestOptions = cloneDeep(requestOptions);
 			requestOptions._cloned = true;
 		}
 
@@ -4007,7 +4007,7 @@ export class Mwbot {
 				titleMap[title].forEach((retIndex, i) => {
 					// Ensure pass-by-value as in JSON outputs
 					// TODO: MwbotError should have a _clone() method
-					ret[retIndex] = i === 0 ? error : deepCloneInstance(error);
+					ret[retIndex] = i === 0 ? error : error._clone();
 				});
 			});
 		}
@@ -4017,7 +4017,7 @@ export class Mwbot {
 				if (i === 0) {
 					ret[retIndex] = value;
 				} else if (value instanceof MwbotError) {
-					ret[retIndex] = deepCloneInstance(value);
+					ret[retIndex] = value._clone();
 				} else {
 					ret[retIndex] = { ...value };
 				}
@@ -4828,7 +4828,7 @@ export interface MwbotRequestConfig extends AxiosRequestConfig {
 	/**
 	 * Set to `true` when the `requestOptions` object passed to a method is deep-cloned to avoid
 	 * mutating the caller's original object. Mwbot methods check this property to prevent redundant
-	 * recursive calls to `mergeDeep`, ensuring optimal efficiency.
+	 * recursive calls to `cloneDeep`, ensuring optimal efficiency.
 	 * @hidden
 	 * @internal
 	 */

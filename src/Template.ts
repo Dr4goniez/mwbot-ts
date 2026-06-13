@@ -19,7 +19,7 @@
 
 import { XOR } from 'ts-essentials';
 import type { Mwbot } from './Mwbot.js';
-import { escapeRegExp, isPlainObject, mergeDeep } from './Util.js';
+import { escapeRegExp, isPlainObject, cloneDeep } from './Util.js';
 import type { TitleStatic, Title } from './Title.js';
 import { ParamBase } from './baseClasses.js';
 
@@ -852,7 +852,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 			// If `keyOrPred` is a function, check against each param
 			if (typeof keyOrPred === 'function') {
-				return Object.values(this.params).some((obj) => keyOrPred(mergeDeep(obj)));
+				return Object.values(this.params).some((obj) => keyOrPred(cloneDeep(obj)));
 			}
 
 			// Convert string key to a strict RegExp match
@@ -1374,7 +1374,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				}
 				return null;
 			}
-			const initializer = mergeDeep(this.#initializer);
+			const initializer = cloneDeep(this.#initializer);
 			initializer.title = title;
 			return new ParsedParserFunction(initializer);
 		}
@@ -1472,7 +1472,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				}
 				return null;
 			}
-			const initializer = mergeDeep(this.#initializer);
+			const initializer = cloneDeep(this.#initializer);
 			initializer.title = title;
 			return new ParsedTemplate(initializer);
 		}
@@ -1487,7 +1487,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				}
 				return null;
 			}
-			const initializer = mergeDeep(this.#initializer);
+			const initializer = cloneDeep(this.#initializer);
 			initializer.title = title;
 			return new ParsedParserFunction(initializer);
 		}
@@ -1730,7 +1730,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				}
 				return null;
 			}
-			const initializer = mergeDeep(this.#initializer);
+			const initializer = cloneDeep(this.#initializer);
 			initializer.title = title;
 			return new ParsedTemplate(initializer);
 		}

@@ -59,7 +59,7 @@
 
 import { MwbotError } from './MwbotError.js';
 import type { Mwbot, MwbotRequestConfig } from './Mwbot.js';
-import { deepCloneInstance, isClassInstance, mergeDeep } from './Util.js';
+import { CloneConfig, cloneDeep } from './Util.js';
 import { byteLength } from './String.js';
 import type { Title } from './Title.js';
 import type {
@@ -503,6 +503,8 @@ export function WikitextFactory(
 		],
 	]);
 
+	const CLONE_INSTANCE_CONFIG = new CloneConfig({ cloneClassInstances: true });
+
 	class Wikitext implements Wikitext {
 
 		/**
@@ -622,9 +624,7 @@ export function WikitextFactory(
 					throw new TypeError(`Expected an array for storage["${key}"], but got ${typeof val}.`);
 				}
 				this.storage[key] = val; // Save
-				return clone
-					? val.map((obj) => '_clone' in obj ? obj._clone(args) : isClassInstance(obj) ? deepCloneInstance(obj) : mergeDeep(obj))
-					: val;
+				return clone ? val.map((obj) => cloneDeep(obj, CLONE_INSTANCE_CONFIG)) : val;
 			}
 
 			// If setting a value
