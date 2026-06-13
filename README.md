@@ -1,7 +1,7 @@
 # mwbot-ts
 
 [![npm version](https://img.shields.io/npm/v/mwbot-ts.svg)](https://www.npmjs.com/package/mwbot-ts)
-[![GitHub License](https://img.shields.io/github/license/Dr4goniez/mwbot-ts)](https://github.com/Dr4goniez/mwbot-ts)
+[![GitHub License](https://img.shields.io/badge/license-GPL--3.0-orange)](https://github.com/Dr4goniez/mwbot-ts)
 ![node-current](https://img.shields.io/node/v/mwbot-ts)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Dr4goniez/mwbot-ts/pulls)
 
