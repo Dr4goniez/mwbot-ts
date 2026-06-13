@@ -354,6 +354,8 @@ function internalClone(
  *
  * NOTE: Custom class instances are preserved by reference unless
  * {@link CloneConfigOptions.cloneClassInstances | cloneClassInstances} is enabled.
+ * Passing a class instance without an appropriate {@link CloneConfig} may return
+ * the original object unchanged rather than a cloned copy.
  *
  * @param val The value to clone.
  *
