@@ -1039,7 +1039,7 @@ export class Mwbot {
 	 * on the resulting object to prevent redundant cloning on future calls.
 	 *
 	 * @param requestOptions The request options to check and clone if needed.
-	 * @returns A safely cloneable `MwbotRequestConfig` object with `_cloned` set to `true`.
+	 * @returns A request options object that can be safely mutated without affecting other callers.
 	 */
 	protected static unrefRequestOptions(requestOptions?: MwbotRequestConfig): MwbotRequestConfig {
 		if (requestOptions === undefined || isEmptyObject(requestOptions)) {

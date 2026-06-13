@@ -1138,4 +1138,74 @@ describe('Mwbot', function () {
 		});
 	});
 
+	describe('unrefRequestOptions()', function () {
+		// @ts-expect-error - Protected method
+		const unrefRequestOptions = Mwbot.unrefRequestOptions.bind(Mwbot);
+
+		it('should return { _cloned: true } if requestOptions is undefined', function () {
+			const result = unrefRequestOptions(undefined);
+			// @ts-expect-error - _cloned is hidden to the public
+			assert.deepEqual(result, { _cloned: true });
+		});
+
+		it('should return { _cloned: true } if requestOptions is an empty object', function () {
+			const result = unrefRequestOptions({});
+			// @ts-expect-error - _cloned is hidden to the public
+			assert.deepEqual(result, { _cloned: true });
+		});
+
+		it('should return { _cloned: true } for an empty null-prototype object', function () {
+			const result = unrefRequestOptions(Object.create(null));
+			// @ts-expect-error - _cloned is hidden to the public
+			assert.deepEqual(result, { _cloned: true });
+		});
+
+		it('should return the original object as-is if _cloned is already true', function () {
+			const original = { timeout: 1000, _cloned: true };
+			const result = unrefRequestOptions(original);
+
+			assert.strictEqual(result, original);
+
+			result.timeout = 2000;
+			assert.strictEqual(original.timeout, 2000);
+		});
+
+		it('should deeply clone a non-empty object and mark it as cloned', function () {
+			const original = {
+				timeout: 5000,
+				headers: { 'User-Agent': 'TestBot/1.0' },
+			};
+			const result = unrefRequestOptions(original);
+
+			// @ts-expect-error - _cloned is hidden to the public
+			assert.isTrue(result._cloned);
+			assert.strictEqual(result.timeout, 5000);
+			assert.strictEqual(result.headers?.['User-Agent'], 'TestBot/1.0');
+
+			// @ts-expect-error - _cloned is hidden to the public
+			assert.isUndefined(original._cloned, '_cloned should only be set to the output object');
+
+			// Ensure `result` is a deep clone
+			assert.notStrictEqual(result, original);
+			assert.notStrictEqual(result.headers, original.headers);
+
+			result.headers ??= {};
+			result.headers['User-Agent'] = 'ChangedAgent/2.0';
+			assert.strictEqual(original.headers['User-Agent'], 'TestBot/1.0');
+		});
+
+		it('should not clone the same object twice', function () {
+			const original = {
+				timeout: 5000,
+				headers: {
+					foo: 'bar',
+				},
+			};
+			const first = unrefRequestOptions(original);
+			const second = unrefRequestOptions(first);
+
+			assert.strictEqual(first, second);
+		});
+	});
+
 });
