@@ -49,7 +49,7 @@ describe('MwbotError', function () {
 		});
 	});
 
-	describe('static newFromResponse()', function () {
+	describe('Static newFromResponse()', function () {
 		it('should create an instance from a single error response (response.error)', function () {
 			const response = {
 				error: { code: 'badtoken', info: 'The token is invalid', generic_param: 'value' },
@@ -165,6 +165,82 @@ describe('MwbotError', function () {
 			assert.strictEqual(error.info, 'New Error Description');
 			assert.strictEqual(error.message, 'New Error Description');
 			assert.strictEqual(chained, error);
+		});
+	});
+
+	describe('_clone', function () {
+		it('should create a new instance with identical properties', function () {
+			const error = new MwbotError(
+				'api_mwbot',
+				{ code: 'http', info: 'Error' },
+				{ title: 'Foo' }
+			);
+			const cloned = error._clone();
+
+			assert.notStrictEqual(cloned, error);
+			assert.strictEqual(cloned.name, error.name);
+			assert.strictEqual(cloned.type, error.type);
+			assert.strictEqual(cloned.code, error.code);
+			assert.strictEqual(cloned.info, error.info);
+			assert.strictEqual(cloned.message, error.message);
+			assert.strictEqual(cloned.stack, error.stack);
+		});
+
+		it('should deep-clone the data property', function () {
+			const error = new MwbotError(
+				'api_mwbot',
+				{ code: 'http', info: 'Error' },
+				{
+					title: 'Foo',
+					modified: {
+						0: {
+							bar: 'baz',
+						},
+					},
+				}
+			);
+			const cloned = error._clone();
+
+			assert.deepStrictEqual(cloned.data, error.data);
+			assert.notStrictEqual(cloned.data, error.data);
+			assert.notStrictEqual(
+				(cloned.data ?? {}).modified,
+				(error.data ?? {}).modified
+			);
+
+			/**
+			 * @param {MwbotError} e
+			 * @returns {{ bar: string }}
+			 */
+			const getModifiedZero = (e) => (
+				/** @type {{ bar: string }} */ (e.data && e.data.modified && e.data.modified[0])
+			);
+
+			getModifiedZero(cloned).bar = 'qux';
+			assert.strictEqual(getModifiedZero(error).bar, 'baz');
+		});
+
+		it('should preserve the prototype chain', function () {
+			const error = new MwbotError(
+				'api_mwbot',
+				{ code: 'http', info: 'Error' }
+			);
+
+			const cloned = error._clone();
+
+			assert.instanceOf(cloned, Error);
+			assert.instanceOf(cloned, MwbotError);
+		});
+
+		it('should clone an instance without data', function () {
+			const error = new MwbotError(
+				'api_mwbot',
+				{ code: 'http', info: 'Error' }
+			);
+
+			const cloned = error._clone();
+
+			assert.strictEqual(cloned.data, undefined);
 		});
 	});
 

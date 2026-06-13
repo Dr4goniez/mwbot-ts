@@ -8,7 +8,7 @@
  */
 
 import type { ApiResponse, ApiResponseError } from './api_types.js';
-import { isPlainObject } from './Util.js';
+import { cloneDeep, isPlainObject } from './Util.js';
 import type { ConfigData } from './Mwbot.js';
 
 // Imported only for docs
@@ -143,6 +143,24 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 		this.info = info;
 		this.message = info;
 		return this;
+	}
+
+	/**
+	 * @hidden
+	 */
+	_clone(): this {
+		const cloned = new MwbotError(
+			this.type,
+			{
+				code: this.code,
+				info: this.info,
+			} as any,
+			this.data ? cloneDeep(this.data) : undefined
+		) as this;
+
+		cloned.stack = this.stack;
+
+		return cloned;
 	}
 
 }
