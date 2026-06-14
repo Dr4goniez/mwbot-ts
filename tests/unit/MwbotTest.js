@@ -4,6 +4,7 @@ import { Mwbot, MwbotError, MWBOT_VERSION } from '../../dist/index.js';
 import OAuth from 'oauth-1.0a';
 import { getMwbotInitOptionsBase, getTestMwbot, TestMwbotFactory } from './MwbotTest-fixtures.js';
 import sinon from 'sinon';
+import FormData from 'form-data';
 
 describe('Mwbot', function () {
 
@@ -1314,6 +1315,410 @@ describe('Mwbot', function () {
 			} catch {
 				// @ts-expect-error - Protected property
 				assert.strictEqual(mwbot.abortions.size, 0);
+			}
+		});
+	});
+
+	describe('request()', function () {
+		/**
+		 * @type {Awaited<ReturnType<typeof getTestMwbot>>}
+		 */
+		let mwbot;
+
+		before(async function () {
+			mwbot = await getTestMwbot('named');
+		});
+
+		afterEach(function () {
+			sinon.restore();
+		});
+
+		it('should throw "invalidformat" if format is not json', async function () {
+			try {
+				await mwbot.request({ action: 'query', format: 'xml' });
+				assert.fail('Expected request() to reject');
+			} catch (err) {
+				assert.instanceOf(err, MwbotError);
+				assert.strictEqual(err.code, 'invalidformat');
+			}
+		});
+
+		it('should enforce assert=user for authenticated users', async function () {
+			// @ts-expect-error - Protected method
+			const requestStub = sinon.stub(mwbot, '_request').resolves({
+				batchcomplete: true,
+			});
+			await mwbot.request({ action: 'query' });
+
+			assert.strictEqual(requestStub.firstCall.args[0].params.assert, 'user');
+		});
+
+		it('should not enforce assert=user when disableAssert is true', async function () {
+			// @ts-expect-error - Protected method
+			const requestStub = sinon.stub(mwbot, '_request').resolves({
+				batchcomplete: true,
+			});
+			await mwbot.request(
+				{ action: 'query' },
+				{ disableAssert: true }
+			);
+
+			assert.isUndefined(requestStub.firstCall.args[0].params.assert);
+		});
+
+		it('should not enforce assert=user when assertuser is already provided', async function () {
+			// @ts-expect-error - Protected method
+			const requestStub = sinon.stub(mwbot, '_request').resolves({
+				batchcomplete: true,
+			});
+			await mwbot.request({
+				action: 'query',
+				assertuser: 'Example',
+			});
+
+			assert.isUndefined(requestStub.firstCall.args[0].params.assert);
+			assert.strictEqual(requestStub.firstCall.args[0].params.assertuser, 'Example');
+		});
+
+		it('should not override an existing assert parameter', async function () {
+			// @ts-expect-error - Protected method
+			const requestStub = sinon.stub(mwbot, '_request').resolves({
+				batchcomplete: true,
+			});
+			await mwbot.request({
+				action: 'query',
+				assert: 'bot',
+			});
+
+			assert.strictEqual(requestStub.firstCall.args[0].params.assert, 'bot');
+		});
+
+		it('should merge apiUrl and user agent from userMwbotOptions', async function () {
+			// @ts-expect-error - Protected method
+			const requestStub = sinon.stub(mwbot, '_request').resolves({
+				batchcomplete: true,
+			});
+			await mwbot.request({ action: 'query' });
+
+			const opts = requestStub.firstCall.args[0];
+			assert.strictEqual(
+				opts.url,
+				mwbot.userMwbotOptions.apiUrl
+			);
+			assert.strictEqual(
+				opts.headers['User-Agent'],
+				mwbot.userMwbotOptions.userAgent ?? Mwbot.getDefaultRequestOptions().headers['User-Agent']
+			);
+		});
+
+		it('should pass a cloned request options object to _request', async function () {
+			// @ts-expect-error - Protected method
+			const requestStub = sinon.stub(mwbot, '_request').resolves({
+				batchcomplete: true,
+			});
+			const requestOptions = {
+				headers: {
+					Foo: 'Bar',
+				},
+			};
+			await mwbot.request(
+				{ action: 'query' },
+				requestOptions
+			);
+
+			requestStub.firstCall.args[0].headers.Foo = 'Baz';
+
+			assert.strictEqual(requestOptions.headers.Foo, 'Bar');
+			assert.isTrue(requestStub.firstCall.args[0]._cloned);
+		});
+	});
+
+	describe('preprocessParameters()', function () {
+		/**
+		 * @type {Awaited<ReturnType<typeof getTestMwbot>>}
+		 */
+		let mwbot;
+
+		before(async function () {
+			mwbot = await getTestMwbot('named');
+		});
+
+		it('should properly format arrays, booleans, and Dates', function () {
+			/** @type {Record<string, any>} */
+			const params = {
+				normal: 'string',
+				arr1: ['a', 'b'],
+				arr2: ['a|b', 'c'],
+				boolTrue: true,
+				boolFalse: false,
+				boolUndef: undefined,
+				date: new Date('2026-01-01T00:00:00Z'),
+			};
+			// @ts-expect-error - Protected method
+			const result = mwbot.preprocessParameters(params);
+
+			assert.strictEqual(params.normal, 'string');
+			assert.strictEqual(params.arr1, 'a|b');
+			assert.strictEqual(params.arr2, '\x1fa|b\x1fc');
+			assert.strictEqual(params.boolTrue, '1');
+			assert.isUndefined(params.boolFalse);
+			assert.isUndefined(params.boolUndef);
+			assert.strictEqual(params.date, '2026-01-01T00:00:00.000Z');
+
+			assert.isFalse(result.hasLongFields);
+			assert.isAbove(result.length, 0);
+		});
+
+		it('should detect fields longer than 8000 characters', function () {
+			const params = {
+				short: 'a',
+				long: 'A'.repeat(8001),
+			};
+			// @ts-expect-error - Protected method
+			const result = mwbot.preprocessParameters(params);
+
+			assert.isTrue(result.hasLongFields);
+		});
+	});
+
+	describe('handlePost()', function () {
+		/**
+		 * @type {Awaited<ReturnType<typeof getTestMwbot>>}
+		 */
+		let mwbot;
+
+		before(async function () {
+			mwbot = await getTestMwbot('named');
+		});
+
+		afterEach(function () {
+			sinon.restore();
+		});
+
+		const POST_METHOD = { method: 'POST' };
+
+		it('should reject if the request method is not POST', async function () {
+			try {
+				// @ts-expect-error - Protected method
+				await mwbot.handlePost({ method: 'GET' }, false);
+				assert.fail('Expected handlePost() to reject');
+			} catch (e) {
+				assert.instanceOf(e, MwbotError);
+				assert.strictEqual(e.code, 'internal');
+				assert.strictEqual(e.info, 'Expected request method to be "POST", but received "GET".');
+			}
+		});
+
+		it('should mutate the provided request options object', async function () {
+			/** @type {Record<string, any>} */
+			const reqOpts = {
+				...POST_METHOD,
+				params: {
+					action: 'edit',
+					title: 'Test',
+				},
+			};
+			const original = reqOpts;
+			// @ts-expect-error - Protected method
+			await mwbot.handlePost(reqOpts, false);
+
+			assert.strictEqual(reqOpts, original);
+			assert.instanceOf(reqOpts.data, URLSearchParams);
+		});
+
+		it('should add "Promise-Non-Write-API-Action" header for query/parse actions', async function () {
+			/** @type {Record<string, any>} */
+			const reqOpts = {
+				...POST_METHOD,
+				headers: {},
+				params: { action: 'parse' },
+			};
+			// @ts-expect-error - Protected method
+			await mwbot.handlePost(reqOpts, false);
+
+			assert.strictEqual(reqOpts.headers['Promise-Non-Write-API-Action'], '1');
+		});
+
+		it('should format data as URLSearchParams for standard POST', async function () {
+			/** @type {Record<string, any>} */
+			const reqOpts = {
+				...POST_METHOD,
+				headers: {},
+				params: { action: 'edit', title: 'Test' },
+			};
+			// @ts-expect-error - Protected method
+			await mwbot.handlePost(reqOpts, false);
+
+			assert.strictEqual(reqOpts.headers['Content-Type'], 'application/x-www-form-urlencoded');
+			assert.instanceOf(reqOpts.data, URLSearchParams);
+			assert.strictEqual(reqOpts.data.get('title'), 'Test');
+		});
+
+		it('should re-append token if user is authenticated', async function () {
+			/** @type {Record<string, any>} */
+			const reqOpts = {
+				...POST_METHOD,
+				params: { action: 'edit', token: 'abc+\\', title: 'Foo' },
+			};
+			// @ts-expect-error - Protected method
+			await mwbot.handlePost(reqOpts, false);
+
+			assert.strictEqual(reqOpts.params.token, 'abc+\\');
+			assert.instanceOf(reqOpts.data, URLSearchParams);
+			assert.deepEqual([...reqOpts.data.entries()].at(-1), ['token', 'abc+\\']);
+		});
+
+		it('should delegate to handlePostMultipartFormData if hasLongFields is true', async function () {
+			// @ts-expect-error - Protected method
+			const handlerStub = sinon.stub(mwbot, 'handlePostMultipartFormData');
+
+			/** @type {Record<string, any>} */
+			const reqOpts = {
+				...POST_METHOD,
+				params: { action: 'edit' },
+			};
+			// @ts-expect-error - Protected method
+			await mwbot.handlePost(reqOpts, true);
+
+			assert.strictEqual(reqOpts.headers?.['Content-Type'], 'multipart/form-data');
+			assert.strictEqual(handlerStub.callCount, 1);
+		});
+
+		it('should delegate to handlePostMultipartFormData if Content-Type is multipart/form-data', async function () {
+			// @ts-expect-error - Protected method
+			const handlerStub = sinon.stub(mwbot, 'handlePostMultipartFormData');
+
+			/** @type {Record<string, any>} */
+			const reqOpts = {
+				...POST_METHOD,
+				headers: { 'Content-Type': 'multipart/form-data' },
+				params: { action: 'edit' },
+			};
+			// @ts-expect-error - Protected method
+			await mwbot.handlePost(reqOpts, false);
+
+			assert.strictEqual(reqOpts.headers['Content-Type'], 'multipart/form-data');
+			assert.strictEqual(handlerStub.callCount, 1);
+		});
+	});
+
+	describe('handlePostMultipartFormData()', function () {
+		/**
+		 * @type {Awaited<ReturnType<typeof getTestMwbot>>}
+		 */
+		let mwbot;
+
+		before(async function () {
+			mwbot = await getTestMwbot('named');
+		});
+
+		it('should create FormData and calculate headers/content-length correctly', async function () {
+			/** @type {Record<string, any>} */
+			const reqOpts = {
+				headers: { 'X-Custom': 'Header' },
+				params: { action: 'edit' },
+			};
+			// @ts-expect-error - Protected method
+			await mwbot.handlePostMultipartFormData(reqOpts, 'mock-token');
+
+			assert.strictEqual(reqOpts.params.token, 'mock-token');
+
+			assert.instanceOf(reqOpts.data, FormData);
+			const body = reqOpts.data.getBuffer().toString();
+			assert.include(body, 'name="token"');
+			assert.include(body, 'mock-token');
+
+			assert.include(reqOpts.headers['content-type'], 'multipart/form-data');
+			assert.isDefined(reqOpts.headers['Content-Length']);
+			assert.strictEqual(reqOpts.headers['X-Custom'], 'Header');
+		});
+	});
+
+	describe('applyAuthentication()', function () {
+		/**
+		 * @type {Awaited<ReturnType<typeof getTestMwbot>>}
+		 */
+		let mwbot;
+
+		before(async function () {
+			mwbot = await getTestMwbot('named'); // botpassword authentication
+		});
+
+		afterEach(function () {
+			sinon.restore();
+		});
+
+		it('should do nothing if no credentials are set', function () {
+			const reqOpts = { headers: {} };
+			// @ts-expect-error - Protected method
+			mwbot.applyAuthentication(reqOpts);
+			assert.deepEqual(reqOpts.headers, {});
+		});
+
+		it('should apply OAuth 2.0 Bearer token', function () {
+			// @ts-expect-error - Protected property
+			sinon.stub(mwbot, 'credentials').value({ oauth2: 'TEST_OAUTH2_TOKEN' });
+			/** @type {Record<string, any>} */
+			const reqOpts = {};
+			// @ts-expect-error - Protected method
+			mwbot.applyAuthentication(reqOpts);
+
+			assert.strictEqual(reqOpts.headers?.Authorization, 'Bearer TEST_OAUTH2_TOKEN');
+		});
+
+		it('should apply OAuth 1.0a authorization headers', function () {
+			const authorizeStub = sinon.stub().returns({});
+			const toHeaderStub = sinon.stub().returns({
+				Authorization: 'OAuth test',
+			});
+			// @ts-expect-error - Protected property
+			sinon.stub(mwbot, 'credentials').value({
+				oauth1: {
+					accessToken: 'key',
+					accessSecret: 'secret',
+					instance: {
+						authorize: authorizeStub,
+						toHeader: toHeaderStub,
+					},
+				},
+			});
+			/** @type {Record<string, any>} */
+			const reqOpts = {
+				url: 'http://localhost:8080',
+				method: 'GET',
+			};
+			// @ts-expect-error - Protected method
+			mwbot.applyAuthentication(reqOpts);
+
+			assert.strictEqual(reqOpts.headers?.Authorization, 'OAuth test');
+			assert.isTrue(authorizeStub.calledOnce);
+			assert.isTrue(toHeaderStub.calledOnce);
+			assert.deepInclude(
+				authorizeStub.firstCall.args[0],
+				{
+					url: 'http://localhost:8080',
+					method: 'GET',
+				}
+			);
+		});
+
+		it('should throw an error for OAuth 1.0a if url or method is missing', function () {
+			// @ts-expect-error - Protected property
+			sinon.stub(mwbot, 'credentials').value({ oauth1: {} });
+			/** @type {Record<string, any>} */
+			const reqOpts = {
+				url: 'http://localhost:8080',
+				// method missing
+			};
+
+			try {
+				// @ts-expect-error - Protected method
+				mwbot.applyAuthentication(reqOpts);
+				assert.fail('Expected applyAuthentication() to throw');
+			} catch (err) {
+				assert.instanceOf(err, MwbotError);
+				assert.strictEqual(err.code, 'internal');
+				assert.include(err.info, 'OAuth 1.0 requires both "url" and "method"');
 			}
 		});
 	});
