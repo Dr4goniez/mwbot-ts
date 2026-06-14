@@ -1103,50 +1103,62 @@ export class Mwbot {
 	 */
 	async request(
 		parameters: ApiParams,
-		requestOptions?: MwbotRequestConfig & ReadRequestConfig
+		requestOptions: MwbotRequestConfig & ReadRequestConfig = {}
 	): Promise<ApiResponse> {
+		const mergedOptions = mergeDeep(
+			Mwbot.getDefaultRequestOptions(),
+			this.userRequestOptions,
+			requestOptions,
+			{ params: parameters }
+		) as PartiallyRequired<MwbotRequestConfig, 'params'> & ReadRequestConfig;
 
-		// Preprocess the request options
-		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
-		requestOptions = mergeDeep(Mwbot.getDefaultRequestOptions(), this.userRequestOptions, requestOptions, { params: parameters });
-		if (
-			!this.isAnonymous() && !requestOptions.disableAssert && requestOptions.params &&
-			typeof requestOptions.params.assert !== 'string' && typeof requestOptions.params.assertuser !== 'string'
-		) {
-			// Enforce { assert: 'user' } for logged-in users
-			requestOptions.params.assert = 'user';
-		}
-		const { length, hasLongFields } = this.preprocessParameters(requestOptions.params);
-		if (requestOptions.params?.format !== 'json') {
+		mergedOptions._cloned = true;
+
+		if (mergedOptions.params.format !== 'json') {
 			throw new MwbotError('api_mwbot', {
 				code: 'invalidformat',
 				info: 'Expected "format=json" in request parameters.',
 			});
 		}
-		requestOptions.url = this.userMwbotOptions.apiUrl || requestOptions.url;
-		requestOptions.headers ||= {};
-		requestOptions.headers['User-Agent'] = this.userMwbotOptions.userAgent || requestOptions.headers['User-Agent'];
+
+		if (
+			!this.isAnonymous() &&
+			!mergedOptions.disableAssert &&
+			typeof mergedOptions.params.assert !== 'string' &&
+			typeof mergedOptions.params.assertuser !== 'string'
+		) {
+			// Enforce { assert: 'user' } for logged-in users
+			mergedOptions.params.assert = 'user';
+		}
+
+		// Merge userMwbotOptions
+		mergedOptions.url = this.userMwbotOptions.apiUrl || mergedOptions.url;
+		mergedOptions.headers ||= {};
+		mergedOptions.headers['User-Agent'] = this.userMwbotOptions.userAgent || mergedOptions.headers['User-Agent'];
+
+		// Normalize API parameters
+		const { length, hasLongFields } = this.preprocessParameters(mergedOptions.params);
 
 		// Preprocess the request method
-		requestOptions.method = String(requestOptions.method).toUpperCase();
-		const autoMethod = requestOptions.method !== 'POST' && !!requestOptions.autoMethod;
-		delete requestOptions.autoMethod;
+		mergedOptions.method = String(mergedOptions.method).toUpperCase();
+		const autoMethod = mergedOptions.method !== 'POST' && !!mergedOptions.autoMethod;
+		delete mergedOptions.autoMethod;
 		if (autoMethod) {
 			const baseUrl = this.config.get('wgScriptPath') + '/api.php?';
 			const baseUrlLength = new TextEncoder().encode(baseUrl).length;
 			if (length + baseUrlLength > 2084) {
-				requestOptions.method = 'POST';
+				mergedOptions.method = 'POST';
 			}
 		}
-		if (requestOptions.method === 'POST') {
-			await this.handlePost(requestOptions, hasLongFields); // Encode params to data
+		if (mergedOptions.method === 'POST') {
+			await this.handlePost(mergedOptions, hasLongFields); // Encode params to data
 		} else {
-			requestOptions.method = 'GET';
+			mergedOptions.method = 'GET';
 		}
-		this.applyAuthentication(requestOptions);
 
-		return this._request(requestOptions);
+		this.applyAuthentication(mergedOptions);
 
+		return this._request(mergedOptions);
 	}
 
 	/**
@@ -1409,9 +1421,7 @@ export class Mwbot {
 	 */
 	protected preprocessParameters(parameters: ApiParams): { length: number; hasLongFields: boolean } {
 		let hasLongFields = false;
-		const markIfLongField = (value: string): void => {
-			hasLongFields ||= value.length > 8000;
-		};
+
 		Object.entries(parameters).forEach(([key, val]) => {
 			if (Array.isArray(val)) {
 				// Multi-value fields must be stringified
@@ -1422,7 +1432,7 @@ export class Mwbot {
 					str = '\x1f' + val.join('\x1f');
 				}
 				parameters[key] = str;
-				markIfLongField(str);
+				hasLongFields ||= str.length > 8000;
 			} else if (val === false || val === undefined) {
 				// Boolean values are only false when not given at all
 				delete parameters[key];
@@ -1432,7 +1442,7 @@ export class Mwbot {
 			} else if (val instanceof Date) {
 				parameters[key] = val.toISOString();
 			} else {
-				markIfLongField(String(val));
+				hasLongFields ||= String(val).length > 8000;
 			}
 		});
 
@@ -1446,13 +1456,11 @@ export class Mwbot {
 	/**
 	 * Handles data encoding for POST requests (calls {@link handlePostMultipartFormData} for `multipart/form-data`).
 	 *
-	 * @param requestOptions The HTTP request options to modify.
+	 * @param requestOptions The HTTP request options to modify. **This object may be modified in place.**
 	 * @param hasLongFields A boolean indicating whether the parameters have a long field.
 	 */
 	protected async handlePost(requestOptions: MwbotRequestConfig, hasLongFields: boolean): Promise<void> {
-
 		Mwbot.dieIfNotPost(requestOptions);
-		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 
 		// Ensure the token parameter is last (per [[mw:API:Edit#Token]])
 		// The token will be kept away if the user is anonymous
@@ -1464,7 +1472,7 @@ export class Mwbot {
 		// See https://www.mediawiki.org/wiki/API:Etiquette#Other_notes
 		requestOptions.headers ||= {};
 		if (params.action === 'query' || params.action === 'parse') {
-			requestOptions.headers['Promise-Non-Write-API-Action'] = true;
+			requestOptions.headers['Promise-Non-Write-API-Action'] = '1';
 		}
 
 		// Encode params
@@ -1482,7 +1490,6 @@ export class Mwbot {
 				requestOptions.data.append('token', token);
 			}
 		}
-
 	}
 
 	/**
@@ -1491,17 +1498,16 @@ export class Mwbot {
 	 * - Converts `params` into a `FormData` object.
 	 * - Supports file uploads if `params` contain an object with a `stream` property.
 	 *
-	 * @param requestOptions The HTTP request options to modify.
+	 * @param requestOptions The HTTP request options to modify. **This object may be modified in place.**
 	 * @param token Optional token for authentication.
 	 */
 	protected async handlePostMultipartFormData(requestOptions: MwbotRequestConfig, token?: string): Promise<void> {
-		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		const { params } = requestOptions;
 		const form = new FormData();
 
 		for (const [key, val] of Object.entries(params)) {
 			if (val instanceof Object && 'stream' in val) {
-				//@ts-expect-error Property 'name' does not exist?
+				// @ts-expect-error Property 'name' does not exist?
 				form.append(key, val.stream, val.name);
 			} else {
 				form.append(key, val);
@@ -1517,6 +1523,7 @@ export class Mwbot {
 			form.getLength((err, length) => {
 				if (err) {
 					reject(err);
+					return;
 				}
 				resolve({
 					...requestOptions.headers,
@@ -1530,10 +1537,9 @@ export class Mwbot {
 	/**
 	 * Applies authentication headers to the request config when using OAuth.
 	 *
-	 * @param requestOptions
+	 * @param requestOptions The HTTP request options to modify. **This object may be modified in place.**
 	 */
 	protected applyAuthentication(requestOptions: MwbotRequestConfig): void {
-		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		requestOptions.headers ||= {};
 		const { oauth2, oauth1 } = this.credentials;
 
@@ -1601,7 +1607,7 @@ export class Mwbot {
 	 * - {@link MwbotRequestConfig.disableRetry} is not set to `true`.
 	 * - {@link MwbotRequestConfig.disableRetryByCode} is either unset or does not contain the error code from `initialError`.
 	 *
-	 * Note: {@link MwbotRequestConfig.disableRetryAPI} must be evaluated in the `then` block of {@link request}, rather than here.
+	 * Note: {@link MwbotRequestConfig.disableRetryAPI} must be evaluated in {@link _request}, rather than here.
 	 *
 	 * @param initialError The error that triggered the retry attempt.
 	 * @param attemptCount The number of attemps that have been made so far.
@@ -1694,7 +1700,7 @@ export class Mwbot {
 	 * to circumvent a `414 URI too long` error; otherwise, use {@link get}.
 	 *
 	 * Per [[{@link https://www.mediawiki.org/wiki/API:Etiquette#Other_notes | mw:API:Etiquette#Other notes}]],
-	 * `Promise-Non-Write-API-Action: true` will be set to the request headers automatically.
+	 * `Promise-Non-Write-API-Action: '1'` will be set to the request headers automatically.
 	 *
 	 * @param parameters Parameters to the API.
 	 * @param requestOptions Optional HTTP request options.
@@ -1704,7 +1710,7 @@ export class Mwbot {
 		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		requestOptions.method = 'POST';
 		requestOptions.headers ||= {};
-		requestOptions.headers['Promise-Non-Write-API-Action'] = true;
+		requestOptions.headers['Promise-Non-Write-API-Action'] = '1';
 		return this.request(parameters, requestOptions);
 	}
 
