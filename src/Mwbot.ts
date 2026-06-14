@@ -1063,7 +1063,6 @@ export class Mwbot {
 	 * @returns A Promise that resolves to the raw Axios response.
 	 */
 	rawRequest(requestOptions: MwbotRequestConfig): Promise<AxiosResponse> {
-
 		// If `_cloned` is not set, assume this method is being called externally
 		// Clone the config and inject necessary instance-specific settings
 		if (!requestOptions._cloned) {
@@ -1083,7 +1082,6 @@ export class Mwbot {
 		return this.axios(requestOptions).finally(() => {
 			this.abortions.delete(controller);
 		});
-
 	}
 
 	/**

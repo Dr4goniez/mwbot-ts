@@ -1,4 +1,4 @@
-import { describe, it, before } from 'mocha';
+import { describe, it, before, afterEach } from 'mocha';
 import { assert } from 'chai';
 import { Mwbot, MwbotError, MWBOT_VERSION } from '../../dist/index.js';
 import OAuth from 'oauth-1.0a';
@@ -1205,6 +1205,116 @@ describe('Mwbot', function () {
 			const second = unrefRequestOptions(first);
 
 			assert.strictEqual(first, second);
+		});
+	});
+
+	describe('rawRequest()', function () {
+		/**
+		 * @type {Awaited<ReturnType<typeof getTestMwbot>>}
+		 */
+		let mwbot;
+
+		before(async function () {
+			mwbot = await getTestMwbot('named');
+		});
+
+		afterEach(function () {
+			sinon.restore();
+		});
+
+		it('should deep-copy request options when _closed is not set', async function () {
+			// @ts-expect-error - axios is a property rather than a method
+			const axiosStub = sinon.stub(mwbot, 'axios').resolves({
+				data: 'success',
+			});
+			const requestOptions = {
+				headers: {
+					foo: 'bar',
+				},
+			}
+			const res = await mwbot.rawRequest(requestOptions);
+
+			axiosStub.firstCall.args[0].headers.foo = 'baz';
+
+			assert.strictEqual(res.data, 'success');
+			assert.strictEqual(requestOptions.headers.foo, 'bar');
+		});
+
+		it('should not clone request options when _cloned is true', async function () {
+			let passedOptions;
+			// @ts-expect-error - axios is a property rather than a method
+			sinon.stub(mwbot, 'axios').callsFake(async (options) => {
+				passedOptions = options;
+				return { data: 'success' };
+			});
+			const requestOptions = {
+				_cloned: true,
+				timeout: 10000,
+			};
+
+			await mwbot.rawRequest(requestOptions);
+
+			assert.strictEqual(passedOptions, requestOptions);
+		});
+
+		it('should bypass AbortController if disableAbort is true', async function () {
+			// @ts-expect-error - axios is a property rather than a method
+			const axiosStub = sinon.stub(mwbot, 'axios').resolves({
+				data: 'success',
+			});
+			const res = await mwbot.rawRequest({
+				disableAbort: true,
+			});
+
+			assert.strictEqual(res.data, 'success');
+			// @ts-expect-error - Protected property
+			assert.strictEqual(mwbot.abortions.size, 0);
+			assert.isUndefined(axiosStub.firstCall.args[0].signal);
+		});
+
+		it('should bypass AbortController if signal is provided', async function () {
+			// @ts-expect-error - axios is a property rather than a method
+			const axiosStub = sinon.stub(mwbot, 'axios').resolves({
+				data: 'success',
+			});
+			const controller = new AbortController();
+			const res = await mwbot.rawRequest({
+				signal: controller.signal,
+			});
+
+			assert.strictEqual(res.data, 'success');
+			// @ts-expect-error - Protected property
+			assert.strictEqual(mwbot.abortions.size, 0);
+			assert.strictEqual(axiosStub.firstCall.args[0].signal, controller.signal);
+		});
+
+		it('should inject AbortController and clean it up after request', async function () {
+			// @ts-expect-error - axios is a property rather than a method
+			sinon.stub(mwbot, 'axios').callsFake(async (options) => {
+				assert.isDefined(options.signal);
+				// @ts-expect-error - Protected property
+				assert.strictEqual(mwbot.abortions.size, 1);
+
+				return { data: 'success' };
+			});
+			const res = await mwbot.rawRequest({});
+
+			assert.strictEqual(res.data, 'success');
+			// @ts-expect-error - Protected property
+			assert.strictEqual(mwbot.abortions.size, 0);
+		});
+
+		it('should clean up AbortController after request rejection', async function () {
+			// @ts-expect-error - axios is a property rather than a method
+			sinon.stub(mwbot, 'axios').rejects(new Error('boom'));
+
+			try {
+				await mwbot.rawRequest({});
+				assert.fail('Expected rawRequest() to reject');
+			} catch {
+				// @ts-expect-error - Protected property
+				assert.strictEqual(mwbot.abortions.size, 0);
+			}
 		});
 	});
 
