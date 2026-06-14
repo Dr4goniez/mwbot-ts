@@ -1233,7 +1233,7 @@ export class Mwbot {
 		if (requestOptions.headers['Content-Type'] === 'multipart/form-data') {
 			await this.handlePostMultipartFormData(requestOptions, token);
 		} else {
-			// Use application/x-www-form-urlencoded (default)
+			requestOptions.headers['Content-Type'] = 'application/x-www-form-urlencoded';
 			requestOptions.data = new URLSearchParams(params);
 			if (token && !this.isAnonymous()) {
 				params.token = token;
