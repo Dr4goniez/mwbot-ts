@@ -450,6 +450,16 @@ export class Mwbot {
 	}
 
 	/**
+	 * Checks whether the client is configured to use OAuth (v1 or v2).
+	 *
+	 * @returns `true` if either `oauth1` or `oauth2` credentials are set; otherwise, `false`.
+	 */
+	protected usingOAuth(): boolean {
+		const { oauth2, oauth1 } = this.credentials;
+		return !!(oauth2 || oauth1);
+	}
+
+	/**
 	 * Initializes a new `Mwbot` instance.
 	 *
 	 * This static factory method should always be used to create instances of `Mwbot` or its subclasses.
@@ -1082,16 +1092,6 @@ export class Mwbot {
 		return this.axios(requestOptions).finally(() => {
 			this.abortions.delete(controller);
 		});
-	}
-
-	/**
-	 * Checks whether the client is configured to use OAuth (v1 or v2).
-	 *
-	 * @returns `true` if either `oauth1` or `oauth2` credentials are set; otherwise, `false`.
-	 */
-	protected usingOAuth(): boolean {
-		const { oauth2, oauth1 } = this.credentials;
-		return !!(oauth2 || oauth1);
 	}
 
 	/**

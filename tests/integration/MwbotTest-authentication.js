@@ -70,5 +70,11 @@ export function testMwbotAuthentication(getMwbot, testDomain, authMethod) {
 			}
 		});
 
+		it('should correctly identify if OAuth is configured', function () {
+			const mwbot = getMwbot();
+			// @ts-expect-error - Protected method
+			assert.strictEqual(mwbot.usingOAuth(), authMethod === 'oauth2' || authMethod === 'oauth1');
+		});
+
 	});
 }
