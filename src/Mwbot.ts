@@ -1162,6 +1162,165 @@ export class Mwbot {
 	}
 
 	/**
+	 * Massages parameters from the nice format we accept into a format suitable for the API.
+	 *
+	 * @param parameters (modified in-place)
+	 * @returns An object containing:
+	 * - `length`: The UTF-8 byte length of the encoded query string.
+	 * - `hasLongFields`: Whether any field value exceeds 8000 characters.
+	 */
+	protected preprocessParameters(parameters: ApiParams): { length: number; hasLongFields: boolean } {
+		let hasLongFields = false;
+
+		Object.entries(parameters).forEach(([key, val]) => {
+			if (Array.isArray(val)) {
+				// Multi-value fields must be stringified
+				let str: string;
+				if (!val.join('').includes('|')) {
+					str = val.join('|');
+				} else {
+					str = '\x1f' + val.join('\x1f');
+				}
+				parameters[key] = str;
+				hasLongFields ||= str.length > 8000;
+			} else if (val === false || val === undefined) {
+				// Boolean values are only false when not given at all
+				delete parameters[key];
+			} else if (val === true) {
+				// Boolean values cause error with multipart/form-data requests
+				parameters[key] = '1';
+			} else if (val instanceof Date) {
+				parameters[key] = val.toISOString();
+			} else {
+				hasLongFields ||= String(val).length > 8000;
+			}
+		});
+
+		// Calculate the actual UTF-8 byte length of the encoded query string
+		const query = new URLSearchParams(parameters as Record<string, string>).toString();
+		const length = new TextEncoder().encode(query).length;
+
+		return { length, hasLongFields };
+	}
+
+	/**
+	 * Handles data encoding for POST requests (calls {@link handlePostMultipartFormData} for `multipart/form-data`).
+	 *
+	 * @param requestOptions The HTTP request options to modify. **This object may be modified in place.**
+	 * @param hasLongFields A boolean indicating whether the parameters have a long field.
+	 */
+	protected async handlePost(requestOptions: MwbotRequestConfig, hasLongFields: boolean): Promise<void> {
+		Mwbot.dieIfNotPost(requestOptions);
+
+		// Ensure the token parameter is last (per [[mw:API:Edit#Token]])
+		// The token will be kept away if the user is anonymous
+		const { params } = requestOptions;
+		const token = params.token as string | undefined;
+		delete params.token;
+
+		// Non-write API requests should be processed in the closest data center
+		// See https://www.mediawiki.org/wiki/API:Etiquette#Other_notes
+		requestOptions.headers ||= {};
+		if (params.action === 'query' || params.action === 'parse') {
+			requestOptions.headers['Promise-Non-Write-API-Action'] = '1';
+		}
+
+		// Encode params
+		if (hasLongFields) {
+			// See https://www.mediawiki.org/wiki/API:Edit#Large_edits
+			requestOptions.headers['Content-Type'] = 'multipart/form-data';
+		}
+		if (requestOptions.headers['Content-Type'] === 'multipart/form-data') {
+			await this.handlePostMultipartFormData(requestOptions, token);
+		} else {
+			// Use application/x-www-form-urlencoded (default)
+			requestOptions.data = new URLSearchParams(params);
+			if (token && !this.isAnonymous()) {
+				params.token = token;
+				requestOptions.data.append('token', token);
+			}
+		}
+	}
+
+	/**
+	 * Handles POST requests with `multipart/form-data` encoding.
+	 *
+	 * - Converts `params` into a `FormData` object.
+	 * - Supports file uploads if `params` contain an object with a `stream` property.
+	 *
+	 * @param requestOptions The HTTP request options to modify. **This object may be modified in place.**
+	 * @param token Optional token for authentication.
+	 */
+	protected async handlePostMultipartFormData(requestOptions: MwbotRequestConfig, token?: string): Promise<void> {
+		const { params } = requestOptions;
+		const form = new FormData();
+
+		for (const [key, val] of Object.entries(params)) {
+			if (val instanceof Object && 'stream' in val) {
+				// @ts-expect-error Property 'name' does not exist?
+				form.append(key, val.stream, val.name);
+			} else {
+				form.append(key, val);
+			}
+		}
+		if (token && !this.isAnonymous()) {
+			params.token = token;
+			form.append('token', token);
+		}
+
+		requestOptions.data = form;
+		requestOptions.headers = await new Promise((resolve, reject) => {
+			form.getLength((err, length) => {
+				if (err) {
+					reject(err);
+					return;
+				}
+				resolve({
+					...requestOptions.headers,
+					...form.getHeaders(),
+					'Content-Length': length,
+				});
+			});
+		});
+	}
+
+	/**
+	 * Applies authentication headers to the request config when using OAuth.
+	 *
+	 * @param requestOptions The HTTP request options to modify. **This object may be modified in place.**
+	 */
+	protected applyAuthentication(requestOptions: MwbotRequestConfig): void {
+		requestOptions.headers ||= {};
+		const { oauth2, oauth1 } = this.credentials;
+
+		if (oauth2) {
+			// OAuth 2.0
+			requestOptions.headers.Authorization = `Bearer ${oauth2}`;
+		} else if (oauth1) {
+			// OAuth 1.0a
+			if (!requestOptions.url || !requestOptions.method) {
+				throw new MwbotError('fatal', {
+					code: 'internal',
+					info: 'OAuth 1.0 requires both "url" and "method" to be set before authentication.',
+				});
+			}
+			Object.assign(
+				requestOptions.headers,
+				oauth1.instance.toHeader(
+					oauth1.instance.authorize({
+						url: requestOptions.url,
+						method: requestOptions.method,
+						data: requestOptions.data instanceof FormData ? {} : requestOptions.params,
+					}, {
+						key: oauth1.accessToken,
+						secret: oauth1.accessSecret,
+					})
+				)
+			);
+		}
+	}
+
+	/**
 	 * Performs a raw HTTP request to the MediaWiki API.
 	 *
 	 * This method assumes that the request body has been fully processed, meaning all necessary parameters
@@ -1409,165 +1568,6 @@ export class Mwbot {
 
 		});
 
-	}
-
-	/**
-	 * Massages parameters from the nice format we accept into a format suitable for the API.
-	 *
-	 * @param parameters (modified in-place)
-	 * @returns An object containing:
-	 * - `length`: The UTF-8 byte length of the encoded query string.
-	 * - `hasLongFields`: Whether any field value exceeds 8000 characters.
-	 */
-	protected preprocessParameters(parameters: ApiParams): { length: number; hasLongFields: boolean } {
-		let hasLongFields = false;
-
-		Object.entries(parameters).forEach(([key, val]) => {
-			if (Array.isArray(val)) {
-				// Multi-value fields must be stringified
-				let str: string;
-				if (!val.join('').includes('|')) {
-					str = val.join('|');
-				} else {
-					str = '\x1f' + val.join('\x1f');
-				}
-				parameters[key] = str;
-				hasLongFields ||= str.length > 8000;
-			} else if (val === false || val === undefined) {
-				// Boolean values are only false when not given at all
-				delete parameters[key];
-			} else if (val === true) {
-				// Boolean values cause error with multipart/form-data requests
-				parameters[key] = '1';
-			} else if (val instanceof Date) {
-				parameters[key] = val.toISOString();
-			} else {
-				hasLongFields ||= String(val).length > 8000;
-			}
-		});
-
-		// Calculate the actual UTF-8 byte length of the encoded query string
-		const query = new URLSearchParams(parameters as Record<string, string>).toString();
-		const length = new TextEncoder().encode(query).length;
-
-		return { length, hasLongFields };
-	}
-
-	/**
-	 * Handles data encoding for POST requests (calls {@link handlePostMultipartFormData} for `multipart/form-data`).
-	 *
-	 * @param requestOptions The HTTP request options to modify. **This object may be modified in place.**
-	 * @param hasLongFields A boolean indicating whether the parameters have a long field.
-	 */
-	protected async handlePost(requestOptions: MwbotRequestConfig, hasLongFields: boolean): Promise<void> {
-		Mwbot.dieIfNotPost(requestOptions);
-
-		// Ensure the token parameter is last (per [[mw:API:Edit#Token]])
-		// The token will be kept away if the user is anonymous
-		const { params } = requestOptions;
-		const token = params.token as string | undefined;
-		delete params.token;
-
-		// Non-write API requests should be processed in the closest data center
-		// See https://www.mediawiki.org/wiki/API:Etiquette#Other_notes
-		requestOptions.headers ||= {};
-		if (params.action === 'query' || params.action === 'parse') {
-			requestOptions.headers['Promise-Non-Write-API-Action'] = '1';
-		}
-
-		// Encode params
-		if (hasLongFields) {
-			// See https://www.mediawiki.org/wiki/API:Edit#Large_edits
-			requestOptions.headers['Content-Type'] = 'multipart/form-data';
-		}
-		if (requestOptions.headers['Content-Type'] === 'multipart/form-data') {
-			await this.handlePostMultipartFormData(requestOptions, token);
-		} else {
-			// Use application/x-www-form-urlencoded (default)
-			requestOptions.data = new URLSearchParams(params);
-			if (token && !this.isAnonymous()) {
-				params.token = token;
-				requestOptions.data.append('token', token);
-			}
-		}
-	}
-
-	/**
-	 * Handles POST requests with `multipart/form-data` encoding.
-	 *
-	 * - Converts `params` into a `FormData` object.
-	 * - Supports file uploads if `params` contain an object with a `stream` property.
-	 *
-	 * @param requestOptions The HTTP request options to modify. **This object may be modified in place.**
-	 * @param token Optional token for authentication.
-	 */
-	protected async handlePostMultipartFormData(requestOptions: MwbotRequestConfig, token?: string): Promise<void> {
-		const { params } = requestOptions;
-		const form = new FormData();
-
-		for (const [key, val] of Object.entries(params)) {
-			if (val instanceof Object && 'stream' in val) {
-				// @ts-expect-error Property 'name' does not exist?
-				form.append(key, val.stream, val.name);
-			} else {
-				form.append(key, val);
-			}
-		}
-		if (token && !this.isAnonymous()) {
-			params.token = token;
-			form.append('token', token);
-		}
-
-		requestOptions.data = form;
-		requestOptions.headers = await new Promise((resolve, reject) => {
-			form.getLength((err, length) => {
-				if (err) {
-					reject(err);
-					return;
-				}
-				resolve({
-					...requestOptions.headers,
-					...form.getHeaders(),
-					'Content-Length': length,
-				});
-			});
-		});
-	}
-
-	/**
-	 * Applies authentication headers to the request config when using OAuth.
-	 *
-	 * @param requestOptions The HTTP request options to modify. **This object may be modified in place.**
-	 */
-	protected applyAuthentication(requestOptions: MwbotRequestConfig): void {
-		requestOptions.headers ||= {};
-		const { oauth2, oauth1 } = this.credentials;
-
-		if (oauth2) {
-			// OAuth 2.0
-			requestOptions.headers.Authorization = `Bearer ${oauth2}`;
-		} else if (oauth1) {
-			// OAuth 1.0a
-			if (!requestOptions.url || !requestOptions.method) {
-				throw new MwbotError('fatal', {
-					code: 'internal',
-					info: 'OAuth 1.0 requires both "url" and "method" to be set before authentication.',
-				});
-			}
-			Object.assign(
-				requestOptions.headers,
-				oauth1.instance.toHeader(
-					oauth1.instance.authorize({
-						url: requestOptions.url,
-						method: requestOptions.method,
-						data: requestOptions.data instanceof FormData ? {} : requestOptions.params,
-					}, {
-						key: oauth1.accessToken,
-						secret: oauth1.accessSecret,
-					})
-				)
-			);
-		}
 	}
 
 	/**
