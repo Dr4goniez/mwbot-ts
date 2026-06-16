@@ -13,7 +13,7 @@ export function testMwbotWriteRequests(getMwbot, _testDomain, authMethod) {
 			sinon.restore();
 		});
 
-		it('should refresh a badtoken error and complete the request successfully', async function () {
+		it('should handle badtoken errors based on authentication state', async function () {
 			const mwbot = getMwbot();
 			const isAnon = authMethod === 'anonymous';
 			// @ts-expect-error - Protected method

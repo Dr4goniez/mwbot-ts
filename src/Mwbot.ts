@@ -32,8 +32,6 @@ import FormData from 'form-data';
 import { XOR } from 'ts-essentials';
 import OAuth from 'oauth-1.0a';
 import crypto from 'crypto';
-import * as http from 'http';
-import * as https from 'https';
 
 import { MWBOT_VERSION } from './version.js';
 import {
@@ -180,19 +178,8 @@ export class Mwbot {
 	protected readonly axios: AxiosInstance;
 	/**
 	 * A cookie jar that stores session and login cookies for this instance.
-	 *
-	 * This is `undefined` when using OAuth.
 	 */
-	protected readonly jar?: CookieJar;
-	/**
-	 * Keep-alive agents used for OAuth requests. These are injected into the request options to reuse TCP connections.
-	 *
-	 * See [[{@link https://www.mediawiki.org/wiki/Manual:Creating_a_bot#Bot_best_practices | mw:Manual:Creating a bot#Bot best practices}]].
-	 */
-	protected readonly agents?: {
-		http: http.Agent;
-		https: https.Agent;
-	};
+	protected readonly jar: CookieJar;
 	/**
 	 * The user options for this intance.
 	 */
@@ -331,25 +318,19 @@ export class Mwbot {
 		}
 
 		// Initialize other class properties
-		let axiosConfig: MwbotRequestConfig;
-		if (this.usingOAuth()) {
-			// Inject httpAgent/httpsAgent to handle TCP connections
-			this.agents = {
-				http: new http.Agent({ keepAlive: true }),
-				https: new https.Agent({ keepAlive: true }),
-			};
-			axiosConfig = {
-				httpAgent: this.agents.http,
-				httpsAgent: this.agents.https,
-			};
-		} else {
-			// Note: axios-cookiejar-support uses its own agents
-			this.jar = new CookieJar();
-			axiosConfig = {
-				jar: this.jar,
-				withCredentials: true,
-			};
-		}
+		this.jar = new CookieJar();
+
+		// Always enable cookie support regardless of which authentication method the client uses.
+		// This allows session cookies to be stored and sent for authenticated requests, including
+		// OAuth, as recommended by Wikimedia's API rate limit guidelines. See also:
+		// https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits
+		//
+		// Note: axios-cookiejar-support uses its own agents and handles TCP connections, so custom
+		// http/https agents must not be provided here.
+		const axiosConfig: MwbotRequestConfig = {
+			jar: this.jar,
+			withCredentials: true,
+		};
 
 		this.axios = wrapper(axios.create(axiosConfig));
 		this.userMwbotOptions = options;

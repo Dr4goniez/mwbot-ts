@@ -2,9 +2,6 @@ import { describe, it } from 'mocha';
 import { assert } from 'chai';
 import { getAuthCredentials } from './provider.js';
 import OAuth from 'oauth-1.0a';
-import { CookieJar } from 'tough-cookie';
-import * as http from 'http';
-import * as https from 'https';
 
 /**
  * @type {import('./provider-types.js').MwbotTestSuite}
@@ -41,32 +38,6 @@ export function testMwbotAuthentication(getMwbot, testDomain, authMethod) {
 				case 'anonymous':
 					assert.isTrue(internalCredentials.anonymous);
 					break;
-			}
-		});
-
-		it('should configure the CookieJar correctly', function () {
-			const mwbot = getMwbot();
-			// @ts-expect-error - Protected property
-			const jar = mwbot.jar;
-
-			if (authMethod === 'botpassword' || authMethod === 'anonymous') {
-				assert.instanceOf(jar, CookieJar);
-			} else {
-				assert.notExists(jar);
-			}
-		});
-
-		it('should configure HTTP/HTTPS agents correctly', function () {
-			const mwbot = getMwbot();
-			// @ts-expect-error - Protected property
-			const agents = mwbot.agents;
-
-			if (authMethod === 'oauth2' || authMethod === 'oauth1') {
-				assert.isObject(agents);
-				assert.instanceOf(agents?.http, http.Agent);
-				assert.instanceOf(agents?.https, https.Agent);
-			} else {
-				assert.notExists(agents);
 			}
 		});
 

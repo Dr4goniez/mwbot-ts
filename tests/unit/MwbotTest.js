@@ -14,6 +14,7 @@ import {
 } from './MwbotTest-fixtures.js';
 import sinon from 'sinon';
 import FormData from 'form-data';
+import { CookieJar } from 'tough-cookie';
 
 describe('Mwbot', function () {
 
@@ -78,6 +79,11 @@ describe('Mwbot', function () {
 		it('should expose Axios client', function () {
 			// @ts-expect-error - Protected property
 			assert.isFunction(mwbot.axios?.request);
+		});
+
+		it('should expose CookieJar', function () {
+			// @ts-expect-error - Protected property
+			assert.instanceOf(mwbot.jar, CookieJar);
 		});
 
 		it('should expose abort controllers as an empty Set', function () {
