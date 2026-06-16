@@ -1247,7 +1247,7 @@ describe('Mwbot', function () {
 				headers: {
 					foo: 'bar',
 				},
-			}
+			};
 			const res = await mwbot.rawRequest(requestOptions);
 
 			axiosStub.firstCall.args[0].headers.foo = 'baz';
@@ -1774,7 +1774,7 @@ describe('Mwbot', function () {
 					interval: 2000,
 					intervalActions: ['query'],
 				});
-				const reqOpts = createRequestOptions(mwbot, { params: { action: 'query' } })
+				const reqOpts = createRequestOptions(mwbot, { params: { action: 'query' } });
 				const rawRequestStub = sinon.stub(mwbot, 'rawRequest').resolves(createAxiosResponse(reqOpts));
 				// @ts-expect-error - Protected property
 				sinon.stub(mwbot, 'lastRequestTime').value(clock.Date.now());

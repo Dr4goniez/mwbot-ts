@@ -1491,7 +1491,7 @@ export class Mwbot {
 			if (retryAfter !== null) {
 				console.warn(`Warning: Encountered an "${axiosError.code}" error.`);
 				if (axiosError.message) {
-					mwbotError.setInfo(axiosError.message.replace(/[.?!]+$/, '') + '.')
+					mwbotError.setInfo(axiosError.message.replace(/[.?!]+$/, '') + '.');
 				}
 				return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, 3, { sleepSeconds: retryAfter });
 			}

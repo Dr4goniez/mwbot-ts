@@ -48,6 +48,7 @@ export default defineConfig([
 				"flatTernaryExpressions": true,
 			}],
 			"@stylistic/no-trailing-spaces": "warn",
+			"@stylistic/semi": ["error", "always"],
 			"json/no-empty-keys": "off",
 		},
 	},
