@@ -2506,8 +2506,7 @@ describe('Mwbot', function () {
 			assert.deepEqual(res, expectedResponse);
 		});
 
-		it('should skip sleeping when sleepSeconds is 0', async function () {
-			const clock = sinon.useFakeTimers();
+		it('should immediately invoke _request when sleepSeconds is 0', async function () {
 			const expectedResponse = { query: {} };
 			// @ts-expect-error - Protected method
 			const requestStub = sinon.stub(mwbot, '_request').resolves(expectedResponse);
@@ -2517,9 +2516,7 @@ describe('Mwbot', function () {
 				createMwbotError(), 1, createParams(), createRequestOptions(mwbot), 2, { sleepSeconds: 0 }
 			);
 
-			await Promise.resolve();
-			await clock.tickAsync(0);
-
+			// _request() should be reached synchronously without waiting
 			assert.isTrue(requestStub.calledOnce);
 
 			const res = await promise;

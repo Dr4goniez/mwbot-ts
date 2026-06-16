@@ -1404,6 +1404,7 @@ export class Mwbot {
 						this.dieIfAnonymous();
 						if (typeof clonedParams.action === 'string') {
 							return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, 2, {
+								sleepSeconds: 0,
 								refreshToken: true,
 							});
 						}
@@ -1654,12 +1655,12 @@ export class Mwbot {
 			reLogIn = false,
 		} = options;
 
-		if (sleepSeconds) {
+		if (sleepSeconds > 0) {
 			console.log(`Retrying in ${sleepSeconds} seconds...`);
+			await sleep(sleepSeconds * 1000);
 		} else {
 			console.log('Retrying...');
 		}
-		await sleep(sleepSeconds * 1000);
 
 		if (reLogIn) {
 			const { username, password } = this.credentials.user || {};
