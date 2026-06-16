@@ -2161,3 +2161,121 @@ function getFakeSiteAndUserInfo(anonymous) {
 	};
 	/* eslint-enable @stylistic/comma-dangle */
 }
+
+/**
+ * Creates a minimal successful Axios response object for testing.
+ *
+ * By default, the response contains a MediaWiki-style successful query result:
+ *
+ * ```js
+ * {
+ *   query: {
+ *     pages: []
+ *   }
+ * }
+ * ```
+ *
+ * @param {import('../../dist/index.js').MwbotRequestConfig} requestOptions
+ * Request options used to populate the response headers.
+ * @param {any} [data]
+ * Optional response payload. If omitted, a minimal successful API response is returned.
+ * @returns {import('axios').AxiosResponse}
+ */
+export function createAxiosResponse(requestOptions, data) {
+	return {
+		status: 200,
+		statusText: 'OK',
+		headers: /** @type {import('axios').AxiosHeaders} */ (
+			requestOptions.headers ?? {}
+		),
+		config: /** @type {import('axios').InternalAxiosRequestConfig} */ ({}),
+		data: data !== undefined ? data : {
+			query: {
+				pages: [],
+			},
+		},
+	};
+}
+
+/**
+ * Creates a lightweight AxiosError-compatible object for testing.
+ *
+ * This helper intentionally implements only the subset of properties used by
+ * Mwbot's error handling logic.
+ *
+ * @param {object} [options]
+ * @param {number} [options.status] HTTP status code.
+ * @param {string} [options.message] Error message.
+ * @param {string} [options.code] Axios/network error code.
+ * @returns {import('axios').AxiosError}
+ */
+export function createAxiosError(options = {}) {
+	return {
+		name: 'AxiosError',
+		message: '',
+		toJSON: () => Object.create(null),
+		isAxiosError: true,
+		...options,
+	};
+}
+
+/**
+ * Creates a MediaWiki API error response.
+ *
+ * @param {string} code MediaWiki API error code.
+ * @param {string} [info=code] MediaWiki API error message.
+ * @param {Partial<import('axios').AxiosResponse>} [merge]
+ * Optional properties to merge into the generated response.
+ * @returns {import('axios').AxiosResponse}
+ */
+export function createApiErrorResponse(code, info = code, merge) {
+	const response = {
+		status: 200,
+		statusText: 'OK',
+		headers: /** @type {import('axios').AxiosHeaders} */ ({}),
+		config: /** @type {import('axios').InternalAxiosRequestConfig} */ ({}),
+		data: {
+			error: {
+				code,
+				info,
+			},
+		},
+	};
+
+	return merge ? Mwbot.Util.mergeDeep(response, merge) : response;
+}
+
+/**
+ * Merges user-supplied request options with Mwbot defaults.
+ *
+ * This helper mirrors the internal request option initialization performed by
+ * Mwbot before a request is sent.
+ *
+ * @param {Mwbot} bot
+ * @param {import('../../dist/index.js').MwbotRequestConfig} requestOptions
+ * @returns {import('../../dist/index.js').MwbotRequestConfig}
+ */
+export function createRequestOptions(bot, requestOptions = {}) {
+	return Mwbot.Util.mergeDeep(
+		Mwbot.getDefaultRequestOptions(),
+		bot.userRequestOptions,
+		requestOptions
+	);
+}
+
+/**
+ * Creates a MwbotError instance for testing.
+ *
+ * @param {string} [code='testerror']
+ * Error code.
+ * @returns {MwbotError}
+ */
+export function createMwbotError(code = 'testerror') {
+	return new MwbotError(
+		'api',
+		{
+			code,
+			info: code,
+		}
+	);
+}

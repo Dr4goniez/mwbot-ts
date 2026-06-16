@@ -2,7 +2,16 @@ import { describe, it, before, afterEach } from 'mocha';
 import { assert } from 'chai';
 import { Mwbot, MwbotError, MWBOT_VERSION } from '../../dist/index.js';
 import OAuth from 'oauth-1.0a';
-import { getMwbotInitOptionsBase, getTestMwbot, TestMwbotFactory } from './MwbotTest-fixtures.js';
+import {
+	createApiErrorResponse,
+	createAxiosError,
+	createAxiosResponse,
+	createMwbotError,
+	createRequestOptions,
+	getMwbotInitOptionsBase,
+	getTestMwbot,
+	TestMwbotFactory,
+} from './MwbotTest-fixtures.js';
 import sinon from 'sinon';
 import FormData from 'form-data';
 
@@ -1720,6 +1729,1015 @@ describe('Mwbot', function () {
 				assert.strictEqual(err.code, 'internal');
 				assert.include(err.info, 'OAuth 1.0 requires both "url" and "method"');
 			}
+		});
+	});
+
+	describe('_request()', function () {
+		/**
+		 * @type {Awaited<ReturnType<typeof getTestMwbot>>}
+		 */
+		let mwbot;
+
+		before(async function () {
+			mwbot = await getTestMwbot('named'); // botpassword authentication
+		});
+
+		afterEach(function () {
+			sinon.restore();
+		});
+
+		describe('Pre- and Post-request static flow', function () {
+			it('should clone and delete params from requestOptions on POST requests to avoid "mustpostparams"', async function () {
+				const reqOpts = createRequestOptions(mwbot, {
+					method: 'POST',
+					params: { action: 'query' },
+				});
+				const rawRequestStub = sinon.stub(mwbot, 'rawRequest').resolves(createAxiosResponse(reqOpts));
+
+				// @ts-expect-error - Protected method
+				await mwbot._request(reqOpts);
+
+				assert.isUndefined(reqOpts.params);
+				assert.isTrue(rawRequestStub.calledWith(reqOpts));
+			});
+
+			it('should enforce an interval delay if the action matches intervalActions and time elapsed is short', async function () {
+				const clock = sinon.useFakeTimers();
+				sinon.stub(mwbot, 'userMwbotOptions').value({
+					apiUrl: 'http://localhost:8080',
+					interval: 2000,
+					intervalActions: ['query'],
+				});
+				const reqOpts = createRequestOptions(mwbot, { params: { action: 'query' } })
+				const rawRequestStub = sinon.stub(mwbot, 'rawRequest').resolves(createAxiosResponse(reqOpts));
+				// @ts-expect-error - Protected property
+				sinon.stub(mwbot, 'lastRequestTime').value(clock.Date.now());
+
+				// @ts-expect-error - Protected method
+				const promise = mwbot._request(reqOpts);
+
+				await Promise.resolve();
+				await clock.tickAsync(1999);
+				assert.strictEqual(rawRequestStub.callCount, 0);
+
+				await clock.tickAsync(1);
+				await promise;
+				assert.strictEqual(rawRequestStub.callCount, 1);
+			});
+
+			it('should trigger dieAsEmpty if the response contains no data property', async function () {
+				const reqOpts = createRequestOptions(mwbot, {
+					method: 'GET',
+					params: { action: 'query' },
+				});
+				const response = createAxiosResponse(reqOpts, null);
+				const rawRequestStub = sinon.stub(mwbot, 'rawRequest').resolves(response);
+
+				try {
+					// @ts-expect-error - Protected property
+					await mwbot._request(reqOpts);
+					assert.fail('Expected _request() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'empty');
+					assert.strictEqual(err.info, 'OK response but empty result (check HTTP headers?).');
+					assert.deepEqual(err.data?.axios, response);
+					assert.strictEqual(rawRequestStub.callCount, 1);
+				}
+			});
+
+			it('should throw an invalidjson MwbotError if response data is not a plain object', async function () {
+				const reqOpts = createRequestOptions(mwbot, {
+					method: 'GET',
+					params: { action: 'query' },
+				});
+				const response = createAxiosResponse(reqOpts, '<html>MediaWiki</html>');
+				const rawRequestStub = sinon.stub(mwbot, 'rawRequest').resolves(response);
+
+				try {
+					// @ts-expect-error - Protected property
+					await mwbot._request(reqOpts);
+					assert.fail('Expected _request() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'invalidjson');
+					assert.strictEqual(err.info, 'No valid JSON response (check the request URL?)');
+					assert.deepEqual(err.data?.axios, response);
+					assert.strictEqual(rawRequestStub.callCount, 1);
+				}
+			});
+
+			it('should call showWarnings only on the first attempt and suppress it on subsequent retries', async function () {
+				const reqOpts = createRequestOptions(mwbot, { params: { action: 'query' } });
+				sinon.stub(mwbot, 'rawRequest').resolves(
+					createAxiosResponse(reqOpts, {
+						warnings: {
+							query: {
+								warnings: 'Warning!',
+							},
+						},
+						query: { pages: [] },
+					})
+				);
+				// @ts-expect-error - Protected method
+				const showWarningsSpy = sinon.spy(mwbot, 'showWarnings');
+
+				// First attempt (attemptCount = 0 internally becomes 1)
+				// @ts-expect-error - Protected method
+				await mwbot._request(reqOpts, 0);
+				assert.isTrue(showWarningsSpy.calledOnce);
+
+				showWarningsSpy.resetHistory();
+
+				// @ts-expect-error - Protected method
+				await mwbot._request(reqOpts, 1);
+				assert.isFalse(showWarningsSpy.called);
+			});
+
+			it('should update lastRequestTime after a successful interval-controlled request', async function () {
+				const clock = sinon.useFakeTimers();
+				sinon.stub(mwbot, 'userMwbotOptions').value({
+					apiUrl: 'http://localhost',
+					interval: 2000,
+					intervalActions: ['query'],
+				});
+				const reqOpts = createRequestOptions(mwbot, {
+					params: { action: 'query' },
+				});
+				sinon.stub(mwbot, 'rawRequest').resolves(createAxiosResponse(reqOpts));
+				// @ts-expect-error - Protected property
+				sinon.replace(mwbot, 'lastRequestTime', null);
+
+				// @ts-expect-error - Protected method
+				await mwbot._request(reqOpts);
+
+				// @ts-expect-error - Protected method
+				assert.strictEqual(mwbot.lastRequestTime, clock.Date.now());
+			});
+		});
+
+		describe('API error handlers', function () {
+			it('should invoke dieIfAnonymous if a missingparam error explicitly targets a token', async function () {
+				sinon.stub(mwbot, 'rawRequest').resolves(
+					createApiErrorResponse('missingparam', 'The token parameter must be set.')
+				);
+				// @ts-expect-error - Protected method
+				sinon.stub(mwbot, 'isAnonymous').returns(true);
+				const reqOpts = createRequestOptions(mwbot, {
+					method: 'POST',
+					params: {
+						action: 'edit',
+						title: 'Sandbox',
+						text: 'Foo',
+					},
+				});
+
+				try {
+					// @ts-expect-error - Protected method
+					await mwbot._request(reqOpts);
+					assert.fail('Expected a dieIfAnonymous rejection');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'anonymous');
+				}
+			});
+
+			it('should immediately rethrow the API error without retrying if disableRetryAPI is set to true', async function () {
+				// FIXME: This test may be brittle. disableRetryAPI is evaluated in an `if` block,
+				// and there's no reliable way to detect whether the code reached that path.
+				// For a `notoken` error, the code calls dieIfAnonymous() immediately below this
+				// `if` block, so we pretend that the caller is anonymous and see if the code wrongly
+				// reaches dieIfAnonymous(), in which case an `anonymous` error would be thrown instead.
+				sinon.stub(mwbot, 'rawRequest').resolves(
+					createApiErrorResponse('notoken', 'No token.')
+				);
+				// @ts-expect-error - Protected method
+				const retrySpy = sinon.spy(mwbot, 'retry');
+				// @ts-expect-error - Protected method
+				sinon.stub(mwbot, 'isAnonymous').returns(true);
+				const reqOpts = createRequestOptions(mwbot, {
+					params: { action: 'query' },
+					disableRetryAPI: true,
+				});
+
+				try {
+					// @ts-expect-error - Protected method
+					await mwbot._request(reqOpts);
+					assert.fail('Expected immediate error throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'notoken');
+					assert.isFalse(retrySpy.called);
+				}
+			});
+
+			it('should invoke retry with refreshToken configured when badtoken or notoken codes are encountered', async function () {
+				sinon.stub(mwbot, 'rawRequest').resolves(
+					createApiErrorResponse('badtoken', 'Bad token.')
+				);
+				const expectedResponse = { query: {} };
+				// @ts-expect-error - Protected method
+				const retryStub = sinon.stub(mwbot, 'retry').resolves(expectedResponse);
+				const reqOpts = createRequestOptions(mwbot, { params: { action: 'query' } });
+
+				// @ts-expect-error - Protected method
+				const res = await mwbot._request(reqOpts);
+
+				assert.deepEqual(res, expectedResponse);
+				assert.isTrue(retryStub.calledOnce);
+				assert.deepInclude(retryStub.firstCall.args[5], { refreshToken: true });
+			});
+
+			it('should throw badtoken directly if action is unavailable', async function () {
+				sinon.stub(mwbot, 'rawRequest').resolves(
+					createApiErrorResponse('badtoken')
+				);
+				// @ts-expect-error - Protected method
+				const retrySpy = sinon.spy(mwbot, 'retry');
+				const reqOpts = createRequestOptions(mwbot, {
+					params: { action: undefined },
+				});
+
+				try {
+					// @ts-expect-error - Protected method
+					await mwbot._request(reqOpts);
+					assert.fail('Expected rejection');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'badtoken');
+					assert.isFalse(retrySpy.called);
+				}
+			});
+
+			it('should trigger a retry with a maximum attempt constraint of 3 on readonly errors', async function () {
+				sinon.stub(mwbot, 'rawRequest').resolves(
+					createApiErrorResponse('readonly', 'Database locked.')
+				);
+				const expectedResponse = { edit: { result: /** @type {const} */ ('Success') } };
+				// @ts-expect-error - Protected method
+				const retryStub = sinon.stub(mwbot, 'retry').resolves(expectedResponse);
+				const reqOpts = createRequestOptions(mwbot, {
+					method: 'POST',
+					params: { action: 'edit' },
+				});
+
+				// @ts-expect-error - Protected method
+				const res = await mwbot._request(reqOpts);
+
+				assert.deepEqual(res, expectedResponse);
+				assert.isTrue(retryStub.calledOnce);
+				assert.strictEqual(retryStub.firstCall.args[4], 3); // maxAttempts parameter
+			});
+
+			it('should not retry maxlag if disableRetry is true', async function () {
+				sinon.stub(mwbot, 'rawRequest').resolves(
+					createApiErrorResponse('maxlag')
+				);
+				// @ts-expect-error - Protected method
+				const retrySpy = sinon.spy(mwbot, 'retry');
+				const reqOpts = createRequestOptions(mwbot, {
+					params: { action: 'edit' },
+					disableRetry: true,
+				});
+
+				try {
+					// @ts-expect-error - Protected method
+					await mwbot._request(reqOpts);
+					assert.fail('Expected rejection');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'maxlag');
+					assert.isFalse(retrySpy.called);
+				}
+			});
+
+			it('should favour the bigger value between Retry-After header and lag value on maxlag errors', async function () {
+				sinon.stub(mwbot, 'rawRequest').resolves(
+					createApiErrorResponse('maxlag', 'Server is lagged.', {
+						data: { error: { lag: 10 } },
+						headers: { 'retry-after': '15' },
+					})
+				);
+				const expectedResponse = { edit: { result: /** @type {const} */ ('Success') } };
+				// @ts-expect-error - Protected method
+				const retryStub = sinon.stub(mwbot, 'retry').resolves(expectedResponse);
+				const reqOpts = createRequestOptions(mwbot, {
+					method: 'POST',
+					params: { action: 'edit' },
+				});
+
+				// @ts-expect-error - Protected method
+				const res = await mwbot._request(reqOpts);
+
+				assert.deepEqual(res, expectedResponse);
+				assert.isTrue(retryStub.calledOnce);
+				assert.deepInclude(retryStub.firstCall.args[5], { sleepSeconds: 15 });
+			});
+
+			it('should not retry maxlag errors when the lag exceeds maxLagLimit', async function () {
+				sinon.stub(mwbot, 'rawRequest').resolves(
+					createApiErrorResponse('maxlag', 'Server is lagged.', {
+						data: { error: { lag: 20 } },
+					})
+				);
+				const expectedResponse = { edit: { result: /** @type {const} */ ('Success') } };
+				// @ts-expect-error - Protected method
+				const retryStub = sinon.stub(mwbot, 'retry').resolves(expectedResponse);
+				const reqOpts = createRequestOptions(mwbot, {
+					method: 'POST',
+					params: { action: 'edit' },
+					maxLagLimit: 10,
+				});
+
+				try {
+					// @ts-expect-error - Protected method
+					await mwbot._request(reqOpts);
+					assert.fail('Expected _request() to reject');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'maxlag');
+					assert.isFalse(retryStub.called);
+				}
+			});
+
+			it('should fallback to 5 seconds if the Retry-After header is missing on maxlag errors', async function () {
+				sinon.stub(mwbot, 'rawRequest').resolves(
+					createApiErrorResponse('maxlag', 'Server is lagged.')
+				);
+				const expectedResponse = { edit: { result: /** @type {const} */ ('Success') } };
+				// @ts-expect-error - Protected method
+				const retryStub = sinon.stub(mwbot, 'retry').resolves(expectedResponse);
+				const reqOpts = createRequestOptions(mwbot, {
+					method: 'POST',
+					params: { action: 'edit' },
+				});
+
+				// @ts-expect-error - Protected method
+				const res = await mwbot._request(reqOpts);
+
+				assert.deepEqual(res, expectedResponse);
+				assert.isTrue(retryStub.calledOnce);
+				assert.deepInclude(retryStub.firstCall.args[5], { sleepSeconds: 5 });
+			});
+
+			it('should not retry for assertuserfailed errors on anonymous authentication', async function () {
+				sinon.stub(mwbot, 'rawRequest').resolves(createApiErrorResponse('assertuserfailed'));
+				// @ts-expect-error - Protected method
+				sinon.stub(mwbot, 'isAnonymous').returns(true);
+				// @ts-expect-error - Protected method
+				const retryStub = sinon.stub(mwbot, 'retry');
+				const reqOpts = createRequestOptions(mwbot, {
+					params: { action: 'query' },
+				});
+
+				try {
+					// @ts-expect-error - Protected method
+					await mwbot._request(reqOpts);
+					assert.fail('Expected _request() to reject');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'assertuserfailed');
+					assert.isFalse(retryStub.called);
+				}
+			});
+
+			it('should invoke retry with reLogIn and token refresh on assertion failures', async function () {
+				sinon.stub(mwbot, 'rawRequest').resolves(createApiErrorResponse('assertuserfailed'));
+				const expectedResponse = { edit: { result: /** @type {const} */ ('Success') } };
+				// @ts-expect-error - Protected method
+				const retryStub = sinon.stub(mwbot, 'retry').resolves(expectedResponse);
+				const reqOpts = createRequestOptions(mwbot, {
+					params: { action: 'edit', token: 'abc+\\' },
+				});
+
+				// @ts-expect-error - Protected method
+				const res = await mwbot._request(reqOpts);
+
+				assert.deepEqual(res, expectedResponse);
+				assert.isTrue(retryStub.calledOnce);
+				assert.deepEqual(retryStub.firstCall.args[5], {
+					sleepSeconds: 0,
+					refreshToken: true,
+					reLogIn: true,
+				});
+			});
+
+			it('should retry assertuserfailed without token refresh when token is absent', async function () {
+				sinon.stub(mwbot, 'rawRequest').resolves(
+					createApiErrorResponse('assertuserfailed')
+				);
+				const expectedResponse = { query: {} };
+				// @ts-expect-error - Protected method
+				const retryStub = sinon.stub(mwbot, 'retry').resolves(expectedResponse);
+				const reqOpts = createRequestOptions(mwbot, {
+					params: {
+						action: 'query',
+					},
+				});
+
+				// @ts-expect-error - Protected method
+				const res = await mwbot._request(reqOpts);
+
+				assert.deepEqual(res, expectedResponse);
+				assert.isTrue(retryStub.calledOnce);
+				assert.deepEqual(retryStub.firstCall.args[5], {
+					sleepSeconds: 10,
+					refreshToken: false,
+					reLogIn: true,
+				});
+			});
+
+			it('should retry mwoauth-invalid-authorization only if info contains "Nonce already used"', async function () {
+				sinon.stub(mwbot, 'rawRequest').resolves(
+					createApiErrorResponse('mwoauth-invalid-authorization', 'Nonce already used upstream.')
+				);
+				const expectedResponse = { edit: { result: /** @type {const} */ ('Success') } };
+				// @ts-expect-error - Protected method
+				const retryStub = sinon.stub(mwbot, 'retry').resolves(expectedResponse);
+				const reqOpts = createRequestOptions(mwbot, {
+					params: { action: 'edit', token: 'abc+\\' },
+				});
+
+				// @ts-expect-error - Protected method
+				const res = await mwbot._request(reqOpts);
+
+				assert.deepEqual(res, expectedResponse);
+				assert.isTrue(retryStub.calledOnce);
+			});
+
+			it('should not retry mwoauth-invalid-authorization when info does not mention nonce reuse', async function () {
+				sinon.stub(mwbot, 'rawRequest').resolves(
+					createApiErrorResponse('mwoauth-invalid-authorization', 'Invalid signature.' )
+				);
+				// @ts-expect-error - Protected method
+				const retrySpy = sinon.spy(mwbot, 'retry');
+				const reqOpts = createRequestOptions(mwbot, {
+					params: { action: 'query' },
+				});
+
+				try {
+					// @ts-expect-error - Protected method
+					await mwbot._request(reqOpts);
+					assert.fail('Expected rejection');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'mwoauth-invalid-authorization');
+					assert.isFalse(retrySpy.called);
+				}
+			});
+		});
+
+		describe('Network & HTTP 400+ errors', function () {
+			it('should rethrow non-Axios errors from the request pipeline', async function () {
+				const original = new Error('boom');
+				sinon.stub(mwbot, 'rawRequest').rejects(original);
+				const reqOpts = createRequestOptions(mwbot, {
+					params: { action: 'query' },
+				});
+
+				try {
+					// @ts-expect-error - Protected method
+					await mwbot._request(reqOpts);
+					assert.fail('Expected _request() to reject');
+				} catch (err) {
+					assert.strictEqual(err, original);
+				}
+			});
+
+			it('should re-code an ERR_CANCELED axios error into an "aborted" error', async function () {
+				sinon.stub(mwbot, 'rawRequest').rejects(createAxiosError({ code: 'ERR_CANCELED' }));
+				const reqOpts = createRequestOptions(mwbot, {
+					params: { action: 'query' },
+				});
+
+				try {
+					// @ts-expect-error - Protected method
+					await mwbot._request(reqOpts);
+					assert.fail('Expected _request() to reject');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'aborted');
+					assert.strictEqual(err.info, 'Request aborted by the user.');
+					assert.isUndefined(err.data); // Confirms err.data deletion pathway
+				}
+			});
+
+			it('should schedule a retry with sleepSeconds: 5 when ECONNABORTED is captured', async function () {
+				sinon.stub(mwbot, 'rawRequest').rejects(createAxiosError({
+					code: 'ECONNABORTED',
+					message: 'ECONNABORTED error!',
+				}));
+				const reqOpts = createRequestOptions(mwbot, {
+					params: { action: 'query' },
+				});
+				const expectedResponse = { query: {} };
+				// @ts-expect-error - Protected method
+				const retryStub = sinon.stub(mwbot, 'retry').resolves(expectedResponse);
+
+				// @ts-expect-error - Protected method
+				const res = await mwbot._request(reqOpts);
+
+				assert.deepEqual(res, expectedResponse);
+				assert.isTrue(retryStub.calledOnce);
+
+				const err = retryStub.firstCall.args[0];
+				assert.instanceOf(err, MwbotError);
+				assert.strictEqual(err.code, 'http');
+				assert.strictEqual(err.info, 'ECONNABORTED error.');
+				assert.deepEqual(retryStub.firstCall.args[5], { sleepSeconds: 5 });
+			});
+
+			it('should schedule a retry with sleepSeconds: 10 when ECONNRESET occurs to circumvent TCP drops', async function () {
+				sinon.stub(mwbot, 'rawRequest').rejects(createAxiosError({
+					code: 'ECONNRESET',
+				}));
+				const reqOpts = createRequestOptions(mwbot, {
+					params: { action: 'query' },
+				});
+				const expectedResponse = { query: {} };
+				// @ts-expect-error - Protected method
+				const retryStub = sinon.stub(mwbot, 'retry').resolves(expectedResponse);
+
+				// @ts-expect-error - Protected method
+				const res = await mwbot._request(reqOpts);
+
+				assert.deepEqual(res, expectedResponse);
+				assert.isTrue(retryStub.calledOnce);
+
+				const err = retryStub.firstCall.args[0];
+				assert.instanceOf(err, MwbotError);
+				assert.strictEqual(err.code, 'http');
+				assert.strictEqual(err.info, 'HTTP request failed.');
+				assert.deepEqual(retryStub.firstCall.args[5], { sleepSeconds: 10 });
+			});
+
+			const statusGen = [
+				{
+					status: 404,
+					code: 'notfound',
+					info: 'Page not found (404)',
+					retryable: false,
+				},
+				{
+					status: 408,
+					code: 'timeout',
+					info: 'Request timeout (408)',
+					retryable: true,
+				},
+				{
+					status: 414,
+					code: 'baduri',
+					info: 'URI too long (414)',
+					retryable: false,
+				},
+				{
+					status: 429,
+					code: 'ratelimited',
+					info: 'Too many requests (429)',
+					retryable: true,
+				},
+				{
+					status: 500,
+					code: 'servererror',
+					info: 'Internal server error (500)',
+					retryable: true,
+				},
+				{
+					status: 502,
+					code: 'badgateway',
+					info: 'Bad gateway (502)',
+					retryable: true,
+				},
+				{
+					status: 503,
+					code: 'serviceunavailable',
+					info: 'Service Unavailable (503)',
+					retryable: true,
+				},
+				{
+					status: 504,
+					code: 'timeout',
+					info: 'Gateway timeout (504)',
+					retryable: true,
+				},
+				{
+					status: 999, // Should be routed to `default: throw`
+					code: 'http',
+					info: 'HTTP request failed',
+					alt: 'unhandled HTTP',
+					retryable: false,
+				},
+				{
+					status: undefined,
+					code: 'http',
+					info: 'HTTP request failed',
+					alt: 'no status',
+					retryable: false,
+				},
+			];
+
+			for (const { status, code, info, alt, retryable } of statusGen) {
+				if (retryable) {
+					it(`should properly map ${alt ?? info} errors to ${code} and make at most 3 attempts`, async function () {
+						sinon.stub(mwbot, 'rawRequest').rejects(createAxiosError({
+							status: status,
+						}));
+						const reqOpts = createRequestOptions(mwbot, {
+							params: { action: 'query' },
+						});
+						const expectedResponse = { query: {} };
+						// @ts-expect-error - Protected method
+						const retryStub = sinon.stub(mwbot, 'retry').resolves(expectedResponse);
+
+						// @ts-expect-error - Protected method
+						const res = await mwbot._request(reqOpts);
+
+						assert.deepEqual(res, expectedResponse);
+						assert.isTrue(retryStub.calledOnce);
+
+						const err = retryStub.firstCall.args[0];
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, code);
+						assert.include(err.info, info);
+						assert.strictEqual(retryStub.firstCall.args[4], 3); // maxAttempts
+					});
+				} else {
+					it(`should immediately throw without retrying on ${alt ?? info} exceptions`, async function () {
+						sinon.stub(mwbot, 'rawRequest').rejects(createAxiosError({
+							status: status,
+						}));
+						// @ts-expect-error - Protected method
+						const retrySpy = sinon.spy(mwbot, 'retry');
+						const reqOpts = createRequestOptions(mwbot, {
+							params: { action: 'query' },
+						});
+
+						try {
+							// @ts-expect-error - Protected method
+							await mwbot._request(reqOpts);
+							assert.fail('Expected _request() to reject');
+						} catch (err) {
+							assert.instanceOf(err, MwbotError);
+							assert.strictEqual(err.code, code);
+							assert.include(err.info, info);
+							assert.isFalse(retrySpy.called);
+						}
+					});
+				}
+			}
+		});
+	});
+
+	describe('canRetry()', function () {
+		// @ts-expect-error - Protected method
+		const canRetry = Mwbot.canRetry.bind(Mwbot);
+
+		it('should allow retries when under the attempt limit and retrying is enabled', function () {
+			assert.isTrue(
+				canRetry(createMwbotError('maxlag'), 1, { disableRetry: false }, 3)
+			);
+		});
+
+		it('should deny retries when the maximum attempt count has been reached', function () {
+			assert.isFalse(
+				canRetry(createMwbotError('maxlag'), 3, { disableRetry: false }, 3)
+			);
+		});
+
+		it('should deny retries when disableRetry is true', function () {
+			assert.isFalse(
+				canRetry(createMwbotError('maxlag'), 1, { disableRetry: true }, 3)
+			);
+		});
+
+		it('should deny retries when the error code is listed in disableRetryByCode', function () {
+			assert.isFalse(
+				canRetry(createMwbotError('maxlag'), 1, { disableRetryByCode: ['maxlag'] }, 3)
+			);
+		});
+
+		it('should allow retries when disableRetryByCode does not contain the error code', function () {
+			assert.isTrue(
+				canRetry(createMwbotError('maxlag'), 1, { disableRetryByCode: ['badtoken'] }, 3)
+			);
+		});
+
+		it('should allow retries when disableRetryByCode is empty', function () {
+			assert.isTrue(
+				canRetry(createMwbotError('maxlag'), 1, { disableRetryByCode: [] }, 3)
+			);
+		});
+
+		it('should allow retries when disableRetryByCode is undefined', function () {
+			assert.isTrue(
+				canRetry(createMwbotError('maxlag'), 1, {}, 3)
+			);
+		});
+
+		it('should deny retries when maxAttempts is zero', function () {
+			assert.isFalse(
+				canRetry(createMwbotError('maxlag'), 0, {}, 0)
+			);
+		});
+	});
+
+	describe('retry()', function () {
+		/**
+		 * @type {Awaited<ReturnType<typeof getTestMwbot>>}
+		 */
+		let mwbot;
+
+		before(async function () {
+			mwbot = await getTestMwbot('named'); // botpassword authentication
+		});
+
+		afterEach(function () {
+			sinon.restore();
+		});
+
+		/**
+		 * @param {import('../../dist/index.js').ApiParams} [merge]
+		 * @returns {import('../../dist/index.js').ApiParams}
+		 */
+		const createParams = (merge) => {
+			const base = { action: /** @type {const} */ ('query') };
+			return merge ? Mwbot.Util.mergeDeep(base, merge) : base;
+		};
+
+		it('should immediately throw the original error when canRetry() returns false', async function () {
+			// @ts-expect-error - Protected method
+			sinon.stub(Mwbot, 'canRetry').returns(false);
+			const error = createMwbotError();
+			const params = createParams();
+
+			try {
+				// @ts-expect-error - Protected method
+				await mwbot.retry(
+					error, 1, params, createRequestOptions(mwbot, { params }), 2
+				);
+				assert.fail('Expected retry() to throw');
+			} catch (err) {
+				assert.strictEqual(err, error);
+			}
+		});
+
+		it('should apply 10-second delay by default before performing a retry', async function () {
+			const clock = sinon.useFakeTimers();
+			const expectedResponse = { query: {} };
+			// @ts-expect-error - Protected method
+			const requestStub = sinon.stub(mwbot, '_request').resolves(expectedResponse);
+
+			// @ts-expect-error - Protected method
+			const promise = mwbot.retry(
+				createMwbotError(), 1, createParams(), createRequestOptions(mwbot), 2
+			);
+
+			await Promise.resolve();
+			await clock.tickAsync(9000);
+
+			assert.isFalse(requestStub.calledOnce);
+
+			await clock.tickAsync(1000);
+
+			assert.isTrue(requestStub.calledOnce);
+
+			const res = await promise;
+
+			assert.deepEqual(res, expectedResponse);
+		});
+
+		it('should skip sleeping when sleepSeconds is 0', async function () {
+			const clock = sinon.useFakeTimers();
+			const expectedResponse = { query: {} };
+			// @ts-expect-error - Protected method
+			const requestStub = sinon.stub(mwbot, '_request').resolves(expectedResponse);
+
+			// @ts-expect-error - Protected method
+			const promise = mwbot.retry(
+				createMwbotError(), 1, createParams(), createRequestOptions(mwbot), 2, { sleepSeconds: 0 }
+			);
+
+			await Promise.resolve();
+			await clock.tickAsync(0);
+
+			assert.isTrue(requestStub.calledOnce);
+
+			const res = await promise;
+
+			assert.deepEqual(res, expectedResponse);
+		});
+
+		it('should invoke login before retrying when reLogIn is true', async function () {
+			const loginStub = sinon.stub(mwbot, 'login').resolves();
+			const expectedResponse = { query: {} };
+			// @ts-expect-error - Protected method
+			const requestStub = sinon.stub(mwbot, '_request').resolves(expectedResponse);
+
+			// @ts-expect-error - Protected method
+			const res = await mwbot.retry(
+				createMwbotError(), 1, createParams(), createRequestOptions(mwbot), 2, {
+					sleepSeconds: 0,
+					reLogIn: true,
+				}
+			);
+
+			assert.deepEqual(res, expectedResponse);
+			assert.isTrue(loginStub.calledOnce);
+			assert.isTrue(requestStub.calledOnce);
+			assert.isTrue(loginStub.calledBefore(requestStub));
+		});
+
+		it('should rethrow the original error if login fails', async function () {
+			const error = createMwbotError();
+			sinon.stub(mwbot, 'login').rejects(new Error('login failed'));
+
+			try {
+				// @ts-expect-error - Protected method
+				await mwbot.retry(error, 1, createParams(), createRequestOptions(mwbot), 2, {
+					sleepSeconds: 0,
+					reLogIn: true,
+				});
+				assert.fail('Expected retry() to throw');
+			} catch (err) {
+				assert.strictEqual(err, error);
+			}
+		});
+
+		it('should re-inject params into requestOptions before retrying', async function () {
+			const params = createParams();
+			const requestOptions = createRequestOptions(mwbot);
+			delete requestOptions.params;
+			// @ts-expect-error - Protected method
+			const requestStub = sinon.stub(mwbot, '_request').resolves({ query: {} });
+
+			// @ts-expect-error - Protected method
+			await mwbot.retry(createMwbotError(), 1, params, requestOptions, 2, { sleepSeconds: 0 });
+
+			assert.strictEqual(requestOptions.params, params);
+			assert.strictEqual(requestStub.firstCall.args[0].params, params);
+		});
+
+		it('should skip token refresh when refreshToken is false', async function () {
+			const params = createParams({
+				action: 'edit',
+				token: 'oldToken',
+			});
+			const requestOptions = createRequestOptions(mwbot, {
+				method: 'POST',
+			});
+			// @ts-expect-error - Protected method
+			const getTokenTypeSpy = sinon.spy(mwbot, 'getTokenType');
+			const expectedResponse = { edit: { result: /** @type {const} */ ('Success') } };
+			// @ts-expect-error - Protected method
+			sinon.stub(mwbot, '_request').resolves(expectedResponse);
+
+			// @ts-expect-error - Protected method
+			const res = await mwbot.retry(
+				createMwbotError(), 1, params, requestOptions, 3, { sleepSeconds: 0, refreshToken: false }
+			);
+
+			assert.isFalse(getTokenTypeSpy.called);
+			assert.deepEqual(res, expectedResponse);
+		});
+
+		it('should throw the original error when refreshToken is requested for a non-POST request', async function () {
+			const error = createMwbotError();
+
+			try {
+				// @ts-expect-error - Protected method
+				await mwbot.retry(
+					error,
+					1,
+					createParams({ action: 'edit' }),
+					createRequestOptions(mwbot, {
+						method: 'GET',
+					}),
+					2,
+					{
+						sleepSeconds: 0,
+						refreshToken: true,
+					}
+				);
+				assert.fail('Expected retry() to throw');
+			} catch (err) {
+				assert.strictEqual(err, error);
+			}
+		});
+
+		it('should throw the original error when refreshToken is requested without a valid action', async function () {
+			const error = createMwbotError();
+
+			try {
+				// @ts-expect-error - Protected method
+				await mwbot.retry(
+					error,
+					1,
+					{ action: undefined },
+					createRequestOptions(mwbot, {
+						method: 'POST',
+					}),
+					2,
+					{
+						sleepSeconds: 0,
+						refreshToken: true,
+					}
+				);
+				assert.fail('Expected retry() to throw');
+			} catch (err) {
+				assert.strictEqual(err, error);
+			}
+		});
+
+		it('should throw the original error when getTokenType() returns null', async function () {
+			const error = createMwbotError();
+
+			// @ts-expect-error - Protected method
+			sinon.stub(mwbot, 'getTokenType').returns(null);
+
+			try {
+				// @ts-expect-error - Protected method
+				await mwbot.retry(
+					error,
+					1,
+					createParams({ action: 'edit' }),
+					createRequestOptions(mwbot, {
+						method: 'POST',
+					}),
+					2,
+					{
+						sleepSeconds: 0,
+						refreshToken: true,
+					}
+				);
+				assert.fail('Expected retry() to throw');
+			} catch (err) {
+				assert.strictEqual(err, error);
+			}
+		});
+
+		it('should rethrow the original error when getToken() fails', async function () {
+			const error = createMwbotError();
+			// @ts-expect-error - Protected method
+			sinon.stub(mwbot, 'getTokenType').returns('csrf');
+			sinon.stub(mwbot, 'getToken').rejects(new Error('failed'));
+
+			try {
+				// @ts-expect-error - Protected method
+				await mwbot.retry(
+					error,
+					1,
+					createParams({ action: 'edit' }),
+					createRequestOptions(mwbot, {
+						method: 'POST',
+					}),
+					2,
+					{
+						sleepSeconds: 0,
+						refreshToken: true,
+					}
+				);
+				assert.fail('Expected retry() to throw');
+			} catch (err) {
+				assert.strictEqual(err, error);
+			}
+		});
+
+		it('should refresh the token and invoke handlePost before retrying', async function () {
+			const params = createParams({
+				action: 'edit',
+				token: 'oldToken',
+			});
+			const requestOptions = createRequestOptions(mwbot, {
+				method: 'POST',
+			});
+			// @ts-expect-error - Protected method
+			const getTokenTypeStub = sinon.stub(mwbot, 'getTokenType').returns('csrf');
+			const badTokenStub = sinon.stub(mwbot, 'badToken');
+			const getTokenStub = sinon.stub(mwbot, 'getToken').resolves('newToken');
+			// @ts-expect-error - Protected method
+			const handlePostStub = sinon.stub(mwbot, 'handlePost').resolves();
+			const expectedResponse = { edit: { result: /** @type {const} */ ('Success') } };
+			// @ts-expect-error - Protected method
+			const requestStub = sinon.stub(mwbot, '_request').resolves(expectedResponse);
+
+			// @ts-expect-error - Protected method
+			const res = await mwbot.retry(createMwbotError(), 1, params, requestOptions, 2, {
+				sleepSeconds: 0,
+				refreshToken: true,
+			});
+
+			assert.deepEqual(res, expectedResponse);
+
+			assert.isTrue(getTokenTypeStub.calledOnceWithExactly('edit'));
+			assert.isTrue(badTokenStub.calledOnceWithExactly('csrf'));
+			assert.isTrue(getTokenStub.calledOnceWithExactly('csrf'));
+			assert.isTrue(handlePostStub.calledOnce);
+
+			assert.strictEqual(params.token, 'newToken');
+
+			assert.isTrue(getTokenTypeStub.calledBefore(getTokenStub));
+			assert.isTrue(getTokenStub.calledBefore(handlePostStub));
+			assert.isTrue(handlePostStub.calledBefore(requestStub));
 		});
 	});
 
