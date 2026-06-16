@@ -42,6 +42,24 @@ describe('MwbotError', function () {
 			assert.strictEqual(error.data?.title, 'Main Page');
 		});
 
+		it('should set the cause property if provided', function () {
+			const cause = new Error('Original error');
+
+			const error = new MwbotError(
+				'api_mwbot',
+				{
+					code: 'invalidformat',
+					info: 'Not valid format',
+				},
+				undefined,
+				cause
+			);
+
+			assert.instanceOf(error.cause, Error);
+			assert.strictEqual(error.cause, cause);
+			assert.strictEqual(error.cause?.message, 'Original error');
+		});
+
 		it('should capture stack trace', function () {
 			const error = new MwbotError('fatal', { code: 'internal', info: 'Fatal Error' });
 
@@ -233,6 +251,22 @@ describe('MwbotError', function () {
 		});
 
 		it('should clone an instance without data', function () {
+			const originalError = new Error('Original error');
+			const error = new MwbotError(
+				'api_mwbot',
+				{ code: 'http', info: 'Error' },
+				undefined,
+				originalError
+			);
+
+			const cloned = error._clone();
+
+			assert.instanceOf(cloned.cause, Error);
+			assert.strictEqual(cloned.cause, originalError);
+			assert.strictEqual(cloned.cause?.message, 'Original error');
+		});
+
+		it('should preserve the cause (pass by reference)', function () {
 			const error = new MwbotError(
 				'api_mwbot',
 				{ code: 'http', info: 'Error' }

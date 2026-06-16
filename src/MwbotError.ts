@@ -53,6 +53,7 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 	 * @param config The error details object. This object must contain `code` and `info`
 	 * properties. Other properties are merged into the `data` property of the new instance.
 	 * @param data Optional object to initialize the `data` property with.
+	 * @param cause Optional cause of the error.
 	 * @throws {TypeError} If `config` is not a plain object.
 	 */
 	constructor(
@@ -60,18 +61,21 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 		config: K extends 'api'
 			? ApiResponseError
 			: Omit<ApiResponseError, 'code'> & { code: keyof MwbotErrorCodes[K] },
-		data?: MwbotErrorData
+		data?: MwbotErrorData,
+		cause?: unknown
 	) {
 		if (!isPlainObject(config)) {
 			throw new TypeError('MwbotError.constructor only accepts a plain object.');
 		}
 
-		super(config.info);
+		super(config.info, cause !== undefined ? { cause } : undefined);
 		this.name = 'MwbotError';
 		this.type = type;
 		this.code = config.code;
 		this.info = config.info;
-		this.data = data;
+		if (data) {
+			this.data = data;
+		}
 
 		// Ensure proper stack trace capture
 		if (Error.captureStackTrace) {
@@ -155,7 +159,8 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 				code: this.code,
 				info: this.info,
 			} as any,
-			this.data ? cloneDeep(this.data) : undefined
+			this.data ? cloneDeep(this.data) : undefined,
+			this.cause
 		) as this;
 
 		cloned.stack = this.stack;
@@ -187,6 +192,7 @@ export interface MwbotErrorCodes {
 		loginfailed: 'Failed to log in.';
 		nopermission: 'You do not have permission to perform this action.';
 		botdenied: 'The target page has opted out of edits by this bot or the message types it delivers.';
+		formdata: 'Failed to process multipart/form-data request data.';
 		// Used in the catch block of Mwbot._init
 		badauth: 'Failed to authenticate the client as a registered user in Mwbot.init.';
 		badvars: 'Failed to initialize wg-variables in Mwbot.init.';

@@ -1627,6 +1627,10 @@ describe('Mwbot', function () {
 			mwbot = await getTestMwbot('named');
 		});
 
+		afterEach(function () {
+			sinon.restore();
+		});
+
 		it('should create FormData and calculate headers/content-length correctly', async function () {
 			/** @type {Record<string, any>} */
 			const reqOpts = {
@@ -1644,8 +1648,29 @@ describe('Mwbot', function () {
 			assert.include(body, 'mock-token');
 
 			assert.include(reqOpts.headers['content-type'], 'multipart/form-data');
-			assert.isDefined(reqOpts.headers['Content-Length']);
+			assert.isNumber(reqOpts.headers['Content-Length']);
 			assert.strictEqual(reqOpts.headers['X-Custom'], 'Header');
+		});
+
+		it('should normalize FormData.getLength errors', async function () {
+			const reqOpts = {
+				headers: {},
+				params: { action: 'edit' },
+			};
+			sinon.stub(FormData.prototype, 'getLength').throws(new Error('mock error'));
+
+			try {
+				// @ts-expect-error - Protected method
+				await mwbot.handlePostMultipartFormData(reqOpts, 'mock-token');
+				assert.fail('Expected handlePostMultipartFormData() to throw');
+			} catch (err) {
+				assert.instanceOf(err, MwbotError);
+				assert.strictEqual(err.code, 'formdata');
+				assert.strictEqual(err.info, 'Failed to determine multipart form data length.');
+
+				assert.instanceOf(err.cause, Error);
+				assert.strictEqual(err.cause?.message, 'mock error');
+			}
 		});
 	});
 
@@ -2736,7 +2761,10 @@ describe('Mwbot', function () {
 			assert.deepEqual(res, expectedResponse);
 			assert.strictEqual(params.token, 'newToken');
 
-			assert.isTrue(getTokenTypeStub.calledOnceWithExactly('edit'));
+			assert.isTrue(
+				// Expression produces a union type that is too complex to represent. ts(2590)
+				/** @type {any} */(getTokenTypeStub.calledOnceWithExactly)('edit')
+			);
 			assert.isTrue(badTokenStub.calledOnceWithExactly('csrf'));
 			assert.isTrue(getTokenStub.calledOnceWithExactly('csrf'));
 			assert.isTrue(handlePostStub.calledOnce);

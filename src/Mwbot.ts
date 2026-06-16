@@ -1250,19 +1250,35 @@ export class Mwbot {
 		}
 
 		requestOptions.data = form;
-		requestOptions.headers = await new Promise((resolve, reject) => {
-			form.getLength((err, length) => {
-				if (err) {
-					reject(err);
-					return;
-				}
-				resolve({
-					...requestOptions.headers,
-					...form.getHeaders(),
-					'Content-Length': length,
+
+		let length: number;
+		try {
+			length = await new Promise<number>((resolve, reject) => {
+				form.getLength((err, length) => {
+					if (err) {
+						reject(err);
+						return;
+					}
+					resolve(length);
 				});
 			});
-		});
+		} catch (cause) {
+			throw new MwbotError(
+				'api_mwbot',
+				{
+					code: 'formdata',
+					info: 'Failed to determine multipart form data length.',
+				},
+				undefined,
+				cause
+			);
+		}
+
+		requestOptions.headers = {
+			...requestOptions.headers,
+			...form.getHeaders(),
+			'Content-Length': length,
+		};
 	}
 
 	/**
