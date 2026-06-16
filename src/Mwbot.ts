@@ -1327,13 +1327,11 @@ export class Mwbot {
 	 * have been formatted, validated, and encoded as required by the API.
 	 *
 	 * @param requestOptions The finalized HTTP request options, ready for transmission.
-	 * @param attemptCount The number of attemps that have been made so far.
+	 * @param attemptCount The number of attempts that have been made so far.
 	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
-	protected async _request(requestOptions: MwbotRequestConfig, attemptCount?: number): Promise<ApiResponse> {
-
-		attemptCount = (attemptCount ?? 0) + 1;
-		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
+	protected async _request(requestOptions: MwbotRequestConfig, attemptCount: number = 0): Promise<ApiResponse> {
+		attemptCount++;
 
 		// Clone params early since POST requests will delete them from `requestOptions`
 		const clonedParams: ApiParams = { ...requestOptions.params };
@@ -1344,140 +1342,131 @@ export class Mwbot {
 		}
 
 		// Enforce an interval if necessary
-		const { interval, intervalActions = Mwbot.getDefaultIntervalActions() } = this.userMwbotOptions;
-		const requiresInterval = !!(clonedParams.action && intervalActions.includes(clonedParams.action));
-		if (requiresInterval && this.lastRequestTime && (interval === void 0 || +interval > 0)) {
-			const sleepDuration = (typeof interval === 'number' ? interval : 4800) - (Date.now() - this.lastRequestTime);
+		const {
+			interval,
+			intervalActions = Mwbot.getDefaultIntervalActions(),
+		} = this.userMwbotOptions;
+		const requiresInterval = !!clonedParams.action && intervalActions.includes(clonedParams.action);
+		if (
+			requiresInterval &&
+			this.lastRequestTime !== null &&
+			(typeof interval !== 'number' || interval > 0)
+		) {
+			// Default interval is 5000ms, but take connection lags into account (in a rough way)
+			const sleepDuration = (interval ?? 4800) - (Date.now() - this.lastRequestTime);
 			await sleep(sleepDuration); // sleep() clamps negative values automatically
 		}
 
 		// Make the request and process the response
-		return this.rawRequest(requestOptions).then(async (response): Promise<ApiResponse> => {
+		try {
+			const response = await this.rawRequest(requestOptions);
 
-			const data: ApiResponse | undefined = response.data;
+			if (!response.data) {
+				Mwbot.dieAsEmpty(true, 'check HTTP headers?', { axios: response });
+			}
+			if (!isPlainObject(response.data)) {
+				// In most cases the raw HTML of [[Main page]]
+				throw new MwbotError(
+					'api_mwbot',
+					{
+						code: 'invalidjson',
+						info: 'No valid JSON response (check the request URL?)',
+					},
+					{ axios: response }
+				);
+			}
+
+			const data: ApiResponse = response.data;
 
 			// Show warnings only for the first request because retries use the same request body
 			if (attemptCount === 1) {
-				this.showWarnings(data?.warnings);
+				this.showWarnings(data.warnings);
 			}
 
-			if (!data) {
-				Mwbot.dieAsEmpty(true, 'check HTTP headers?', { axios: response });
-			}
-			if (!isPlainObject(data)) {
-				// In most cases the raw HTML of [[Main page]]
-				throw new MwbotError('api_mwbot', {
-					code: 'invalidjson',
-					info: 'No valid JSON response (check the request URL?)',
-				}, { axios: response });
-			}
 			if ('error' in data || 'errors' in data) {
+				const mwbotError = MwbotError.newFromResponse(
+					data as Required<Pick<ApiResponse, 'error'>> | Required<Pick<ApiResponse, 'errors'>>
+				);
 
-				const err = MwbotError.newFromResponse(data as Required<Pick<ApiResponse, 'error'>> | Required<Pick<ApiResponse, 'errors'>>);
+				// Anonymous write requests are prevented by dropping the `token` parameter.
+				// The lookup in `info` for "token" should work even when uselang= or errorlang= is used,
+				// as the apierror-missingparam message uses $1 as the placeholder for the missing parameter.
+				this.dieIfAnonymous(mwbotError.code === 'missingparam' && mwbotError.info.includes('token'));
 
-				// Handle error codes
-				this.dieIfAnonymous(err.code === 'missingparam' && err.info.includes('The "token" parameter must be set'));
-				if (!requestOptions.disableRetryAPI) {
-					// Handle retries
-					switch (err.code) {
-						case 'badtoken':
-						case 'notoken':
-							this.dieIfAnonymous();
-							if (requestOptions.method === 'POST' && clonedParams.action && !requestOptions.disableRetryByCode?.includes(clonedParams.action)) {
-								const tokenType = await this.getTokenType(clonedParams.action); // Identify the required token type
-								if (!tokenType) throw err;
-								console.warn(`Warning: Encountered a "${err.code}" error.`);
-								this.badToken(tokenType);
-								delete clonedParams.token;
-
-								return await this.retry(err, attemptCount, clonedParams, requestOptions, 2, 0, () => {
-									return this.postWithToken(tokenType, clonedParams);
-								});
-							}
-							break;
-
-						case 'readonly':
-							console.warn(`Warning: Encountered a "${err.code}" error.`);
-							return await this.retry(err, attemptCount, clonedParams, requestOptions, 3, 10);
-
-						case 'maxlag': {
-							console.warn(`Warning: Encountered a "${err.code}" error.`);
-
-							let retryAfter = parseInt(response?.headers?.['retry-after']);
-							if (!Number.isFinite(retryAfter)) {
-								retryAfter = 5; // Fallback to 5 seconds if Retry-After header is missing or invalid
-							}
-
-							const lag = err.data?.error?.lag as number | undefined;
-							const maxLagLimit = requestOptions.maxLagLimit ?? 60; // Default limit is 60 seconds
-
-							if (typeof lag === 'number') {
-								if (lag > maxLagLimit) {
-									// If reported lag exceeds the configured limit, abort retry to avoid hammering the server
-									console.group();
-									console.warn(`- No retry will be attempted because server lag (${lag.toFixed(2)}s) exceeds the limit (${maxLagLimit}s).`);
-									console.groupEnd();
-									throw err;
-								}
-								// Use the higher of Retry-After and the reported lag (rounded up)
-								retryAfter = Math.max(Math.ceil(lag), retryAfter);
-							}
-
-							return await this.retry(err, attemptCount, clonedParams, requestOptions, 3, retryAfter);
-						}
-
-						case 'assertbotfailed':
-						case 'assertuserfailed':
-							if (!this.isAnonymous()) {
-								console.warn(`Warning: Encountered an "${err.code}" error.`);
-								let retryAfter = 10;
-
-								// If authenticated using a BotPassword, log in again
-								const { username, password } = this.credentials.user || {};
-								if (username && password) {
-									console.log('Re-logging in...');
-									const loggedIn = await this.login(username, password).catch((err: MwbotError) => err);
-									if (loggedIn instanceof MwbotError) {
-										console.dir(loggedIn, { depth: 3 });
-										throw err;
-									}
-									console.log('Re-login successful.');
-
-									// If the failed request was a token-requiring action, fetch a new token
-									if (requestOptions.method === 'POST' && clonedParams.token &&
-										clonedParams.action && !requestOptions.disableRetryByCode?.includes(clonedParams.action)
-									) {
-										console.log('Will retry if possible...');
-										const tokenType = await this.getTokenType(clonedParams.action);
-										if (!tokenType) throw err;
-
-										const token = await this.getToken(tokenType).catch(() => null);
-										if (!token) throw err;
-
-										clonedParams.token = token;
-										requestOptions.params = clonedParams;
-										delete requestOptions.data;
-										const formatted = await this.handlePost(requestOptions, false).catch(() => null);
-										if (formatted === null) throw err;
-										delete requestOptions.params;
-										retryAfter = 0;
-									}
-								}
-								return await this.retry(err, attemptCount, clonedParams, requestOptions, 2, retryAfter);
-							}
-							break;
-
-						case 'mwoauth-invalid-authorization':
-							// Per https://phabricator.wikimedia.org/T106066, "Nonce already used" indicates
-							// an upstream memcached/redis failure which is transient
-							if (err.info.includes('Nonce already used')) {
-								return await this.retry(err, attemptCount, clonedParams, requestOptions, 2, 10);
-							}
-					}
+				if (requestOptions.disableRetryAPI) {
+					throw mwbotError;
 				}
 
-				throw err;
+				// Handle retries
+				switch (mwbotError.code) {
+					case 'badtoken':
+					case 'notoken': {
+						this.dieIfAnonymous();
+						if (typeof clonedParams.action === 'string') {
+							return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, 2, {
+								refreshToken: true,
+							});
+						}
+						break;
+					}
+					case 'readonly': {
+						console.warn(`Warning: Encountered a "${mwbotError.code}" error.`);
+						return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, 3);
+					}
+					case 'maxlag': {
+						const maxAttempts = 3;
+						if (!Mwbot.canRetry(mwbotError, attemptCount, requestOptions, maxAttempts)) {
+							throw mwbotError;
+						}
+						console.warn(`Warning: Encountered a "${mwbotError.code}" error.`);
 
+						// Axios normalizes header keys to lowercase
+						let retryAfter = parseInt(response?.headers?.['retry-after']);
+						if (!Number.isFinite(retryAfter)) {
+							retryAfter = 5; // Fallback to 5 seconds if Retry-After header is missing or invalid
+						}
+
+						const e = (data.errors?.[0] ?? data.error) as any;
+						const lag = e?.lag as number | undefined;
+						const maxLagLimit = requestOptions.maxLagLimit ?? 60; // Default limit is 60 seconds
+
+						if (typeof lag === 'number') {
+							if (lag > maxLagLimit) {
+								// If reported lag exceeds the configured limit, abort retry to avoid hammering the server
+								console.group();
+								console.warn(`- No retry will be attempted because server lag (${lag.toFixed(2)}s) exceeds the limit (${maxLagLimit}s).`);
+								console.groupEnd();
+								throw mwbotError;
+							}
+							// Use the higher of Retry-After and the reported lag (rounded up)
+							retryAfter = Math.max(Math.ceil(lag), retryAfter);
+						}
+
+						return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, maxAttempts, {
+							sleepSeconds: retryAfter,
+						});
+					}
+					case 'assertbotfailed':
+					case 'assertuserfailed': {
+						if (this.isAnonymous()) {
+							throw mwbotError;
+						}
+
+						const refreshToken = typeof clonedParams.action === 'string' && typeof clonedParams.token === 'string';
+						return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, 2, {
+							sleepSeconds: refreshToken ? 0 : 10,
+							refreshToken,
+							reLogIn: true,
+						});
+					}
+					case 'mwoauth-invalid-authorization':
+						// Per https://phabricator.wikimedia.org/T106066, "Nonce already used" indicates
+						// an upstream memcached/redis failure which is transient
+						if (mwbotError.info.includes('Nonce already used')) {
+							return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, 2);
+						}
+				}
+				throw mwbotError;
 			}
 
 			if (requiresInterval) {
@@ -1486,24 +1475,27 @@ export class Mwbot {
 			}
 			return data;
 
-		}).catch(async (error: AxiosError | MwbotError): Promise<ApiResponse> => {
-
-			// Immediately throw an error caught in the then() block
-			if (!isAxiosError(error)) {
-				throw error;
+		} catch (axiosError) {
+			// Immediately throw an error caught in the try block
+			if (!isAxiosError(axiosError)) {
+				throw axiosError;
 			}
 
-			const err = new MwbotError('api_mwbot', {
-				code: 'http',
-				info: 'HTTP request failed.',
-			}, { axios: error }); // Include the full response for debugging
+			const mwbotError = new MwbotError(
+				'api_mwbot',
+				{
+					code: 'http',
+					info: 'HTTP request failed.',
+				},
+				{ axios: axiosError }
+			);
 
 			// Code-based error handling
 			let retryAfter: number | null = null;
-			switch (error.code) {
+			switch (axiosError.code) {
 				case 'ERR_CANCELED':
-					delete err.data; // Error details are unnecessary
-					throw err.setCode('aborted').setInfo('Request aborted by the user.');
+					delete mwbotError.data; // Error details are unnecessary
+					throw mwbotError.setCode('aborted').setInfo('Request aborted by the user.');
 				case 'ECONNABORTED':
 					// Usually triggered by a timeout
 					retryAfter = 5;
@@ -1515,59 +1507,46 @@ export class Mwbot {
 					break;
 			}
 			if (retryAfter !== null) {
-				console.warn(`Warning: Encountered an "${error.code}" error.`);
-				const msg = error.message?.replace(/[.?!]+$/, '') ?? err.info;
-				return await this.retry(
-					err.setInfo(msg + '.'),
-					attemptCount, clonedParams, requestOptions, retryAfter
-				);
+				console.warn(`Warning: Encountered an "${axiosError.code}" error.`);
+				if (axiosError.message) {
+					mwbotError.setInfo(axiosError.message.replace(/[.?!]+$/, '') + '.')
+				}
+				return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, 3, { sleepSeconds: retryAfter });
 			}
 
-			const status = error?.response?.status ?? error?.status;
+			const status = axiosError?.response?.status ?? axiosError?.status;
 			if (typeof status === 'number' && status >= 400) {
 				// Articulate the error object for common errors
 				switch (status) {
 					case 404:
-						throw err.setCode('notfound').setInfo(`Page not found (404): ${requestOptions.url!}.`);
+						throw mwbotError.setCode('notfound').setInfo(`Page not found (404): ${requestOptions.url!}.`);
 					case 408:
-						return await this.retry(
-							err.setCode('timeout').setInfo('Request timeout (408).'),
-							attemptCount, clonedParams, requestOptions
-						);
+						mwbotError.setCode('timeout').setInfo('Request timeout (408).');
+						break;
 					case 414:
-						throw err.setCode('baduri').setInfo('URI too long (414): Consider using a POST request.');
+						throw mwbotError.setCode('baduri').setInfo('URI too long (414): Consider using a POST request.');
 					case 429:
-						return await this.retry(
-							err.setCode('ratelimited').setInfo('Too many requests (429).'),
-							attemptCount, clonedParams, requestOptions
-						);
+						mwbotError.setCode('ratelimited').setInfo('Too many requests (429).');
+						break;
 					case 500:
-						return await this.retry(
-							err.setCode('servererror').setInfo('Internal server error (500).'),
-							attemptCount, clonedParams, requestOptions
-						);
+						mwbotError.setCode('servererror').setInfo('Internal server error (500).');
+						break;
 					case 502:
-						return await this.retry(
-							err.setCode('badgateway').setInfo('Bad gateway (502): Perhaps the server is down?'),
-							attemptCount, clonedParams, requestOptions
-						);
+						mwbotError.setCode('badgateway').setInfo('Bad gateway (502): Perhaps the server is down?');
+						break;
 					case 503:
-						return await this.retry(
-							err.setCode('serviceunavailable').setInfo('Service Unavailable (503): Perhaps the server is down?'),
-							attemptCount, clonedParams, requestOptions
-						);
+						mwbotError.setCode('serviceunavailable').setInfo('Service Unavailable (503): Perhaps the server is down?');
+						break;
 					case 504:
-						return await this.retry(
-							err.setCode('timeout').setInfo('Gateway timeout (504).'),
-							attemptCount, clonedParams, requestOptions
-						);
+						mwbotError.setCode('timeout').setInfo('Gateway timeout (504).');
+						break;
+					default: throw mwbotError;
 				}
+				return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, 3);
 			}
 
-			throw err;
-
-		});
-
+			throw mwbotError;
+		}
 	}
 
 	/**
@@ -1602,60 +1581,123 @@ export class Mwbot {
 	}
 
 	/**
-	 * Attempts to retry a failed request under the following conditions:
-	 * - The number of requests issued so far is less than the allowed maximum (`maxAttempts`).
-	 * - {@link MwbotRequestConfig.disableRetry} is not set to `true`.
-	 * - {@link MwbotRequestConfig.disableRetryByCode} is either unset or does not contain the error code from `initialError`.
+	 * Evaluates whether the given request error can be retried.
 	 *
-	 * Note: {@link MwbotRequestConfig.disableRetryAPI} must be evaluated in {@link _request}, rather than here.
+	 * Note: {@link MwbotRequestConfig.disableRetryAPI | disableRetryAPI} must be evaluated separately.
 	 *
-	 * @param initialError The error that triggered the retry attempt.
-	 * @param attemptCount The number of attemps that have been made so far.
+	 * @param originalError The error that triggered the retry attempt.
+	 * @param attemptCount The number of attempts that have been made so far.
+	 * @param requestOptions The original request options, through which the {@link MwbotRequestConfig.disableRetry | disableRetry}
+	 * and {@link MwbotRequestConfig.disableRetryByCode | disableRetryByCode} options are evaluated.
+	 * @param maxAttempts The maximum number of attempts (including the first request). For example, if this value is 2,
+	 * performs one retry after failure.
+	 * @returns A boolean indicating whether the request can be retried.
+	 */
+	protected static canRetry(
+		originalError: MwbotError,
+		attemptCount: number,
+		requestOptions: MwbotRequestConfig,
+		maxAttempts: number
+	) {
+		const { disableRetry, disableRetryByCode } = requestOptions;
+		return (
+			attemptCount < maxAttempts &&
+			!disableRetry &&
+			!disableRetryByCode?.includes(originalError.code)
+		);
+	}
+
+	/**
+	 * Attempts to retry a failed request, optionally refreshing the token and re-authenticating before retrying.
+	 *
+	 * See {@link canRetry} for the pre-check before performing the retry.
+	 *
+	 * @param originalError The error that triggered the retry attempt.
+	 * @param attemptCount The number of attempts that have been made so far.
 	 * @param params Request parameters. Since {@link _request} might have deleted them, they are re-injected as needed.
 	 * @param requestOptions The original request options, using which we make another request.
-	 * @param maxAttempts The maximum number of attempts (including the first request). Default is 2 (one retry after failure).
-	 * @param sleepSeconds The delay in seconds before retrying. Default is 10.
-	 * @param retryCallback A function to execute when attempting the retry. If not provided, {@link _request} is called on `requestOptions`.
+	 * @param maxAttempts The maximum number of attempts (including the first request). For example, if this value is 2,
+	 * performs one retry after failure.
+	 * @param options Additional retry options.
 	 * @returns A Promise of the retry request, or rejecting with an error.
 	 */
 	protected async retry(
-		initialError: MwbotError,
+		originalError: MwbotError,
 		attemptCount: number,
 		params: ApiParams,
 		requestOptions: MwbotRequestConfig,
-		maxAttempts = 2,
-		sleepSeconds = 10,
-		retryCallback?: () => Promise<ApiResponse>
+		maxAttempts: number,
+		options: {
+			/**
+			 * The delay in seconds before retrying. Default is 10.
+			 */
+			sleepSeconds?: number;
+			/**
+			 * Whether to fetch a fresh token for a token-requiring retry. When this is set to true:
+			 * - `requestOptions.method` must be POST.
+			 * - `params` must contain a defined `action` value.
+			 */
+			refreshToken?: boolean;
+			/**
+			 * Whether to re-log in before retrying when password authentication credentials are available.
+			 */
+			reLogIn?: boolean;
+		} = {}
 	): Promise<ApiResponse> {
+		if (!Mwbot.canRetry(originalError, attemptCount, requestOptions, maxAttempts)) {
+			throw originalError;
+		}
 
-		const { disableRetry, disableRetryByCode } = requestOptions;
-		const shouldRetry =
-			attemptCount < maxAttempts &&
-			!disableRetry &&
-			!disableRetryByCode?.includes(initialError.code);
+		const {
+			sleepSeconds = 10,
+			refreshToken = false,
+			reLogIn = false,
+		} = options;
 
-		// Check if we should retry the request
-		if (shouldRetry) {
-			console.dir(initialError, { depth: 3 });
-			if (sleepSeconds) {
-				console.log(`Retrying in ${sleepSeconds} seconds...`);
-			} else {
-				console.log('Retrying...');
-			}
-			await sleep(sleepSeconds * 1000);
-			if (typeof retryCallback === 'function') {
-				delete requestOptions._cloned;
-				delete requestOptions.signal;
-				return await retryCallback();
-			} else {
-				requestOptions.params = params;
-				return await this._request(requestOptions, attemptCount);
+		if (sleepSeconds) {
+			console.log(`Retrying in ${sleepSeconds} seconds...`);
+		} else {
+			console.log('Retrying...');
+		}
+		await sleep(sleepSeconds * 1000);
+
+		if (reLogIn) {
+			const { username, password } = this.credentials.user || {};
+			if (username && password) {
+				try {
+					await this.login(username, password);
+				} catch {
+					// Re-throw the original error on login failure
+					throw originalError;
+				}
 			}
 		}
 
-		// If retry conditions aren't met, reject with the error
-		throw initialError;
+		requestOptions.params = params;
 
+		if (refreshToken) {
+			const action = params.action;
+			if (requestOptions.method !== 'POST' || typeof action !== 'string') {
+				throw originalError;
+			}
+
+			const tokenType = await this.getTokenType(action);
+			if (!tokenType) {
+				throw originalError;
+			}
+			this.badToken(tokenType);
+
+			try {
+				// Mutates requestOptions.params
+				params.token = await this.getToken(tokenType);
+			} catch {
+				throw originalError;
+			}
+
+			await this.handlePost(requestOptions, false);
+		}
+
+		return this._request(requestOptions, attemptCount);
 	}
 
 	/**
