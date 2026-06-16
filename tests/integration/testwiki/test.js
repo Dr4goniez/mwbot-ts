@@ -4,6 +4,8 @@ import { Mwbot } from '../../../dist/index.js';
 import { getApiUrl, getAuthCredentials, getAuthMethod } from '../provider.js';
 import { testMwbotAuthentication } from '../MwbotTest-authentication.js';
 import { testMwbotConfig } from '../MwbotTest-config.js';
+import { testMwbotReadRequests } from '../MwbotTest-request-read.js';
+import { testMwbotWriteRequests } from '../MwbotTest-request-write.js';
 
 const domain = 'testwiki';
 const authMethod = getAuthMethod(domain);
@@ -33,5 +35,7 @@ describe(`Mwbot via ${authMethod} authentication`, function () {
 
 	testMwbotAuthentication(() => mwbot, domain, authMethod);
 	testMwbotConfig(() => mwbot, domain, authMethod);
+	testMwbotReadRequests(() => mwbot, domain, authMethod);
+	testMwbotWriteRequests(() => mwbot, domain, authMethod);
 
 });
