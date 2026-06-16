@@ -1696,6 +1696,9 @@ export class Mwbot {
 			}
 
 			await this.handlePost(requestOptions, false);
+			if (this.usingOAuth()) {
+				this.applyAuthentication(requestOptions);
+			}
 		}
 
 		return this._request(requestOptions, attemptCount);

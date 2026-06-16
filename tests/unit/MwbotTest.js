@@ -2699,7 +2699,7 @@ describe('Mwbot', function () {
 			}
 		});
 
-		it('should refresh the token and invoke handlePost before retrying', async function () {
+		it('should refresh the token and invoke handlePost and applyAuthentication before retrying', async function () {
 			const params = createParams({
 				action: 'edit',
 				token: 'oldToken',
@@ -2713,6 +2713,10 @@ describe('Mwbot', function () {
 			const getTokenStub = sinon.stub(mwbot, 'getToken').resolves('newToken');
 			// @ts-expect-error - Protected method
 			const handlePostStub = sinon.stub(mwbot, 'handlePost').resolves();
+			// @ts-expect-error - Protected method
+			sinon.stub(mwbot, 'usingOAuth').returns(true);
+			// @ts-expect-error - Protected method
+			const applyAuthenticationStub = sinon.stub(mwbot, 'applyAuthentication').returns();
 			const expectedResponse = { edit: { result: /** @type {const} */ ('Success') } };
 			// @ts-expect-error - Protected method
 			const requestStub = sinon.stub(mwbot, '_request').resolves(expectedResponse);
@@ -2724,17 +2728,18 @@ describe('Mwbot', function () {
 			});
 
 			assert.deepEqual(res, expectedResponse);
+			assert.strictEqual(params.token, 'newToken');
 
 			assert.isTrue(getTokenTypeStub.calledOnceWithExactly('edit'));
 			assert.isTrue(badTokenStub.calledOnceWithExactly('csrf'));
 			assert.isTrue(getTokenStub.calledOnceWithExactly('csrf'));
 			assert.isTrue(handlePostStub.calledOnce);
-
-			assert.strictEqual(params.token, 'newToken');
+			assert.isTrue(applyAuthenticationStub.calledOnce);
 
 			assert.isTrue(getTokenTypeStub.calledBefore(getTokenStub));
 			assert.isTrue(getTokenStub.calledBefore(handlePostStub));
 			assert.isTrue(handlePostStub.calledBefore(requestStub));
+			assert.isTrue(applyAuthenticationStub.calledBefore(requestStub));
 		});
 	});
 

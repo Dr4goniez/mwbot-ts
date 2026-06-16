@@ -33,23 +33,23 @@ export function testMwbotWriteRequests(getMwbot, _testDomain, authMethod) {
 				);
 
 				if (isAnon) {
-					assert.fail('Expected action=options to fail for anonymous users');
+					assert.fail('Expected action=options to fail for anonymous users', String(res));
 				} else {
-					assert.strictEqual(res.options, 'success');
+					assert.strictEqual(res.options, 'success', String(res));
 					assert.isTrue(retrySpy.calledOnce);
 					assert.isTrue(badTokenSpy.calledOnce);
 
 					const err = retrySpy.firstCall.args[0];
-					assert.instanceOf(err, MwbotError);
+					assert.instanceOf(err, MwbotError, String(err));
 					assert.strictEqual(err.code, 'badtoken');
 				}
 			} catch (err) {
 				assert.instanceOf(err, MwbotError);
 
 				if (isAnon) {
-					assert.strictEqual(err.code, 'anonymous');
+					assert.strictEqual(err.code, 'anonymous', String(err));
 				} else {
-					assert.fail('Expected action=options to succeed for registered users');
+					assert.fail('Expected action=options to succeed for registered users', String(err));
 				}
 			}
 		});
