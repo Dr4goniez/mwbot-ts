@@ -25,7 +25,7 @@
  * @module
  */
 
-import axios, { AxiosInstance, AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, isAxiosError } from 'axios';
 import { CookieJar } from 'tough-cookie';
 import { wrapper } from 'axios-cookiejar-support';
 import FormData from 'form-data';
@@ -5054,16 +5054,6 @@ export type PrototypeOf<T> = { prototype: T };
  * @private
  */
 export type InstanceOf<T> = T extends { prototype: infer R } ? R : never;
-
-/**
- * Checks whether a value is an `AxiosError` object.
- *
- * @param value The value to check.
- * @returns A boolean indicating whether `value` is an `AxiosError` object.
- */
-function isAxiosError(value: any): value is AxiosError {
-	return value?.isAxiosError === true;
-}
 
 // The following type definitions are substantial copies from the npm package `types-mediawiki`.
 

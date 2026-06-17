@@ -16,6 +16,8 @@ import type { ConfigData } from './Mwbot.js';
 import type { Mwbot } from './Mwbot.js';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { ModificationPredicate } from './Wikitext.js';
+import type { AxiosResponse, AxiosError } from 'axios';
+import { XOR } from 'ts-essentials';
 
 /**
  * Custom error class for {@link Mwbot}, extending the built-in `Error` class.
@@ -262,7 +264,7 @@ export interface MwbotErrorData {
 	 * The full Axios response object. Present for `api_mwbot` errors with a code of
 	 * `http` (including specific types such as `timeout (408)`), `empty`, or `invalidjson`.
 	 */
-	axios?: Record<string, any>;
+	axios?: XOR<AxiosResponse, AxiosError>;
 	/**
 	 * Present when the error involves a processed page title, such as in {@link Mwbot.read}.
 	 */
