@@ -2422,6 +2422,124 @@ describe('Mwbot', function () {
 		});
 	});
 
+	describe('showWarnings()', function () {
+		/**
+		 * @type {Awaited<ReturnType<typeof getTestMwbot>>}
+		 */
+		let mwbot;
+
+		before(async function () {
+			mwbot = await getTestMwbot('named');
+		});
+
+		/** @type {sinon.SinonSpy} */
+		let warnSpy;
+
+		beforeEach(function () {
+			warnSpy = sinon.spy(Logger.prototype, 'warn');
+		});
+
+		afterEach(function () {
+			sinon.restore();
+		});
+
+		it('should do nothing when warnings is undefined', function () {
+			// @ts-expect-error - Protected method
+			mwbot.showWarnings(undefined);
+
+			assert.isFalse(warnSpy.called);
+		});
+
+		it('should log warnings in the new format using "*" messages', function () {
+			// @ts-expect-error - Protected method
+			mwbot.showWarnings([
+				{
+					code: 'foo',
+					module: 'query',
+					data: { values: [] },
+					'*': 'warning message',
+				},
+			]);
+
+			assert.isTrue(warnSpy.calledOnceWithExactly('query: warning message'));
+		});
+
+		it('should prefer html over text when "*" is absent', function () {
+			// @ts-expect-error - Protected method
+			mwbot.showWarnings([
+				{
+					code: 'foo',
+					module: 'query',
+					data: { values: [] },
+					html: '<b>warning</b>',
+					text: 'warning',
+				},
+			]);
+
+			assert.isTrue(warnSpy.calledOnceWithExactly('query: <b>warning</b>'));
+		});
+
+		it('should use text when neither "*" nor html is present', function () {
+			// @ts-expect-error - Protected method
+			mwbot.showWarnings([
+				{
+					code: 'foo',
+					module: 'query',
+					data: { values: [] },
+					text: 'warning',
+				},
+			]);
+
+			assert.isTrue(warnSpy.calledOnceWithExactly('query: warning'));
+		});
+
+		it('should ignore new-format warnings without a displayable message', function () {
+			// @ts-expect-error - Protected method
+			mwbot.showWarnings([
+				{
+					code: 'foo',
+					module: 'query',
+					data: { values: [] },
+					key: 'foo',
+					params: [],
+				},
+			]);
+
+			assert.isFalse(warnSpy.called);
+		});
+
+		it('should log legacy warnings using "*"', function () {
+			// @ts-expect-error - Protected method
+			mwbot.showWarnings({
+				query: {
+					'*': 'legacy warning',
+				},
+			});
+
+			assert.isTrue(warnSpy.calledOnceWithExactly('query: legacy warning'));
+		});
+
+		it('should log legacy warnings using warnings', function () {
+			// @ts-expect-error - Protected method
+			mwbot.showWarnings({
+				query: {
+					warnings: 'legacy warning',
+				},
+			});
+
+			assert.isTrue(warnSpy.calledOnceWithExactly('query: legacy warning'));
+		});
+
+		it('should ignore legacy warnings without a displayable message', function () {
+			// @ts-expect-error - Protected method
+			mwbot.showWarnings({
+				query: /** @type {any} */ ({}),
+			});
+
+			assert.isFalse(warnSpy.called);
+		});
+	});
+
 	describe('canRetry()', function () {
 		// @ts-expect-error - Protected method
 		const canRetry = Mwbot.canRetry.bind(Mwbot);

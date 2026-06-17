@@ -822,7 +822,7 @@ export interface ApiResponseWarnings {
 	html?: string; // errorformat=html
 	text?: string; // errorformat=wikitext, errorformat=plaintext
 	key?: string; // errorformat=raw
-	params?: string[]; // errorformat=raw
+	params?: unknown[]; // errorformat=raw
 }
 
 export type ApiResponseWarningsLegacy = PartialRecord<ApiParamsAction, XOR< // errorformat=bc
