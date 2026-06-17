@@ -29,21 +29,75 @@ export class Logger {
 		this.unredactErrors = options?.unredactErrors  ?? false;
 	}
 
-	info(message: string): void {
-		if (!message || this.suppressInfo) {
+	/**
+	 * Outputs the given message to the console.
+	 *
+	 * @param level The severity level of the message.
+	 * @param message The message to output.
+	 * @param options Additional options that control output behaviour.
+	 */
+	output(
+		level: 'info' | 'warn' | 'error',
+		message: string,
+		options: {
+			/**
+			 * Whether to prefix the message with `[<level>]`. (default: `false`)
+			 */
+			showLevel?: boolean;
+			/**
+			 * Whether to output the message regardless of the logger configuration.
+			 * (default: `false`)
+			 */
+			ignoreConfig?: boolean;
+		} = {}
+	): void {
+		if (!message) {
 			return;
 		}
-		console.log(Logger.lead.info + ' ' + message);
+
+		let shouldOutput = options.ignoreConfig ?? false;
+		let out: 'log' | 'warn' | 'error';
+
+		switch (level) {
+			case 'info':
+				shouldOutput ||= !this.suppressInfo;
+				out = 'log';
+				break;
+			case 'warn':
+				shouldOutput ||= !this.suppressWarnings;
+				out = 'warn';
+				break;
+			case 'error':
+				shouldOutput ||= this.outputErrors;
+				out = 'error';
+				break;
+			default: {
+				const exhaustive: never = level;
+				throw new Error(`Invalid logger output level: ${exhaustive}`);
+			}
+		}
+		if (!shouldOutput) {
+			return;
+		}
+
+		const prefix = options.showLevel ? Logger.lead[level] + ' ' : '';
+		console[out](prefix + message);
+	}
+
+	info(message: string): void {
+		this.output('info', message, { showLevel: true });
 	}
 
 	warn(message: string): void {
-		if (!message || this.suppressWarnings) {
-			return;
-		}
-		console.warn(Logger.lead.warn + ' ' + message);
+		this.output('warn', message, { showLevel: true });
 	}
 
-	error(error: MwbotError): void {
+	error(error: string | MwbotError): void {
+		if (typeof error === 'string') {
+			this.output('error', error, { showLevel: true });
+			return;
+		}
+
 		if (!this.outputErrors) {
 			return;
 		}

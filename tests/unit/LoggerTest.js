@@ -24,6 +24,64 @@ describe('Logger', () => {
 		sinon.restore();
 	});
 
+	describe('output()', () => {
+		it('outputs a message without a level prefix by default', () => {
+			const logger = new Logger();
+
+			logger.output('info', 'hello');
+
+			assert.isTrue(logStub.calledOnce);
+			assert.strictEqual(logStub.firstCall.args[0], 'hello');
+		});
+
+		it('outputs a message with a level prefix when showLevel is true', () => {
+			const logger = new Logger();
+
+			logger.output('warn', 'warning', { showLevel: true });
+
+			assert.isTrue(warnStub.calledOnce);
+			assert.match(warnStub.firstCall.args[0], /\[warn\]/);
+			assert.include(warnStub.firstCall.args[0], 'warning');
+		});
+
+		it('ignores suppressInfo when ignoreConfig is true', () => {
+			const logger = new Logger({
+				suppressInfo: true,
+			});
+
+			logger.output('info', 'hello', {
+				ignoreConfig: true,
+			});
+
+			assert.isTrue(logStub.calledOnce);
+			assert.strictEqual(logStub.firstCall.args[0], 'hello');
+		});
+
+		it('ignores suppressWarnings when ignoreConfig is true', () => {
+			const logger = new Logger({
+				suppressWarnings: true,
+			});
+
+			logger.output('warn', 'warning', {
+				ignoreConfig: true,
+			});
+
+			assert.isTrue(warnStub.calledOnce);
+			assert.strictEqual(warnStub.firstCall.args[0], 'warning');
+		});
+
+		it('ignores outputErrors when ignoreConfig is true', () => {
+			const logger = new Logger();
+
+			logger.output('error', 'boom', {
+				ignoreConfig: true,
+			});
+
+			assert.isTrue(errorStub.calledOnce);
+			assert.strictEqual(errorStub.firstCall.args[0], 'boom');
+		});
+	});
+
 	describe('info()', () => {
 		it('outputs an info message', () => {
 			const logger = new Logger();
@@ -74,7 +132,7 @@ describe('Logger', () => {
 			const logger = new Logger();
 			const err = new MwbotError(
 				'api_mwbot',
-				{ code: 'foo', info: 'bar' }
+				{ code: 'http', info: 'HTTP request failed.' }
 			);
 
 			logger.error(err);
@@ -86,7 +144,7 @@ describe('Logger', () => {
 			const logger = new Logger({ outputErrors: true });
 			const err = new MwbotError(
 				'api_mwbot',
-				{ code: 'foo', info: 'bar' }
+				{ code: 'http', info: 'HTTP request failed.' }
 			);
 
 			logger.error(err);
@@ -103,7 +161,7 @@ describe('Logger', () => {
 			const axiosError = new AxiosError('boom');
 			const err = new MwbotError(
 				'api_mwbot',
-				{ code: 'foo', info: 'bar' },
+				{ code: 'http', info: 'HTTP request failed.' },
 				{ axios: axiosError }
 			);
 
@@ -118,13 +176,13 @@ describe('Logger', () => {
 			});
 			const axiosError = new AxiosError('boom');
 			axiosError.config = {
-				headers: {
+				headers: /** @type {import('axios').AxiosRequestHeaders} */ ({
 					Authorization: 'secret',
-				},
+				}),
 			};
 			const err = new MwbotError(
 				'api_mwbot',
-				{ code: 'foo', info: 'bar' },
+				{ code: 'http', info: 'HTTP request failed.' },
 				{ axios: axiosError }
 			);
 
@@ -134,11 +192,11 @@ describe('Logger', () => {
 
 			assert.instanceOf(logged, MwbotError);
 			assert.notStrictEqual(logged, err);
-			assert.strictEqual(logged.data.axios.message, 'boom');
-			assert.notProperty(logged.data.axios, 'config');
-			assert.notProperty(logged.data.axios, 'request');
+			assert.strictEqual(logged.data?.axios?.message, 'boom');
+			assert.notProperty(logged.data?.axios, 'config');
+			assert.notProperty(logged.data?.axios, 'request');
 
-			const desc = Object.getOwnPropertyDescriptor(logged.data.axios, 'stack');
+			const desc = Object.getOwnPropertyDescriptor(logged.data?.axios, 'stack');
 
 			assert.exists(desc);
 			assert.isOk(desc.get ?? desc.value);
@@ -159,8 +217,8 @@ describe('Logger', () => {
 			};
 			const err = new MwbotError(
 				'api_mwbot',
-				{ code: 'foo', info: 'bar' },
-				{ axios: response }
+				{ code: 'http', info: 'HTTP request failed.' },
+				{ axios: /** @type {import('axios').AxiosResponse} */ (response) }
 			);
 
 			logger.error(err);
@@ -168,11 +226,11 @@ describe('Logger', () => {
 			const logged = errorStub.firstCall.args[2];
 
 			assert.instanceOf(logged, MwbotError);
-			assert.deepEqual(logged.data.axios, {
+			assert.deepEqual(logged.data?.axios, /** @type {any} */ ({
 				status: 200,
 				statusText: 'OK',
 				data: { ok: true },
-			});
+			}));
 		});
 
 		it('redacts AxiosError.response', () => {
@@ -187,11 +245,11 @@ describe('Logger', () => {
 				headers: {
 					authorization: 'secret',
 				},
-				config: {},
+				config: /** @type {import('axios').InternalAxiosRequestConfig} */ ({}),
 			};
 			const err = new MwbotError(
 				'api_mwbot',
-				{ code: 'foo', info: 'bar' },
+				{ code: 'http', info: 'HTTP request failed.' },
 				{ axios: axiosError }
 			);
 
@@ -214,22 +272,22 @@ describe('Logger', () => {
 			});
 			const axiosError = new AxiosError('boom');
 			axiosError.config = {
-				headers: {
+				headers: /** @type {import('axios').AxiosRequestHeaders} */ ({
 					Authorization: 'secret',
-				},
+				}),
 			};
 			const err = new MwbotError(
 				'api_mwbot',
-				{ code: 'foo', info: 'bar' },
+				{ code: 'http', info: 'HTTP request failed.' },
 				{ axios: axiosError }
 			);
 
 			logger.error(err);
 
-			assert.property(err.data.axios, 'config');
-			assert.property(err.data.axios.config, 'headers');
+			assert.property(err.data?.axios, 'config');
+			assert.property(err.data?.axios?.config, 'headers');
 			assert.strictEqual(
-				err.data.axios.config.headers.Authorization,
+				err.data?.axios?.config?.headers.Authorization,
 				'secret'
 			);
 		});
