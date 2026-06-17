@@ -75,6 +75,7 @@ import {
 	ApiResponseUndelete,
 } from './api_types.js';
 import { MwbotError, MwbotErrorData } from './MwbotError.js';
+import { Logger, LoggerOptions } from './Logger.js';
 import * as Util from './Util.js';
 const { mergeDeep, cloneDeep, isPlainObject, isObject, sleep, isEmptyObject, arraysEqual } = Util;
 import * as mwString from './String.js';
@@ -202,6 +203,10 @@ export class Mwbot {
 	 */
 	protected lastRequestTime: number | null = null;
 	/**
+	 * Logger used for internal console output.
+	 */
+	protected logger: Logger;
+	/**
 	 * See {@link MwbotOptions.intervalActions}.
 	 */
 	protected static getDefaultIntervalActions(): ApiParamsAction[] {
@@ -296,7 +301,7 @@ export class Mwbot {
 	 * * The user credentials are malformed. (`invalidcreds`)
 	 */
 	protected constructor(mwbotInitOptions: MwbotInitOptions, requestOptions: MwbotRequestConfig) {
-		const { credentials, ...options } = cloneDeep(mwbotInitOptions);
+		const { credentials, loggerOptions, ...options } = cloneDeep(mwbotInitOptions);
 		requestOptions = cloneDeep(requestOptions);
 
 		// Ensure that a valid URL is provided
@@ -318,6 +323,7 @@ export class Mwbot {
 		}
 
 		// Initialize other class properties
+		this.logger = new Logger(loggerOptions);
 		this.jar = new CookieJar();
 
 		// Always enable cookie support regardless of which authentication method the client uses.
@@ -513,7 +519,8 @@ export class Mwbot {
 	protected async _init(attemptIndex: number): Promise<this> {
 		const retryIfPossible = async (error: MwbotError, index: number): Promise<this> => {
 			if (index < 2) {
-				console.warn('Mwbot.init failed. Retrying in 5 seconds...');
+				this.logger.error(error);
+				this.logger.warn('Mwbot.init failed. Retrying in 5 seconds...');
 				await sleep(5000);
 				return this._init(index + 1);
 			}
@@ -602,7 +609,7 @@ export class Mwbot {
 		this._RawWikilink = RawWikilink;
 		this._Wikitext = WikitextFactory(this, ParsedTemplate, RawTemplate, ParsedParserFunction, ParsedWikilink, ParsedFileWikilink, ParsedRawWikilink);
 
-		console.log('Connection established: ' + config.get('wgServerName'));
+		this.logger.info('Connection established: ' + config.get('wgServerName'));
 		return this;
 	}
 
@@ -901,24 +908,17 @@ export class Mwbot {
 			},
 			set: <K extends keyof ConfigData, U extends Partial<ConfigData> & Record<string, TX>, TX>(selection: K | string | U, value?: TX) => {
 				if (typeof selection === 'string' && Mwbot.CONFIG_KEYS.has(selection as K)) {
-					console.warn(`Warning: Cannot modify read-only wg-configuration variable "${selection}".`);
 					return false;
 				} else if (typeof selection === 'string' && value !== void 0) {
 					this.configData[selection as string] = value;
 					return true;
 				} else if (isEmptyObject(selection) === false) {
 					let registered = 0;
-					const wgVars = new Set<string>();
 					for (const [k, v] of Object.entries(<U>selection)) {
-						if (Mwbot.CONFIG_KEYS.has(k)) {
-							wgVars.add(k);
-						} else if (v !== void 0) {
+						if (!Mwbot.CONFIG_KEYS.has(k) && v !== void 0) {
 							this.configData[k] = v;
 							registered++;
 						}
-					}
-					if (wgVars.size) {
-						console.warn(`Warning: Cannot modify read-only wg-configuration variable(s): ${Array.from(wgVars).join(', ')}`);
 					}
 					return !!registered;
 				}
@@ -1408,7 +1408,6 @@ export class Mwbot {
 						break;
 					}
 					case 'readonly': {
-						console.warn(`Warning: Encountered a "${mwbotError.code}" error.`);
 						return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, 3);
 					}
 					case 'maxlag': {
@@ -1416,7 +1415,6 @@ export class Mwbot {
 						if (!Mwbot.canRetry(mwbotError, attemptCount, requestOptions, maxAttempts)) {
 							throw mwbotError;
 						}
-						console.warn(`Warning: Encountered a "${mwbotError.code}" error.`);
 
 						// Axios normalizes header keys to lowercase
 						let retryAfter = parseInt(response?.headers?.['retry-after']);
@@ -1431,9 +1429,6 @@ export class Mwbot {
 						if (typeof lag === 'number') {
 							if (lag > maxLagLimit) {
 								// If reported lag exceeds the configured limit, abort retry to avoid hammering the server
-								console.group();
-								console.warn(`- No retry will be attempted because server lag (${lag.toFixed(2)}s) exceeds the limit (${maxLagLimit}s).`);
-								console.groupEnd();
 								throw mwbotError;
 							}
 							// Use the higher of Retry-After and the reported lag (rounded up)
@@ -1505,7 +1500,6 @@ export class Mwbot {
 					break;
 			}
 			if (retryAfter !== null) {
-				console.warn(`Warning: Encountered an "${axiosError.code}" error.`);
 				if (axiosError.message) {
 					mwbotError.setInfo(axiosError.message.replace(/[.?!]+$/, '') + '.');
 				}
@@ -1548,12 +1542,12 @@ export class Mwbot {
 	}
 
 	/**
-	 * Logs warnings returned from the API to the console unless suppressed.
+	 * Logs warnings returned by the MediaWiki API.
 	 *
 	 * @param warnings Warnings returned by the API, if any.
 	 */
 	protected showWarnings(warnings: ApiResponse['warnings']): void {
-		if (!warnings || this.userMwbotOptions.suppressWarnings) {
+		if (!warnings) {
 			return;
 		}
 		if (Array.isArray(warnings)) {
@@ -1564,7 +1558,7 @@ export class Mwbot {
 					obj.html || // errorformat=html
 					obj.text; // errorformat=wikitext/plaintext
 				if (msg) {
-					console.log(`[Warning]: ${module}: ${msg}`);
+					this.logger.warn(`${module}: ${msg}`);
 				}
 			}
 		} else {
@@ -1572,7 +1566,7 @@ export class Mwbot {
 			for (const [module, obj] of Object.entries(warnings)) {
 				const msg = obj?.['*'] || obj?.warnings;
 				if (msg) {
-					console.log(`[Warning]: ${module}: ${msg}`);
+					this.logger.warn(`${module}: ${msg}`);
 				}
 			}
 		}
@@ -1652,11 +1646,14 @@ export class Mwbot {
 			reLogIn = false,
 		} = options;
 
+		this.logger.error(originalError);
+		const warnText = `Request failed (${originalError.code}). `;
+
 		if (sleepSeconds > 0) {
-			console.log(`Retrying in ${sleepSeconds} seconds...`);
+			this.logger.warn(warnText + `Retrying in ${sleepSeconds} seconds...`);
 			await sleep(sleepSeconds * 1000);
 		} else {
-			console.log('Retrying...');
+			this.logger.warn(warnText + 'Retrying...');
 		}
 
 		if (reLogIn) {
@@ -2557,8 +2554,8 @@ export class Mwbot {
 			!disableRetry && !disableRetryAPI &&
 			!disableRetryByCode?.some((code) => code === 'editconflict')
 		) {
-			console.warn('Warning: Encountered an edit conflict.');
-			console.log('Retrying in 5 seconds...');
+			this.logger.error(result);
+			this.logger.warn('Encountered an edit conflict. Retrying in 5 seconds...');
 			await sleep(5000);
 			return await this.edit(title, transform, editRequestOptions, retry + 1);
 		}
@@ -2716,13 +2713,11 @@ export class Mwbot {
 		if (count.nobots > 1) {
 			warnings.push(`This page includes {{nobots}} ${count.nobots} times.`);
 		}
-		if (warnings.length && !this.userMwbotOptions.suppressWarnings) {
-			console.warn(`[Warning]: Exclusion compliance warnings caught for "${title}".`);
-			console.group();
+		if (warnings.length) {
+			this.logger.warn(`Exclusion compliance warnings caught for "${title}".`);
 			for (const w of warnings) {
-				console.warn('- ' + w);
+				this.logger.output('warn', '\t' + w);
 			}
-			console.groupEnd();
 		}
 
 		// `text` being set means the page has opted out
@@ -4704,6 +4699,7 @@ export class Mwbot {
  */
 export interface MwbotInitOptions extends MwbotOptions {
 	credentials: Credentials;
+	loggerOptions?: LoggerOptions;
 }
 
 /**
@@ -4740,10 +4736,6 @@ export interface MwbotOptions {
 	 * Set an empty array to disable intervals.
 	 */
 	intervalActions?: ApiParamsAction[];
-	/**
-	 * Whether to suppress warnings returned by the API.
-	 */
-	suppressWarnings?: boolean;
 }
 
 /**

@@ -20,6 +20,19 @@ export function TestMwbotFactory(initError = false, errorCount = 1, loginError =
 	let remainingInitErrors = errorCount;
 
 	return class TestMwbot extends Mwbot {
+		/**
+		 * @param {import('../../dist/index.js').MwbotInitOptions} mwbotInitOptions
+		 * @param {import('../../dist/index.js').MwbotRequestConfig} requestOptions
+		 * @override
+		 */
+		constructor(mwbotInitOptions, requestOptions) {
+			mwbotInitOptions.loggerOptions ??= {
+				suppressInfo: true,
+				suppressWarnings: true,
+			};
+
+			super(mwbotInitOptions, requestOptions);
+		}
 
 		/**
 		 * @override
