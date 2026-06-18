@@ -74,7 +74,13 @@ import {
 	ApiResponseUnblock,
 	ApiResponseUndelete,
 } from './api_types.js';
-import { MwbotError, MwbotErrorData } from './MwbotError.js';
+import { formatType, isNonEmptyString } from './helpers.js';
+import {
+	MwbotError,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	MwbotErrorCodes, // Imported only for docs
+	MwbotErrorData,
+} from './MwbotError.js';
 import { Logger, LoggerOptions } from './Logger.js';
 import * as Util from './Util.js';
 const { mergeDeep, cloneDeep, isPlainObject, isObject, sleep, isEmptyObject, arraysEqual } = Util;
@@ -83,10 +89,6 @@ import { TitleFactory, TitleStatic, Title } from './Title.js';
 import { TemplateFactory, TemplateStatic, ParserFunctionStatic, ParsedTemplate } from './Template.js';
 import { WikilinkFactory, WikilinkStatic, FileWikilinkStatic, RawWikilinkStatic } from './Wikilink.js';
 import { WikitextFactory, WikitextStatic, Wikitext } from './Wikitext.js';
-
-// Imported only for docs
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { MwbotErrorCodes } from './MwbotError.js';
 
 /**
  * The core class of the `mwbot-ts` framework. This class provides a robust and extensible interface
@@ -4843,10 +4845,6 @@ export type MwbotCredentials = XOR<
 	}
 >;
 
-function isNonEmptyString(value: unknown): value is string {
-	return typeof value === 'string' && !!value;
-}
-
 /**
  * Configuration options for {@link Mwbot}'s request methods, extending
  * {@link https://axios-http.com/docs/req_config | Axios's request config}.
@@ -4979,22 +4977,6 @@ export interface SiteAndUserInfo {
 	namespaces: ApiResponseQueryMetaSiteinfoNamespaces;
 	namespacealiases: ApiResponseQueryMetaSiteinfoNamespacealiases[];
 	user: Required<Pick<ApiResponseQueryMetaUserinfo, 'id' | 'name' | 'rights'>>;
-}
-
-function formatType(value: unknown): string {
-	if (Array.isArray(value)) return 'array';
-	if (value === null) return 'null';
-
-	// Prioritize primitive types
-	const primitiveType = typeof value;
-	if (primitiveType !== 'object' && primitiveType !== 'function') {
-		return primitiveType;
-	}
-
-	// Return a class name for objects and custom class instances.
-	// Functions are normalized to 'function'.
-	const typeName = value?.constructor?.name || primitiveType;
-	return typeName === 'Function' ? 'function' : typeName;
 }
 
 /**
