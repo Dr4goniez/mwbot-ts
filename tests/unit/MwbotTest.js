@@ -1491,15 +1491,6 @@ describe('Mwbot', function () {
 	});
 
 	describe('preprocessParameters()', function () {
-		/**
-		 * @type {Awaited<ReturnType<typeof getTestMwbot>>}
-		 */
-		let mwbot;
-
-		before(async function () {
-			mwbot = await getTestMwbot('named');
-		});
-
 		it('should properly format arrays, booleans, and Dates', function () {
 			/** @type {Record<string, any>} */
 			const params = {
@@ -1512,7 +1503,7 @@ describe('Mwbot', function () {
 				date: new Date('2026-01-01T00:00:00Z'),
 			};
 			// @ts-expect-error - Protected method
-			const result = mwbot.preprocessParameters(params);
+			const result = Mwbot.preprocessParameters(params);
 
 			assert.strictEqual(params.normal, 'string');
 			assert.strictEqual(params.arr1, 'a|b');
@@ -1532,7 +1523,7 @@ describe('Mwbot', function () {
 				long: 'A'.repeat(8001),
 			};
 			// @ts-expect-error - Protected method
-			const result = mwbot.preprocessParameters(params);
+			const result = Mwbot.preprocessParameters(params);
 
 			assert.isTrue(result.hasLongFields);
 		});

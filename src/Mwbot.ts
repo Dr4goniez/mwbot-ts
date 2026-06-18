@@ -1129,7 +1129,7 @@ export class Mwbot {
 		mergedOptions.headers['User-Agent'] = this.userMwbotOptions.userAgent || mergedOptions.headers['User-Agent'];
 
 		// Normalize API parameters
-		const { length, hasLongFields } = this.preprocessParameters(mergedOptions.params);
+		const { length, hasLongFields } = Mwbot.preprocessParameters(mergedOptions.params);
 
 		// Preprocess the request method
 		mergedOptions.method = String(mergedOptions.method).toUpperCase();
@@ -1161,7 +1161,7 @@ export class Mwbot {
 	 * - `length`: The UTF-8 byte length of the encoded query string.
 	 * - `hasLongFields`: Whether any field value exceeds 8000 characters.
 	 */
-	protected preprocessParameters(parameters: ApiParams): { length: number; hasLongFields: boolean } {
+	protected static preprocessParameters(parameters: ApiParams): { length: number; hasLongFields: boolean } {
 		let hasLongFields = false;
 
 		Object.entries(parameters).forEach(([key, val]) => {
