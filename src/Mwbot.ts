@@ -25,7 +25,7 @@
  * @module
  */
 
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, isAxiosError } from 'axios';
+import axios, { AxiosHeaders, AxiosInstance, AxiosRequestConfig, AxiosResponse, isAxiosError } from 'axios';
 import { CookieJar } from 'tough-cookie';
 import { wrapper } from 'axios-cookiejar-support';
 import FormData from 'form-data';
@@ -74,7 +74,7 @@ import {
 	ApiResponseUnblock,
 	ApiResponseUndelete,
 } from './api_types.js';
-import { formatType, isNonEmptyString } from './helpers.js';
+import { formatType, isNonEmptyString, normalizeHeaders } from './helpers.js';
 import {
 	MwbotError,
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -305,6 +305,7 @@ export class Mwbot {
 	protected constructor(mwbotInitOptions: MwbotInitOptions, requestOptions: MwbotRequestConfig) {
 		const { credentials, loggerOptions, ...options } = cloneDeep(mwbotInitOptions);
 		requestOptions = cloneDeep(requestOptions);
+		normalizeHeaders(requestOptions);
 
 		// Ensure that a valid URL is provided
 		requestOptions.url ||= options.apiUrl;
@@ -661,6 +662,9 @@ export class Mwbot {
 		} else {
 			this.userRequestOptions = cloneDeep(options);
 		}
+
+		normalizeHeaders(this.userRequestOptions);
+
 		return this;
 	}
 
@@ -1096,6 +1100,11 @@ export class Mwbot {
 		) as PartiallyRequired<MwbotRequestConfig, 'params'> & ReadRequestConfig;
 
 		mergedOptions._cloned = true;
+
+		// Normalize after merging. JavaScript preserves string-key insertion order, so
+		// duplicate headers are resolved in favour of requestOptions. Numeric keys are
+		// not valid HTTP header names.
+		normalizeHeaders(mergedOptions);
 
 		if (mergedOptions.params.format !== 'json') {
 			throw new MwbotError('api_mwbot', {
@@ -4860,7 +4869,8 @@ export type MwbotCredentials = XOR<
  * where `userRequestOptions` is the options set by the user with the constructor or the `setRequestOptions`
  * method. Higher-priority options override lower ones if they share the same properties.
  */
-export interface MwbotRequestConfig extends AxiosRequestConfig {
+export interface MwbotRequestConfig extends Omit<AxiosRequestConfig, 'headers'> {
+	headers?: Exclude<AxiosRequestConfig['headers'], AxiosHeaders>;
 	jar?: CookieJar;
 	/**
 	 * Set to `true` when the `requestOptions` object passed to a method is deep-cloned to avoid

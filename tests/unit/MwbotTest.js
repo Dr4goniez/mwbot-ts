@@ -410,6 +410,28 @@ describe('Mwbot', function () {
 			sinon.restore();
 		});
 
+		it('should deep-copy mwbotInitOptions', function () {
+			const mwbotInitOptions = getMwbotInitOptionsBase('named');
+
+			/** @type {Mwbot} */
+			// @ts-expect-error - Protected constructor
+			const mwbot = new Mwbot(mwbotInitOptions, {});
+			mwbotInitOptions.interval = 9999;
+
+			assert.notStrictEqual(mwbot.userMwbotOptions.interval, 9999);
+		});
+
+		it('should deep-copy requestOptions', function () {
+			const requestOptions = { timeout: 9999 };
+
+			/** @type {Mwbot} */
+			// @ts-expect-error - Protected constructor
+			const mwbot = new Mwbot(getMwbotInitOptionsBase('named'), requestOptions);
+			requestOptions.timeout = 7777;
+
+			assert.strictEqual(mwbot.userRequestOptions.timeout, 9999);
+		});
+
 		it('should throw "nourl" error if API endpoint is not provided', async function () {
 			try {
 				const TestMwbot = TestMwbotFactory();
@@ -1349,6 +1371,23 @@ describe('Mwbot', function () {
 
 		afterEach(function () {
 			sinon.restore();
+		});
+
+		it('should normalize and deduplicate request headers', async function () {
+			// @ts-expect-error - Protected method
+			const requestStub = sinon.stub(mwbot, '_request').resolves({
+				batchcomplete: true,
+			});
+			mwbot.userRequestOptions.headers = { 'x-foo': 'bar' };
+			const reqOpts = { headers: { 'X-Foo': 'baz' } };
+			await mwbot.request(
+				{ action: 'query' },
+				reqOpts
+			);
+
+			assert.isTrue(requestStub.calledOnce);
+			assert.strictEqual(requestStub.firstCall.args[0].headers['X-Foo'], 'baz');
+			assert.isUndefined(requestStub.firstCall.args[0].headers['x-foo']);
 		});
 
 		it('should throw "invalidformat" if format is not json', async function () {

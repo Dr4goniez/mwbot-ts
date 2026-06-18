@@ -1,6 +1,6 @@
 import { describe, it } from 'mocha';
 import { assert } from 'chai';
-import { formatType, isNonEmptyString } from '../../dist/build/helpers.js';
+import { formatType, isNonEmptyString, normalizeHeaders } from '../../dist/build/helpers.js';
 
 describe('Helper functions', function () {
 	describe('isNonEmptyString', function () {
@@ -39,6 +39,60 @@ describe('Helper functions', function () {
 		it('should normalize functions', function () {
 			assert.strictEqual(formatType(() => {}), 'function');
 			assert.strictEqual(formatType(function () {}), 'function');
+		});
+	});
+
+	describe('normalizeHeaders', () => {
+		it('should normalize header names', function () {
+			/** @type {import('../../dist/index.js').MwbotRequestConfig} */
+			const options = {
+				headers: {
+					'content-type': 'application/json',
+					user_agent: 'mwbot',
+					Accept: 'application/json',
+				},
+			};
+
+			normalizeHeaders(options);
+
+			assert.deepEqual(options.headers, {
+				'Content-Type': 'application/json',
+				'User-Agent': 'mwbot',
+				Accept: 'application/json',
+			});
+		});
+
+		it('should omit undefined header values', function () {
+			/** @type {import('../../dist/index.js').MwbotRequestConfig} */
+			const options = {
+				headers: {
+					Foo: 'bar',
+					Baz: undefined,
+				},
+			};
+
+			normalizeHeaders(options);
+
+			assert.deepEqual(options.headers, { Foo: 'bar' });
+		});
+
+		it('should do nothing if headers are undefined', function () {
+			const options = {};
+
+			normalizeHeaders(options);
+
+			assert.deepEqual(options, {});
+		});
+
+		it('should replace the headers object', function () {
+			const headers = {
+				foo_bar: 'baz',
+			};
+			const options = { headers };
+
+			normalizeHeaders(options);
+
+			assert.notStrictEqual(options.headers, headers);
 		});
 	});
 });

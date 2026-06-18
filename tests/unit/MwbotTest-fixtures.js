@@ -2195,19 +2195,17 @@ function getFakeSiteAndUserInfo(anonymous) {
  * @returns {import('axios').AxiosResponse}
  */
 export function createAxiosResponse(requestOptions, data) {
-	return {
+	return /** @type {import('axios').AxiosResponse} */ ({
 		status: 200,
 		statusText: 'OK',
-		headers: /** @type {import('axios').AxiosHeaders} */ (
-			requestOptions.headers ?? {}
-		),
-		config: /** @type {import('axios').InternalAxiosRequestConfig} */ ({}),
+		headers: requestOptions.headers ?? {},
+		config: {},
 		data: data !== undefined ? data : {
 			query: {
 				pages: [],
 			},
 		},
-	};
+	});
 }
 
 /**
