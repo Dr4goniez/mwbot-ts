@@ -22,6 +22,10 @@ describe(`Mwbot via ${authMethod} authentication`, function () {
 			mwbot = await Mwbot.init({
 				apiUrl: getApiUrl(domain),
 				credentials,
+				loggerOptions: {
+					suppressInfo: true,
+					suppressWarnings: true,
+				},
 			});
 		} catch (e) {
 			console.error('Failed to initialize Mwbot');
