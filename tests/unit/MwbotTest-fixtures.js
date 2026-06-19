@@ -2263,8 +2263,8 @@ export function createApiErrorResponse(code, info = code, merge) {
  * Mwbot before a request is sent.
  *
  * @param {Mwbot} bot
- * @param {import('../../dist/index.js').MwbotRequestConfig} requestOptions
- * @returns {import('../../dist/index.js').MwbotRequestConfig}
+ * @param {import('../../dist/index.js').MwbotRequestConfig & import('../../dist/index.js').ReadRequestConfig} requestOptions
+ * @returns {import('../../dist/index.js').MwbotRequestConfig & import('../../dist/index.js').ReadRequestConfig}
  */
 export function createRequestOptions(bot, requestOptions = {}) {
 	return Mwbot.Util.mergeDeep(

@@ -1101,12 +1101,29 @@ export class Mwbot {
 
 		mergedOptions._cloned = true;
 
-		// Normalize after merging. JavaScript preserves string-key insertion order, so
-		// duplicate headers are resolved in favour of requestOptions. Numeric keys are
-		// not valid HTTP header names.
-		normalizeHeaders(mergedOptions);
+		return this._request(mergedOptions);
+	}
 
-		if (mergedOptions.params.format !== 'json') {
+	/**
+	 * Prepares an API request for transmission.
+	 *
+	 * This method validates and normalizes the request, determines the HTTP method,
+	 * encodes POST request bodies when necessary, applies authentication, and
+	 * returns a copy of the API parameters for use after request preparation
+	 * (for example, by retry logic).
+	 *
+	 * @param requestOptions The request options to prepare.
+	 * @returns A copy of the finalized API parameters.
+	 */
+	protected async prepareRequest(
+		requestOptions: PartiallyRequired<MwbotRequestConfig, 'params'> & ReadRequestConfig
+	): Promise<ApiParams> {
+		// Normalize after merging in request(). JavaScript preserves string-key insertion order,
+		// so duplicate headers are resolved in favour of requestOptions. Numeric keys are not
+		// valid HTTP header names.
+		normalizeHeaders(requestOptions);
+
+		if (requestOptions.params.format !== 'json') {
 			throw new MwbotError('api_mwbot', {
 				code: 'invalidformat',
 				info: 'Expected "format=json" in request parameters.',
@@ -1115,42 +1132,49 @@ export class Mwbot {
 
 		if (
 			!this.isAnonymous() &&
-			!mergedOptions.disableAssert &&
-			typeof mergedOptions.params.assert !== 'string' &&
-			typeof mergedOptions.params.assertuser !== 'string'
+			!requestOptions.disableAssert &&
+			typeof requestOptions.params.assert !== 'string' &&
+			typeof requestOptions.params.assertuser !== 'string'
 		) {
 			// Enforce { assert: 'user' } for logged-in users
-			mergedOptions.params.assert = 'user';
+			requestOptions.params.assert = 'user';
 		}
 
 		// Merge userMwbotOptions
-		mergedOptions.url = this.userMwbotOptions.apiUrl || mergedOptions.url;
-		mergedOptions.headers ||= {};
-		mergedOptions.headers['User-Agent'] = this.userMwbotOptions.userAgent || mergedOptions.headers['User-Agent'];
+		requestOptions.url = this.userMwbotOptions.apiUrl || requestOptions.url;
+		requestOptions.headers ||= {};
+		requestOptions.headers['User-Agent'] = this.userMwbotOptions.userAgent || requestOptions.headers['User-Agent'];
 
 		// Normalize API parameters
-		const { length, hasLongFields } = Mwbot.preprocessParameters(mergedOptions.params);
+		const { length, hasLongFields } = Mwbot.preprocessParameters(requestOptions.params);
 
 		// Preprocess the request method
-		mergedOptions.method = String(mergedOptions.method).toUpperCase();
-		const autoMethod = mergedOptions.method !== 'POST' && !!mergedOptions.autoMethod;
-		delete mergedOptions.autoMethod;
+		requestOptions.method = String(requestOptions.method).toUpperCase();
+		const autoMethod = requestOptions.method !== 'POST' && !!requestOptions.autoMethod;
+		delete requestOptions.autoMethod;
 		if (autoMethod) {
 			const baseUrl = this.config.get('wgScriptPath') + '/api.php?';
 			const baseUrlLength = new TextEncoder().encode(baseUrl).length;
 			if (length + baseUrlLength > 2084) {
-				mergedOptions.method = 'POST';
+				requestOptions.method = 'POST';
 			}
 		}
-		if (mergedOptions.method === 'POST') {
-			await this.handlePost(mergedOptions, hasLongFields); // Encode params to data
+		if (requestOptions.method === 'POST') {
+			await this.handlePost(requestOptions, hasLongFields); // Encode params to data
 		} else {
-			mergedOptions.method = 'GET';
+			requestOptions.method = 'GET';
 		}
 
-		this.applyAuthentication(mergedOptions);
+		this.applyAuthentication(requestOptions);
 
-		return this._request(mergedOptions);
+		const params = { ...requestOptions.params };
+
+		if (requestOptions.method === 'POST') {
+			// POST requests should not retain API parameters in the query string
+			delete requestOptions.params;
+		}
+
+		return params as ApiParams;
 	}
 
 	/**
@@ -1338,23 +1362,19 @@ export class Mwbot {
 	 * @param attemptCount The number of attempts that have been made so far.
 	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
-	protected async _request(requestOptions: MwbotRequestConfig, attemptCount: number = 0): Promise<ApiResponse> {
+	protected async _request(
+		requestOptions: PartiallyRequired<MwbotRequestConfig, 'params'> & ReadRequestConfig,
+		attemptCount = 0
+	): Promise<ApiResponse> {
+		const params = await this.prepareRequest(requestOptions);
 		attemptCount++;
-
-		// Clone params early since POST requests will delete them from `requestOptions`
-		const clonedParams: ApiParams = { ...requestOptions.params };
-		if (requestOptions.method === 'POST') {
-			// The API throws a "mustpostparams" error if it finds certain parameters in "params", even when "data"
-			// in the request body is well-formed
-			delete requestOptions.params;
-		}
 
 		// Enforce an interval if necessary
 		const {
 			interval,
 			intervalActions = Mwbot.getDefaultIntervalActions(),
 		} = this.userMwbotOptions;
-		const requiresInterval = !!clonedParams.action && intervalActions.includes(clonedParams.action);
+		const requiresInterval = !!params.action && intervalActions.includes(params.action);
 		if (
 			requiresInterval &&
 			this.lastRequestTime !== null &&
@@ -1410,8 +1430,8 @@ export class Mwbot {
 					case 'badtoken':
 					case 'notoken': {
 						this.dieIfAnonymous();
-						if (typeof clonedParams.action === 'string') {
-							return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, 2, {
+						if (typeof params.action === 'string') {
+							return this.retry(mwbotError, attemptCount, params, requestOptions, 2, {
 								sleepSeconds: 0,
 								refreshToken: true,
 							});
@@ -1419,7 +1439,7 @@ export class Mwbot {
 						break;
 					}
 					case 'readonly': {
-						return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, 3);
+						return this.retry(mwbotError, attemptCount, params, requestOptions, 3);
 					}
 					case 'maxlag': {
 						const maxAttempts = 3;
@@ -1446,7 +1466,7 @@ export class Mwbot {
 							retryAfter = Math.max(Math.ceil(lag), retryAfter);
 						}
 
-						return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, maxAttempts, {
+						return this.retry(mwbotError, attemptCount, params, requestOptions, maxAttempts, {
 							sleepSeconds: retryAfter,
 						});
 					}
@@ -1456,8 +1476,8 @@ export class Mwbot {
 							throw mwbotError;
 						}
 
-						const refreshToken = typeof clonedParams.action === 'string' && typeof clonedParams.token === 'string';
-						return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, 2, {
+						const refreshToken = typeof params.action === 'string' && typeof params.token === 'string';
+						return this.retry(mwbotError, attemptCount, params, requestOptions, 2, {
 							sleepSeconds: refreshToken ? 0 : 10,
 							refreshToken,
 							reLogIn: true,
@@ -1467,7 +1487,7 @@ export class Mwbot {
 						// Per https://phabricator.wikimedia.org/T106066, "Nonce already used" indicates
 						// an upstream memcached/redis failure which is transient
 						if (mwbotError.info.includes('Nonce already used')) {
-							return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, 2);
+							return this.retry(mwbotError, attemptCount, params, requestOptions, 2);
 						}
 				}
 				throw mwbotError;
@@ -1514,7 +1534,7 @@ export class Mwbot {
 				if (axiosError.message) {
 					mwbotError.setInfo(axiosError.message.replace(/[.?!]+$/, '') + '.');
 				}
-				return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, 3, { sleepSeconds: retryAfter });
+				return this.retry(mwbotError, attemptCount, params, requestOptions, 3, { sleepSeconds: retryAfter });
 			}
 
 			const status = axiosError?.response?.status ?? axiosError?.status;
@@ -1545,7 +1565,7 @@ export class Mwbot {
 						break;
 					default: throw mwbotError;
 				}
-				return this.retry(mwbotError, attemptCount, clonedParams, requestOptions, 3);
+				return this.retry(mwbotError, attemptCount, params, requestOptions, 3);
 			}
 
 			throw mwbotError;
@@ -1679,8 +1699,6 @@ export class Mwbot {
 			}
 		}
 
-		requestOptions.params = params;
-
 		if (refreshToken) {
 			const action = params.action;
 			if (requestOptions.method !== 'POST' || typeof action !== 'string') {
@@ -1694,19 +1712,15 @@ export class Mwbot {
 			this.badToken(tokenType);
 
 			try {
-				// Mutates requestOptions.params
 				params.token = await this.getToken(tokenType);
 			} catch {
 				throw originalError;
 			}
-
-			await this.handlePost(requestOptions, false);
-			if (this.usingOAuth()) {
-				this.applyAuthentication(requestOptions);
-			}
 		}
 
-		return this._request(requestOptions, attemptCount);
+		requestOptions.params = params;
+
+		return this._request(requestOptions as PartiallyRequired<MwbotRequestConfig, 'params'>, attemptCount);
 	}
 
 	/**

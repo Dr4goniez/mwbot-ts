@@ -1360,6 +1360,44 @@ describe('Mwbot', function () {
 	});
 
 	describe('request()', function () {
+		afterEach(function () {
+			sinon.restore();
+		});
+
+		it('should deep-clone the passed arguments', async function () {
+			const mwbot = await getTestMwbot('named');
+			// @ts-expect-error - Protected method
+			const requestStub = sinon.stub(mwbot, '_request').resolves({
+				batchcomplete: true,
+			});
+			const params = {
+				action: /** @type {const} */ ('query'),
+				titles: ['Foo', 'Bar'],
+			};
+			const requestOptions = {
+				headers: {
+					'X-Foo': 'bar',
+				},
+			};
+
+			const promise =  mwbot.request(params, requestOptions);
+
+			// Mutate the passed arguments
+			params.titles.push('Baz');
+			requestOptions.headers['X-Foo'] = 'baz';
+
+			await promise;
+
+			const passedOptions = requestStub.firstCall.args[0];
+			assert.deepEqual(passedOptions.params.titles, ['Foo', 'Bar']);
+			assert.notStrictEqual(passedOptions.params.titles,	params.titles);
+			assert.strictEqual(passedOptions.headers['X-Foo'], 'bar');
+			assert.notStrictEqual(passedOptions.headers, requestOptions.headers);
+			assert.isTrue(passedOptions._cloned);
+		});
+	});
+
+	describe('prepareRequest()', function () {
 		/**
 		 * @type {Awaited<ReturnType<typeof getTestMwbot>>}
 		 */
@@ -1373,26 +1411,42 @@ describe('Mwbot', function () {
 			sinon.restore();
 		});
 
-		it('should normalize and deduplicate request headers', async function () {
-			// @ts-expect-error - Protected method
-			const requestStub = sinon.stub(mwbot, '_request').resolves({
-				batchcomplete: true,
-			});
-			mwbot.userRequestOptions.headers = { 'x-foo': 'bar' };
-			const reqOpts = { headers: { 'X-Foo': 'baz' } };
-			await mwbot.request(
-				{ action: 'query' },
-				reqOpts
-			);
+		it('should return finalized query parameters', async function () {
+			const reqOpts = createRequestOptions(mwbot);
 
-			assert.isTrue(requestStub.calledOnce);
-			assert.strictEqual(requestStub.firstCall.args[0].headers['X-Foo'], 'baz');
-			assert.isUndefined(requestStub.firstCall.args[0].headers['x-foo']);
+			assert.isObject(reqOpts.params);
+
+			// @ts-expect-error - Protected method
+			const finalizedParams = await mwbot.prepareRequest(reqOpts);
+
+			assert.deepEqual(finalizedParams, reqOpts.params);
+			assert.notStrictEqual(finalizedParams, reqOpts.params);
+		});
+
+		it('should normalize and deduplicate request headers', async function () {
+			const reqOpts = createRequestOptions(mwbot);
+			reqOpts.headers ??={};
+			reqOpts.headers['X-Foo'] = 1;
+			reqOpts.headers['x-foo'] = 2;
+
+			// @ts-expect-error - Protected method
+			await mwbot.prepareRequest(reqOpts);
+
+			assert.strictEqual(reqOpts.headers['X-Foo'], 2);
+			assert.isUndefined(reqOpts.headers['x-foo']);
 		});
 
 		it('should throw "invalidformat" if format is not json', async function () {
+			const reqOpts = {
+				params: {
+					action: 'query',
+					format: 'xml',
+				},
+			};
+
 			try {
-				await mwbot.request({ action: 'query', format: 'xml' });
+				// @ts-expect-error - Protected method
+				await mwbot.prepareRequest(reqOpts);
 				assert.fail('Expected request() to reject');
 			} catch (err) {
 				assert.instanceOf(err, MwbotError);
@@ -1401,92 +1455,133 @@ describe('Mwbot', function () {
 		});
 
 		it('should enforce assert=user for authenticated users', async function () {
-			// @ts-expect-error - Protected method
-			const requestStub = sinon.stub(mwbot, '_request').resolves({
-				batchcomplete: true,
-			});
-			await mwbot.request({ action: 'query' });
+			const reqOpts = createRequestOptions(mwbot);
 
-			assert.strictEqual(requestStub.firstCall.args[0].params.assert, 'user');
+			assert.isObject(reqOpts.params);
+			assert.isUndefined(reqOpts.params.assert);
+
+			// @ts-expect-error - Protected method
+			const finalizedParams = await mwbot.prepareRequest(reqOpts);
+
+			assert.strictEqual(finalizedParams.assert, 'user');
 		});
 
 		it('should not enforce assert=user when disableAssert is true', async function () {
-			// @ts-expect-error - Protected method
-			const requestStub = sinon.stub(mwbot, '_request').resolves({
-				batchcomplete: true,
-			});
-			await mwbot.request(
-				{ action: 'query' },
-				{ disableAssert: true }
-			);
+			const reqOpts = createRequestOptions(mwbot, { disableAssert: true });
 
-			assert.isUndefined(requestStub.firstCall.args[0].params.assert);
+			assert.isObject(reqOpts.params);
+			assert.isUndefined(reqOpts.params.assert);
+
+			// @ts-expect-error - Protected method
+			const finalizedParams = await mwbot.prepareRequest(reqOpts);
+
+			assert.isUndefined(finalizedParams.assert);
 		});
 
 		it('should not enforce assert=user when assertuser is already provided', async function () {
-			// @ts-expect-error - Protected method
-			const requestStub = sinon.stub(mwbot, '_request').resolves({
-				batchcomplete: true,
-			});
-			await mwbot.request({
-				action: 'query',
-				assertuser: 'Example',
+			const reqOpts = createRequestOptions(mwbot, {
+				params: { assertuser: 'Admin' },
 			});
 
-			assert.isUndefined(requestStub.firstCall.args[0].params.assert);
-			assert.strictEqual(requestStub.firstCall.args[0].params.assertuser, 'Example');
+			assert.isObject(reqOpts.params);
+			assert.isUndefined(reqOpts.params.assert);
+
+			// @ts-expect-error - Protected method
+			const finalizedParams = await mwbot.prepareRequest(reqOpts);
+
+			assert.isUndefined(finalizedParams.assert);
+			assert.strictEqual(finalizedParams.assertuser, 'Admin');
 		});
 
 		it('should not override an existing assert parameter', async function () {
-			// @ts-expect-error - Protected method
-			const requestStub = sinon.stub(mwbot, '_request').resolves({
-				batchcomplete: true,
-			});
-			await mwbot.request({
-				action: 'query',
-				assert: 'bot',
+			const reqOpts = createRequestOptions(mwbot, {
+				params: { assert: 'bot' },
 			});
 
-			assert.strictEqual(requestStub.firstCall.args[0].params.assert, 'bot');
+			assert.isObject(reqOpts.params);
+			assert.strictEqual(reqOpts.params.assert, 'bot');
+
+			// @ts-expect-error - Protected method
+			const finalizedParams = await mwbot.prepareRequest(reqOpts);
+
+			assert.strictEqual(finalizedParams.assert, 'bot');
 		});
 
 		it('should merge apiUrl and user agent from userMwbotOptions', async function () {
-			// @ts-expect-error - Protected method
-			const requestStub = sinon.stub(mwbot, '_request').resolves({
-				batchcomplete: true,
+			const reqOpts = createRequestOptions(mwbot, {
+				headers: {
+					'user-agent': 'Foo',
+				},
 			});
-			await mwbot.request({ action: 'query' });
+			delete reqOpts.url;
+			delete reqOpts.headers?.['User-Agent'];
+			sinon.stub(mwbot, 'userMwbotOptions').value({
+				apiUrl: 'API_URL',
+				// @ts-expect-error - Protected property
+				credentials: mwbot.credentials,
+				userAgent: 'USER_AGENT',
+			});
 
-			const opts = requestStub.firstCall.args[0];
-			assert.strictEqual(
-				opts.url,
-				mwbot.userMwbotOptions.apiUrl
-			);
-			assert.strictEqual(
-				opts.headers['User-Agent'],
-				mwbot.userMwbotOptions.userAgent ?? Mwbot.getDefaultRequestOptions().headers['User-Agent']
-			);
+			assert.strictEqual(reqOpts.headers?.['user-agent'], 'Foo');
+
+			// @ts-expect-error - Protected method
+			await mwbot.prepareRequest(reqOpts);
+
+			assert.strictEqual(reqOpts.url, 'API_URL');
+			assert.strictEqual(reqOpts.headers?.['User-Agent'], 'USER_AGENT');
+			assert.isUndefined(reqOpts.headers?.['user-agent']);
 		});
 
-		it('should pass a cloned request options object to _request', async function () {
-			// @ts-expect-error - Protected method
-			const requestStub = sinon.stub(mwbot, '_request').resolves({
-				batchcomplete: true,
-			});
-			const requestOptions = {
-				headers: {
-					Foo: 'Bar',
+		it('should switch to POST when autoMethod is true and parameters are long', async function () {
+			const reqOpts = createRequestOptions(mwbot, {
+				method: 'GET',
+				params: {
+					titles: 'a'.repeat(2100),
 				},
-			};
-			await mwbot.request(
-				{ action: 'query' },
-				requestOptions
-			);
+				autoMethod: true,
+			});
 
-			requestStub.firstCall.args[0].headers.Foo = 'Baz';
+			// @ts-expect-error - Protected method
+			await mwbot.prepareRequest(reqOpts);
 
-			assert.strictEqual(requestOptions.headers.Foo, 'Bar');
-			assert.isTrue(requestStub.firstCall.args[0]._cloned);
+			assert.strictEqual(reqOpts.method, 'POST');
+			assert.isUndefined(reqOpts.autoMethod);
+		});
+
+		it('should call applyAuthentication()', async function () {
+			// @ts-expect-error - Protected method
+			const authSpy = sinon.spy(mwbot, 'applyAuthentication');
+			const reqOpts = createRequestOptions(mwbot);
+
+			// @ts-expect-error - Protected method
+			await mwbot.prepareRequest(reqOpts);
+
+			assert.isTrue(authSpy.calledOnce);
+		});
+
+		it('should preserve query parameters for GET requests', async function () {
+			const reqOpts = createRequestOptions(mwbot, {
+				method: 'GET',
+			});
+
+			// @ts-expect-error - Protected method
+			await mwbot.prepareRequest(reqOpts);
+
+			assert.exists(reqOpts.params);
+			assert.isUndefined(reqOpts.data);
+		});
+
+		it('should set the request body and delete query parameters for POST requests', async function () {
+			const reqOpts = createRequestOptions(mwbot, {
+				method: 'POST',
+			});
+
+			// @ts-expect-error - Protected method
+			await mwbot.prepareRequest(reqOpts);
+
+			assert.instanceOf(reqOpts.data, URLSearchParams);
+			assert.include(reqOpts.data.toString(), 'action=query');
+			assert.isUndefined(reqOpts.params);
 		});
 	});
 
@@ -2907,7 +3002,7 @@ describe('Mwbot', function () {
 			}
 		});
 
-		it('should refresh the token and invoke handlePost and applyAuthentication before retrying', async function () {
+		it('should refresh the token when getToken() succeeds', async function () {
 			const params = createParams({
 				action: 'edit',
 				token: 'oldToken',
@@ -2919,12 +3014,6 @@ describe('Mwbot', function () {
 			const getTokenTypeStub = sinon.stub(mwbot, 'getTokenType').returns('csrf');
 			const badTokenStub = sinon.stub(mwbot, 'badToken');
 			const getTokenStub = sinon.stub(mwbot, 'getToken').resolves('newToken');
-			// @ts-expect-error - Protected method
-			const handlePostStub = sinon.stub(mwbot, 'handlePost').resolves();
-			// @ts-expect-error - Protected method
-			sinon.stub(mwbot, 'usingOAuth').returns(true);
-			// @ts-expect-error - Protected method
-			const applyAuthenticationStub = sinon.stub(mwbot, 'applyAuthentication').returns();
 			const expectedResponse = { edit: { result: /** @type {const} */ ('Success') } };
 			// @ts-expect-error - Protected method
 			const requestStub = sinon.stub(mwbot, '_request').resolves(expectedResponse);
@@ -2944,13 +3033,9 @@ describe('Mwbot', function () {
 			);
 			assert.isTrue(badTokenStub.calledOnceWithExactly('csrf'));
 			assert.isTrue(getTokenStub.calledOnceWithExactly('csrf'));
-			assert.isTrue(handlePostStub.calledOnce);
-			assert.isTrue(applyAuthenticationStub.calledOnce);
 
 			assert.isTrue(getTokenTypeStub.calledBefore(getTokenStub));
-			assert.isTrue(getTokenStub.calledBefore(handlePostStub));
-			assert.isTrue(handlePostStub.calledBefore(requestStub));
-			assert.isTrue(applyAuthenticationStub.calledBefore(requestStub));
+			assert.isTrue(getTokenStub.calledBefore(requestStub));
 		});
 	});
 
