@@ -1844,8 +1844,11 @@ export class Mwbot {
 		options: { rejectProof?: boolean; limit?: number; multiValues?: string | string[] } = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<(ApiResponse | MwbotError)[]> {
-
-		const { rejectProof = false, limit = 10, multiValues } = options;
+		const {
+			rejectProof = false,
+			limit = 10,
+			multiValues,
+		} = options;
 
 		// Validate limit
 		if ((!Number.isInteger(limit) && limit !== Infinity) || limit <= 0) {
@@ -1861,7 +1864,9 @@ export class Mwbot {
 		if (multiValues) {
 			multiKeys = Array.isArray(multiValues) ? multiValues : [multiValues];
 			batchArray = this.createBatchArray(parameters, multiKeys);
-			if (!batchArray.length) return [];
+			if (!batchArray.length) {
+				return [];
+			}
 		}
 
 		const request = async (params: ApiParams): Promise<(ApiResponse | MwbotError)[]> => {
@@ -1873,7 +1878,9 @@ export class Mwbot {
 					const res = await this.fetch(currentParams, requestOptions);
 					ret.push(res);
 					count++;
-					if (!res.continue) break;
+					if (!res.continue) {
+						break;
+					}
 					currentParams = { ...currentParams, ...res.continue };
 				}
 				return ret;
@@ -1888,20 +1895,20 @@ export class Mwbot {
 
 		// Send API requests
 		const promise: Promise<(ApiResponse | MwbotError)[]>[] = [];
+
 		if (batchArray) {
 			for (const multiValues of batchArray) {
-				const batchString = multiValues.join('|');
 				const batchParams: ApiParams = {
 					...parameters,
-					...Object.fromEntries(multiKeys.map(k => [k, batchString])),
+					...Object.fromEntries(multiKeys.map(k => [k, multiValues])),
 				};
 				promise.push(request(batchParams));
 			}
 		} else {
 			promise.push(request(parameters));
 		}
-		return (await Promise.all(promise)).flat();
 
+		return (await Promise.all(promise)).flat();
 	}
 
 	/**
@@ -1941,7 +1948,6 @@ export class Mwbot {
 		batchSize?: number,
 		requestOptions?: MwbotRequestConfig
 	): Promise<(ApiResponse | MwbotError)[]> {
-
 		// Create batch array
 		keys = Array.isArray(keys) ? keys : [keys];
 		const batchArray = this.createBatchArray(parameters, keys, batchSize);
@@ -1952,10 +1958,9 @@ export class Mwbot {
 		// Prepare API batches
 		const batchParams: ApiParams[] = [];
 		for (const multiValues of batchArray) {
-			const batchArrayStr = multiValues.join('|');
 			batchParams.push({
 				...parameters,
-				...Object.fromEntries(keys.map((key) => [key, batchArrayStr])),
+				...Object.fromEntries(keys.map((key) => [key, multiValues])),
 			});
 		}
 
@@ -1979,7 +1984,6 @@ export class Mwbot {
 			results.push(...batchResults);
 		}
 		return results;
-
 	}
 
 	/**
