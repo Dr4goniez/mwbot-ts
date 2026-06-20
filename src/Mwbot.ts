@@ -440,16 +440,6 @@ export class Mwbot {
 	}
 
 	/**
-	 * Checks whether the client is configured to use OAuth (v1 or v2).
-	 *
-	 * @returns `true` if either `oauth1` or `oauth2` credentials are set; otherwise, `false`.
-	 */
-	protected usingOAuth(): boolean {
-		const { oauth2, oauth1 } = this.credentials;
-		return !!(oauth2 || oauth1);
-	}
-
-	/**
 	 * Initializes a new `Mwbot` instance.
 	 *
 	 * This static factory method should always be used to create instances of `Mwbot` or its subclasses.
@@ -669,21 +659,13 @@ export class Mwbot {
 	}
 
 	/**
-	 * Constructs a standard API request parameter object for a given MediaWiki API action.
+	 * Checks whether the client is configured to use OAuth (v1 or v2).
 	 *
-	 * @param action The API action name (e.g., 'query', 'edit', etc.).
-	 * @returns An object containing the action name along with fixed `format` and `formatversion` values.
+	 * @returns `true` if either `oauth1` or `oauth2` credentials are set; otherwise, `false`.
 	 */
-	static getActionParams(action: ApiParamsAction): {
-		action: ApiParamsAction;
-		format: 'json';
-		formatversion: '2';
-	} {
-		return {
-			action,
-			format: 'json',
-			formatversion: '2',
-		};
+	protected usingOAuth(): boolean {
+		const { oauth2, oauth1 } = this.credentials;
+		return !!(oauth2 || oauth1);
 	}
 
 	/**
@@ -1739,6 +1721,24 @@ export class Mwbot {
 		requestOptions.params = params;
 
 		return this._request(requestOptions as PartiallyRequired<MwbotRequestConfig, 'params'>, attemptCount);
+	}
+
+	/**
+	 * Constructs a standard API request parameter object for a given MediaWiki API action.
+	 *
+	 * @param action The API action name (e.g., 'query', 'edit', etc.).
+	 * @returns An object containing the action name along with fixed `format` and `formatversion` values.
+	 */
+	static getActionParams(action: ApiParamsAction): {
+		action: ApiParamsAction;
+		format: 'json';
+		formatversion: '2';
+	} {
+		return {
+			action,
+			format: 'json',
+			formatversion: '2',
+		};
 	}
 
 	/**
