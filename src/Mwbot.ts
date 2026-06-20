@@ -2522,10 +2522,10 @@ export class Mwbot {
 		/** @hidden @private */
 		retry?: number
 	): Promise<ApiResponseEditSuccess> {
-
 		if (typeof transform !== 'function') {
 			Mwbot.dieWithTypeError('function', 'transform', transform);
 		}
+
 		// Prevent the client from manupilating the private parameter
 		retry = [0, 1, 2, 3].includes(retry as any) ? retry as number : 0;
 
@@ -2576,15 +2576,17 @@ export class Mwbot {
 		const result = await this.postWithCsrfToken(parameters, requestOptions).catch((err: MwbotError) => err);
 		const { disableRetry, disableRetryAPI, disableRetryByCode } = requestOptions;
 		if (
-			result instanceof MwbotError && result.code === 'editconflict' &&
+			result instanceof MwbotError &&
+			result.code === 'editconflict' &&
 			retry < 3 &&
-			!disableRetry && !disableRetryAPI &&
-			!disableRetryByCode?.some((code) => code === 'editconflict')
+			!disableRetry &&
+			!disableRetryAPI &&
+			!disableRetryByCode?.includes('editconflict')
 		) {
 			this.logger.error(result);
 			this.logger.warn('Encountered an edit conflict. Retrying in 5 seconds...');
 			await sleep(5000);
-			return await this.edit(title, transform, editRequestOptions, retry + 1);
+			return this.edit(title, transform, editRequestOptions, retry + 1);
 		}
 		if (result instanceof MwbotError) {
 			throw result;
@@ -2596,7 +2598,53 @@ export class Mwbot {
 			code: 'editfailed',
 			info: 'Edit failed.',
 		}, { response: result });
+	}
 
+	/**
+	 * Posts a new section to the given page.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'edit',
+	 *   format: 'json',
+	 *   formatversion: '2',
+	 *   // `token` is automatically appended
+	 * }
+	 * ```
+	 *
+	 * Default parameters (can be overridden):
+	 * ```
+	 * {
+	 *   title: title,
+	 *   section: 'new',
+	 *   sectiontitle: sectiontitle,
+	 *   text: content,
+	 *   summary: summary,
+	 *   bot: true
+	 * }
+	 * ```
+	 *
+	 * @param title The title of the page to edit.
+	 * @param sectiontitle The section title.
+	 * @param content The content of the new section.
+	 * @param summary An optional edit summary. If not provided, the API generates one automatically.
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Edit | `action=edit`}.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the `response.edit` object (where the `result` property is guaranteed
+	 * to be `'Success'`), or rejecting with an error.
+	 */
+	async newSection(
+		title: string | Title,
+		sectiontitle: string,
+		content: string,
+		summary?: string,
+		additionalParams: ApiParamsActionEdit = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<ApiResponseEditSuccess> {
+		return this._save(this.validateTitle(title), content, summary, { section: 'new', sectiontitle }, additionalParams, requestOptions);
 	}
 
 	/**
@@ -2755,53 +2803,6 @@ export class Mwbot {
 			}, { title });
 		}
 
-	}
-
-	/**
-	 * Posts a new section to the given page.
-	 *
-	 * Enforced parameters:
-	 * ```
-	 * {
-	 *   action: 'edit',
-	 *   format: 'json',
-	 *   formatversion: '2',
-	 *   // `token` is automatically appended
-	 * }
-	 * ```
-	 *
-	 * Default parameters (can be overridden):
-	 * ```
-	 * {
-	 *   title: title,
-	 *   section: 'new',
-	 *   sectiontitle: sectiontitle,
-	 *   text: content,
-	 *   summary: summary,
-	 *   bot: true
-	 * }
-	 * ```
-	 *
-	 * @param title The title of the page to edit.
-	 * @param sectiontitle The section title.
-	 * @param content The content of the new section.
-	 * @param summary An optional edit summary. If not provided, the API generates one automatically.
-	 * @param additionalParams
-	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Edit | `action=edit`}.
-	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
-	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the `response.edit` object (where the `result` property is guaranteed
-	 * to be `'Success'`), or rejecting with an error.
-	 */
-	async newSection(
-		title: string | Title,
-		sectiontitle: string,
-		content: string,
-		summary?: string,
-		additionalParams: ApiParamsActionEdit = {},
-		requestOptions?: MwbotRequestConfig
-	): Promise<ApiResponseEditSuccess> {
-		return this._save(this.validateTitle(title), content, summary, { section: 'new', sectiontitle }, additionalParams, requestOptions);
 	}
 
 	// ****************************** OPTION-RELATED REQUEST METHODS ******************************

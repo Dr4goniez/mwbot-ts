@@ -8,6 +8,7 @@ import { testMwbotRequest } from './MwbotTest-request.js';
 import { testMwbotRequestHelpers } from './MwbotTest-request-helpers.js';
 import { testMwbotRequestBatch } from './MwbotTest-request-batch.js';
 import { testMwbotRequestToken } from './MwbotTest-request-token.js';
+import { testMwbotEdit } from './MwbotTest-edit.js';
 
 describe('Mwbot', function () {
 	testMwbotProperties();
@@ -19,4 +20,5 @@ describe('Mwbot', function () {
 	testMwbotRequestHelpers();
 	testMwbotRequestBatch();
 	testMwbotRequestToken();
+	testMwbotEdit();
 });
