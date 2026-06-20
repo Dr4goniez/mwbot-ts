@@ -669,6 +669,24 @@ export class Mwbot {
 	}
 
 	/**
+	 * Constructs a standard API request parameter object for a given MediaWiki API action.
+	 *
+	 * @param action The API action name (e.g., 'query', 'edit', etc.).
+	 * @returns An object containing the action name along with fixed `format` and `formatversion` values.
+	 */
+	static getActionParams(action: ApiParamsAction): {
+		action: ApiParamsAction;
+		format: 'json';
+		formatversion: '2';
+	} {
+		return {
+			action,
+			format: 'json',
+			formatversion: '2',
+		};
+	}
+
+	/**
 	 * Returns the user's API limit for multi-value requests.
 	 *
 	 * @returns `500` for users with the `apihighlimits` permission; otherwise, `50`.
@@ -2057,33 +2075,6 @@ export class Mwbot {
 			batchArray.push(batchValues!.slice(i, i + batchSize));
 		}
 		return batchArray;
-	}
-
-	/**
-	 * Constructs a standard API request parameter object for a given MediaWiki API action.
-	 *
-	 * The returned object includes:
-	 * ```ts
-	 * {
-	 *   action: action,
-	 *   format: 'json',
-	 *   formatversion: '2'
-	 * }
-	 * ```
-	 *
-	 * @param action The API action name (e.g., 'query', 'edit', etc.).
-	 * @returns An object containing the action name along with fixed `format` and `formatversion` values.
-	 */
-	static getActionParams(action: ApiParamsAction): {
-		action: ApiParamsAction;
-		format: 'json';
-		formatversion: '2';
-	} {
-		return {
-			action,
-			format: 'json',
-			formatversion: '2',
-		};
 	}
 
 	// ****************************** TOKEN-RELATED METHODS ******************************

@@ -3833,4 +3833,17 @@ describe('Mwbot', function () {
 			});
 		});
 	});
+
+	describe('getActionParams()', function () {
+		it('should return an object with the given action and fixed format and formatversion', function () {
+			assert.deepEqual(
+				Mwbot.getActionParams('query'),
+				{
+					action: 'query',
+					format: 'json',
+					formatversion: '2',
+				}
+			);
+		});
+	});
 });
