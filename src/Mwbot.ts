@@ -2106,27 +2106,37 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponse> {
 		this.dieIfAnonymous();
+
+		parameters = cloneDeep(parameters);
 		const assertParams = {
 			assert: parameters.assert,
 			assertuser: parameters.assertuser,
 		};
 		parameters.token = await this.getToken(tokenType, assertParams);
+
 		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		requestOptions.disableRetryByCode = ['badtoken'];
-		delete requestOptions._cloned; // Let post() handle mutation prevention
-		const err = await this.post(parameters, requestOptions).catch((err: MwbotError) => err);
-		if (!(err instanceof MwbotError)) {
-			return err; // Success
+
+		const result = await this.post(parameters, requestOptions).catch((err: MwbotError) => err);
+		if (!(result instanceof MwbotError)) {
+			return result; // Success
 		}
-		// Error handler
-		if (err.code === 'badtoken') {
+
+		if (result.code === 'badtoken') {
+			// Retry once on a badtoken error
 			this.badToken(tokenType);
-			// Try again, once
-			parameters.token = await this.getToken(tokenType, assertParams);
-			requestOptions._cloned = true; // requestOptions won't be reused; prevent redundant cloning
+
+			try {
+				parameters.token = await this.getToken(tokenType, assertParams);
+			} catch {
+				// Rethrow the original error on token-fetch failure
+				throw result;
+			}
+
 			return this.post(parameters, requestOptions);
 		}
-		throw err;
+
+		throw result;
 	}
 
 	/**
@@ -2157,7 +2167,6 @@ export class Mwbot {
 		additionalParams?: ApiParams | 'user' | 'bot' | 'anon',
 		requestOptions?: MwbotRequestConfig
 	): Promise<string> {
-
 		// Check for a cached token
 		tokenType = Mwbot.mapLegacyToken(tokenType);
 		const tokenName = `${tokenType}token`;
@@ -2167,15 +2176,22 @@ export class Mwbot {
 		}
 
 		// Send an API request
+		let assertParam;
 		if (typeof additionalParams === 'string') {
-			additionalParams = { assert: additionalParams };
+			assertParam = { assert: additionalParams };
+			additionalParams = {};
+		} else {
+			assertParam = {};
 		}
+
 		const response = await this.get({
 			...additionalParams,
+			... assertParam,
 			...Mwbot.getActionParams('query'),
 			meta: 'tokens',
 			type: '*',
 		}, requestOptions);
+
 		const tokenMap = response.query?.tokens;
 		if (tokenMap && isEmptyObject(tokenMap) === false) {
 			this.tokens = tokenMap; // Update cashed tokens
