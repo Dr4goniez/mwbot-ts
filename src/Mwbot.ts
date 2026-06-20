@@ -2001,7 +2001,6 @@ export class Mwbot {
 	 * - Any element in `keys` is not a string. (`typemismatch`)
 	 * - The corresponding `parameters[key]` is not an array. (`typemismatch`)
 	 * - The arrays for multiple fields are not identical. (`fieldmismatch`)
-	 * - No valid multi-value fields are found. (`nofields`)
 	 * - `batchSize` is invalid. (`invalidsize`)
 	 */
 	protected createBatchArray(
@@ -2009,7 +2008,6 @@ export class Mwbot {
 		keys: string[],
 		batchSize?: number
 	): string[][] {
-
 		// Validadate the batch size
 		const apilimit = this.apilimit;
 		if (typeof batchSize === 'number') {
@@ -2049,19 +2047,12 @@ export class Mwbot {
 				});
 			}
 		}
-		if (!batchValues) {
-			throw new MwbotError('fatal', {
-				code: 'nofields',
-				info: 'No multi-value fields were found.',
-			});
-		}
 
 		const batchArray: string[][] = [];
-		for (let i = 0; i < batchValues.length; i += batchSize) {
-			batchArray.push(batchValues.slice(i, i + batchSize));
+		for (let i = 0; i < batchValues!.length; i += batchSize) {
+			batchArray.push(batchValues!.slice(i, i + batchSize));
 		}
 		return batchArray;
-
 	}
 
 	/**

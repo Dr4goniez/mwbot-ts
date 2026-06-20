@@ -234,7 +234,6 @@ export interface MwbotErrorCodes {
 		// Used in Mwbot.createBatchArray
 		invalidsize: 'The "batchSize" argument for massRequest() or continuedRequest() is invalid.';
 		fieldmismatch: 'API parameters passed to massRequest() or continuedRequest() involve unmatching multi-value fields.';
-		nofields: 'No multi-value fields are provided for massRequest() or continuedRequest().';
 		// Used in Mwbot.continuedRequest
 		invalidlimit: 'The "limit" argument for continuedRequest() is invalid.';
 		// Used in Wikitext.modify
