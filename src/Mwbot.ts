@@ -2870,42 +2870,12 @@ export class Mwbot {
 	 * @returns A Promise resolving to a Map or an object of Maps, depending on `gprprop`.
 	 * @throws {MwbotError} If not logged in or required properties are missing.
 	 */
-	protected async _getGlobalPreferences(
-		gprprop: ['preferences', 'localoverrides'],
-		additionalParams?: ApiParams,
-		requestOptions?: MwbotRequestConfig
-	): Promise<{
-		preferences: Map<string, string>;
-		localoverrides: Map<string, OptionPrimitive>;
-	}>;
-	protected async _getGlobalPreferences(
-		gprprop: ['preferences'],
-		additionalParams?: ApiParams,
-		requestOptions?: MwbotRequestConfig
-	): Promise<Map<string, string>>;
-	protected async _getGlobalPreferences(
-		gprprop: ['localoverrides'],
-		additionalParams?: ApiParams,
-		requestOptions?: MwbotRequestConfig
-	): Promise<Map<string, OptionPrimitive>>;
-	protected async _getGlobalPreferences(
-		gprprop: ('preferences' | 'localoverrides')[],
+	protected async _getGlobalPreferences<T extends readonly GlobalPreferencesProp[]>(
+		gprprop: T,
 		additionalParams: ApiParams = {},
 		requestOptions?: MwbotRequestConfig
-	): Promise<any> {
+	): Promise<GlobalPreferencesResult<T>> {
 		this.dieIfAnonymous();
-
-		// Validate gprprop
-		if (
-			gprprop.length === 0 ||
-			gprprop.length > 2 ||
-			!gprprop.every(p => p === 'preferences' || p === 'localoverrides')
-		) {
-			throw new MwbotError('fatal', {
-				code: 'internal',
-				info: `Invalid "gprprop": ${JSON.stringify(gprprop)}`,
-			});
-		}
 
 		const response = await this.get({
 			...additionalParams,
@@ -2914,35 +2884,20 @@ export class Mwbot {
 			gprprop: gprprop.join('|'),
 		}, requestOptions);
 
-		const path = 'response.query.globalpreferences';
-		const gp = response.query?.globalpreferences;
-		if (!gp) {
-			Mwbot.dieAsEmpty(true, `missing "${path}"`, { response });
-		}
+		const globalpreferences = response.query?.globalpreferences;
+		const result: Record<GlobalPreferencesProp, Map<string, any>> = Object.create(null);
 
-		// Helper to wrap object in Map, ensuring type safety
-		const toMap = <T extends string | OptionPrimitive>(obj: Record<string, T>): Map<string, T> =>
-			new Map(Object.entries(obj));
-
-		// Both properties requested
-		if (gprprop.length === 2) {
-			const { preferences, localoverrides } = gp;
-			if (!preferences || !localoverrides) {
-				Mwbot.dieAsEmpty(true, `missing "preferences" and/or "localoverrides" in "${path}"`, { response });
+		for (const prop of gprprop) {
+			const data = globalpreferences?.[prop];
+			if (!data) {
+				Mwbot.dieAsEmpty(true, `missing "response.query.globalpreferences"`, { response });
 			}
-			return {
-				preferences: toMap(preferences),
-				localoverrides: toMap(localoverrides),
-			};
+			result[prop] = new Map(Object.entries(data!));
 		}
 
-		// Single property requested
-		const prop = gprprop[0];
-		const data = gp[prop];
-		if (!data) {
-			Mwbot.dieAsEmpty(true, `missing "${prop}" in "${path}"`, { response });
-		}
-		return toMap(data);
+		return (
+			gprprop.length === 1 ? result[gprprop[0]] : result
+		) as GlobalPreferencesResult<T>;
 	}
 
 	/**
@@ -2992,7 +2947,7 @@ export class Mwbot {
 		additionalParams: ApiParams = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<Map<string, string>> {
-		return this._getGlobalPreferences(['preferences'], additionalParams, requestOptions);
+		return this._getGlobalPreferences(['preferences'] as const, additionalParams, requestOptions);
 	}
 
 	/**
@@ -3028,7 +2983,7 @@ export class Mwbot {
 		additionalParams: ApiParams = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<Map<string, OptionPrimitive>> {
-		return this._getGlobalPreferences(['localoverrides'], additionalParams, requestOptions);
+		return this._getGlobalPreferences(['localoverrides'] as const, additionalParams, requestOptions);
 	}
 
 	/**
@@ -5174,6 +5129,28 @@ export type TransformationPredicate =
 export interface ApiResponseEditSuccess extends Omit<ApiResponseEdit, 'result'> {
 	result: 'Success';
 }
+
+/**
+ * Part of the method signature for {@link _getGlobalPreferences}.
+ * @private
+ */
+export type GlobalPreferencesProp = 'preferences' | 'localoverrides';
+
+/**
+ * Method signature for {@link _getGlobalPreferences}.
+ * @private
+ */
+export type GlobalPreferencesResult<T extends readonly GlobalPreferencesProp[]> =
+	T extends readonly [infer P]
+		? P extends 'preferences'
+			? Map<string, string>
+			: Map<string, OptionPrimitive>
+		: {
+			[K in T[number]]:
+			K extends 'preferences'
+				? Map<string, string>
+				: Map<string, OptionPrimitive>;
+		};
 
 /**
  * A function that checks whether a given title exists.
