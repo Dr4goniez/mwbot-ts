@@ -72,7 +72,7 @@ export function testMwbotWriteRequests(getMwbot, _testDomain, authMethod) {
 				const res = await mwbot.saveOption(key, value);
 
 				if (isAnon) {
-					assert.fail('Expected action=options to fail for anonymous users', String(res));
+					assert.fail('Expected action=options to fail for anonymous users');
 				} else {
 					assert.deepInclude(res, {
 						options: 'success',
