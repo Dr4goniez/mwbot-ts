@@ -1,10 +1,6 @@
 import { describe, it, before, beforeEach, afterEach } from 'mocha';
 import { assert } from 'chai';
-import {
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	Mwbot, // Type import
-	MwbotError,
-} from '../../dist/index.js';
+import { Mwbot,  MwbotError } from '../../dist/index.js';
 import { getTestMwbot } from './MwbotTest-fixtures.js';
 import sinon from 'sinon';
 
@@ -135,11 +131,10 @@ export function testMwbotOptions() {
 
 					await mwbot.getOption('foo', additionalParams, requestOptions);
 
-					assert.isTrue(
-						getOptionsStub.calledOnceWithExactly(
-							additionalParams,
-							requestOptions
-						)
+					sinon.assert.calledOnceWithExactly(
+						getOptionsStub,
+						additionalParams,
+						requestOptions
 					);
 				});
 			});
@@ -173,7 +168,7 @@ export function testMwbotOptions() {
 			};
 
 			describe('_getGlobalPreferences()', function () {
-				it('should throw "anonymous" error if the client is anonymous', async function() {
+				it('should throw "anonymous" error if the client is anonymous', async function () {
 					// @ts-expect-error - Protected method
 					sinon.stub(mwbot, 'isAnonymous').returns(true);
 
@@ -422,6 +417,485 @@ export function testMwbotOptions() {
 					getStub.resolves(createApiResponse({}, {}));
 
 					assert.isUndefined(await mwbot.getGlobalOptionOverride('foo'));
+				});
+			});
+		});
+
+		describe('Option setters', function () {
+			describe('_saveOptions()', function () {
+				/**
+				 * @type {sinon.SinonStub}
+				 */
+				let postWithCsrfTokenStub;
+
+				beforeEach(function () {
+					postWithCsrfTokenStub = sinon.stub(mwbot, 'postWithCsrfToken');
+				});
+
+				it('should throw "anonymous" error if the client is anonymous', async function () {
+					// @ts-expect-error - Protected method
+					sinon.stub(mwbot, 'isAnonymous').returns(true);
+
+					try {
+						// @ts-expect-error - Protected method
+						await mwbot._saveOptions('options', { foo: 'bar' });
+						assert.fail('Expected _saveOptions() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'anonymous');
+					}
+				});
+
+				it('should throw "emptyinput" error if "options" is an empty object', async function () {
+					try {
+						// @ts-expect-error - Protected method
+						await mwbot._saveOptions('options', {});
+						assert.fail('Expected _saveOptions() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'emptyinput');
+					}
+				});
+
+				it('should throw "emptyinput" error if "options" is an empty Map', async function () {
+					try {
+						// @ts-expect-error - Protected method
+						await mwbot._saveOptions('options', new Map());
+						assert.fail('Expected _saveOptions() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'emptyinput');
+					}
+				});
+
+				it('should throw "typemismatch" error if the "options" argument is neither a plain object nor a Map', async function () {
+					try {
+						// @ts-expect-error - Protected method
+						await mwbot._saveOptions('options', 1);
+						assert.fail('Expected _saveOptions() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'typemismatch');
+					}
+				});
+
+				it('should accept a plain object', async function () {
+					postWithCsrfTokenStub.resolves({ options: 'success' });
+
+					// @ts-expect-error - Protected method
+					await mwbot._saveOptions('options', {
+						foo: 'bar',
+						baz: 1,
+					});
+
+					assert.strictEqual(postWithCsrfTokenStub.callCount, 1);
+					assert.strictEqual(
+						postWithCsrfTokenStub.firstCall.args[0].change,
+						'foo=bar|baz=1'
+					);
+				});
+
+				it('should accept a Map', async function () {
+					postWithCsrfTokenStub.resolves({ options: 'success' });
+
+					const change = new Map();
+					change.set('foo', 'bar');
+					change.set('baz', 1);
+
+					// @ts-expect-error - Protected method
+					await mwbot._saveOptions('options', change);
+
+					assert.strictEqual(postWithCsrfTokenStub.callCount, 1);
+					assert.strictEqual(
+						postWithCsrfTokenStub.firstCall.args[0].change,
+						'foo=bar|baz=1'
+					);
+				});
+
+				it('should omit the value to reset an option', async function () {
+					postWithCsrfTokenStub.resolves({ options: 'success' });
+
+					// @ts-expect-error - Protected method
+					await mwbot._saveOptions('options', {
+						foo: null,
+						bar: 'baz',
+					});
+
+					assert.strictEqual(
+						postWithCsrfTokenStub.firstCall.args[0].change,
+						'foo|bar=baz'
+					);
+				});
+
+				it('should use optionname and optionvalue when a key contains "="', async function () {
+					postWithCsrfTokenStub.resolves({ options: 'success' });
+
+					// @ts-expect-error - Protected method
+					await mwbot._saveOptions('options', {
+						'a=b': 'c',
+					});
+
+					assert.strictEqual(postWithCsrfTokenStub.callCount, 1);
+					assert.strictEqual(postWithCsrfTokenStub.firstCall.args[0].optionname, 'a=b');
+					assert.strictEqual(postWithCsrfTokenStub.firstCall.args[0].optionvalue, 'c');
+					assert.notProperty(postWithCsrfTokenStub.firstCall.args[0], 'change');
+				});
+
+				it('should omit optionvalue when resetting an option whose key contains "="', async function () {
+					postWithCsrfTokenStub.resolves({ options: 'success' });
+
+					// @ts-expect-error - Protected method
+					await mwbot._saveOptions('options', {
+						'a=b': null,
+					});
+					assert.strictEqual(postWithCsrfTokenStub.firstCall.args[0].optionname, 'a=b');
+					assert.isUndefined(postWithCsrfTokenStub.firstCall.args[0].optionvalue);
+
+					// Ensure the undefined property is stripped
+					const params = Mwbot.Util.cloneDeep(postWithCsrfTokenStub.firstCall.args[0]);
+					// @ts-expect-error - Protected method
+					Mwbot.preprocessParameters(params);
+					assert.notProperty(params, 'optionvalue');
+				});
+
+				it('should use the unit separator when a key contains "|"', async function () {
+					postWithCsrfTokenStub.resolves({ options: 'success' });
+
+					// @ts-expect-error - Protected method
+					await mwbot._saveOptions('options', {
+						'foo|bar': 'baz',
+					});
+
+					assert.strictEqual(
+						postWithCsrfTokenStub.firstCall.args[0].change,
+						'\u001Ffoo|bar=baz'
+					);
+				});
+
+				it('should use the unit separator when a value contains "|"', async function () {
+					postWithCsrfTokenStub.resolves({ options: 'success' });
+
+					// @ts-expect-error - Protected method
+					await mwbot._saveOptions('options', {
+						foo: 'a|b',
+					});
+
+					assert.strictEqual(
+						postWithCsrfTokenStub.firstCall.args[0].change,
+						'\u001Ffoo=a|b'
+					);
+				});
+
+				it('should split requests according to the API limit', async function () {
+					postWithCsrfTokenStub.resolves({ options: 'success' });
+					sinon.stub(mwbot, 'apilimit').get(() => 2);
+
+					// @ts-expect-error - Protected method
+					await mwbot._saveOptions('options', {
+						'a=b': '0',
+						a: '1',
+						b: '2',
+						c: '3',
+					});
+
+					assert.strictEqual(postWithCsrfTokenStub.callCount, 3);
+					assert.deepInclude(postWithCsrfTokenStub.firstCall.args[0], {
+						optionname: 'a=b',
+						optionvalue: '0',
+					});
+					assert.strictEqual(postWithCsrfTokenStub.secondCall.args[0].change, 'a=1|b=2');
+					assert.strictEqual(postWithCsrfTokenStub.thirdCall.args[0].change, 'c=3');
+				});
+
+				it('should create separate requests for keys containing "="', async function () {
+					postWithCsrfTokenStub.resolves({
+						options: 'success',
+					});
+
+					// @ts-expect-error - Protected method
+					await mwbot._saveOptions('options', {
+						foo: 'bar',
+						'a=b': 'c',
+						baz: 'qux',
+					});
+
+					assert.strictEqual(postWithCsrfTokenStub.callCount, 2);
+					assert.deepEqual(postWithCsrfTokenStub.firstCall.args[0], {
+						action: 'options',
+						format: 'json',
+						formatversion: '2',
+						optionname: 'a=b',
+						optionvalue: 'c',
+					});
+					assert.deepEqual(postWithCsrfTokenStub.secondCall.args[0], {
+						action: 'options',
+						format: 'json',
+						formatversion: '2',
+						change: 'foo=bar|baz=qux',
+					});
+				});
+
+				it('should send one request per key containing "="', async function () {
+					postWithCsrfTokenStub.resolves({ options: 'success' });
+
+					// @ts-expect-error - Protected method
+					await mwbot._saveOptions('options', {
+						'a=b': '1',
+						'c=d': '2',
+					});
+
+					assert.strictEqual(postWithCsrfTokenStub.callCount, 2);
+					assert.strictEqual(postWithCsrfTokenStub.firstCall.args[0].optionname, 'a=b');
+					assert.strictEqual(postWithCsrfTokenStub.secondCall.args[0].optionname, 'c=d');
+				});
+
+				it('should pass additional API parameters and request options', async function () {
+					postWithCsrfTokenStub.resolves({ options: 'success' });
+
+					const requestOptions = { timeout: 123 };
+
+					// @ts-expect-error - Protected method
+					await mwbot._saveOptions(
+						'options',
+						{ foo: 'bar' },
+						{ assert: 'user' },
+						requestOptions
+					);
+
+					assert.strictEqual(
+						postWithCsrfTokenStub.firstCall.args[0].assert,
+						'user'
+					);
+					assert.strictEqual(
+						postWithCsrfTokenStub.firstCall.args[1],
+						requestOptions
+					);
+				});
+
+				it('should return the API response', async function () {
+					const response = {
+						options: /** @type {const} */ ('success'),
+						warnings: {},
+					};
+					postWithCsrfTokenStub.resolves(response);
+
+					// @ts-expect-error - Protected method
+					const ret = await mwbot._saveOptions('options', {
+						foo: 'bar',
+					});
+
+					assert.strictEqual(ret, response);
+				});
+
+				it('should throw if the API response is missing a success result', async function () {
+					postWithCsrfTokenStub.resolves({});
+
+					try {
+						// @ts-expect-error - Protected method
+						await mwbot._saveOptions('options', {
+							foo: 'bar',
+						});
+						assert.fail('Expected _saveOptions() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'empty');
+					}
+				});
+
+				it('should wait for a previous save request before sending a new one', async function () {
+					/** @type {(value: any) => void} */
+					let resolveFirst = () => {};
+
+					postWithCsrfTokenStub.onFirstCall().returns(
+						new Promise((resolve) => {
+							resolveFirst = resolve;
+						})
+					);
+
+					postWithCsrfTokenStub.onSecondCall().resolves({
+						options: 'success',
+					});
+
+					// @ts-expect-error - Protected method
+					const p1 = mwbot._saveOptions('options', {
+						foo: 'bar',
+					});
+
+					// @ts-expect-error - Protected method
+					const p2 = mwbot._saveOptions('options', {
+						baz: 'qux',
+					});
+
+					assert.strictEqual(postWithCsrfTokenStub.callCount, 1);
+
+					resolveFirst({ options: 'success' });
+
+					await p1;
+					await p2;
+
+					assert.strictEqual(postWithCsrfTokenStub.callCount, 2);
+				});
+
+				it('should clear saveOptionsRequest after completion', async function () {
+					postWithCsrfTokenStub.resolves({
+						options: 'success',
+					});
+
+					// @ts-expect-error - Protected method
+					await mwbot._saveOptions('options', {
+						foo: 'bar',
+					});
+
+					// @ts-expect-error - Protected property
+					assert.isNull(mwbot.saveOptionsRequest);
+				});
+
+				it('should clear saveOptionsRequest when the request fails', async function () {
+					postWithCsrfTokenStub.rejects(new Error('boom'));
+
+					try {
+						// @ts-expect-error - Protected method
+						await mwbot._saveOptions('options', {
+							foo: 'bar',
+						});
+						assert.fail();
+					} catch { /**/ }
+
+					// @ts-expect-error - Protected property
+					assert.isNull(mwbot.saveOptionsRequest);
+				});
+			});
+
+			describe('Public methods', function () {
+				/**
+				 * @type {sinon.SinonStub}
+				 */
+				let _saveOptionsStub;
+
+				beforeEach(function () {
+					// @ts-expect-error - Protected method
+					_saveOptionsStub = sinon.stub(mwbot, '_saveOptions');
+				});
+
+				describe('saveOptions()', function () {
+					it('should delegate to _saveOptions()', async function () {
+						const response = { options: 'success' };
+						_saveOptionsStub.resolves(response);
+
+						const options = { foo: 'bar' };
+						const params = { assert: /** @type {const} */ ('user') };
+						const reqOpts = { timeout: 123 };
+
+						const ret = await mwbot.saveOptions(options, params, reqOpts);
+
+						assert.strictEqual(ret, response);
+						sinon.assert.calledOnceWithExactly(
+							_saveOptionsStub,
+							'options',
+							options,
+							params,
+							reqOpts
+						);
+					});
+				});
+
+				describe('saveOption()', function () {
+					it('should delegate to _saveOptions() with a single-option object', async function () {
+						const response = { options: 'success' };
+						_saveOptionsStub.resolves(response);
+
+						const params = { assert: /** @type {const} */ ('user') };
+						const reqOpts = { timeout: 123 };
+
+						const ret = await mwbot.saveOption(
+							'foo',
+							'bar',
+							params,
+							reqOpts
+						);
+
+						assert.strictEqual(ret, response);
+
+						assert.strictEqual(_saveOptionsStub.callCount, 1);
+						assert.strictEqual(_saveOptionsStub.firstCall.args[0], 'options');
+						assert.deepEqual(_saveOptionsStub.firstCall.args[1], { foo: 'bar' });
+						assert.deepEqual(_saveOptionsStub.firstCall.args[2], params);
+						assert.deepEqual(_saveOptionsStub.firstCall.args[3], reqOpts);
+					});
+				});
+
+				describe('saveGlobalOptions()', function () {
+					it('should delegate to _saveOptions()', async function () {
+						const response = {
+							globalpreferences: 'success',
+						};
+						_saveOptionsStub.resolves(response);
+
+						const options = { foo: 'bar' };
+
+						const ret = await mwbot.saveGlobalOptions(options);
+
+						assert.strictEqual(ret, response);
+						sinon.assert.calledOnceWithExactly(
+							_saveOptionsStub,
+							'globalpreferences',
+							options,
+							{},
+							undefined
+						);
+					});
+				});
+
+				describe('saveGlobalOption()', function () {
+					it('should delegate to _saveOptions() with a single-option object', async function () {
+						const response = {
+							globalpreferences: 'success',
+						};
+						_saveOptionsStub.resolves(response);
+
+						await mwbot.saveGlobalOption('foo', 'bar');
+
+						assert.strictEqual(_saveOptionsStub.callCount, 1);
+						assert.strictEqual(_saveOptionsStub.firstCall.args[0], 'globalpreferences');
+						assert.deepEqual(_saveOptionsStub.firstCall.args[1], { foo: 'bar' });
+					});
+				});
+
+				describe('saveGlobalOptionOverrides()', function () {
+					it('should delegate to _saveOptions()', async function () {
+						const response = {
+							globalpreferenceoverrides: 'success',
+						};
+						_saveOptionsStub.resolves(response);
+
+						const options = { foo: 'bar' };
+
+						const ret = await mwbot.saveGlobalOptionOverrides(options);
+
+						assert.strictEqual(ret, response);
+						sinon.assert.calledOnceWithExactly(
+							_saveOptionsStub,
+							'globalpreferenceoverrides',
+							options,
+							{},
+							undefined
+						);
+					});
+				});
+
+				describe('saveGlobalOptionOverride()', function () {
+					it('should delegate to _saveOptions() with a single-option object', async function () {
+						const response = {
+							globalpreferenceoverrides: 'success',
+						};
+						_saveOptionsStub.resolves(response);
+
+						await mwbot.saveGlobalOptionOverride('foo', 'bar');
+
+						assert.strictEqual(_saveOptionsStub.callCount, 1);
+						assert.strictEqual(_saveOptionsStub.firstCall.args[0], 'globalpreferenceoverrides');
+						assert.deepEqual(_saveOptionsStub.firstCall.args[1], { foo: 'bar' });
+					});
 				});
 			});
 		});
