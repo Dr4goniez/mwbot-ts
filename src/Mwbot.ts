@@ -3033,72 +3033,119 @@ export class Mwbot {
 		additionalParams: ApiParams = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<PartiallyRequired<ApiResponse, T>> {
-
 		this.dieIfAnonymous();
-		if (isPlainObject(options)) {
-			options = new Map(Object.entries(options));
-		} else if (!(options instanceof Map)) {
+
+		let isEmpty = false;
+		if (options instanceof Map) {
+			if (!options.size) {
+				isEmpty = true;
+			}
+		} else if (isPlainObject(options)) {
+			if (isEmptyObject(options)) {
+				isEmpty = true;
+			} else {
+				options = new Map(Object.entries(options));
+			}
+		} else {
 			Mwbot.dieWithTypeError('plain object or Map', 'options', options);
 		}
-
-		// Create `key=value` pairs
-		const batches: { pairs: string[]; bundleable: boolean; usePipe: boolean }[] = [];
-		const apilimit = this.apilimit;
-		for (const [key, v] of options) {
-
-			const value = v === null ? null : String(v);
-			const bundleable = !key.includes('=');
-			const usePipe = !key.includes('|') && (value === null || !value.includes('|'));
-
-			// Start new batch if:
-			// - No batches yet
-			// - Last batch cannot bundle further
-			// - Last batch reached apilimit
-			let last = batches.at(-1);
-			if (!last?.bundleable || last.pairs.length >= apilimit) {
-				batches.push({ pairs: [], bundleable, usePipe });
-			}
-			last = batches.at(-1)!;
-
-			const change = value !== null
-				? `${key}=${value}`
-				: key; // Omitting value resets the option
-			last.pairs.push(change);
-			last.bundleable &&= bundleable; // Keep false or set to false unless both are true
-			last.usePipe &&= usePipe;
-
+		if (isEmpty) {
+			throw new MwbotError('fatal', {
+				code: 'emptyinput',
+				info: 'The options object is empty.',
+			});
 		}
 
-		// Wait for prior request if present
+		type Single = { optionname: string; optionvalue?: string; };
+		type Batch = { pairs: string[]; usePipe: boolean; };
+
+		const singles: Single[] = [];
+		const batches: Batch[] = [];
+		const apilimit = this.apilimit;
+
+		for (const [key, rawValue] of options as Map<string, OptionPrimitive>) {
+
+			const value = rawValue === null ? null : String(rawValue);
+
+			// Keys containing "=" cannot be represented safely via change=
+			if (key.includes('=')) {
+				const param: Single = {
+					optionname: key,
+				};
+				if (value !== null) {
+					param.optionvalue = value;
+				}
+				singles.push(param);
+				continue;
+			}
+
+			const usePipe = !key.includes('|') && (value === null || !value.includes('|'));
+			let last = batches.at(-1);
+
+			if (!last || last.pairs.length >= apilimit) {
+				last = {
+					pairs: [],
+					usePipe,
+				};
+				batches.push(last);
+			}
+
+			const change = value === null
+				? key
+				: `${key}=${value}`;
+			last.pairs.push(change);
+			last.usePipe &&= usePipe;
+		}
+
 		if (this.saveOptionsRequest) {
 			await this.saveOptionsRequest;
 		}
 
-		// Send requests sequentially per batch
 		const unicodeSep = '\u001F';
-		for (const [i, { pairs, usePipe }] of Object.entries(batches)) {
-			const change = usePipe
-				? pairs.join('|')
-				: unicodeSep + pairs.join(unicodeSep);
-
-			this.saveOptionsRequest = this.postWithCsrfToken({
+		try {
+			const baseParams = {
 				...additionalParams,
 				...Mwbot.getActionParams(action),
-				change,
-			}, requestOptions).then((res) => {
+			};
+			const thenCallback = (res: ApiResponse) => {
 				if (res[action] === 'success') {
 					return res;
 				}
 				Mwbot.dieAsEmpty(true, `expected "response.${action}" to be "success"`, { response: res });
-			});
+			};
 
-			// Await each batch sequentially except for the last one
-			if (parseInt(i) !== batches.length - 1) {
-				await this.saveOptionsRequest;
+			for (const [i, batch] of singles.entries()) {
+				const params = {
+					...baseParams,
+					...batch,
+				};
+
+				this.saveOptionsRequest = this.postWithCsrfToken(params, requestOptions).then(thenCallback);
+
+				if (batches.length || i !== singles.length - 1) {
+					await this.saveOptionsRequest;
+				}
 			}
-		}
 
-		return await this.saveOptionsRequest! as PartiallyRequired<ApiResponse, T>;
+			for (const [i, batch] of batches.entries()) {
+				const params = {
+					...baseParams,
+					change: batch.usePipe
+						? batch.pairs.join('|')
+						: unicodeSep + batch.pairs.join(unicodeSep),
+				};
+
+				this.saveOptionsRequest = this.postWithCsrfToken(params, requestOptions).then(thenCallback);
+
+				if (i !== batches.length - 1) {
+					await this.saveOptionsRequest;
+				}
+			}
+
+			return await this.saveOptionsRequest! as PartiallyRequired<ApiResponse, T>;
+		} finally {
+			this.saveOptionsRequest = null;
+		}
 	}
 
 	/**
