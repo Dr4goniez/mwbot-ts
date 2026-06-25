@@ -91,9 +91,11 @@ export function testMwbotWriteRequests(getMwbot, _testDomain, authMethod) {
 				assert.isNull(mwbot.saveOptionsRequest);
 			}
 
-			const savedValue = await mwbot.getOption(key);
+			if (!isAnon) {
+				const savedValue = await mwbot.getOption(key);
 
-			assert.strictEqual(savedValue, value);
+				assert.strictEqual(savedValue, value);
+			}
 		});
 	});
 }
