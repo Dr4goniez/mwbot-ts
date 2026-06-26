@@ -2077,7 +2077,7 @@ export class Mwbot {
 		return batchArray;
 	}
 
-	// ****************************** TOKEN-RELATED METHODS ******************************
+	// ****************************** TOKEN METHODS ******************************
 
 	/**
 	 * Performs a POST request to the MediaWiki API using a token of the specified type.
@@ -2293,7 +2293,7 @@ export class Mwbot {
 		return this.getToken('csrf', void 0, requestOptions);
 	}
 
-	// ****************************** EDIT-RELATED REQUEST METHODS ******************************
+	// ****************************** EDIT METHODS ******************************
 
 	/**
 	 * Validates and processes a title before use, and returns a {@link Title} instance.
@@ -2594,10 +2594,14 @@ export class Mwbot {
 		if (result.edit?.result === 'Success') {
 			return result.edit as ApiResponseEditSuccess;
 		}
-		throw new MwbotError('api_mwbot', {
-			code: 'editfailed',
-			info: 'Edit failed.',
-		}, { response: result });
+		throw new MwbotError(
+			'api_mwbot',
+			{
+				code: 'editfailed',
+				info: 'Edit failed.',
+			},
+			{ response: result }
+		);
 	}
 
 	/**
@@ -2805,7 +2809,50 @@ export class Mwbot {
 
 	}
 
-	// ****************************** OPTION-RELATED REQUEST METHODS ******************************
+	// ****************************** AUTHENTICATION METHODS ******************************
+
+	/**
+	 * Logs in to the wiki for which this instance has been initialized.
+	 *
+	 * @param username
+	 * @param password
+	 * @returns A Promise resolving to the API response, or rejecting with an error.
+	 */
+	protected async login(username: string, password: string): Promise<ApiResponse> { // TODO: Make this method public?
+		// Fetch a login token
+		const config: MwbotRequestConfig = {
+			disableRetryAPI: true,
+			disableAssert: true,
+		};
+		const token = await this.getToken('login', { maxlag: void 0 }, config);
+
+		// Login
+		const response = await this.post({
+			...Mwbot.getActionParams('login'),
+			lgname: username,
+			lgpassword: password,
+			lgtoken: token,
+			maxlag: void 0, // Overwrite maxlag to have this request prioritized
+		}, config);
+		if (!response.login) {
+			Mwbot.dieAsEmpty(true, 'missing "response.login"', { response });
+		} else if (response.login.result !== 'Success') {
+			throw new MwbotError(
+				'api_mwbot',
+				{
+					code: 'loginfailed',
+					info: response.login.reason || 'Failed to log in.',
+				},
+				{ response }
+			);
+		} else {
+			// Clear cashed tokens because these can't be used for the newly logged-in user
+			this.tokens = Object.create(null);
+			return response;
+		}
+	}
+
+	// ****************************** OPTION METHODS ******************************
 
 	/**
 	 * Retrieves user options as a Map object.
@@ -3285,7 +3332,164 @@ export class Mwbot {
 		return this._saveOptions('globalpreferenceoverrides', { [key]: value }, additionalParams, requestOptions);
 	}
 
-	// ****************************** ACTION-RELATED UTILITY REQUEST METHODS ******************************
+	// ****************************** ACTION METHODS ******************************
+
+	/**
+	 * Moves a page.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'move',
+	 *   from: from, // If a string or a Title instance
+	 *   fromid: from, // If a number
+	 *   to: to,
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param from The title or ID of the page to move.
+	 * @param to The destination title.
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Move | `action=move`}.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the `response.move` object, or rejecting with an error.
+	 * @throws {MwbotError} If:
+	 * - The client is anonymous. (`anonymous`)
+	 * - The client lacks the `move` user right. (`nopermission`)
+	 * - `from` is not a number and fails validation via {@link validateTitle}.
+	 * - `to` fails validation via {@link validateTitle}.
+	 */
+	async move(
+		from: string | Title | number,
+		to: string | Title,
+		additionalParams: Partial<ApiParamsActionMove> = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<ApiResponseMove> {
+		this.dieIfNoRights('move', 'move pages');
+
+		let fromId: number | false = false;
+		let fromTitle: string | false = false;
+		if (typeof from === 'number') {
+			fromId = from;
+		} else {
+			fromTitle = this.validateTitle(from).getPrefixedText();
+		}
+		const toTitle = this.validateTitle(to).getPrefixedText();
+
+		const response = await this.postWithCsrfToken({
+			...additionalParams,
+			...Mwbot.getActionParams('move'),
+			from: fromTitle,
+			fromid: fromId,
+			to: toTitle,
+		}, requestOptions);
+
+		if (response.move) {
+			return response.move;
+		}
+		Mwbot.dieAsEmpty(true, 'missing "response.move"', { response });
+	}
+
+	/**
+	 * Parses content via the API.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'parse',
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param params {@link https://www.mediawiki.org/wiki/API:Parsing_wikitext | Parameters} to the API.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the `response.parse` object, or rejecting with an error.
+	 * @throws {MwbotError} If `response.parse` is missing. (`empty`)
+	 */
+	async parse(params: ApiParamsActionParse, requestOptions?: MwbotRequestConfig): Promise<ApiResponseParse> {
+		const response = await this.fetch({
+			...params,
+			...Mwbot.getActionParams('parse'),
+		}, requestOptions);
+
+		if (response.parse) {
+			return response.parse;
+		}
+		Mwbot.dieAsEmpty(true, 'missing "response.parse"', { response });
+	}
+
+	/**
+	 * Purges the cache for the given titles.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'purge',
+	 *   titles: titles,
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param titles The titles to purge the cache for.
+	 *
+	 * The maximum number of values is 50 or 500 (see also {@link apilimit}).
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Purge | `action=purge`}.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param requestOptions Optional HTTP request options.
+	 * @return A Promise that resolves to an {@link ApiResponse} object. This is the full response,
+	 * not just the `response.purge` array, allowing access to top-level properties like `normalized`
+	 * and `redirects`.
+	 * @throws {MwbotError} If:
+	 * - The client lacks the `purge` user right. (`nopermission`)
+	 * - `titles` contains non-strings or non-Titles. (`typemismatch`)
+	 */
+	async purge(
+		titles: (string | Title)[],
+		additionalParams: ApiParams = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<PartiallyRequired<ApiResponse, 'purge'>> {
+		// Check the types of `titles` without using `validateTitle`
+		// The `action=purge` API call does not throw an error for invalid titles
+		// Instead, it returns a response that may lack the `{ purged: true }` property
+		const titleSet = new Set<string>();
+		const invalid: unknown[] = [];
+		titles.forEach((t) => {
+			if (t instanceof this.Title) {
+				titleSet.add(t.toString());
+			} else if (typeof t === 'string') {
+				titleSet.add(t);
+			} else {
+				invalid.push(t);
+			}
+		});
+		if (invalid.length) {
+			throw new MwbotError('fatal', {
+				code: 'typemismatch',
+				info: 'The array passed as the first argument of purge() must only contain strings or Title instances.',
+			}, { invalid });
+		}
+
+		const response = await this.post({
+			...additionalParams,
+			...Mwbot.getActionParams('purge'),
+			titles: [...titleSet],
+		}, requestOptions);
+
+		if (response.purge) {
+			// TODO: Should this return the "response.purge" object?
+			// May be good as is, where the client can access properties like "normalized" and "redirects"
+			return response as PartiallyRequired<ApiResponse, 'purge'>;
+		}
+		Mwbot.dieAsEmpty(true, 'missing "response.purge"', { response });
+	}
+
+	// ****************************** ADMIN METHODS ******************************
 
 	/**
 	 * Blocks a user.
@@ -3326,7 +3530,6 @@ export class Mwbot {
 		additionalParams: ApiParamsActionBlock = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseBlock> {
-
 		this.dieIfNoRights('block', 'block users');
 
 		if (typeof target !== 'string') {
@@ -3342,11 +3545,62 @@ export class Mwbot {
 			...additionalParams,
 			...Mwbot.getActionParams('block'),
 		}, requestOptions);
+
 		if (response.block) {
 			return response.block;
 		}
 		Mwbot.dieAsEmpty(true, 'missing "response.block"', { response });
+	}
 
+	/**
+	 * Unblocks a user.
+	 *
+	 * Enforced parameters:
+	 * ```
+	 * {
+	 *   action: 'unblock',
+	 *   id: userOrId, // If a number
+	 *   user: userOrId, // If a string
+	 *   format: 'json',
+	 *   formatversion: '2'
+	 * }
+	 * ```
+	 *
+	 * @param userOrId The user name, IP address, user ID, or block ID to unblock.
+	 * @param additionalParams
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Block#Unblocking_users | `action=unblock`}.
+	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
+	 * @param requestOptions Optional HTTP request options.
+	 * @returns A Promise resolving to the `response.unblock` object, or rejecting with an error.
+	 * @throws {MwbotError} If:
+	 * - The client is anonymous. (`anonymous`)
+	 * - The client lacks the `block` user right. (`nopermission`)
+	 * - `userOrId` is neither a string nor a number. (`typemismatch`)
+	 */
+	async unblock(
+		userOrId: string | number,
+		additionalParams: ApiParamsActionUnblock = {},
+		requestOptions?: MwbotRequestConfig
+	): Promise<ApiResponseUnblock> {
+		this.dieIfNoRights('block', 'unblock users');
+
+		const id = typeof userOrId === 'number' && userOrId;
+		const user = typeof userOrId === 'string' && userOrId;
+		if (id === false && user === false) {
+			Mwbot.dieWithTypeError('string or number', 'userOrId', userOrId);
+		}
+
+		const response = await this.postWithCsrfToken({
+			...additionalParams,
+			...Mwbot.getActionParams('unblock'),
+			id,
+			user,
+		}, requestOptions);
+
+		if (response.unblock) {
+			return response.unblock;
+		}
+		Mwbot.dieAsEmpty(true, 'missing "response.unblock"', { response });
 	}
 
 	/**
@@ -3379,7 +3633,6 @@ export class Mwbot {
 		additionalParams: Partial<ApiParamsActionDelete> = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseDelete> {
-
 		this.dieIfNoRights('delete', 'delete pages');
 
 		let pageId: number | false = false;
@@ -3396,137 +3649,61 @@ export class Mwbot {
 			title,
 			pageid: pageId,
 		}, requestOptions);
+
 		if (response.delete) {
 			return response.delete;
 		}
 		Mwbot.dieAsEmpty(true, 'missing "response.delete"', { response });
-
 	}
 
 	/**
-	 * Logs in to the wiki for which this instance has been initialized.
-	 *
-	 * @param username
-	 * @param password
-	 * @returns A Promise resolving to the API response, or rejecting with an error.
-	 */
-	protected async login(username: string, password: string): Promise<ApiResponse> { // TODO: Make this method public?
-
-		// Fetch a login token
-		const config: MwbotRequestConfig = {
-			disableRetryAPI: true,
-			disableAssert: true,
-		};
-		const token = await this.getToken('login', { maxlag: void 0 }, config);
-
-		// Login
-		const response = await this.post({
-			...Mwbot.getActionParams('login'),
-			lgname: username,
-			lgpassword: password,
-			lgtoken: token,
-			maxlag: void 0, // Overwrite maxlag to have this request prioritized
-		}, config);
-		if (!response.login) {
-			Mwbot.dieAsEmpty(true, 'missing "response.login"', { response });
-		} else if (response.login.result !== 'Success') {
-			throw new MwbotError('api_mwbot', {
-				code: 'loginfailed',
-				info: response.login.reason || 'Failed to log in.',
-			}, { response });
-		} else {
-			this.tokens = Object.create(null); // Clear cashed tokens because these can't be used for the newly logged-in user
-			return response;
-		}
-
-	}
-
-	/**
-	 * Moves a page.
+	 * Undeletes revisions of a deleted page.
 	 *
 	 * Enforced parameters:
 	 * ```
 	 * {
-	 *   action: 'move',
-	 *   from: from, // If a string or a Title instance
-	 *   fromid: from, // If a number
-	 *   to: to,
+	 *   action: 'undelete',
+	 *   title: title,
 	 *   format: 'json',
 	 *   formatversion: '2'
 	 * }
 	 * ```
 	 *
-	 * @param from The title or ID of the page to move.
-	 * @param to The destination title.
+	 * This method does not automatically handle multi-value fields that exceed the {@link apilimit}.
+	 * Such cases must be handled manually (e.g., via {@link massRequest}).
+	 *
+	 * @param title The title of the page to undelete.
 	 * @param additionalParams
-	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Move | `action=move`}.
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Undelete | `action=undelete`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the `response.move` object, or rejecting with an error.
+	 * @returns A Promise resolving to the `response.undelete` object, or rejecting with an error.
 	 * @throws {MwbotError} If:
 	 * - The client is anonymous. (`anonymous`)
-	 * - The client lacks the `move` user right. (`nopermission`)
-	 * - `from` is not a number and fails validation via {@link validateTitle}.
-	 * - `to` fails validation via {@link validateTitle}.
+	 * - The client lacks the `undelete` user right. (`nopermission`)
+	 * - `title` fails title validation via {@link validateTitle}.
 	 */
-	async move(
-		from: string | Title | number,
-		to: string | Title,
-		additionalParams: Partial<ApiParamsActionMove> = {},
+	async undelete(
+		title: string | Title,
+		additionalParams: Partial<ApiParamsActionUndelete> = {},
 		requestOptions?: MwbotRequestConfig
-	): Promise<ApiResponseMove> {
+	): Promise<ApiResponseUndelete> {
+		this.dieIfNoRights('undelete', 'undelete revisions');
 
-		this.dieIfNoRights('move', 'move pages');
-
-		let fromId: number | false = false;
-		let fromTitle: string | false = false;
-		if (typeof from === 'number') {
-			fromId = from;
-		} else {
-			fromTitle = this.validateTitle(from).getPrefixedText();
-		}
-		const toTitle = this.validateTitle(to).getPrefixedText();
+		title = this.validateTitle(title).getPrefixedText();
+		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
+		requestOptions.timeout ??= 180 * 1000;
 
 		const response = await this.postWithCsrfToken({
 			...additionalParams,
-			...Mwbot.getActionParams('move'),
-			from: fromTitle,
-			fromid: fromId,
-			to: toTitle,
+			...Mwbot.getActionParams('undelete'),
+			title,
 		}, requestOptions);
-		if (response.move) {
-			return response.move;
-		}
-		Mwbot.dieAsEmpty(true, 'missing "response.move"', { response });
 
-	}
-
-	/**
-	 * Parses content via the API.
-	 *
-	 * Enforced parameters:
-	 * ```
-	 * {
-	 *   action: 'parse',
-	 *   format: 'json',
-	 *   formatversion: '2'
-	 * }
-	 * ```
-	 *
-	 * @param params {@link https://www.mediawiki.org/wiki/API:Parsing_wikitext | Parameters} to the API.
-	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the `response.parse` object, or rejecting with an error.
-	 * @throws {MwbotError} If `response.parse` is missing. (`empty`)
-	 */
-	async parse(params: ApiParamsActionParse, requestOptions?: MwbotRequestConfig): Promise<ApiResponseParse> {
-		const response = await this.fetch({
-			...params,
-			...Mwbot.getActionParams('parse'),
-		}, requestOptions);
-		if (response.parse) {
-			return response.parse;
+		if (response.undelete) {
+			return response.undelete;
 		}
-		Mwbot.dieAsEmpty(true, 'missing "response.parse"', { response });
+		Mwbot.dieAsEmpty(true, 'missing "response.undelete"', { response });
 	}
 
 	/**
@@ -3566,7 +3743,6 @@ export class Mwbot {
 		additionalParams: Partial<ApiParamsActionProtect> = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseProtect> {
-
 		this.dieIfNoRights('protect', 'protect pages');
 
 		let pageId: number | false = false;
@@ -3595,79 +3771,45 @@ export class Mwbot {
 			pageid: pageId,
 			protections,
 		}, requestOptions);
+
 		if (response.protect) {
 			return response.protect;
 		}
 		Mwbot.dieAsEmpty(true, 'missing "response.protect"', { response });
-
 	}
 
 	/**
-	 * Purges the cache for the given titles.
+	 * Unprotects a page.
 	 *
 	 * Enforced parameters:
 	 * ```
 	 * {
-	 *   action: 'purge',
-	 *   titles: titles,
+	 *   action: 'protect',
+	 *   title: titleOrId, // If a string or a Title instance
+	 *   pageid: titleOrId, // If a number
+	 *   protections: '', // Remove all protections
 	 *   format: 'json',
 	 *   formatversion: '2'
 	 * }
 	 * ```
 	 *
-	 * @param titles The titles to purge the cache for.
-	 *
-	 * The maximum number of values is 50 or 500 (see also {@link apilimit}).
+	 * @param titleOrId The title or ID of the page to protect.
 	 * @param additionalParams
-	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Purge | `action=purge`}.
+	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Protect | `action=protect`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
 	 * @param requestOptions Optional HTTP request options.
-	 * @return A Promise that resolves to an {@link ApiResponse} object. This is the full response,
-	 * not just the `response.purge` array, allowing access to top-level properties like `normalized`
-	 * and `redirects`.
+	 * @returns A Promise resolving to the `response.protect` object, or rejecting with an error.
 	 * @throws {MwbotError} If:
-	 * - The client lacks the `purge` user right. (`nopermission`)
-	 * - `titles` contains non-strings or non-Titles. (`typemismatch`)
+	 * - The client is anonymous. (`anonymous`)
+	 * - The client lacks the `protect` user right. (`nopermission`)
+	 * - `titleOrId` is not a number and fails title validation via {@link validateTitle}.
 	 */
-	async purge(
-		titles: (string | Title)[],
-		additionalParams: ApiParams = {},
+	unprotect(
+		titleOrId: string | Title | number,
+		additionalParams: Partial<ApiParamsActionProtect> = {},
 		requestOptions?: MwbotRequestConfig
-	): Promise<PartiallyRequired<ApiResponse, 'purge'>> {
-
-		// Check the types of `titles` without using `validateTitle`
-		// The `action=purge` API call does not throw an error for invalid titles
-		// Instead, it returns a response that may lack the `{ purged: true }` property
-		const titleSet = new Set<string>();
-		const invalid: unknown[] = [];
-		titles.forEach((t) => {
-			if (t instanceof this.Title) {
-				titleSet.add(t.toString());
-			} else if (typeof t === 'string') {
-				titleSet.add(t);
-			} else {
-				invalid.push(t);
-			}
-		});
-		if (invalid.length) {
-			throw new MwbotError('fatal', {
-				code: 'typemismatch',
-				info: 'The array passed as the first argument of purge() must only contain strings or Title instances.',
-			}, { invalid });
-		}
-
-		const response = await this.post({
-			...additionalParams,
-			...Mwbot.getActionParams('purge'),
-			titles: [...titleSet],
-		}, requestOptions);
-		if (response.purge) {
-			// TODO: Should this return the "response.purge" object?
-			// May be good as is, where the client can access properties like "normalized" and "redirects"
-			return response as PartiallyRequired<ApiResponse, 'purge'>;
-		}
-		Mwbot.dieAsEmpty(true, 'missing "response.purge"', { response });
-
+	): Promise<ApiResponseProtect> {
+		return this.protect(titleOrId, '', additionalParams, requestOptions);
 	}
 
 	/**
@@ -3703,7 +3845,6 @@ export class Mwbot {
 		additionalParams: Partial<ApiParamsActionRollback> = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseRollback> {
-
 		this.dieIfNoRights('rollback', 'rollback edits');
 
 		let pageId: number | false = false;
@@ -3724,152 +3865,14 @@ export class Mwbot {
 			pageid: pageId,
 			user,
 		}, requestOptions);
+
 		if (response.rollback) {
 			return response.rollback;
 		}
 		Mwbot.dieAsEmpty(true, 'missing "response.rollback"', { response });
-
 	}
 
-	/**
-	 * Unblocks a user.
-	 *
-	 * Enforced parameters:
-	 * ```
-	 * {
-	 *   action: 'unblock',
-	 *   id: userOrId, // If a number
-	 *   user: userOrId, // If a string
-	 *   format: 'json',
-	 *   formatversion: '2'
-	 * }
-	 * ```
-	 *
-	 * @param userOrId The user name, IP address, user ID, or block ID to unblock.
-	 * @param additionalParams
-	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Block#Unblocking_users | `action=unblock`}.
-	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
-	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the `response.unblock` object, or rejecting with an error.
-	 * @throws {MwbotError} If:
-	 * - The client is anonymous. (`anonymous`)
-	 * - The client lacks the `block` user right. (`nopermission`)
-	 * - `userOrId` is neither a string nor a number. (`typemismatch`)
-	 */
-	async unblock(
-		userOrId: string | number,
-		additionalParams: ApiParamsActionUnblock = {},
-		requestOptions?: MwbotRequestConfig
-	): Promise<ApiResponseUnblock> {
-
-		this.dieIfNoRights('block', 'unblock users');
-
-		const id = typeof userOrId === 'number' && userOrId;
-		const user = typeof userOrId === 'string' && userOrId;
-		if (id === false && user === false) {
-			Mwbot.dieWithTypeError('string or number', 'userOrId', userOrId);
-		}
-
-		const response = await this.postWithCsrfToken({
-			...additionalParams,
-			...Mwbot.getActionParams('unblock'),
-			id,
-			user,
-		}, requestOptions);
-		if (response.unblock) {
-			return response.unblock;
-		}
-		Mwbot.dieAsEmpty(true, 'missing "response.unblock"', { response });
-
-	}
-
-	/**
-	 * Undeletes revisions of a deleted page.
-	 *
-	 * Enforced parameters:
-	 * ```
-	 * {
-	 *   action: 'undelete',
-	 *   title: title,
-	 *   format: 'json',
-	 *   formatversion: '2'
-	 * }
-	 * ```
-	 *
-	 * This method does not automatically handle multi-value fields that exceed the {@link apilimit}.
-	 * Such cases must be handled manually (e.g., via {@link massRequest}).
-	 *
-	 * @param title The title of the page to undelete.
-	 * @param additionalParams
-	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Undelete | `action=undelete`}.
-	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
-	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the `response.undelete` object, or rejecting with an error.
-	 * @throws {MwbotError} If:
-	 * - The client is anonymous. (`anonymous`)
-	 * - The client lacks the `undelete` user right. (`nopermission`)
-	 * - `title` fails title validation via {@link validateTitle}.
-	 */
-	async undelete(
-		title: string | Title,
-		additionalParams: Partial<ApiParamsActionUndelete> = {},
-		requestOptions?: MwbotRequestConfig
-	): Promise<ApiResponseUndelete> {
-
-		this.dieIfNoRights('undelete', 'undelete revisions');
-
-		title = this.validateTitle(title).getPrefixedText();
-		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
-		requestOptions.timeout ??= 180 * 1000;
-
-		const response = await this.postWithCsrfToken({
-			...additionalParams,
-			...Mwbot.getActionParams('undelete'),
-			title,
-		}, requestOptions);
-		if (response.undelete) {
-			return response.undelete;
-		}
-		Mwbot.dieAsEmpty(true, 'missing "response.undelete"', { response });
-
-	}
-
-	/**
-	 * Unprotects a page.
-	 *
-	 * Enforced parameters:
-	 * ```
-	 * {
-	 *   action: 'protect',
-	 *   title: titleOrId, // If a string or a Title instance
-	 *   pageid: titleOrId, // If a number
-	 *   protections: '', // Remove all protections
-	 *   format: 'json',
-	 *   formatversion: '2'
-	 * }
-	 * ```
-	 *
-	 * @param titleOrId The title or ID of the page to protect.
-	 * @param additionalParams
-	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Protect | `action=protect`}.
-	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
-	 * @param requestOptions Optional HTTP request options.
-	 * @returns A Promise resolving to the `response.protect` object, or rejecting with an error.
-	 * @throws {MwbotError} If:
-	 * - The client is anonymous. (`anonymous`)
-	 * - The client lacks the `protect` user right. (`nopermission`)
-	 * - `titleOrId` is not a number and fails title validation via {@link validateTitle}.
-	 */
-	async unprotect(
-		titleOrId: string | Title | number,
-		additionalParams: Partial<ApiParamsActionProtect> = {},
-		requestOptions?: MwbotRequestConfig
-	): Promise<ApiResponseProtect> {
-		// Use async-await to handle exceptions as Promise rejections
-		return await this.protect(titleOrId, '', additionalParams, requestOptions);
-	}
-
-	// ****************************** QUERY-RELATED UTILITY REQUEST METHODS ******************************
+	// ****************************** QUERY METHODS ******************************
 
 	/**
 	 * Retrieves the latest revision content of a given title from the API.
