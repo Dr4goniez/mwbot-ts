@@ -73,6 +73,7 @@ import {
 	ApiResponseRollback,
 	ApiResponseUnblock,
 	ApiResponseUndelete,
+	ApiResponseLoginSuccess,
 } from './api_types.js';
 import { formatType, isNonEmptyString, normalizeHeaders } from './helpers.js';
 import {
@@ -2818,7 +2819,7 @@ export class Mwbot {
 	 * @param password
 	 * @returns A Promise resolving to the API response, or rejecting with an error.
 	 */
-	protected async login(username: string, password: string): Promise<ApiResponse> { // TODO: Make this method public?
+	protected async login(username: string, password: string): Promise<ApiResponseLoginSuccess> { // TODO: Make this method public?
 		// Fetch a login token
 		const config: MwbotRequestConfig = {
 			disableRetryAPI: true,
@@ -2826,7 +2827,6 @@ export class Mwbot {
 		};
 		const token = await this.getToken('login', { maxlag: void 0 }, config);
 
-		// Login
 		const response = await this.post({
 			...Mwbot.getActionParams('login'),
 			lgname: username,
@@ -2834,22 +2834,23 @@ export class Mwbot {
 			lgtoken: token,
 			maxlag: void 0, // Overwrite maxlag to have this request prioritized
 		}, config);
+
 		if (!response.login) {
 			Mwbot.dieAsEmpty(true, 'missing "response.login"', { response });
-		} else if (response.login.result !== 'Success') {
-			throw new MwbotError(
-				'api_mwbot',
-				{
-					code: 'loginfailed',
-					info: response.login.reason || 'Failed to log in.',
-				},
-				{ response }
-			);
-		} else {
-			// Clear cashed tokens because these can't be used for the newly logged-in user
-			this.tokens = Object.create(null);
-			return response;
 		}
+		if (response.login.result === 'Success') {
+			// Clear cached tokens because they are no longer valid for the newly logged-in user
+			this.tokens = Object.create(null);
+			return response.login;
+		}
+		throw new MwbotError(
+			'api_mwbot',
+			{
+				code: 'loginfailed',
+				info: 'reason' in response.login && response.login.reason || 'Failed to log in.',
+			},
+			{ response }
+		);
 	}
 
 	// ****************************** OPTION METHODS ******************************

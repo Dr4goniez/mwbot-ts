@@ -1133,29 +1133,29 @@ export type ApiResponseGlobalpreferences = ApiResponseOptions; // Fully checked 
 // export interface ApiResponseLanguagesearch {}
 // export interface ApiResponseLinkaccount {}
 
-export type ApiResponseLogin = XOR< // Fully checked (source code level)
-	{
-		result: 'Success';
-		lguserid: number;
-		lgusername: string;
-	},
-	{
+export type ApiResponseLogin = // Fully checked (source code level)
+	| ApiResponseLoginSuccess
+	| {
 		result: 'NeedToken';
 		/** @deprecated */
 		token: string;
-	},
-	{
+	}
+	| {
 		result: 'WrongToken';
-	},
-	{
+	}
+	| {
 		result: 'Failed';
 		reason: string;
-	},
-	{
+	}
+	| {
 		result: 'Aborted';
 		reason: string;
-	}
->;
+	};
+export interface ApiResponseLoginSuccess {
+	result: 'Success';
+	lguserid: number;
+	lgusername: string;
+}
 
 // export interface ApiResponseLogout {}
 // export interface ApiResponseManagetags {}
