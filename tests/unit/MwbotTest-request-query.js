@@ -1,0 +1,396 @@
+import { describe, it, before, beforeEach, afterEach } from 'mocha';
+import { assert } from 'chai';
+import {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	Mwbot,
+	MwbotError,
+} from '../../dist/index.js';
+import { getTestMwbot } from './MwbotTest-fixtures.js';
+import sinon from 'sinon';
+
+export function testMwbotRequestQuery() {
+	describe('Query methods', function () {
+		/**
+		 * @type {Awaited<ReturnType<typeof getTestMwbot>>}
+		 */
+		let mwbot;
+
+		before(async function () {
+			mwbot = await getTestMwbot('named');
+		});
+
+		afterEach(function () {
+			sinon.restore();
+		});
+
+		describe('read()', function () {
+			describe('Single titles', function () {
+				/**
+				 * @type {sinon.SinonStub<Parameters<Mwbot['get']>, ReturnType<Mwbot['get']>>}
+				 */
+				let getStub;
+
+				beforeEach(function () {
+					// @ts-expect-error - TS complains due to TestMwbot overriding get()
+					getStub = sinon.stub(mwbot, 'get');
+				});
+
+				it('should throw "invalidtitle" for an invalid title', async function () {
+					try {
+						await mwbot.read('[');
+						assert.fail('Expected read() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'invalidtitle');
+						sinon.assert.notCalled(getStub);
+					}
+				});
+
+				it('should use the required API parameters', async function () {
+					getStub.resolves({
+						curtimestamp: '2026-01-01T00:00:00Z',
+						query: {
+							pages: [{
+								pageid: 1,
+								ns: 0,
+								title: 'Foo',
+								revisions: [{
+									revid: 10,
+									user: 'Example',
+									timestamp: '2025-12-31T23:59:59Z',
+									slots: {
+										main: { content: 'Hello' },
+									},
+								}],
+							}],
+						},
+					});
+
+					const response = await mwbot.read('Foo', {
+						timeout: 7777,
+						params: {
+							pageids: [1],
+							revids: [2],
+							foo: 'bar',
+						},
+					});
+
+					sinon.assert.calledOnceWithExactly(
+						getStub,
+						{
+							action: 'query',
+							format: 'json',
+							formatversion: '2',
+							prop: 'revisions',
+							rvprop: 'ids|timestamp|user|content',
+							rvslots: 'main',
+							curtimestamp: true,
+							titles: 'Foo',
+						},
+						{
+							timeout: 7777,
+							params: {
+								foo: 'bar',
+							},
+							// @ts-expect-error - Not recognized as a known property
+							_cloned: true,
+						}
+					);
+					assert.deepEqual(response, {
+						pageid: 1,
+						ns: 0,
+						title: 'Foo',
+						baserevid: 10,
+						user: 'Example',
+						basetimestamp: '2025-12-31T23:59:59Z',
+						starttimestamp: '2026-01-01T00:00:00Z',
+						content: 'Hello',
+					});
+				});
+
+				it('should use a default timeout of 120 seconds', async function () {
+					getStub.resolves({
+						curtimestamp: '2026-01-01T00:00:00Z',
+						query: {
+							pages: [{
+								pageid: 1,
+								ns: 0,
+								title: 'Foo',
+								revisions: [{
+									revid: 1,
+									timestamp: '2025-01-01T00:00:00Z',
+									slots: {
+										main: { content: '' },
+									},
+								}],
+							}],
+						},
+					});
+
+					await mwbot.read('Foo');
+
+					sinon.assert.calledOnceWithMatch(
+						getStub,
+						sinon.match.any,
+						{ timeout: 120000 }
+					);
+				});
+
+				it('should throw "pagemissing" when the page does not exist', async function () {
+					getStub.resolves({
+						query: {
+							pages: [{
+								ns: 0,
+								title: 'Foo',
+								missing: true,
+							}],
+						},
+					});
+
+					try {
+						await mwbot.read('Foo');
+						assert.fail('Expected read() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'pagemissing');
+						sinon.assert.calledOnce(getStub);
+					}
+				});
+
+				it('should throw "empty" when query.pages is missing', async function () {
+					getStub.resolves({ query: {} });
+
+					try {
+						await mwbot.read('Foo');
+						assert.fail('Expected read() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'empty');
+						sinon.assert.calledOnce(getStub);
+					}
+				});
+
+				it('should throw "empty" when the page lacks revision content', async function () {
+					getStub.resolves({
+						curtimestamp: '2026-01-01T00:00:00Z',
+						query: {
+							pages: [{
+								pageid: 1,
+								ns: 0,
+								title: 'Foo',
+								revisions: [],
+							}],
+						},
+					});
+
+					try {
+						await mwbot.read('Foo');
+						assert.fail('Expected read() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'empty');
+						sinon.assert.calledOnce(getStub);
+					}
+				});
+			});
+
+			describe('Multiple titles', function () {
+				/**
+				 * @type {sinon.SinonStub}
+				 */
+				let massRequestStub;
+
+				beforeEach(function () {
+					massRequestStub = sinon.stub(mwbot, 'massRequest');
+				});
+
+				it('should preserve the input order', async function () {
+					massRequestStub.resolves([{
+						curtimestamp: '2026-01-01T00:00:00Z',
+						query: {
+							pages: [
+								{
+									pageid: 2,
+									ns: 0,
+									title: 'Bar',
+									revisions: [{
+										revid: 2,
+										user: 'User2',
+										timestamp: '2025-01-02T00:00:00Z',
+										slots: { main: { content: 'Bar content' } },
+									}],
+								},
+								{
+									pageid: 1,
+									ns: 0,
+									title: 'Foo',
+									revisions: [{
+										revid: 1,
+										user: 'User1',
+										timestamp: '2025-01-01T00:00:00Z',
+										slots: { main: { content: 'Foo content' } },
+									}],
+								},
+							],
+						},
+					}]);
+
+					const res = await mwbot.read(['Foo', 'Bar']);
+
+					assert.notInstanceOf(res[0], MwbotError);
+					assert.strictEqual(res[0].title, 'Foo');
+					assert.notInstanceOf(res[1], MwbotError);
+					assert.strictEqual(res[1].title, 'Bar');
+				});
+
+				it('should return MwbotError for invalid titles while continuing with valid ones', async function () {
+					massRequestStub.resolves([{
+						curtimestamp: '2026-01-01T00:00:00Z',
+						query: {
+							pages: [{
+								pageid: 1,
+								ns: 0,
+								title: 'Foo',
+								revisions: [{
+									revid: 1,
+									timestamp: '2025-01-01T00:00:00Z',
+									slots: { main: { content: 'Foo' } },
+								}],
+							}],
+						},
+					}]);
+
+					const res = await mwbot.read(['Foo', '[']);
+
+					assert.notInstanceOf(res[0], MwbotError);
+
+					assert.instanceOf(res[1], MwbotError);
+					assert.strictEqual(res[1].code, 'invalidtitle');
+				});
+
+				it('should not call massRequest when all titles are invalid', async function () {
+					const res = await mwbot.read(['[', '{']);
+
+					sinon.assert.notCalled(massRequestStub);
+
+					assert.instanceOf(res[0], MwbotError);
+					assert.instanceOf(res[1], MwbotError);
+				});
+
+				it('should clone duplicate revisions', async function () {
+					massRequestStub.resolves([{
+						curtimestamp: '2026-01-01T00:00:00Z',
+						query: {
+							pages: [{
+								pageid: 1,
+								ns: 0,
+								title: 'Foo',
+								revisions: [{
+									revid: 1,
+									user: 'User',
+									timestamp: '2025-01-01T00:00:00Z',
+									slots: { main: { content: 'Foo' } },
+								}],
+							}],
+						},
+					}]);
+
+					const res = await mwbot.read(['Foo', 'Foo']);
+
+					assert.deepEqual(res[0], res[1]);
+					assert.notStrictEqual(res[0], res[1]);
+				});
+
+				it('should clone duplicate errors', async function () {
+					massRequestStub.resolves([{
+						curtimestamp: '2026-01-01T00:00:00Z',
+						query: {
+							pages: [{
+								title: 'Foo',
+								missing: true,
+							}],
+						},
+					}]);
+
+					const res = await mwbot.read(['Foo', 'Foo']);
+
+					assert.instanceOf(res[0], MwbotError);
+					assert.strictEqual(res[0].code, 'pagemissing');
+
+					assert.instanceOf(res[1], MwbotError);
+					assert.strictEqual(res[1].code, 'pagemissing');
+
+					assert.notStrictEqual(res[0], res[1]);
+				});
+
+				it('should propagate a batch error to every title in the batch', async function () {
+					const err = new MwbotError('api_mwbot', {
+						code: 'http',
+						info: 'Network error',
+					});
+
+					massRequestStub.resolves([err]);
+
+					const res = await mwbot.read(['Foo', 'Bar']);
+
+					assert.instanceOf(res[0], MwbotError);
+					assert.strictEqual(res[0].code, 'http');
+
+					assert.instanceOf(res[1], MwbotError);
+					assert.strictEqual(res[1].code, 'http');
+				});
+
+				it('should throw "internal" for an unexpected title returned by the API', async function () {
+					massRequestStub.resolves([{
+						curtimestamp: '2026-01-01T00:00:00Z',
+						query: {
+							pages: [{
+								pageid: 1,
+								ns: 0,
+								title: 'Unexpected',
+								revisions: [{
+									revid: 1,
+									timestamp: '2025-01-01T00:00:00Z',
+									slots: { main: { content: '' } },
+								}],
+							}],
+						},
+					}]);
+
+					try {
+						await mwbot.read(['Foo']);
+						assert.fail('Expected read() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'internal');
+					}
+				});
+
+				it('should throw "internal" when the API returns a page without a title', async function () {
+					massRequestStub.resolves([{
+						curtimestamp: '2026-01-01T00:00:00Z',
+						query: {
+							pages: [{
+								pageid: 1,
+								ns: 0,
+								revisions: [{
+									revid: 1,
+									timestamp: '2025-01-01T00:00:00Z',
+									slots: { main: { content: '' } },
+								}],
+							}],
+						},
+					}]);
+
+					try {
+						await mwbot.read(['Foo']);
+						assert.fail('Expected read() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'internal');
+					}
+				});
+			});
+		});
+	});
+}

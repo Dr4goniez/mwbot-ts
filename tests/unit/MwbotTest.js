@@ -13,6 +13,7 @@ import { testMwbotRequestOptions } from './MwbotTest-request-options.js';
 import { testMwbotRequestAuth } from './MwbotTest-request-auth.js';
 import { testMwbotRequestActions } from './MwbotTest-request-actions.js';
 import { testMwbotRequestAdmin } from './MwbotTest-request-admin.js';
+import { testMwbotRequestQuery } from './MwbotTest-request-query.js';
 
 describe('Mwbot', function () {
 	testMwbotProperties();
@@ -29,4 +30,5 @@ describe('Mwbot', function () {
 	testMwbotRequestOptions();
 	testMwbotRequestActions();
 	testMwbotRequestAdmin();
+	testMwbotRequestQuery();
 });
