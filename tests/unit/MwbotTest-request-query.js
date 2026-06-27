@@ -392,5 +392,184 @@ export function testMwbotRequestQuery() {
 				});
 			});
 		});
+
+		describe('getExistencePredicate()', function () {
+			/**
+			 * @type {sinon.SinonStub}
+			 */
+			let massRequestStub;
+
+			beforeEach(function () {
+				massRequestStub = sinon.stub(mwbot, 'massRequest');
+			});
+
+			it('should deduplicate duplicate titles before making the request', async function () {
+				massRequestStub.resolves([]);
+
+				await mwbot.getExistencePredicate([
+					'Foo',
+					'Foo',
+					'Bar',
+					'Foo',
+				]);
+
+				sinon.assert.calledOnce(massRequestStub);
+				assert.deepEqual(
+					massRequestStub.firstCall.args[0].titles,
+					['Foo', 'Bar']
+				);
+			});
+
+			it('should throw for invalid titles when loose=false', async function () {
+				try {
+					await mwbot.getExistencePredicate([
+						'Foo',
+						'Invalid[',
+					]);
+					assert.fail('Expected getExistencePredicate() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'invalidtitle');
+				}
+			});
+
+			it('should ignore invalid titles when loose=true', async function () {
+				massRequestStub.resolves([]);
+
+				await mwbot.getExistencePredicate(
+					['Foo', 'Invalid['],
+					{ loose: true }
+				);
+
+				sinon.assert.calledOnce(massRequestStub);
+				assert.deepEqual(
+					massRequestStub.firstCall.args[0].titles,
+					['Foo']
+				);
+			});
+
+			it('should throw request errors by default', async function () {
+				const expected = new MwbotError('api_mwbot', {
+					code: 'http',
+					info: 'Network error',
+				});
+				massRequestStub.resolves([expected]);
+
+				try {
+					await mwbot.getExistencePredicate(['Foo']);
+					assert.fail('Expected getExistencePredicate() to throw');
+				} catch (err) {
+					assert.strictEqual(err, expected);
+				}
+			});
+
+			it('should suppress request errors when rejectProof=true', async function () {
+				massRequestStub.resolves([
+					new MwbotError('api_mwbot', {
+						code: 'http',
+						info: 'Network error',
+					}),
+				]);
+
+				const exists = await mwbot.getExistencePredicate(
+					['Foo'],
+					{ rejectProof: true }
+				);
+
+				assert.strictEqual(exists('Foo'), null);
+			});
+
+			it('should throw "empty" when response.query.pages is missing', async function () {
+				massRequestStub.resolves([{}]);
+
+				try {
+					await mwbot.getExistencePredicate(['Foo']);
+					assert.fail('Expected getExistencePredicate() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'empty');
+				}
+			});
+
+			it('should ignore missing pages arrays when rejectProof=true', async function () {
+				massRequestStub.resolves([{}]);
+
+				const exists = await mwbot.getExistencePredicate(
+					['Foo'],
+					{ rejectProof: true }
+				);
+
+				assert.strictEqual(exists('Foo'), null);
+			});
+
+			it('should return true for existing pages', async function () {
+				massRequestStub.resolves([{
+					query: {
+						pages: [{
+							ns: 0,
+							title: 'Foo',
+						}],
+					},
+				}]);
+
+				const exists = await mwbot.getExistencePredicate(['Foo']);
+
+				assert.strictEqual(exists('Foo'), true);
+			});
+
+			it('should return false for missing pages', async function () {
+				massRequestStub.resolves([{
+					query: {
+						pages: [{
+							ns: 0,
+							title: 'Foo',
+							missing: true,
+						}],
+					},
+				}]);
+
+				const exists = await mwbot.getExistencePredicate(['Foo']);
+
+				assert.strictEqual(exists('Foo'), false);
+			});
+
+			it('should return null for unknown titles', async function () {
+				massRequestStub.resolves([{
+					query: {
+						pages: [{
+							ns: 0,
+							title: 'Foo',
+						}],
+					},
+				}]);
+
+				const exists = await mwbot.getExistencePredicate(['Foo']);
+
+				assert.strictEqual(exists('Bar'), null);
+			});
+
+			it('should accept Title instances', async function () {
+				massRequestStub.resolves([{
+					query: {
+						pages: [{
+							ns: 0,
+							title: 'Foo',
+						}],
+					},
+				}]);
+
+				const exists = await mwbot.getExistencePredicate(['Foo']);
+
+				assert.strictEqual(exists(new mwbot.Title('Foo')), true);
+			});
+
+			it('should return null for invalid predicate input', async function () {
+				massRequestStub.resolves([]);
+
+				const exists = await mwbot.getExistencePredicate([]);
+
+				assert.strictEqual(exists('Invalid['), null);
+			});
+		});
 	});
 }
