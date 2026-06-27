@@ -3907,41 +3907,33 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<Revision | (Revision | MwbotError)[]> {
 
-		// If `titles` isn't an array, verify it (validateTitle throws an error if the title is invalid)
-		const singleTitle = !Array.isArray(titles) && this.validateTitle(titles, { allowAnonymous: true });
-
-		// `pageids` and `revids` shouldn't be set because we use the `titles` parameter
+		// pageids/revids shouldn't be set because we use titles
 		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
 		if (isObject(requestOptions.params)) {
 			delete requestOptions.params.pageids;
 			delete requestOptions.params.revids;
 		}
 
-		// Set a twice-as-long timeout because content-fetching is time-consuming
-		if (typeof requestOptions.timeout !== 'number') {
-			requestOptions.timeout = 120 * 1000; // 120 seconds
-		}
-
-		const params: ApiParams = {
-			...Mwbot.getActionParams('query'),
-			// titles, // Set below dynamically
-			prop: 'revisions',
-			rvprop: 'ids|timestamp|user|content',
-			rvslots: 'main',
-			curtimestamp: true,
-		};
+		// Reading content can take a while
+		requestOptions.timeout ??= 120 * 1000;
 
 		const processSinglePage = (
 			page: PartiallyRequired<ApiResponseQueryPages, 'title'>,
 			curtimestamp?: string
 		): Revision | MwbotError => {
 			const rev = page.revisions?.[0];
+
 			if (page.missing || typeof page.pageid !== 'number') {
-				return new MwbotError('api_mwbot', {
-					code: 'pagemissing',
-					info: 'The requested page does not exist.',
-				}, { title: page.title });
-			} else if (
+				return new MwbotError(
+					'api_mwbot',
+					{
+						code: 'pagemissing',
+						info: 'The requested page does not exist.',
+					},
+					{ title: page.title }
+				);
+			}
+			if (
 				typeof page.ns !== 'number' ||
 				typeof page.title !== 'string' || // Just in case
 				!rev ||
@@ -3951,44 +3943,58 @@ export class Mwbot {
 				typeof rev.slots?.main.content !== 'string'
 			) {
 				return Mwbot.dieAsEmpty(false, void 0, { title: page.title });
-			} else {
-				return {
-					pageid: page.pageid,
-					ns: page.ns,
-					title: page.title,
-					baserevid: rev.revid,
-					user: rev.user,
-					basetimestamp: rev.timestamp,
-					starttimestamp: curtimestamp,
-					content: rev.slots.main.content,
-				};
 			}
+
+			return {
+				pageid: page.pageid,
+				ns: page.ns,
+				title: page.title,
+				baserevid: rev.revid,
+				user: rev.user,
+				basetimestamp: rev.timestamp,
+				starttimestamp: curtimestamp,
+				content: rev.slots.main.content,
+			};
 		};
 
-		// If `titles` isn't an array, return a response for the single page
-		if (singleTitle) {
-			const t = singleTitle.getPrefixedText();
-			params.titles = t;
-			const res = await this.get(params, requestOptions);
+		const validationOptions = {
+			allowAnonymous: true,
+		};
+		const baseParams: ApiParams = {
+			...Mwbot.getActionParams('query'),
+			prop: 'revisions',
+			rvprop: 'ids|timestamp|user|content',
+			rvslots: 'main',
+			curtimestamp: true,
+		};
+
+		if (!Array.isArray(titles)) {
+			const title = this.validateTitle(titles, validationOptions).getPrefixedText();
+
+			const res = await this.get({
+				...baseParams,
+				titles: title,
+			}, requestOptions);
+
 			const pages = res.query?.pages;
-			if (!pages || !pages[0]) {
-				Mwbot.dieAsEmpty(true, 'missing "response.query.pages"', { title: t });
+			if (!pages?.[0]) {
+				Mwbot.dieAsEmpty(true, 'missing "response.query.pages"', { title, response: res });
 			}
-			pages[0].title ??= t;
+
+			pages[0].title ??= title;
 			const processed = processSinglePage(
 				pages[0] as PartiallyRequired<ApiResponseQueryPages, 'title'>,
 				res.curtimestamp
 			);
+
 			if (processed instanceof MwbotError) {
 				throw processed;
-			} else {
-				return processed;
 			}
+			return processed;
 		}
 
-		// At this point, we know `titles` is an array
-		const titlesArray = titles as (string | Title)[];
-
+		// ---------- multiple titles ----------
+		const titlesArray = titles;
 		/**
 		 * The result array, initialized with the same length as `titlesArray`.
 		 * Each index in this array corresponds to an index in `titlesArray` to maintain order.
@@ -4014,17 +4020,24 @@ export class Mwbot {
 		for (let i = 0; i < titlesArray.length; i++) {
 			try {
 				// Normalize all titles as in the API response and remember the array index
-				const page = this.validateTitle(titlesArray[i], { allowAnonymous: true }).getPrefixedText();
-				titleMap[page] ||= [];
-				titleMap[page].push(i);
-				if (!multiValues.length || multiValues[multiValues.length - 1].length === apilimit) {
-					multiValues.push([]);
+				const page = this.validateTitle(titlesArray[i], validationOptions).getPrefixedText();
+
+				(titleMap[page] ??= []).push(i);
+
+				let last = multiValues.at(-1);
+				if (!last || last.length === apilimit) {
+					last = [];
+					multiValues.push(last);
 				}
-				multiValues.at(-1)!.push(page);
+				last.push(page);
 			} catch (err) {
-				// Store errors immediately in the corresponding index
-				ret[i] = err as MwbotError;
-				errCount++;
+				if (err instanceof MwbotError) {
+					// Store errors immediately in the corresponding index
+					ret[i] = err;
+					errCount++;
+				} else {
+					throw err;
+				}
 			}
 		}
 
@@ -4034,12 +4047,18 @@ export class Mwbot {
 		}
 
 		// Perform batch API requests
-		params.titles = multiValues.flat();
-		const responses = await this.massRequest(params, 'titles', apilimit, requestOptions);
+		const responses = await this.massRequest(
+			{
+				...baseParams,
+				titles: multiValues.flat(),
+			},
+			'titles',
+			apilimit,
+			requestOptions
+		);
 
 		// Process the response
 		for (let batchIndex = 0; batchIndex < responses.length; batchIndex++) {
-
 			const res = responses[batchIndex];
 			if (res instanceof MwbotError) {
 				setToAll(res, batchIndex);
@@ -4053,24 +4072,31 @@ export class Mwbot {
 			}
 
 			for (const page of pages) {
+				const title = page.title;
+				if (!title) {
+					throw new MwbotError('fatal', {
+						code: 'internal',
+						info: 'API returned a page without a title.',
+					});
+				}
+
 				setToTitle(
 					processSinglePage(
 						page as PartiallyRequired<ApiResponseQueryPages, 'title'>,
 						res.curtimestamp
 					),
-					// We can safely assume `title` is always a string when the `pages` array exists,
-					// because we make title-based queries — not ID-based queries, which might lack associated titles
-					page.title!
+					title
 				);
 			}
-
 		}
 
 		// At this point there shouldn't be any empty slots in `ret`
-		const emptyIndexes = ret.reduce((acc: number[], el, i) => {
-			if (!el) acc.push(i);
-			return acc;
-		}, []);
+		const emptyIndexes: number[] = [];
+		for (let i = 0; i < ret.length; i++) {
+			if (!ret[i]) {
+				emptyIndexes.push(i);
+			}
+		}
 		if (emptyIndexes.length) {
 			throw new MwbotError('fatal', {
 				code: 'internal',
@@ -4081,17 +4107,21 @@ export class Mwbot {
 		return ret as (Revision | MwbotError)[];
 
 		function setToAll(error: MwbotError, batchIndex: number): void {
-			multiValues[batchIndex].forEach((title) => {
-				titleMap[title].forEach((retIndex, i) => {
-					// Ensure pass-by-value as in JSON outputs
-					// TODO: MwbotError should have a _clone() method
-					ret[retIndex] = i === 0 ? error : error._clone();
-				});
-			});
+			for (const title of multiValues[batchIndex]) {
+				setToTitle(error, title);
+			}
 		}
 
 		function setToTitle(value: Revision | MwbotError, title: string): void {
-			titleMap[title].forEach((retIndex, i) => {
+			const indexes = titleMap[title];
+			if (!indexes) {
+				throw new MwbotError('fatal', {
+					code: 'internal',
+					info: `Unexpected title "${title}" returned by the API.`,
+				});
+			}
+
+			indexes.forEach((retIndex, i) => {
 				if (i === 0) {
 					ret[retIndex] = value;
 				} else if (value instanceof MwbotError) {
@@ -4101,7 +4131,6 @@ export class Mwbot {
 				}
 			});
 		}
-
 	}
 
 	/**
