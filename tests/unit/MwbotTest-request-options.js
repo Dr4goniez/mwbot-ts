@@ -4,7 +4,7 @@ import { Mwbot,  MwbotError } from '../../dist/index.js';
 import { getTestMwbot } from './MwbotTest-fixtures.js';
 import sinon from 'sinon';
 
-export function testMwbotOptions() {
+export function testMwbotRequestOptions() {
 	describe('User-option-related methods', function () {
 		/**
 		 * @type {Awaited<ReturnType<typeof getTestMwbot>>}
