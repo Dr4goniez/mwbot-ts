@@ -2316,10 +2316,10 @@ export class Mwbot {
 	protected validateTitle(title: string | Title, options: { allowAnonymous?: boolean; allowSpecial?: boolean } = {}): Title {
 		const { allowAnonymous = false, allowSpecial = false } = options;
 		this.dieIfAnonymous(!allowAnonymous);
-		if (typeof title !== 'string' && !(title instanceof this.Title)) {
+		if (typeof title !== 'string' && !(title instanceof this._Title)) {
 			Mwbot.dieWithTypeError('string or Title', 'title', title);
 		}
-		if (!(title instanceof this.Title)) {
+		if (!(title instanceof this._Title)) {
 			const t = this.Title.newFromText(title);
 			if (!t) {
 				throw new MwbotError('api_mwbot', {
@@ -4167,21 +4167,33 @@ export class Mwbot {
 		options: { loose?: boolean; rejectProof?: boolean } = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<ExistencePredicate> {
+		const {
+			loose = false,
+			rejectProof = false,
+		} = options;
 
-		const loose = !!options.loose;
-		const rejectProof = !!options.rejectProof;
-
-		// Collect valid target titles
-		const targets = titles.reduce((acc, title) => {
-			try {
-				acc.add(this.validateTitle(title, { allowAnonymous: true }).getPrefixedText());
-			} catch (err) {
-				if (!loose) throw err;
+		// Collect valid titles
+		const targets = new Set<string>();
+		const validationOptions = {
+			allowAnonymous: true,
+		};
+		for (const title of titles) {
+			let t: Title;
+			if (loose) {
+				try {
+					t = this.validateTitle(title, validationOptions);
+				} catch (err) {
+					if (err instanceof MwbotError) {
+						continue;
+					}
+					throw err;
+				}
+			} else {
+				t = this.validateTitle(title, validationOptions);
 			}
-			return acc;
-		}, new Set<string>());
+			targets.add(t.getPrefixedText());
+		}
 
-		// Query the API for title existence
 		const responses = await this.massRequest({
 			...Mwbot.getActionParams('query'),
 			titles: Array.from(targets),
@@ -4191,14 +4203,20 @@ export class Mwbot {
 		const list = new Map<string, boolean>();
 		for (const res of responses) {
 			if (res instanceof MwbotError) {
-				if (rejectProof) continue;
+				if (rejectProof) {
+					continue;
+				}
 				throw res;
 			}
+
 			const pages = res.query?.pages;
 			if (!pages) {
-				if (rejectProof) continue;
+				if (rejectProof) {
+					continue;
+				}
 				Mwbot.dieAsEmpty(true, 'missing "response.query.pages"', { response: res });
 			}
+
 			for (const { ns, title, missing } of pages) {
 				if (title && typeof ns === 'number') {
 					list.set(title, !missing);
@@ -4208,16 +4226,17 @@ export class Mwbot {
 
 		// Return an `exists()` function
 		return (title: string | Title): boolean | null => {
-			if (!(title instanceof this.Title)) {
+			if (!(title instanceof this._Title)) {
 				const t = this.Title.normalize(title, { format: 'api' });
-				if (!t) return null;
+				if (!t) {
+					return null;
+				}
 				title = t;
 			} else {
 				title = title.getPrefixedText();
 			}
 			return list.get(title) ?? null;
 		};
-
 	}
 
 	/**
