@@ -409,7 +409,7 @@ export function testMwbotRequest() {
 				// @ts-expect-error - Protected method
 				await mwbot.prepareRequest(reqOpts);
 
-				assert.isTrue(authSpy.calledOnce);
+				sinon.assert.calledOnce(authSpy);
 			});
 
 			it('should preserve query parameters for GET requests', async function () {
@@ -498,10 +498,10 @@ export function testMwbotRequest() {
 					// @ts-expect-error - Protected method
 					await mwbot.handlePost({ method: 'GET' }, false);
 					assert.fail('Expected handlePost() to reject');
-				} catch (e) {
-					assert.instanceOf(e, MwbotError);
-					assert.strictEqual(e.code, 'internal');
-					assert.strictEqual(e.info, 'Expected request method to be "POST", but received "GET".');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'internal');
+					assert.strictEqual(err.info, 'Expected request method to be "POST", but received "GET".');
 				}
 			});
 
@@ -577,7 +577,7 @@ export function testMwbotRequest() {
 				await mwbot.handlePost(reqOpts, true);
 
 				assert.strictEqual(reqOpts.headers?.['Content-Type'], 'multipart/form-data');
-				assert.strictEqual(handlerStub.callCount, 1);
+				sinon.assert.calledOnce(handlerStub);
 			});
 
 			it('should delegate to handlePostMultipartFormData if Content-Type is multipart/form-data', async function () {
@@ -594,7 +594,7 @@ export function testMwbotRequest() {
 				await mwbot.handlePost(reqOpts, false);
 
 				assert.strictEqual(reqOpts.headers['Content-Type'], 'multipart/form-data');
-				assert.strictEqual(handlerStub.callCount, 1);
+				sinon.assert.calledOnce(handlerStub);
 			});
 		});
 
@@ -712,8 +712,8 @@ export function testMwbotRequest() {
 				mwbot.applyAuthentication(reqOpts);
 
 				assert.strictEqual(reqOpts.headers?.Authorization, 'OAuth test');
-				assert.isTrue(authorizeStub.calledOnce);
-				assert.isTrue(toHeaderStub.calledOnce);
+				sinon.assert.calledOnce(authorizeStub);
+				sinon.assert.calledOnce(toHeaderStub);
 				assert.deepInclude(
 					authorizeStub.firstCall.args[0],
 					{
@@ -770,7 +770,7 @@ export function testMwbotRequest() {
 					await mwbot._request(reqOpts);
 
 					assert.isUndefined(reqOpts.params);
-					assert.isTrue(rawRequestStub.calledWith(reqOpts));
+					sinon.assert.calledWith(rawRequestStub, reqOpts);
 				});
 
 				it('should enforce an interval delay if the action matches intervalActions and time elapsed is short', async function () {
@@ -790,11 +790,11 @@ export function testMwbotRequest() {
 
 					await Promise.resolve();
 					await clock.tickAsync(1999);
-					assert.strictEqual(rawRequestStub.callCount, 0);
+					sinon.assert.notCalled(rawRequestStub);
 
 					await clock.tickAsync(1);
 					await promise;
-					assert.strictEqual(rawRequestStub.callCount, 1);
+					sinon.assert.calledOnce(rawRequestStub);
 				});
 
 				it('should trigger dieAsEmpty if the response contains no data property', async function () {
@@ -814,7 +814,7 @@ export function testMwbotRequest() {
 						assert.strictEqual(err.code, 'empty');
 						assert.strictEqual(err.info, 'OK response but empty result (check HTTP headers?).');
 						assert.deepEqual(err.data?.axios, response);
-						assert.strictEqual(rawRequestStub.callCount, 1);
+						sinon.assert.calledOnce(rawRequestStub);
 					}
 				});
 
@@ -835,7 +835,7 @@ export function testMwbotRequest() {
 						assert.strictEqual(err.code, 'invalidjson');
 						assert.strictEqual(err.info, 'No valid JSON response (check the request URL?)');
 						assert.deepEqual(err.data?.axios, response);
-						assert.strictEqual(rawRequestStub.callCount, 1);
+						sinon.assert.calledOnce(rawRequestStub);
 					}
 				});
 
@@ -857,13 +857,12 @@ export function testMwbotRequest() {
 					// First attempt (attemptCount = 0 internally becomes 1)
 					// @ts-expect-error - Protected method
 					await mwbot._request(reqOpts, 0);
-					assert.isTrue(showWarningsSpy.calledOnce);
-
+					sinon.assert.calledOnce(showWarningsSpy);
 					showWarningsSpy.resetHistory();
 
 					// @ts-expect-error - Protected method
 					await mwbot._request(reqOpts, 1);
-					assert.isFalse(showWarningsSpy.called);
+					sinon.assert.notCalled(showWarningsSpy);
 				});
 
 				it('should update lastRequestTime after a successful interval-controlled request', async function () {
@@ -939,7 +938,7 @@ export function testMwbotRequest() {
 					} catch (err) {
 						assert.instanceOf(err, MwbotError);
 						assert.strictEqual(err.code, 'notoken');
-						assert.isFalse(retrySpy.called);
+						sinon.assert.notCalled(retrySpy);
 					}
 				});
 
@@ -956,7 +955,7 @@ export function testMwbotRequest() {
 					const res = await mwbot._request(reqOpts);
 
 					assert.deepEqual(res, expectedResponse);
-					assert.isTrue(retryStub.calledOnce);
+					sinon.assert.calledOnce(retryStub);
 					assert.deepInclude(retryStub.firstCall.args[5], { refreshToken: true });
 				});
 
@@ -977,7 +976,7 @@ export function testMwbotRequest() {
 					} catch (err) {
 						assert.instanceOf(err, MwbotError);
 						assert.strictEqual(err.code, 'badtoken');
-						assert.isFalse(retrySpy.called);
+						sinon.assert.notCalled(retrySpy);
 					}
 				});
 
@@ -997,7 +996,7 @@ export function testMwbotRequest() {
 					const res = await mwbot._request(reqOpts);
 
 					assert.deepEqual(res, expectedResponse);
-					assert.isTrue(retryStub.calledOnce);
+					sinon.assert.calledOnce(retryStub);
 					assert.strictEqual(retryStub.firstCall.args[4], 3); // maxAttempts parameter
 				});
 
@@ -1019,7 +1018,7 @@ export function testMwbotRequest() {
 					} catch (err) {
 						assert.instanceOf(err, MwbotError);
 						assert.strictEqual(err.code, 'maxlag');
-						assert.isFalse(retrySpy.called);
+						sinon.assert.notCalled(retrySpy);
 					}
 				});
 
@@ -1042,7 +1041,7 @@ export function testMwbotRequest() {
 					const res = await mwbot._request(reqOpts);
 
 					assert.deepEqual(res, expectedResponse);
-					assert.isTrue(retryStub.calledOnce);
+					sinon.assert.calledOnce(retryStub);
 					assert.deepInclude(retryStub.firstCall.args[5], { sleepSeconds: 15 });
 				});
 
@@ -1068,7 +1067,7 @@ export function testMwbotRequest() {
 					} catch (err) {
 						assert.instanceOf(err, MwbotError);
 						assert.strictEqual(err.code, 'maxlag');
-						assert.isFalse(retryStub.called);
+						sinon.assert.notCalled(retryStub);
 					}
 				});
 
@@ -1088,7 +1087,7 @@ export function testMwbotRequest() {
 					const res = await mwbot._request(reqOpts);
 
 					assert.deepEqual(res, expectedResponse);
-					assert.isTrue(retryStub.calledOnce);
+					sinon.assert.calledOnce(retryStub);
 					assert.deepInclude(retryStub.firstCall.args[5], { sleepSeconds: 5 });
 				});
 
@@ -1109,7 +1108,7 @@ export function testMwbotRequest() {
 					} catch (err) {
 						assert.instanceOf(err, MwbotError);
 						assert.strictEqual(err.code, 'assertuserfailed');
-						assert.isFalse(retryStub.called);
+						sinon.assert.notCalled(retryStub);
 					}
 				});
 
@@ -1126,7 +1125,7 @@ export function testMwbotRequest() {
 					const res = await mwbot._request(reqOpts);
 
 					assert.deepEqual(res, expectedResponse);
-					assert.isTrue(retryStub.calledOnce);
+					sinon.assert.calledOnce(retryStub);
 					assert.deepEqual(retryStub.firstCall.args[5], {
 						sleepSeconds: 0,
 						refreshToken: true,
@@ -1151,7 +1150,7 @@ export function testMwbotRequest() {
 					const res = await mwbot._request(reqOpts);
 
 					assert.deepEqual(res, expectedResponse);
-					assert.isTrue(retryStub.calledOnce);
+					sinon.assert.calledOnce(retryStub);
 					assert.deepEqual(retryStub.firstCall.args[5], {
 						sleepSeconds: 10,
 						refreshToken: false,
@@ -1174,7 +1173,7 @@ export function testMwbotRequest() {
 					const res = await mwbot._request(reqOpts);
 
 					assert.deepEqual(res, expectedResponse);
-					assert.isTrue(retryStub.calledOnce);
+					sinon.assert.calledOnce(retryStub);
 				});
 
 				it('should not retry mwoauth-invalid-authorization when info does not mention nonce reuse', async function () {
@@ -1194,7 +1193,7 @@ export function testMwbotRequest() {
 					} catch (err) {
 						assert.instanceOf(err, MwbotError);
 						assert.strictEqual(err.code, 'mwoauth-invalid-authorization');
-						assert.isFalse(retrySpy.called);
+						sinon.assert.notCalled(retrySpy);
 					}
 				});
 			});
@@ -1250,7 +1249,7 @@ export function testMwbotRequest() {
 					const res = await mwbot._request(reqOpts);
 
 					assert.deepEqual(res, expectedResponse);
-					assert.isTrue(retryStub.calledOnce);
+					sinon.assert.calledOnce(retryStub);
 
 					const err = retryStub.firstCall.args[0];
 					assert.instanceOf(err, MwbotError);
@@ -1274,7 +1273,7 @@ export function testMwbotRequest() {
 					const res = await mwbot._request(reqOpts);
 
 					assert.deepEqual(res, expectedResponse);
-					assert.isTrue(retryStub.calledOnce);
+					sinon.assert.calledOnce(retryStub);
 
 					const err = retryStub.firstCall.args[0];
 					assert.instanceOf(err, MwbotError);
@@ -1365,7 +1364,7 @@ export function testMwbotRequest() {
 							const res = await mwbot._request(reqOpts);
 
 							assert.deepEqual(res, expectedResponse);
-							assert.isTrue(retryStub.calledOnce);
+							sinon.assert.calledOnce(retryStub);
 
 							const err = retryStub.firstCall.args[0];
 							assert.instanceOf(err, MwbotError);
@@ -1392,7 +1391,7 @@ export function testMwbotRequest() {
 								assert.instanceOf(err, MwbotError);
 								assert.strictEqual(err.code, code);
 								assert.include(err.info, info);
-								assert.isFalse(retrySpy.called);
+								sinon.assert.notCalled(retrySpy);
 							}
 						});
 					}
@@ -1425,7 +1424,7 @@ export function testMwbotRequest() {
 				// @ts-expect-error - Protected method
 				mwbot.showWarnings(undefined);
 
-				assert.isFalse(warnSpy.called);
+				sinon.assert.notCalled(warnSpy);
 			});
 
 			it('should log warnings in the new format using "*" messages', function () {
@@ -1439,7 +1438,7 @@ export function testMwbotRequest() {
 					},
 				]);
 
-				assert.isTrue(warnSpy.calledOnceWithExactly('query: warning message'));
+				sinon.assert.calledOnceWithExactly(warnSpy, 'query: warning message');
 			});
 
 			it('should prefer html over text when "*" is absent', function () {
@@ -1454,7 +1453,7 @@ export function testMwbotRequest() {
 					},
 				]);
 
-				assert.isTrue(warnSpy.calledOnceWithExactly('query: <b>warning</b>'));
+				sinon.assert.calledOnceWithExactly(warnSpy, 'query: <b>warning</b>');
 			});
 
 			it('should use text when neither "*" nor html is present', function () {
@@ -1468,7 +1467,7 @@ export function testMwbotRequest() {
 					},
 				]);
 
-				assert.isTrue(warnSpy.calledOnceWithExactly('query: warning'));
+				sinon.assert.calledOnceWithExactly(warnSpy, 'query: warning');
 			});
 
 			it('should ignore new-format warnings without a displayable message', function () {
@@ -1483,7 +1482,7 @@ export function testMwbotRequest() {
 					},
 				]);
 
-				assert.isFalse(warnSpy.called);
+				sinon.assert.notCalled(warnSpy);
 			});
 
 			it('should log legacy warnings using "*"', function () {
@@ -1494,7 +1493,7 @@ export function testMwbotRequest() {
 					},
 				});
 
-				assert.isTrue(warnSpy.calledOnceWithExactly('query: legacy warning'));
+				sinon.assert.calledOnceWithExactly(warnSpy, 'query: legacy warning');
 			});
 
 			it('should log legacy warnings using warnings', function () {
@@ -1505,7 +1504,7 @@ export function testMwbotRequest() {
 					},
 				});
 
-				assert.isTrue(warnSpy.calledOnceWithExactly('query: legacy warning'));
+				sinon.assert.calledOnceWithExactly(warnSpy, 'query: legacy warning');
 			});
 
 			it('should ignore legacy warnings without a displayable message', function () {
@@ -1514,7 +1513,7 @@ export function testMwbotRequest() {
 					query: /** @type {any} */ ({}),
 				});
 
-				assert.isFalse(warnSpy.called);
+				sinon.assert.notCalled(warnSpy);
 			});
 		});
 
@@ -1619,8 +1618,8 @@ export function testMwbotRequest() {
 				} catch (err) {
 					assert.strictEqual(err, error);
 
-					assert.isFalse(errorSpy.called);
-					assert.isFalse(warnSpy.called);
+					sinon.assert.notCalled(errorSpy);
+					sinon.assert.notCalled(warnSpy);
 				}
 			});
 
@@ -1635,18 +1634,18 @@ export function testMwbotRequest() {
 					createMwbotError(), 1, createParams(), createRequestOptions(mwbot), 2
 				);
 
-				assert.isTrue(errorSpy.calledOnce);
-				assert.isTrue(warnSpy.calledOnce);
-				assert.isTrue(errorSpy.calledBefore(warnSpy));
+				sinon.assert.calledOnce(errorSpy);
+				sinon.assert.calledOnce(warnSpy);
+				sinon.assert.callOrder(errorSpy, warnSpy);
 
 				await Promise.resolve();
 				await clock.tickAsync(9000);
 
-				assert.isFalse(requestStub.calledOnce);
+				sinon.assert.notCalled(requestStub);
 
 				await clock.tickAsync(1000);
 
-				assert.isTrue(requestStub.calledOnce);
+				sinon.assert.calledOnce(requestStub);
 
 				const res = await promise;
 
@@ -1663,12 +1662,12 @@ export function testMwbotRequest() {
 					createMwbotError(), 1, createParams(), createRequestOptions(mwbot), 2, { sleepSeconds: 0 }
 				);
 
-				assert.isTrue(errorSpy.calledOnce);
-				assert.isTrue(warnSpy.calledOnce);
-				assert.isTrue(errorSpy.calledBefore(warnSpy));
+				sinon.assert.calledOnce(errorSpy);
+				sinon.assert.calledOnce(warnSpy);
+				sinon.assert.callOrder(errorSpy, warnSpy);
 
 				// _request() should be reached synchronously without waiting
-				assert.isTrue(requestStub.calledOnce);
+				sinon.assert.calledOnce(requestStub);
 
 				const res = await promise;
 
@@ -1690,14 +1689,13 @@ export function testMwbotRequest() {
 				);
 
 				assert.deepEqual(res, expectedResponse);
-				assert.isTrue(loginStub.calledOnce);
-				assert.isTrue(requestStub.calledOnce);
-				assert.isTrue(loginStub.calledBefore(requestStub));
+				sinon.assert.calledOnce(loginStub);
+				sinon.assert.calledOnce(requestStub);
+				sinon.assert.callOrder(loginStub, requestStub);
 
-				assert.isTrue(errorSpy.calledOnce);
-				assert.isTrue(warnSpy.calledOnce);
-				assert.isTrue(errorSpy.calledBefore(warnSpy));
-				assert.isTrue(warnSpy.calledBefore(loginStub));
+				sinon.assert.calledOnce(errorSpy);
+				sinon.assert.calledOnce(warnSpy);
+				sinon.assert.callOrder(errorSpy, warnSpy, loginStub);
 			});
 
 			it('should rethrow the original error if login fails', async function () {
@@ -1749,7 +1747,7 @@ export function testMwbotRequest() {
 					createMwbotError(), 1, params, requestOptions, 3, { sleepSeconds: 0, refreshToken: false }
 				);
 
-				assert.isFalse(getTokenTypeSpy.called);
+				sinon.assert.notCalled(getTokenTypeSpy);
 				assert.deepEqual(res, expectedResponse);
 			});
 
@@ -1880,15 +1878,10 @@ export function testMwbotRequest() {
 				assert.deepEqual(res, expectedResponse);
 				assert.strictEqual(params.token, 'newToken');
 
-				assert.isTrue(
-					// Expression produces a union type that is too complex to represent. ts(2590)
-					/** @type {any} */(getTokenTypeStub.calledOnceWithExactly)('edit')
-				);
-				assert.isTrue(badTokenStub.calledOnceWithExactly('csrf'));
-				assert.isTrue(getTokenStub.calledOnceWithExactly('csrf'));
-
-				assert.isTrue(getTokenTypeStub.calledBefore(getTokenStub));
-				assert.isTrue(getTokenStub.calledBefore(requestStub));
+				sinon.assert.calledOnceWithExactly(getTokenTypeStub, 'edit');
+				sinon.assert.calledOnceWithExactly(badTokenStub, 'csrf');
+				sinon.assert.calledOnceWithExactly(getTokenStub, 'csrf');
+				sinon.assert.callOrder(getTokenTypeStub, getTokenStub, requestStub);
 			});
 		});
 	});

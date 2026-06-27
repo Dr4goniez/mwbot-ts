@@ -172,7 +172,7 @@ describe('Mwbot.String', function () {
 			const result = trimByteLength('a', 'abc', 4, filterFn);
 
 			assert.deepEqual(result, { newVal: 'ab', trimmed: true });
-			assert.isTrue(filterFn.called);
+			sinon.assert.called(filterFn);
 		});
 
 		it('should handle pathological filter functions that always exceed the limit', function () {
@@ -234,7 +234,7 @@ describe('Mwbot.String', function () {
 			const result = trimCodePointLength('a', 'abc', 3, filterFn);
 
 			assert.deepEqual(result, { newVal: 'ab', trimmed: true });
-			assert.isTrue(filterFn.called);
+			sinon.assert.called(filterFn);
 		});
 
 		it('should handle empty strings with zero code point limit', function () {

@@ -73,17 +73,22 @@ export function testMwbotRequestToken() {
 				});
 
 				assert.strictEqual(res.success, 1);
-				assert.isTrue(
-					getTokenStub.calledOnceWithExactly('csrf', {
+				sinon.assert.calledOnceWithExactly(
+					getTokenStub,
+					'csrf',
+					{
 						assert: undefined,
 						assertuser: undefined,
-					})
+					}
 				);
-				assert.deepInclude(postStub.firstCall.args[0], {
-					action: 'edit',
-					title: 'Sandbox',
-					token: 'TOKEN',
-				});
+				sinon.assert.calledOnceWithMatch(
+					postStub,
+					{
+						action: 'edit',
+						title: 'Sandbox',
+						token: 'TOKEN',
+					}
+				);
 			});
 
 			it('should retry once after badtoken', async function () {
@@ -107,15 +112,17 @@ export function testMwbotRequestToken() {
 				});
 
 				assert.strictEqual(res.success, 1);
-				assert.strictEqual(postStub.callCount, 2);
-				assert.isTrue(
-					getTokenStub.firstCall.calledWithExactly('csrf', {
+				sinon.assert.calledTwice(postStub);
+				sinon.assert.calledTwice(getTokenStub);
+				sinon.assert.calledWithExactly(
+					getTokenStub,
+					'csrf',
+					{
 						assert: undefined,
 						assertuser: undefined,
-					})
+					}
 				);
-				assert.strictEqual(getTokenStub.callCount, 2);
-				assert.isTrue(badTokenStub.calledOnceWithExactly('csrf'));
+				sinon.assert.calledOnceWithExactly(badTokenStub, 'csrf');
 				assert.strictEqual(postStub.secondCall.args[0].token, 'NEW');
 			});
 
@@ -134,7 +141,7 @@ export function testMwbotRequestToken() {
 					assert.fail('Expected postWithToken() to reject');
 				} catch (err) {
 					assert.instanceOf(err, MwbotError);
-					assert.isTrue(badTokenSpy.notCalled);
+					sinon.assert.notCalled(badTokenSpy);
 				}
 			});
 		});
@@ -149,7 +156,7 @@ export function testMwbotRequestToken() {
 					await mwbot.getToken('csrf'),
 					'TOKEN'
 				);
-				assert.isTrue(getStub.notCalled);
+				sinon.assert.notCalled(getStub);
 			});
 
 			it('should retrieve and cache token', async function () {
@@ -170,6 +177,10 @@ export function testMwbotRequestToken() {
 			});
 
 			it('should convert string additionalParams to assert parameter', async function () {
+				/**
+				 * @type {sinon.SinonStub<Parameters<Mwbot['get']>, ReturnType<Mwbot['get']>>}
+				 */
+				// @ts-expect-error - TS complains due to TestMwbot overriding get()
 				const getStub = sinon.stub(mwbot, 'get').resolves({
 					query: {
 						tokens: {
@@ -180,15 +191,18 @@ export function testMwbotRequestToken() {
 
 				await mwbot.getToken('csrf', 'user');
 
-				// @ts-expect-error - TS complains due to TestMwbot overriding get()
-				assert.deepInclude(getStub.firstCall.args[0], {
-					assert: 'user',
-					format: 'json',
-					formatversion: '2',
-					action: 'query',
-					meta: 'tokens',
-					type: '*',
-				});
+				sinon.assert.alwaysCalledWithExactly(
+					getStub,
+					{
+						action: 'query',
+						format: 'json',
+						formatversion: '2',
+						assert: 'user',
+						meta: 'tokens',
+						type: '*',
+					},
+					undefined
+				);
 			});
 
 			it('should throw badnamedtoken errors when the passed token name is invalid', async function () {
@@ -279,6 +293,10 @@ export function testMwbotRequestToken() {
 
 		describe('getTokenType()', function () {
 			it('should return token type', async function () {
+				/**
+				 * @type {sinon.SinonStub<Parameters<Mwbot['get']>, ReturnType<Mwbot['get']>>}
+				 */
+				// @ts-expect-error - TS complains due to TestMwbot overriding get()
 				const getStub = sinon.stub(mwbot, 'get').resolves({
 					paraminfo: {
 						modules: [{
@@ -296,9 +314,9 @@ export function testMwbotRequestToken() {
 				const token = await mwbot.getTokenType('edit');
 
 				assert.strictEqual(token, 'csrf');
-				assert.deepEqual(
-					// @ts-expect-error - TS complains due to TestMwbot overriding get()
-					getStub.firstCall.args[1],
+				sinon.assert.calledOnceWithMatch(
+					getStub,
+					{},
 					{ disableRetryByCode: ['badtoken'] }
 				);
 			});
@@ -330,33 +348,31 @@ export function testMwbotRequestToken() {
 
 		describe('postWithCsrfToken()', function () {
 			it('should delegate to postWithToken', async function () {
-				const stub = sinon.stub(mwbot, 'postWithToken').resolves({});
+				const postWithTokenStub = sinon.stub(mwbot, 'postWithToken').resolves({});
 
 				await mwbot.postWithCsrfToken({ action: 'edit' });
 
-				assert.isTrue(
-					stub.calledOnceWithExactly(
-						'csrf',
-						{ action: 'edit' },
-						undefined
-					)
+				sinon.assert.calledOnceWithExactly(
+					postWithTokenStub,
+					'csrf',
+					{ action: 'edit' },
+					undefined
 				);
 			});
 		});
 
 		describe('getCsrfToken()', function () {
 			it('should delegate to getToken', async function () {
-				const stub = sinon.stub(mwbot, 'getToken').resolves('TOKEN');
+				const getTokenStub = sinon.stub(mwbot, 'getToken').resolves('TOKEN');
 
 				const token = await mwbot.getCsrfToken();
 
 				assert.strictEqual(token, 'TOKEN');
-				assert.isTrue(
-					stub.calledOnceWithExactly(
-						'csrf',
-						undefined,
-						undefined
-					)
+				sinon.assert.calledOnceWithExactly(
+					getTokenStub,
+					'csrf',
+					undefined,
+					undefined
 				);
 			});
 		});

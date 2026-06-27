@@ -72,16 +72,22 @@ export function testMwbotRequestBatch() {
 					list: 'allpages',
 				});
 
-				assert.strictEqual(fetchStub.callCount, 2);
-				assert.deepEqual(fetchStub.firstCall.args[0], {
-					action: 'query',
-					list: 'allpages',
-				});
-				assert.deepEqual(fetchStub.secondCall.args[0], {
-					action: 'query',
-					list: 'allpages',
-					apcontinue: '1',
-				});
+				sinon.assert.calledTwice(fetchStub);
+				sinon.assert.calledWithMatch(
+					fetchStub.getCall(0),
+					{
+						action: 'query',
+						list: 'allpages',
+					}
+				);
+				sinon.assert.calledWithMatch(
+					fetchStub.getCall(1),
+					{
+						action: 'query',
+						list: 'allpages',
+						apcontinue: '1',
+					}
+				);
 				assert.deepEqual(result, [
 					{ continue: { apcontinue: '1' }, query: { pages: ['Foo'] } },
 					{ query: { pages: ['Bar'] } },
@@ -99,7 +105,7 @@ export function testMwbotRequestBatch() {
 					{ limit: 3 }
 				);
 
-				assert.strictEqual(fetchStub.callCount, 3);
+				sinon.assert.calledThrice(fetchStub);
 				assert.lengthOf(result, 3);
 			});
 
@@ -120,7 +126,7 @@ export function testMwbotRequestBatch() {
 					{ limit: Infinity }
 				);
 
-				assert.strictEqual(fetchStub.callCount, 2);
+				sinon.assert.calledTwice(fetchStub);
 				assert.deepEqual(result, [
 					{ continue: { c: '1' }, query: {} },
 					{ query: {} },
@@ -142,7 +148,7 @@ export function testMwbotRequestBatch() {
 				);
 
 				assert.deepEqual(result, []);
-				assert.isTrue(fetchStub.notCalled);
+				sinon.assert.notCalled(fetchStub);
 			});
 
 			it('should perform one continued request sequence for each batch', async function () {
@@ -196,7 +202,7 @@ export function testMwbotRequestBatch() {
 					}
 				);
 
-				assert.strictEqual(fetchStub.callCount, 4);
+				sinon.assert.callCount(fetchStub, 4);
 				assert.sameDeepMembers(
 					fetchStub.getCalls().map(call => call.args[0]),
 					[
@@ -263,7 +269,7 @@ export function testMwbotRequestBatch() {
 					}
 				);
 
-				assert.strictEqual(fetchStub.callCount, 1);
+				sinon.assert.calledOnce(fetchStub);
 				assert.deepEqual(result, [error]);
 			});
 		});
@@ -291,7 +297,7 @@ export function testMwbotRequestBatch() {
 				);
 
 				assert.deepEqual(result, []);
-				assert.isTrue(requestStub.notCalled);
+				sinon.assert.notCalled(requestStub);
 			});
 
 			it('should create one request for each batch', async function () {
@@ -313,15 +319,21 @@ export function testMwbotRequestBatch() {
 					'titles'
 				);
 
-				assert.strictEqual(requestStub.callCount, 2);
-				assert.deepEqual(requestStub.firstCall.args[0], {
-					action: 'query',
-					titles: ['A', 'B'],
-				});
-				assert.deepEqual(requestStub.secondCall.args[0], {
-					action: 'query',
-					titles: ['C'],
-				});
+				sinon.assert.calledTwice(requestStub);
+				sinon.assert.calledWithMatch(
+					requestStub.getCall(0),
+					{
+						action: 'query',
+						titles: ['A', 'B'],
+					}
+				);
+				sinon.assert.calledWithMatch(
+					requestStub.getCall(1),
+					{
+						action: 'query',
+						titles: ['C'],
+					}
+				);
 				assert.deepEqual(result, [
 					{ query: { pages: ['A', 'B'] } },
 					{ query: { pages: ['C'] } },
@@ -345,11 +357,14 @@ export function testMwbotRequestBatch() {
 					['titles', 'revids']
 				);
 
-				assert.deepEqual(requestStub.firstCall.args[0], {
-					action: 'query',
-					titles: ['A', 'B'],
-					revids: ['A', 'B'],
-				});
+				sinon.assert.calledOnceWithMatch(
+					requestStub,
+					{
+						action: 'query',
+						titles: ['A', 'B'],
+						revids: ['A', 'B'],
+					}
+				);
 			});
 
 			it('should automatically use GET for read requests', async function () {
@@ -489,7 +504,7 @@ export function testMwbotRequestBatch() {
 
 				await promise;
 
-				assert.strictEqual(requestStub.callCount, 201);
+				sinon.assert.callCount(requestStub, 201);
 				assert.isAtMost(maxConcurrent, 100);
 			});
 		});

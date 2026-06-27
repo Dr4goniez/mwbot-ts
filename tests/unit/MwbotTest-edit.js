@@ -27,7 +27,7 @@ export function testMwbotEdit() {
 				// @ts-expect-error - Protected method
 				mwbot.validateTitle('Main Page', { allowAnonymous: true });
 
-				assert.isTrue(stub.calledOnceWithExactly(false));
+				sinon.assert.calledOnceWithExactly(stub, false);
 			});
 
 			it('should reject anonymous users by default', function () {
@@ -37,7 +37,7 @@ export function testMwbotEdit() {
 				// @ts-expect-error - Protected method
 				mwbot.validateTitle('Main Page');
 
-				assert.isTrue(stub.calledOnceWithExactly(true));
+				sinon.assert.calledOnceWithExactly(stub, true);
 			});
 
 			it('should convert a string to a Title object', function () {
@@ -199,15 +199,14 @@ export function testMwbotEdit() {
 				const res = await mwbot.create(title, 'text', 'summary');
 
 				assert.deepEqual(res, expectedResult);
-				assert.isTrue(
-					saveStub.calledOnceWithExactly(
-						title,
-						'text',
-						'summary',
-						{ createonly: true },
-						{},
-						undefined
-					)
+				sinon.assert.calledOnceWithExactly(
+					saveStub,
+					title,
+					'text',
+					'summary',
+					{ createonly: true },
+					{},
+					undefined
 				);
 			});
 		});
@@ -227,16 +226,14 @@ export function testMwbotEdit() {
 				const res = await mwbot.save(title, 'text', 'summary');
 
 				assert.deepEqual(res, expectedResult);
-				assert.deepEqual(
-					[...saveStub.firstCall.args],
-					[
-						title,
-						'text',
-						'summary',
-						{ nocreate: true },
-						{},
-						undefined,
-					]
+				sinon.assert.calledOnceWithExactly(
+					saveStub,
+					title,
+					'text',
+					'summary',
+					{ nocreate: true },
+					{},
+					undefined
 				);
 			});
 		});
@@ -289,7 +286,7 @@ export function testMwbotEdit() {
 				} catch (err) {
 					assert.instanceOf(err, MwbotError);
 					assert.strictEqual(err.code, 'typemismatch');
-					assert.isTrue(postWithCsrfToken.notCalled);
+					sinon.assert.notCalled(postWithCsrfToken);
 				}
 			});
 
@@ -303,7 +300,7 @@ export function testMwbotEdit() {
 				} catch (err) {
 					assert.instanceOf(err, MwbotError);
 					assert.strictEqual(err.code, 'aborted');
-					assert.isTrue(postWithCsrfToken.notCalled);
+					sinon.assert.notCalled(postWithCsrfToken);
 				}
 			});
 
@@ -338,9 +335,9 @@ export function testMwbotEdit() {
 
 				await mwbot.edit(title, async () => ({ text: 'new content' }));
 
-				assert.strictEqual(
-					postWithCsrfToken.firstCall.args[0].text,
-					'new content'
+				sinon.assert.calledOnceWithMatch(
+					postWithCsrfToken,
+					{ text: 'new content' }
 				);
 			});
 
@@ -393,16 +390,19 @@ export function testMwbotEdit() {
 					text: 'new content',
 				}));
 
-				assert.deepInclude(postWithCsrfToken.firstCall.args[0], {
-					title: response.title,
-					text: 'new content',
-					bot: true,
-					nocreate: true,
-					baserevid: response.baserevid,
-					basetimestamp: response.basetimestamp,
-					starttimestamp: response.starttimestamp,
-					action: 'edit',
-				});
+				sinon.assert.calledOnceWithMatch(
+					postWithCsrfToken,
+					{
+						title: response.title,
+						text: 'new content',
+						bot: true,
+						nocreate: true,
+						baserevid: response.baserevid,
+						basetimestamp: response.basetimestamp,
+						starttimestamp: response.starttimestamp,
+						action: 'edit',
+					}
+				);
 			});
 
 			it('should not retry for an edit conflict after three failures', async function () {
@@ -421,7 +421,7 @@ export function testMwbotEdit() {
 				} catch (err) {
 					assert.instanceOf(err, MwbotError);
 					assert.strictEqual(err.code, 'editconflict');
-					assert.isTrue(postWithCsrfToken.calledOnce);
+					sinon.assert.calledOnce(postWithCsrfToken);
 				}
 			});
 
@@ -441,7 +441,7 @@ export function testMwbotEdit() {
 				} catch (err) {
 					assert.instanceOf(err, MwbotError);
 					assert.strictEqual(err.code, 'editconflict');
-					assert.isTrue(postWithCsrfToken.calledOnce);
+					sinon.assert.calledOnce(postWithCsrfToken);
 				}
 			});
 
@@ -461,7 +461,7 @@ export function testMwbotEdit() {
 				} catch (err) {
 					assert.instanceOf(err, MwbotError);
 					assert.strictEqual(err.code, 'editconflict');
-					assert.isTrue(postWithCsrfToken.calledOnce);
+					sinon.assert.calledOnce(postWithCsrfToken);
 				}
 			});
 
@@ -481,7 +481,7 @@ export function testMwbotEdit() {
 				} catch (err) {
 					assert.instanceOf(err, MwbotError);
 					assert.strictEqual(err.code, 'editconflict');
-					assert.isTrue(postWithCsrfToken.calledOnce);
+					sinon.assert.calledOnce(postWithCsrfToken);
 				}
 			});
 
@@ -508,15 +508,15 @@ export function testMwbotEdit() {
 
 					await Promise.resolve();
 
-					assert.strictEqual(readStub.callCount, 1);
-					assert.strictEqual(postWithCsrfToken.callCount, 1);
+					sinon.assert.calledOnce(readStub);
+					sinon.assert.calledOnce(postWithCsrfToken);
 
 					await clock.tickAsync(5000);
 
 					const res = await promise;
 
-					assert.strictEqual(readStub.callCount, 2);
-					assert.strictEqual(postWithCsrfToken.callCount, 2);
+					sinon.assert.calledTwice(readStub);
+					sinon.assert.calledTwice(postWithCsrfToken);
 					assert.deepEqual(res, expectedResponse.edit);
 				} catch (err) {
 					console.error('%o', err);
@@ -583,19 +583,17 @@ export function testMwbotEdit() {
 				);
 
 				assert.deepEqual(res, expectedResult);
-				assert.deepEqual(
-					[...saveStub.firstCall.args],
-					[
-						title,
-						'text',
-						'summary',
-						{
-							section: 'new',
-							sectiontitle: 'Heading',
-						},
-						{},
-						undefined,
-					]
+				sinon.assert.calledOnceWithExactly(
+					saveStub,
+					title,
+					'text',
+					'summary',
+					{
+						section: 'new',
+						sectiontitle: 'Heading',
+					},
+					{},
+					undefined
 				);
 			});
 		});

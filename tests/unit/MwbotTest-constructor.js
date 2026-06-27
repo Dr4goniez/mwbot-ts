@@ -272,12 +272,10 @@ export function testMwbotConstructor() {
 
 				assert.instanceOf(mwbot, TestMwbot);
 
-				assert.strictEqual(errorSpy.callCount, 1);
-				assert.strictEqual(warnSpy.callCount, 1);
-				assert.strictEqual(infoSpy.callCount, 1);
-
-				assert.isTrue(errorSpy.calledBefore(warnSpy));
-				assert.isTrue(warnSpy.calledBefore(infoSpy));
+				sinon.assert.calledOnce(errorSpy);
+				sinon.assert.calledOnce(warnSpy);
+				sinon.assert.calledOnce(infoSpy);
+				sinon.assert.callOrder(errorSpy, warnSpy, infoSpy);
 			});
 
 			it('should throw an error when the retry also receives an empty response', async function () {
@@ -293,11 +291,10 @@ export function testMwbotConstructor() {
 				assert.instanceOf(err, MwbotError);
 				assert.strictEqual(err.code, 'empty');
 
-				assert.strictEqual(errorSpy.callCount, 1);
-				assert.strictEqual(warnSpy.callCount, 1);
-				assert.strictEqual(infoSpy.callCount, 0);
-
-				assert.isTrue(errorSpy.calledBefore(warnSpy));
+				sinon.assert.calledOnce(errorSpy);
+				sinon.assert.calledOnce(warnSpy);
+				sinon.assert.notCalled(infoSpy);
+				sinon.assert.callOrder(errorSpy, warnSpy);
 			});
 
 			it('should retry once when userinfo.id is 0 for authenticated users', async function () {
@@ -312,12 +309,10 @@ export function testMwbotConstructor() {
 
 				assert.instanceOf(mwbot, TestMwbot);
 
-				assert.strictEqual(errorSpy.callCount, 1);
-				assert.strictEqual(warnSpy.callCount, 1);
-				assert.strictEqual(infoSpy.callCount, 1);
-
-				assert.isTrue(errorSpy.calledBefore(warnSpy));
-				assert.isTrue(warnSpy.calledBefore(infoSpy));
+				sinon.assert.calledOnce(errorSpy);
+				sinon.assert.calledOnce(warnSpy);
+				sinon.assert.calledOnce(infoSpy);
+				sinon.assert.callOrder(errorSpy, warnSpy, infoSpy);
 			});
 
 			it('should throw badauth when userinfo.id remains 0 after a retry', async function () {
@@ -333,11 +328,10 @@ export function testMwbotConstructor() {
 				assert.instanceOf(err, MwbotError);
 				assert.strictEqual(err.code, 'badauth');
 
-				assert.strictEqual(errorSpy.callCount, 1);
-				assert.strictEqual(warnSpy.callCount, 1);
-				assert.strictEqual(infoSpy.callCount, 0);
-
-				assert.isTrue(errorSpy.calledBefore(warnSpy));
+				sinon.assert.calledOnce(errorSpy);
+				sinon.assert.calledOnce(warnSpy);
+				sinon.assert.notCalled(infoSpy);
+				sinon.assert.callOrder(errorSpy, warnSpy);
 			});
 
 			it('should reject immediately when login fails', async function () {
@@ -365,12 +359,10 @@ export function testMwbotConstructor() {
 
 				assert.instanceOf(mwbot, TestMwbot);
 
-				assert.strictEqual(errorSpy.callCount, 1);
-				assert.strictEqual(warnSpy.callCount, 1);
-				assert.strictEqual(infoSpy.callCount, 1);
-
-				assert.isTrue(errorSpy.calledBefore(warnSpy));
-				assert.isTrue(warnSpy.calledBefore(infoSpy));
+				sinon.assert.calledOnce(errorSpy);
+				sinon.assert.calledOnce(warnSpy);
+				sinon.assert.calledOnce(infoSpy);
+				sinon.assert.callOrder(errorSpy, warnSpy, infoSpy);
 			});
 
 			it('should throw badvars when initConfigData still returns failed keys after a retry', async function () {
@@ -388,11 +380,10 @@ export function testMwbotConstructor() {
 				assert.isArray(err.data?.keys);
 				assert.include(err.data?.keys ?? [], 'wgArticlePath');
 
-				assert.strictEqual(errorSpy.callCount, 1);
-				assert.strictEqual(warnSpy.callCount, 1);
-				assert.strictEqual(infoSpy.callCount, 0);
-
-				assert.isTrue(errorSpy.calledBefore(warnSpy));
+				sinon.assert.calledOnce(errorSpy);
+				sinon.assert.calledOnce(warnSpy);
+				sinon.assert.notCalled(infoSpy);
+				sinon.assert.callOrder(errorSpy, warnSpy);
 			});
 		});
 	});

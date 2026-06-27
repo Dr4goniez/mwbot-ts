@@ -30,8 +30,7 @@ describe('Logger', () => {
 
 			logger.output('info', 'hello');
 
-			assert.isTrue(logStub.calledOnce);
-			assert.strictEqual(logStub.firstCall.args[0], 'hello');
+			sinon.assert.calledOnceWithExactly(logStub, 'hello');
 		});
 
 		it('outputs a message with a level prefix when showLevel is true', () => {
@@ -39,7 +38,7 @@ describe('Logger', () => {
 
 			logger.output('warn', 'warning', { showLevel: true });
 
-			assert.isTrue(warnStub.calledOnce);
+			sinon.assert.calledOnce(warnStub);
 			assert.match(warnStub.firstCall.args[0], /\[warn\]/);
 			assert.include(warnStub.firstCall.args[0], 'warning');
 		});
@@ -53,8 +52,7 @@ describe('Logger', () => {
 				ignoreConfig: true,
 			});
 
-			assert.isTrue(logStub.calledOnce);
-			assert.strictEqual(logStub.firstCall.args[0], 'hello');
+			sinon.assert.calledOnceWithExactly(logStub, 'hello');
 		});
 
 		it('ignores suppressWarnings when ignoreConfig is true', () => {
@@ -66,8 +64,7 @@ describe('Logger', () => {
 				ignoreConfig: true,
 			});
 
-			assert.isTrue(warnStub.calledOnce);
-			assert.strictEqual(warnStub.firstCall.args[0], 'warning');
+			sinon.assert.calledOnceWithExactly(warnStub, 'warning');
 		});
 
 		it('ignores outputErrors when ignoreConfig is true', () => {
@@ -77,8 +74,7 @@ describe('Logger', () => {
 				ignoreConfig: true,
 			});
 
-			assert.isTrue(errorStub.calledOnce);
-			assert.strictEqual(errorStub.firstCall.args[0], 'boom');
+			sinon.assert.calledOnceWithExactly(errorStub, 'boom');
 		});
 	});
 
@@ -88,7 +84,7 @@ describe('Logger', () => {
 
 			logger.info('hello');
 
-			assert.isTrue(logStub.calledOnce);
+			sinon.assert.calledOnce(logStub);
 			assert.match(logStub.firstCall.args[0], /\[info\]/);
 		});
 
@@ -97,7 +93,7 @@ describe('Logger', () => {
 
 			logger.info('hello');
 
-			assert.isFalse(logStub.called);
+			sinon.assert.notCalled(logStub);
 		});
 
 		it('ignores empty messages', () => {
@@ -105,7 +101,7 @@ describe('Logger', () => {
 
 			logger.info('');
 
-			assert.isFalse(logStub.called);
+			sinon.assert.notCalled(logStub);
 		});
 	});
 
@@ -115,7 +111,7 @@ describe('Logger', () => {
 
 			logger.warn('warning');
 
-			assert.isTrue(warnStub.calledOnce);
+			sinon.assert.calledOnce(warnStub);
 		});
 
 		it('does nothing when suppressed', () => {
@@ -123,7 +119,7 @@ describe('Logger', () => {
 
 			logger.warn('warning');
 
-			assert.isFalse(warnStub.called);
+			sinon.assert.notCalled(warnStub);
 		});
 	});
 
@@ -137,7 +133,7 @@ describe('Logger', () => {
 
 			logger.error(err);
 
-			assert.isFalse(errorStub.called);
+			sinon.assert.notCalled(errorStub);
 		});
 
 		it('outputs the original error when no axios data exists', () => {
@@ -149,7 +145,7 @@ describe('Logger', () => {
 
 			logger.error(err);
 
-			assert.isTrue(errorStub.calledOnce);
+			sinon.assert.calledOnce(errorStub);
 			assert.strictEqual(errorStub.firstCall.args[2], err);
 		});
 

@@ -41,9 +41,9 @@ export function testMwbotRequestHelpers() {
 
 				mwbot.abort();
 
-				assert.isTrue(abortControllerSpy.called);
-				assert.isTrue(clearSpy.calledOnce);
-				assert.isTrue(clearSpy.calledImmediatelyAfter(abortControllerSpy));
+				sinon.assert.called(abortControllerSpy);
+				sinon.assert.calledOnce(clearSpy);
+				sinon.assert.callOrder(abortControllerSpy, clearSpy);
 				// @ts-expect-error - Protected property
 				assert.isEmpty(mwbot.abortions);
 			});
@@ -61,8 +61,8 @@ export function testMwbotRequestHelpers() {
 				const res = await Mwbot.prototype.get.call(mwbot, params, reqOpts);
 
 				assert.deepEqual(res, expectedResponse);
-				assert.isTrue(unrefSpy.calledOnce);
-				assert.isTrue(requestStub.calledOnce);
+				sinon.assert.calledOnce(unrefSpy);
+				sinon.assert.calledOnce(requestStub);
 				assert.strictEqual(requestStub.firstCall.args[0], params);
 				assert.notStrictEqual(requestStub.firstCall.args[1], reqOpts);
 				assert.strictEqual(requestStub.firstCall.args[1]?.method, 'GET');
@@ -82,8 +82,8 @@ export function testMwbotRequestHelpers() {
 				const res = await mwbot.post(params, reqOpts);
 
 				assert.deepEqual(res, expectedResponse);
-				assert.isTrue(unrefSpy.calledOnce);
-				assert.isTrue(requestStub.calledOnce);
+				sinon.assert.calledOnce(unrefSpy);
+				sinon.assert.calledOnce(requestStub);
 				assert.strictEqual(requestStub.firstCall.args[0], params);
 				assert.notStrictEqual(requestStub.firstCall.args[1], reqOpts);
 				assert.strictEqual(requestStub.firstCall.args[1]?.method, 'POST');
@@ -103,8 +103,8 @@ export function testMwbotRequestHelpers() {
 				const res = await mwbot.nonwritePost(params, reqOpts);
 
 				assert.deepEqual(res, expectedResponse);
-				assert.isTrue(unrefSpy.calledOnce);
-				assert.isTrue(requestStub.calledOnce);
+				sinon.assert.calledOnce(unrefSpy);
+				sinon.assert.calledOnce(requestStub);
 				assert.strictEqual(requestStub.firstCall.args[0], params);
 				assert.notStrictEqual(requestStub.firstCall.args[1], reqOpts);
 				assert.strictEqual(requestStub.firstCall.args[1]?.method, 'POST');
@@ -132,8 +132,8 @@ export function testMwbotRequestHelpers() {
 				const res = await mwbot.fetch(params, reqOpts);
 
 				assert.deepEqual(res, expectedResponse);
-				assert.isTrue(unrefSpy.calledOnce);
-				assert.isTrue(requestStub.calledOnce);
+				sinon.assert.calledOnce(unrefSpy);
+				sinon.assert.calledOnce(requestStub);
 
 				assert.strictEqual(requestStub.firstCall.args[0], params);
 				assert.notStrictEqual(requestStub.firstCall.args[1], reqOpts);

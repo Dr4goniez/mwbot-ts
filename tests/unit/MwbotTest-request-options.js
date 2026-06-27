@@ -65,14 +65,17 @@ export function testMwbotOptions() {
 					assert.strictEqual(ret.get('answer'), 42);
 					assert.strictEqual(ret.get('enabled'), true);
 
-					assert.deepInclude(getStub.firstCall.args[0], {
-						action: 'query',
-						meta: 'userinfo',
-						uiprop: 'options',
-						format: 'json',
-						formatversion: '2',
-					});
-					assert.deepEqual(getStub.firstCall.args[1], requestOptions);
+					sinon.assert.calledOnceWithExactly(
+						getStub,
+						{
+							action: 'query',
+							meta: 'userinfo',
+							uiprop: 'options',
+							format: 'json',
+							formatversion: '2',
+						},
+						requestOptions
+					);
 				});
 
 				it('should allow additional parameters to be passed', async function () {
@@ -192,17 +195,20 @@ export function testMwbotOptions() {
 						{ timeout: 7777 }
 					);
 
-					assert.deepEqual(getStub.firstCall.args[0], {
-						assert: 'user',
-						action: 'query',
-						format: 'json',
-						formatversion: '2',
-						meta: 'globalpreferences',
-						gprprop: 'preferences',
-					});
-					assert.deepEqual(getStub.firstCall.args[1], {
-						timeout: 7777,
-					});
+					sinon.assert.calledOnceWithExactly(
+						getStub,
+						{
+							assert: 'user',
+							action: 'query',
+							format: 'json',
+							formatversion: '2',
+							meta: 'globalpreferences',
+							gprprop: 'preferences',
+						},
+						{
+							timeout: 7777,
+						}
+					);
 				});
 
 				it('should throw "empty" error if "globalpreferences" is missing from API response', async function () {
@@ -313,9 +319,12 @@ export function testMwbotOptions() {
 						preferences: new Map(),
 						localoverrides: new Map(),
 					});
-					assert.deepEqual(gpSpy.firstCall.args[0], ['preferences', 'localoverrides']);
-					assert.deepEqual(gpSpy.firstCall.args[1], params);
-					assert.deepEqual(gpSpy.firstCall.args[2], reqOpts);
+					sinon.assert.calledOnceWithExactly(
+						gpSpy,
+						['preferences', 'localoverrides'],
+						params,
+						reqOpts
+					);
 				});
 			});
 
@@ -343,9 +352,12 @@ export function testMwbotOptions() {
 					const res = await mwbot.getGlobalOptions(params, reqOpts);
 
 					assert.deepEqual(res, new Map());
-					assert.deepEqual(gpSpy.firstCall.args[0], ['preferences']);
-					assert.deepEqual(gpSpy.firstCall.args[1], params);
-					assert.deepEqual(gpSpy.firstCall.args[2], reqOpts);
+					sinon.assert.calledOnceWithExactly(
+						gpSpy,
+						['preferences'],
+						params,
+						reqOpts
+					);
 				});
 			});
 
@@ -397,9 +409,12 @@ export function testMwbotOptions() {
 					const res = await mwbot.getGlobalOptionOverrides(params, reqOpts);
 
 					assert.deepEqual(res, new Map());
-					assert.deepEqual(gpSpy.firstCall.args[0], ['localoverrides']);
-					assert.deepEqual(gpSpy.firstCall.args[1], params);
-					assert.deepEqual(gpSpy.firstCall.args[2], reqOpts);
+					sinon.assert.calledOnceWithExactly(
+						gpSpy,
+						['localoverrides'],
+						params,
+						reqOpts
+					);
 				});
 			});
 
@@ -488,10 +503,9 @@ export function testMwbotOptions() {
 						baz: 1,
 					});
 
-					assert.strictEqual(postWithCsrfTokenStub.callCount, 1);
-					assert.strictEqual(
-						postWithCsrfTokenStub.firstCall.args[0].change,
-						'foo=bar|baz=1'
+					sinon.assert.calledOnceWithMatch(
+						postWithCsrfTokenStub,
+						{ change: 'foo=bar|baz=1' }
 					);
 				});
 
@@ -505,10 +519,9 @@ export function testMwbotOptions() {
 					// @ts-expect-error - Protected method
 					await mwbot._saveOptions('options', change);
 
-					assert.strictEqual(postWithCsrfTokenStub.callCount, 1);
-					assert.strictEqual(
-						postWithCsrfTokenStub.firstCall.args[0].change,
-						'foo=bar|baz=1'
+					sinon.assert.calledOnceWithMatch(
+						postWithCsrfTokenStub,
+						{ change: 'foo=bar|baz=1' }
 					);
 				});
 
@@ -521,9 +534,9 @@ export function testMwbotOptions() {
 						bar: 'baz',
 					});
 
-					assert.strictEqual(
-						postWithCsrfTokenStub.firstCall.args[0].change,
-						'foo|bar=baz'
+					sinon.assert.calledOnceWithMatch(
+						postWithCsrfTokenStub,
+						{ change: 'foo|bar=baz' }
 					);
 				});
 
@@ -535,9 +548,13 @@ export function testMwbotOptions() {
 						'a=b': 'c',
 					});
 
-					assert.strictEqual(postWithCsrfTokenStub.callCount, 1);
-					assert.strictEqual(postWithCsrfTokenStub.firstCall.args[0].optionname, 'a=b');
-					assert.strictEqual(postWithCsrfTokenStub.firstCall.args[0].optionvalue, 'c');
+					sinon.assert.calledOnceWithMatch(
+						postWithCsrfTokenStub,
+						{
+							optionname: 'a=b',
+							optionvalue: 'c',
+						}
+					);
 					assert.notProperty(postWithCsrfTokenStub.firstCall.args[0], 'change');
 				});
 
@@ -548,8 +565,12 @@ export function testMwbotOptions() {
 					await mwbot._saveOptions('options', {
 						'a=b': null,
 					});
-					assert.strictEqual(postWithCsrfTokenStub.firstCall.args[0].optionname, 'a=b');
-					assert.isUndefined(postWithCsrfTokenStub.firstCall.args[0].optionvalue);
+
+					sinon.assert.calledOnceWithMatch(
+						postWithCsrfTokenStub,
+						{ optionname: 'a=b' }
+					);
+					assert.notProperty(postWithCsrfTokenStub.firstCall.args[0], 'optionvalue');
 
 					// Ensure the undefined property is stripped
 					const params = Mwbot.Util.cloneDeep(postWithCsrfTokenStub.firstCall.args[0]);
@@ -566,9 +587,9 @@ export function testMwbotOptions() {
 						'foo|bar': 'baz',
 					});
 
-					assert.strictEqual(
-						postWithCsrfTokenStub.firstCall.args[0].change,
-						'\u001Ffoo|bar=baz'
+					sinon.assert.calledOnceWithMatch(
+						postWithCsrfTokenStub,
+						{ change: '\u001Ffoo|bar=baz' }
 					);
 				});
 
@@ -580,9 +601,9 @@ export function testMwbotOptions() {
 						foo: 'a|b',
 					});
 
-					assert.strictEqual(
-						postWithCsrfTokenStub.firstCall.args[0].change,
-						'\u001Ffoo=a|b'
+					sinon.assert.calledOnceWithMatch(
+						postWithCsrfTokenStub,
+						{ change: '\u001Ffoo=a|b' }
 					);
 				});
 
@@ -598,7 +619,7 @@ export function testMwbotOptions() {
 						c: '3',
 					});
 
-					assert.strictEqual(postWithCsrfTokenStub.callCount, 3);
+					sinon.assert.calledThrice(postWithCsrfTokenStub);
 					assert.deepInclude(postWithCsrfTokenStub.firstCall.args[0], {
 						optionname: 'a=b',
 						optionvalue: '0',
@@ -619,7 +640,7 @@ export function testMwbotOptions() {
 						baz: 'qux',
 					});
 
-					assert.strictEqual(postWithCsrfTokenStub.callCount, 2);
+					sinon.assert.calledTwice(postWithCsrfTokenStub);
 					assert.deepEqual(postWithCsrfTokenStub.firstCall.args[0], {
 						action: 'options',
 						format: 'json',
@@ -644,7 +665,7 @@ export function testMwbotOptions() {
 						'c=d': '2',
 					});
 
-					assert.strictEqual(postWithCsrfTokenStub.callCount, 2);
+					sinon.assert.calledTwice(postWithCsrfTokenStub);
 					assert.strictEqual(postWithCsrfTokenStub.firstCall.args[0].optionname, 'a=b');
 					assert.strictEqual(postWithCsrfTokenStub.secondCall.args[0].optionname, 'c=d');
 				});
@@ -662,12 +683,9 @@ export function testMwbotOptions() {
 						requestOptions
 					);
 
-					assert.strictEqual(
-						postWithCsrfTokenStub.firstCall.args[0].assert,
-						'user'
-					);
-					assert.strictEqual(
-						postWithCsrfTokenStub.firstCall.args[1],
+					sinon.assert.calledOnceWithMatch(
+						postWithCsrfTokenStub,
+						{ assert: 'user' },
 						requestOptions
 					);
 				});
@@ -726,14 +744,14 @@ export function testMwbotOptions() {
 						baz: 'qux',
 					});
 
-					assert.strictEqual(postWithCsrfTokenStub.callCount, 1);
+					sinon.assert.calledOnce(postWithCsrfTokenStub);
 
 					resolveFirst({ options: 'success' });
 
 					await p1;
 					await p2;
 
-					assert.strictEqual(postWithCsrfTokenStub.callCount, 2);
+					sinon.assert.calledTwice(postWithCsrfTokenStub);
 				});
 
 				it('should clear saveOptionsRequest after completion', async function () {
@@ -815,12 +833,13 @@ export function testMwbotOptions() {
 						);
 
 						assert.strictEqual(ret, response);
-
-						assert.strictEqual(_saveOptionsStub.callCount, 1);
-						assert.strictEqual(_saveOptionsStub.firstCall.args[0], 'options');
-						assert.deepEqual(_saveOptionsStub.firstCall.args[1], { foo: 'bar' });
-						assert.deepEqual(_saveOptionsStub.firstCall.args[2], params);
-						assert.deepEqual(_saveOptionsStub.firstCall.args[3], reqOpts);
+						sinon.assert.calledOnceWithExactly(
+							_saveOptionsStub,
+							'options',
+							{ foo: 'bar' },
+							params,
+							reqOpts
+						);
 					});
 				});
 
@@ -855,9 +874,13 @@ export function testMwbotOptions() {
 
 						await mwbot.saveGlobalOption('foo', 'bar');
 
-						assert.strictEqual(_saveOptionsStub.callCount, 1);
-						assert.strictEqual(_saveOptionsStub.firstCall.args[0], 'globalpreferences');
-						assert.deepEqual(_saveOptionsStub.firstCall.args[1], { foo: 'bar' });
+						sinon.assert.calledOnceWithExactly(
+							_saveOptionsStub,
+							'globalpreferences',
+							{ foo: 'bar' },
+							{},
+							undefined
+						);
 					});
 				});
 
@@ -892,9 +915,13 @@ export function testMwbotOptions() {
 
 						await mwbot.saveGlobalOptionOverride('foo', 'bar');
 
-						assert.strictEqual(_saveOptionsStub.callCount, 1);
-						assert.strictEqual(_saveOptionsStub.firstCall.args[0], 'globalpreferenceoverrides');
-						assert.deepEqual(_saveOptionsStub.firstCall.args[1], { foo: 'bar' });
+						sinon.assert.calledOnceWithExactly(
+							_saveOptionsStub,
+							'globalpreferenceoverrides',
+							{ foo: 'bar' },
+							{},
+							undefined
+						);
 					});
 				});
 			});
