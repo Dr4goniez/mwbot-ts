@@ -3643,19 +3643,17 @@ export class Mwbot {
 	): Promise<ApiResponseDelete> {
 		this.dieIfNoRights('delete', 'delete pages');
 
-		let pageId: number | false = false;
-		let title: string | false = false;
+		let targetParam: { title: string } | { pageid: number };
 		if (typeof titleOrId === 'number') {
-			pageId = titleOrId;
+			targetParam = { pageid: titleOrId };
 		} else {
-			title = this.validateTitle(titleOrId).getPrefixedText();
+			targetParam = { title: this.validateTitle(titleOrId).getPrefixedText() };
 		}
 
 		const response = await this.postWithCsrfToken({
 			...additionalParams,
 			...Mwbot.getActionParams('delete'),
-			title,
-			pageid: pageId,
+			...targetParam,
 		}, requestOptions);
 
 		if (response.delete) {

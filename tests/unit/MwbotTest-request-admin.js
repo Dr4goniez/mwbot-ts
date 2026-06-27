@@ -256,5 +256,238 @@ export function testMwbotRequestAdmin() {
 				}
 			});
 		});
+
+		describe('delete()', function () {
+			/**
+			 * @type {sinon.SinonStub}
+			 */
+			let postWithCsrfTokenStub;
+
+			beforeEach(function () {
+				postWithCsrfTokenStub = sinon.stub(mwbot, 'postWithCsrfToken');
+			});
+
+			it('should throw "anonymous" error for anonymous authentication', async function () {
+				// @ts-expect-error - Protected method
+				sinon.stub(mwbot, 'isAnonymous').returns(true);
+
+				try {
+					await mwbot.delete('Foo');
+					assert.fail('Expected delete() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'anonymous');
+					sinon.assert.notCalled(postWithCsrfTokenStub);
+				}
+			});
+
+			it('should throw "nopermission" error when the client does not have the "delete" right', async function () {
+				sinon.stub(mwbot, 'hasRights').returns(false);
+
+				try {
+					await mwbot.delete('Foo');
+					assert.fail('Expected delete() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'nopermission');
+					sinon.assert.notCalled(postWithCsrfTokenStub);
+				}
+			});
+
+			it('should map a string titleOrId to the "title" API parameter', async function () {
+				postWithCsrfTokenStub.resolves({ delete: {} });
+
+				await mwbot.delete('Foo');
+
+				sinon.assert.calledOnceWithMatch(
+					postWithCsrfTokenStub,
+					{ title: 'Foo' }
+				);
+			});
+
+			it('should map a number titleOrId to the "pageid" API parameter', async function () {
+				postWithCsrfTokenStub.resolves({ delete: {} });
+
+				await mwbot.delete(123);
+
+				sinon.assert.calledOnceWithMatch(
+					postWithCsrfTokenStub,
+					{ pageid: 123 }
+				);
+			});
+
+			it('should use required API parameters', async function () {
+				const expected = {
+					title: 'Foo',
+				};
+				postWithCsrfTokenStub.resolves({ delete: expected });
+
+				const additionalParams = { reason: 'reason' };
+				const reqOpts = { timeout: 7777 };
+
+				const res = await mwbot.delete(
+					'Foo',
+					additionalParams,
+					reqOpts
+				);
+
+				sinon.assert.calledOnceWithExactly(
+					postWithCsrfTokenStub,
+					{
+						...additionalParams,
+						action: 'delete',
+						format: 'json',
+						formatversion: '2',
+						title: 'Foo',
+					},
+					reqOpts
+				);
+
+				assert.deepEqual(res, expected);
+			});
+
+			it('should return response.delete', async function () {
+				const expected = {
+					title: 'Foo',
+				};
+				postWithCsrfTokenStub.resolves({ delete: expected });
+
+				const res = await mwbot.delete('Foo');
+
+				sinon.assert.calledOnce(postWithCsrfTokenStub);
+				assert.deepEqual(res, expected);
+			});
+
+			it('should throw "empty" error when response.delete is missing', async function () {
+				postWithCsrfTokenStub.resolves({});
+
+				try {
+					await mwbot.delete('Foo');
+					assert.fail('Expected delete() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'empty');
+					sinon.assert.calledOnce(postWithCsrfTokenStub);
+				}
+			});
+		});
+
+		describe('undelete()', function () {
+			/**
+			 * @type {sinon.SinonStub}
+			 */
+			let postWithCsrfTokenStub;
+
+			beforeEach(function () {
+				postWithCsrfTokenStub = sinon.stub(mwbot, 'postWithCsrfToken');
+			});
+
+			it('should throw "anonymous" error for anonymous authentication', async function () {
+				// @ts-expect-error - Protected method
+				sinon.stub(mwbot, 'isAnonymous').returns(true);
+
+				try {
+					await mwbot.undelete('Foo');
+					assert.fail('Expected undelete() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'anonymous');
+					sinon.assert.notCalled(postWithCsrfTokenStub);
+				}
+			});
+
+			it('should throw "nopermission" error when the client does not have the "undelete" right', async function () {
+				sinon.stub(mwbot, 'hasRights').returns(false);
+
+				try {
+					await mwbot.undelete('Foo');
+					assert.fail('Expected undelete() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'nopermission');
+					sinon.assert.notCalled(postWithCsrfTokenStub);
+				}
+			});
+
+			it('should use a default timeout of 180 seconds', async function () {
+				postWithCsrfTokenStub.resolves({ undelete: {} });
+
+				await mwbot.undelete('Foo');
+
+				sinon.assert.calledOnceWithMatch(
+					postWithCsrfTokenStub,
+					sinon.match.object,
+					{ timeout: 180000 }
+				);
+			});
+
+			it('should preserve an explicitly specified timeout', async function () {
+				postWithCsrfTokenStub.resolves({ undelete: {} });
+
+				await mwbot.undelete('Foo', {}, { timeout: 7777 });
+
+				sinon.assert.calledOnceWithMatch(
+					postWithCsrfTokenStub,
+					sinon.match.object,
+					{ timeout: 7777 }
+				);
+			});
+
+			it('should use required API parameters', async function () {
+				const expected = {
+					title: 'Foo',
+				};
+				postWithCsrfTokenStub.resolves({ undelete: expected });
+
+				const additionalParams = {
+					reason: 'reason',
+				};
+
+				const res = await mwbot.undelete(
+					'Foo',
+					additionalParams,
+					{ timeout: 7777 }
+				);
+
+				sinon.assert.calledOnceWithExactly(
+					postWithCsrfTokenStub,
+					{
+						...additionalParams,
+						action: 'undelete',
+						format: 'json',
+						formatversion: '2',
+						title: 'Foo',
+					},
+					{ timeout: 7777, _cloned: true }
+				);
+
+				assert.deepEqual(res, expected);
+			});
+
+			it('should return response.undelete', async function () {
+				const expected = {
+					title: 'Foo',
+				};
+				postWithCsrfTokenStub.resolves({ undelete: expected });
+
+				const res = await mwbot.undelete('Foo');
+
+				sinon.assert.calledOnce(postWithCsrfTokenStub);
+				assert.deepEqual(res, expected);
+			});
+
+			it('should throw "empty" error when response.undelete is missing', async function () {
+				postWithCsrfTokenStub.resolves({});
+
+				try {
+					await mwbot.undelete('Foo');
+					assert.fail('Expected undelete() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'empty');
+					sinon.assert.calledOnce(postWithCsrfTokenStub);
+				}
+			});
+		});
 	});
 }
