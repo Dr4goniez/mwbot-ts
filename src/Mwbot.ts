@@ -3506,7 +3506,8 @@ export class Mwbot {
 	 * Default parameters:
 	 * ```
 	 * {
-	 *   user: target,
+	 *   user: userOrId, // If a string
+	 *   id: userOrId, // If a number
 	 *   anononly: true, // Soft-block
 	 *   nocreate: true,
 	 *   autoblock: true,
@@ -3514,7 +3515,7 @@ export class Mwbot {
 	 * }
 	 * ```
 	 *
-	 * @param target The user name, IP address, or user ID to block.
+	 * @param target User to block as a string, or ID of the block to modify as a number.
 	 * @param additionalParams
 	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Block#Blocking_users | `action=block`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
@@ -3523,21 +3524,26 @@ export class Mwbot {
 	 * @throws {MwbotError} If:
 	 * - The client is anonymous. (`anonymous`)
 	 * - The client lacks the `block` user right. (`nopermission`)
-	 * - `target` is not a string. (`typemismatch`)
+	 * - `userOrId` is neither a string nor a number. (`typemismatch`)
 	 */
 	async block(
-		target: string,
+		userOrId: string | number,
 		additionalParams: ApiParamsActionBlock = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseBlock> {
 		this.dieIfNoRights('block', 'block users');
 
-		if (typeof target !== 'string') {
-			Mwbot.dieWithTypeError('string', 'target', target);
+		let targetParam: { user: string } | { id: number };
+		if (typeof userOrId === 'string') {
+			targetParam = { user: userOrId };
+		} else if (typeof userOrId === 'number') {
+			targetParam = { id: userOrId };
+		} else {
+			Mwbot.dieWithTypeError('string or number', 'userOrId', userOrId);
 		}
 
 		const response = await this.postWithCsrfToken({
-			user: target,
+			...targetParam,
 			anononly: true,
 			nocreate: true,
 			autoblock: true,
@@ -3566,7 +3572,7 @@ export class Mwbot {
 	 * }
 	 * ```
 	 *
-	 * @param userOrId The user name, IP address, user ID, or block ID to unblock.
+	 * @param userOrId User to unblock as a string, or ID of the block to remove as a number.
 	 * @param additionalParams
 	 * Additional parameters for {@link https://www.mediawiki.org/wiki/API:Block#Unblocking_users | `action=unblock`}.
 	 * If any of these parameters conflict with the enforced ones, the enforced values take precedence.
@@ -3584,17 +3590,19 @@ export class Mwbot {
 	): Promise<ApiResponseUnblock> {
 		this.dieIfNoRights('block', 'unblock users');
 
-		const id = typeof userOrId === 'number' && userOrId;
-		const user = typeof userOrId === 'string' && userOrId;
-		if (id === false && user === false) {
+		let targetParam: { user: string } | { id: number };
+		if (typeof userOrId === 'string') {
+			targetParam = { user: userOrId };
+		} else if (typeof userOrId === 'number') {
+			targetParam = { id: userOrId };
+		} else {
 			Mwbot.dieWithTypeError('string or number', 'userOrId', userOrId);
 		}
 
 		const response = await this.postWithCsrfToken({
 			...additionalParams,
 			...Mwbot.getActionParams('unblock'),
-			id,
-			user,
+			...targetParam,
 		}, requestOptions);
 
 		if (response.unblock) {
