@@ -701,5 +701,144 @@ export function testMwbotRequestAdmin() {
 				assert.deepEqual(res, expected);
 			});
 		});
+
+		describe('rollback()', function () {
+			/**
+			 * @type {sinon.SinonStub}
+			 */
+			let postWithTokenStub;
+
+			beforeEach(function () {
+				postWithTokenStub = sinon.stub(mwbot, 'postWithToken');
+			});
+
+			it('should throw "anonymous" error for anonymous authentication', async function () {
+				// @ts-expect-error - Protected method
+				sinon.stub(mwbot, 'isAnonymous').returns(true);
+
+				try {
+					await mwbot.rollback('Foo', 'Bar');
+					assert.fail('Expected rollback() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'anonymous');
+					sinon.assert.notCalled(postWithTokenStub);
+				}
+			});
+
+			it('should throw "nopermission" error when the client does not have the "rollback" right', async function () {
+				sinon.stub(mwbot, 'hasRights').returns(false);
+
+				try {
+					await mwbot.rollback('Foo', 'Bar');
+					assert.fail('Expected rollback() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'nopermission');
+					sinon.assert.notCalled(postWithTokenStub);
+				}
+			});
+
+			it('should throw "invalidtitle" error for an invalid title', async function () {
+				try {
+					await mwbot.rollback('[', 'Bar');
+					assert.fail('Expected rollback() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'invalidtitle');
+					sinon.assert.notCalled(postWithTokenStub);
+				}
+			});
+
+			it('should throw "typemismatch" error for an invalid user type', async function () {
+				try {
+					// @ts-expect-error - Invalid user type
+					await mwbot.rollback('Foo', 123);
+					assert.fail('Expected rollback() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'typemismatch');
+					sinon.assert.notCalled(postWithTokenStub);
+				}
+			});
+
+			it('should apply required API parameters', async function () {
+				const expected = {
+					title: 'Foo',
+					pageid: 1,
+					summary: 'Rollback',
+				};
+				postWithTokenStub.resolves({ rollback: expected });
+
+				const additionalParams = {
+					markbot: true,
+				};
+				const reqOpts = {
+					timeout: 7777,
+				};
+
+				const res = await mwbot.rollback(
+					'Foo',
+					'Bar',
+					additionalParams,
+					reqOpts
+				);
+
+				sinon.assert.calledOnceWithExactly(
+					postWithTokenStub,
+					'rollback',
+					{
+						...additionalParams,
+						action: 'rollback',
+						format: 'json',
+						formatversion: '2',
+						title: 'Foo',
+						user: 'Bar',
+					},
+					reqOpts
+				);
+				assert.deepEqual(res, expected);
+			});
+
+			it('should use pageid when titleOrId is a number', async function () {
+				postWithTokenStub.resolves({ rollback: {} });
+
+				await mwbot.rollback(123, 'Bar');
+
+				sinon.assert.calledOnceWithMatch(
+					postWithTokenStub,
+					'rollback',
+					{
+						pageid: 123,
+						user: 'Bar',
+					}
+				);
+			});
+
+			it('should return response.rollback', async function () {
+				const expected = {
+					title: 'Foo',
+				};
+				postWithTokenStub.resolves({ rollback: expected });
+
+				const res = await mwbot.rollback('Foo', 'Bar');
+
+				sinon.assert.calledOnce(postWithTokenStub);
+				assert.deepEqual(res, expected);
+			});
+
+			it('should throw "empty" error when response.rollback is missing', async function () {
+				postWithTokenStub.resolves({});
+
+				try {
+					await mwbot.rollback('Foo', 'Bar');
+					assert.fail('Expected rollback() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'empty');
+					sinon.assert.calledOnce(postWithTokenStub);
+				}
+			});
+		});
 	});
 }

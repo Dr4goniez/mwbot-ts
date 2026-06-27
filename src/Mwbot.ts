@@ -3851,13 +3851,13 @@ export class Mwbot {
 	): Promise<ApiResponseRollback> {
 		this.dieIfNoRights('rollback', 'rollback edits');
 
-		let pageId: number | false = false;
-		let title: string | false = false;
+		let targetParam: { title: string } | { pageid: number };
 		if (typeof titleOrId === 'number') {
-			pageId = titleOrId;
+			targetParam = { pageid: titleOrId };
 		} else {
-			title = this.validateTitle(titleOrId).getPrefixedText();
+			targetParam = { title: this.validateTitle(titleOrId).getPrefixedText() };
 		}
+
 		if (typeof user !== 'string') {
 			Mwbot.dieWithTypeError('string', 'user', user);
 		}
@@ -3865,8 +3865,7 @@ export class Mwbot {
 		const response = await this.postWithToken('rollback', {
 			...additionalParams,
 			...Mwbot.getActionParams('rollback'),
-			title,
-			pageid: pageId,
+			...targetParam,
 			user,
 		}, requestOptions);
 
