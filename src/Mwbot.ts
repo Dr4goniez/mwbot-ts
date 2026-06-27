@@ -3447,33 +3447,32 @@ export class Mwbot {
 	 * not just the `response.purge` array, allowing access to top-level properties like `normalized`
 	 * and `redirects`.
 	 * @throws {MwbotError} If:
-	 * - The client lacks the `purge` user right. (`nopermission`)
-	 * - `titles` contains non-strings or non-Titles. (`typemismatch`)
+	 * - Titles in the `titles` array fail validation (see {@link validateTitle}).
+	 * - The `titles` array is empty. (`emptyinput`)
 	 */
 	async purge(
-		titles: (string | Title)[],
+		titles: string | Title | (string | Title)[],
 		additionalParams: ApiParams = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<PartiallyRequired<ApiResponse, 'purge'>> {
-		// Check the types of `titles` without using `validateTitle`
-		// The `action=purge` API call does not throw an error for invalid titles
-		// Instead, it returns a response that may lack the `{ purged: true }` property
+		titles = Array.isArray(titles) ? titles : [titles];
+
 		const titleSet = new Set<string>();
-		const invalid: unknown[] = [];
-		titles.forEach((t) => {
-			if (t instanceof this.Title) {
-				titleSet.add(t.toString());
-			} else if (typeof t === 'string') {
-				titleSet.add(t);
-			} else {
-				invalid.push(t);
-			}
-		});
-		if (invalid.length) {
+		const validationOptions = {
+			allowAnonymous: true,
+			allowSpecial: true,
+		};
+
+		for (const title of titles) {
+			const t = this.validateTitle(title, validationOptions).getPrefixedText();
+			titleSet.add(t);
+		}
+
+		if (!titleSet.size) {
 			throw new MwbotError('fatal', {
-				code: 'typemismatch',
-				info: 'The array passed as the first argument of purge() must only contain strings or Title instances.',
-			}, { invalid });
+				code: 'emptyinput',
+				info: 'The titles array is empty.',
+			});
 		}
 
 		const response = await this.post({

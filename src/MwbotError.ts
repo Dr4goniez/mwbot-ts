@@ -273,11 +273,6 @@ export interface MwbotErrorData {
 	 */
 	transformed?: unknown;
 	/**
-	 * Present when a method receives an array parameter (e.g., {@link Mwbot.purge}) containing
-	 * values of incorrect types.
-	 */
-	invalid?: unknown[];
-	/**
 	 * Present when a {@link ModificationPredicate} returns a value that is neither a string nor `null`.
 	 * This property records the index and the corresponding unexpected value encountered.
 	 */
