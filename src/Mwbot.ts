@@ -3751,12 +3751,11 @@ export class Mwbot {
 	): Promise<ApiResponseProtect> {
 		this.dieIfNoRights('protect', 'protect pages');
 
-		let pageId: number | false = false;
-		let title: string | false = false;
+		let targetParam: { title: string } | { pageid: number };
 		if (typeof titleOrId === 'number') {
-			pageId = titleOrId;
+			targetParam = { pageid: titleOrId };
 		} else {
-			title = this.validateTitle(titleOrId).getPrefixedText();
+			targetParam = { title: this.validateTitle(titleOrId).getPrefixedText() };
 		}
 
 		let protections: string;
@@ -3773,8 +3772,7 @@ export class Mwbot {
 		const response = await this.postWithCsrfToken({
 			...additionalParams,
 			...Mwbot.getActionParams('protect'),
-			title,
-			pageid: pageId,
+			...targetParam,
 			protections,
 		}, requestOptions);
 

@@ -489,5 +489,217 @@ export function testMwbotRequestAdmin() {
 				}
 			});
 		});
+
+		describe('protect()', function () {
+			/**
+			 * @type {sinon.SinonStub}
+			 */
+			let postWithCsrfTokenStub;
+
+			beforeEach(function () {
+				postWithCsrfTokenStub = sinon.stub(mwbot, 'postWithCsrfToken');
+			});
+
+			it('should throw "anonymous" error for anonymous authentication', async function () {
+				// @ts-expect-error - Protected method
+				sinon.stub(mwbot, 'isAnonymous').returns(true);
+
+				try {
+					await mwbot.protect('Foo', 'edit=sysop');
+					assert.fail('Expected protect() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'anonymous');
+					sinon.assert.notCalled(postWithCsrfTokenStub);
+				}
+			});
+
+			it('should throw "nopermission" error when the client does not have the "protect" right', async function () {
+				sinon.stub(mwbot, 'hasRights').returns(false);
+
+				try {
+					await mwbot.protect('Foo', 'edit=sysop');
+					assert.fail('Expected protect() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'nopermission');
+					sinon.assert.notCalled(postWithCsrfTokenStub);
+				}
+			});
+
+			it('should throw "invalidtitle" error for an invalid title', async function () {
+				try {
+					await mwbot.protect('[', 'edit=sysop');
+					assert.fail('Expected protect() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'invalidtitle');
+					sinon.assert.notCalled(postWithCsrfTokenStub);
+				}
+			});
+
+			it('should throw "typemismatch" error for an invalid levels type', async function () {
+				try {
+					// @ts-expect-error - Invalid levels type
+					await mwbot.protect('Foo', 123);
+					assert.fail('Expected protect() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'typemismatch');
+					sinon.assert.notCalled(postWithCsrfTokenStub);
+				}
+			});
+
+			it('should accept protections as a string', async function () {
+				postWithCsrfTokenStub.resolves({ protect: {} });
+
+				await mwbot.protect('Foo', 'edit=sysop|move=sysop');
+
+				sinon.assert.calledOnceWithMatch(
+					postWithCsrfTokenStub,
+					{ protections: 'edit=sysop|move=sysop' }
+				);
+			});
+
+			it('should accept protections as an array', async function () {
+				postWithCsrfTokenStub.resolves({ protect: {} });
+
+				await mwbot.protect('Foo', ['edit=sysop', 'move=sysop']);
+
+				sinon.assert.calledOnceWithMatch(
+					postWithCsrfTokenStub,
+					{ protections: 'edit=sysop|move=sysop' }
+				);
+			});
+
+			it('should accept protections as an object', async function () {
+				postWithCsrfTokenStub.resolves({ protect: {} });
+
+				await mwbot.protect('Foo', {
+					edit: 'sysop',
+					move: 'sysop',
+				});
+
+				sinon.assert.calledOnceWithMatch(
+					postWithCsrfTokenStub,
+					{ protections: 'edit=sysop|move=sysop' }
+				);
+			});
+
+			it('should apply required API parameters', async function () {
+				const expected = {
+					title: 'Foo',
+				};
+				postWithCsrfTokenStub.resolves({ protect: expected });
+
+				const additionalParams = {
+					expiry: '1 week',
+				};
+				const reqOpts = {
+					timeout: 7777,
+				};
+
+				const res = await mwbot.protect(
+					'Foo',
+					'edit=sysop',
+					additionalParams,
+					reqOpts
+				);
+
+				sinon.assert.calledOnceWithExactly(
+					postWithCsrfTokenStub,
+					{
+						...additionalParams,
+						action: 'protect',
+						format: 'json',
+						formatversion: '2',
+						title: 'Foo',
+						protections: 'edit=sysop',
+					},
+					reqOpts
+				);
+				assert.deepEqual(res, expected);
+			});
+
+			it('should use pageid when titleOrId is a number', async function () {
+				postWithCsrfTokenStub.resolves({ protect: {} });
+
+				await mwbot.protect(123, 'edit=sysop');
+
+				sinon.assert.calledOnceWithMatch(
+					postWithCsrfTokenStub,
+					{
+						pageid: 123,
+						protections: 'edit=sysop',
+					}
+				);
+			});
+
+			it('should throw "empty" error when response.protect is missing', async function () {
+				postWithCsrfTokenStub.resolves({});
+
+				try {
+					await mwbot.protect('Foo', 'edit=sysop');
+					assert.fail('Expected protect() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'empty');
+					sinon.assert.calledOnce(postWithCsrfTokenStub);
+				}
+			});
+		});
+
+		describe('unprotect()', function () {
+			/**
+			 * @type {sinon.SinonStub}
+			 */
+			let protectStub;
+
+			beforeEach(function () {
+				protectStub = sinon.stub(mwbot, 'protect');
+			});
+
+			it('should call protect() with an empty protections string', async function () {
+				protectStub.resolves({
+					title: 'Foo',
+					reason: 'cleanup',
+					protections: [],
+				});
+
+				const additionalParams = {
+					reason: 'cleanup',
+				};
+				const reqOpts = {
+					timeout: 7777,
+				};
+
+				await mwbot.unprotect('Foo', additionalParams, reqOpts);
+
+				sinon.assert.calledOnceWithExactly(
+					protectStub,
+					'Foo',
+					'',
+					additionalParams,
+					reqOpts
+				);
+			});
+
+			it('should return the value returned by protect()', async function () {
+				protectStub.resolves({
+					title: 'Foo',
+					reason: '',
+					protections: [],
+				});
+
+				const expected = {
+					title: 'Foo',
+				};
+				protectStub.resolves(expected);
+
+				const res = await mwbot.unprotect('Foo');
+
+				assert.deepEqual(res, expected);
+			});
+		});
 	});
 }
