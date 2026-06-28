@@ -1471,5 +1471,179 @@ export function testMwbotRequestQuery() {
 				});
 			});
 		});
+
+		describe('search()', function () {
+			/**
+			 * @type {sinon.SinonStub}
+			 */
+			let continuedRequestStub;
+
+			beforeEach(function () {
+				continuedRequestStub = sinon.stub(mwbot, 'continuedRequest');
+			});
+
+			it('should throw "typemismatch" error if target is not a string', async function () {
+				try {
+					// @ts-expect-error - Passing a non-string
+					await mwbot.search(123);
+					assert.fail('Expected search() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'typemismatch');
+					sinon.assert.notCalled(continuedRequestStub);
+				}
+			});
+
+			it('should throw "emptyinput" error if target is empty', async function () {
+				try {
+					await mwbot.search('   ');
+					assert.fail('Expected search() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'emptyinput');
+					sinon.assert.notCalled(continuedRequestStub);
+				}
+			});
+
+			it('should throw "empty" error if query is missing', async function () {
+				continuedRequestStub.resolves([{}]);
+
+				try {
+					await mwbot.search('Foo');
+					assert.fail('Expected search() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'empty');
+					sinon.assert.calledOnce(continuedRequestStub);
+				}
+			});
+
+			it('should throw "empty" error if search is missing', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {},
+					},
+				]);
+
+				try {
+					await mwbot.search('Foo');
+					assert.fail('Expected search() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'empty');
+					sinon.assert.calledOnce(continuedRequestStub);
+				}
+			});
+
+			it('should return the query object', async function () {
+				continuedRequestStub.resolves([{
+					query: {
+						search: [
+							{
+								pageid: 1,
+								ns: 0,
+								title: 'Foo',
+							},
+						],
+						searchinfo: {
+							totalhits: 1,
+						},
+					},
+				}]);
+
+				const res = await mwbot.search('Foo');
+
+				assert.deepEqual(res.search, [{
+					pageid: 1,
+					ns: 0,
+					title: 'Foo',
+				}]);
+				assert.deepEqual(res.searchinfo, {
+					totalhits: 1,
+				});
+				assert.deepInclude(
+					continuedRequestStub.firstCall.args[0],
+					{
+						list: 'search',
+						srsearch: 'Foo',
+						srlimit: 'max',
+					}
+				);
+			});
+
+			it('should merge continuation responses', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {
+							search: [
+								{
+									pageid: 1,
+									ns: 0,
+									title: 'Foo',
+								},
+							],
+							searchinfo: {
+								totalhits: 2,
+							},
+						},
+					},
+					{
+						query: {
+							search: [
+								{
+									pageid: 2,
+									ns: 0,
+									title: 'Bar',
+								},
+							],
+						},
+					},
+				]);
+
+				const res = await mwbot.search('Foo');
+
+				assert.lengthOf(res.search, 2);
+				assert.deepEqual(res.search[0], {
+					pageid: 1,
+					ns: 0,
+					title: 'Foo',
+				});
+				assert.deepEqual(res.search[1], {
+					pageid: 2,
+					ns: 0,
+					title: 'Bar',
+				});
+				assert.deepEqual(res.searchinfo, {
+					totalhits: 2,
+				});
+			});
+
+			it('should honour additionalParams and enforced parameters', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {
+							search: [],
+						},
+					},
+				]);
+
+				await mwbot.search('Foo', {
+					list: 'wrong',
+					srsearch: 'wrong',
+					srlimit: 1,
+					srwhat: 'title',
+				});
+
+				assert.deepInclude(
+					continuedRequestStub.firstCall.args[0],
+					{
+						list: 'search',
+						srsearch: 'Foo',
+						srlimit: 'max',
+						srwhat: 'title',
+					}
+				);
+			});
+		});
 	});
 }
