@@ -65,7 +65,7 @@ export function testMwbotWriteRequests(getMwbot, _testDomain, authMethod) {
 			// save/get roundtrip can be verified.
 			const mwbot = getMwbot();
 			const isAnon = authMethod === 'anonymous';
-			const key = 'userjs-mwbot-ts-saveOption';
+			const key = `userjs-mwbot-ts-saveOption-${authMethod}`;
 			const value = String(Date.now());
 
 			try {
