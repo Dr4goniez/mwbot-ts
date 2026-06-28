@@ -2,9 +2,6 @@ import { describe, it } from 'mocha';
 import { assert } from 'chai';
 import { getNonExistingTitle } from './title-provider.js';
 import { MwbotError } from '../../../dist/index.js';
-import { Logger } from '../../../dist/build/Logger.js';
-
-const logger = new Logger({ outputErrors: true });
 
 /**
  * @type {import('./../provider-types.js').MwbotTestSuite}
@@ -69,26 +66,21 @@ export function testMwbotLocalEdit(getMwbot, _testDomain, authMethod) {
 			it('should create a new page', async function () {
 				const mwbot = getMwbot();
 				const target = getNonExistingTitle();
-				const isAnon = authMethod === 'anonymous';
 
-				try {
-					const res = await mwbot.create(target, 'content');
-
-					if (isAnon) {
+				if (authMethod === 'anonymous') {
+					try {
+						await mwbot.create(target, 'content');
 						assert.fail('Expected create() to throw');
-					} else {
-						validatePageCreationResponse(res, target);
-					}
-				} catch (err) {
-					assert.instanceOf(err, MwbotError);
-
-					if (isAnon) {
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
 						assert.strictEqual(err.code, 'anonymous');
-					} else {
-						logger.error(err);
-						assert.fail('Expected create() to succeed');
 					}
+					return;
 				}
+
+				const res = await mwbot.create(target, 'content');
+
+				validatePageCreationResponse(res, target);
 			});
 
 			it('should fail to create an existing page', async function () {
@@ -166,26 +158,21 @@ export function testMwbotLocalEdit(getMwbot, _testDomain, authMethod) {
 			it('should save to an existing page', async function () {
 				const mwbot = getMwbot();
 				const target = 'Save existing page';
-				const isAnon = authMethod === 'anonymous';
 
-				try {
-					const res = await mwbot.save(target, 'content');
-
-					if (isAnon) {
+				if (authMethod === 'anonymous') {
+					try {
+						await mwbot.save(target, 'content');
 						assert.fail('Expected save() to throw');
-					} else {
-						validatePageModificationResponse(res, target);
-					}
-				} catch (err) {
-					assert.instanceOf(err, MwbotError);
-
-					if (isAnon) {
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
 						assert.strictEqual(err.code, 'anonymous');
-					} else {
-						logger.error(err);
-						assert.fail('Expected save() to succeed');
 					}
+					return;
 				}
+
+				const res = await mwbot.save(target, 'content');
+
+				validatePageModificationResponse(res, target);
 			});
 
 			it('should fail to save to a non-existing page', async function () {
@@ -208,28 +195,25 @@ export function testMwbotLocalEdit(getMwbot, _testDomain, authMethod) {
 			it('should edit an existing page', async function () {
 				const mwbot = getMwbot();
 				const target = 'Edit existing page';
-				const isAnon = authMethod === 'anonymous';
 
-				try {
-					const res = await mwbot.edit(target, (_wikitext, _revision) => {
-						return { text: 'content' };
-					});
-
-					if (isAnon) {
+				if (authMethod === 'anonymous') {
+					try {
+						await mwbot.edit(target, (_wikitext, _revision) => {
+							return { text: 'content' };
+						});
 						assert.fail('Expected edit() to throw');
-					} else {
-						validatePageModificationResponse(res, target);
-					}
-				} catch (err) {
-					assert.instanceOf(err, MwbotError);
-
-					if (isAnon) {
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
 						assert.strictEqual(err.code, 'anonymous');
-					} else {
-						logger.error(err);
-						assert.fail('Expected edit() to succeed');
 					}
+					return;
 				}
+
+				const res = await mwbot.edit(target, (_wikitext, _revision) => {
+					return { text: 'content' };
+				});
+
+				validatePageModificationResponse(res, target);
 			});
 
 			it('should fail to edit a non-existing page', async function () {
@@ -254,51 +238,41 @@ export function testMwbotLocalEdit(getMwbot, _testDomain, authMethod) {
 			it('should create a new section on an existing page', async function () {
 				const mwbot = getMwbot();
 				const target = 'Talk:NewSection';
-				const isAnon = authMethod === 'anonymous';
 
-				try {
-					const res = await mwbot.newSection(target, 'Section', 'content');
-
-					if (isAnon) {
+				if (authMethod === 'anonymous') {
+					try {
+						await mwbot.newSection(target, 'Section', 'content');
 						assert.fail('Expected newSection() to throw');
-					} else {
-						validatePageModificationResponse(res, target);
-					}
-				} catch (err) {
-					assert.instanceOf(err, MwbotError);
-
-					if (isAnon) {
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
 						assert.strictEqual(err.code, 'anonymous');
-					} else {
-						logger.error(err);
-						assert.fail('Expected newSection() to succeed');
 					}
+					return;
 				}
+
+				const res = await mwbot.newSection(target, 'Section', 'content');
+
+				validatePageModificationResponse(res, target);
 			});
 
 			it('should create a new section on a non-existing page', async function () {
 				const mwbot = getMwbot();
 				const target = getNonExistingTitle();
-				const isAnon = authMethod === 'anonymous';
 
-				try {
-					const res = await mwbot.newSection(target, 'Section', 'content');
-
-					if (isAnon) {
+				if (authMethod === 'anonymous') {
+					try {
+						await mwbot.newSection(target, 'Section', 'content');
 						assert.fail('Expected newSection() to throw');
-					} else {
-						validatePageCreationResponse(res, target);
-					}
-				} catch (err) {
-					assert.instanceOf(err, MwbotError);
-
-					if (isAnon) {
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
 						assert.strictEqual(err.code, 'anonymous');
-					} else {
-						logger.error(err);
-						assert.fail('Expected newSection() to succeed');
 					}
+					return;
 				}
+
+				const res = await mwbot.newSection(target, 'Section', 'content');
+
+				validatePageCreationResponse(res, target);
 			});
 		});
 	});

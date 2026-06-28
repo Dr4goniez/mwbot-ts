@@ -1,6 +1,10 @@
 import { describe, it, afterEach } from 'mocha';
 import { assert } from 'chai';
-import { MwbotError } from '../../dist/index.js';
+import {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	Mwbot,
+	MwbotError,
+} from '../../dist/index.js';
 import sinon from 'sinon';
 
 /**
@@ -15,45 +19,44 @@ export function testMwbotWriteRequests(getMwbot, _testDomain, authMethod) {
 
 		it('should handle badtoken errors based on authentication state', async function () {
 			const mwbot = getMwbot();
-			const isAnon = authMethod === 'anonymous';
 			// @ts-expect-error - Protected method
 			const retrySpy = sinon.spy(mwbot, 'retry');
 			const badTokenSpy = sinon.spy(mwbot, 'badToken');
 
-			try {
-				const res = await mwbot.request(
-					{
-						action: 'options',
-						optionname: 'userjs-mwbot-ts', // Reset value
-						token: 'badtoken',
-					},
-					{
-						method: 'POST',
-					}
-				);
+			/** @type {Parameters<Mwbot['request']>} */
+			const args = [
+				{
+					action: 'options',
+					optionname: 'userjs-mwbot-ts', // Reset value
+					token: 'badtoken',
+				},
+				{
+					method: 'POST',
+				},
+			];
 
-				if (isAnon) {
+			if (authMethod === 'anonymous') {
+				try {
+					await mwbot.request(...args);
 					assert.fail('Expected action=options to fail for anonymous users');
-				} else {
-					assert.deepInclude(res, {
-						options: 'success',
-					});
-					sinon.assert.calledOnce(retrySpy);
-					sinon.assert.calledOnce(badTokenSpy);
-
-					const err = retrySpy.firstCall.args[0];
+				} catch (err) {
 					assert.instanceOf(err, MwbotError);
-					assert.strictEqual(err.code, 'badtoken');
-				}
-			} catch (err) {
-				assert.instanceOf(err, MwbotError);
-
-				if (isAnon) {
 					assert.strictEqual(err.code, 'anonymous');
-				} else {
-					assert.fail('Expected action=options to succeed for registered users');
 				}
+				return;
 			}
+
+			const res = await mwbot.request(...args);
+
+			assert.deepInclude(res, {
+				options: 'success',
+			});
+			sinon.assert.calledOnce(retrySpy);
+			sinon.assert.calledOnce(badTokenSpy);
+
+			const err = retrySpy.firstCall.args[0];
+			assert.instanceOf(err, MwbotError);
+			assert.strictEqual(err.code, 'badtoken');
 		});
 
 		it('should save a user option via saveOption() and fetch it via getOption()', async function () {
@@ -64,38 +67,32 @@ export function testMwbotWriteRequests(getMwbot, _testDomain, authMethod) {
 			// This test therefore uses a valid `userjs-` preference key so that the
 			// save/get roundtrip can be verified.
 			const mwbot = getMwbot();
-			const isAnon = authMethod === 'anonymous';
 			const key = `userjs-mwbot-ts-saveOption-${authMethod}`;
 			const value = String(Date.now());
 
-			try {
-				const res = await mwbot.saveOption(key, value);
-
-				if (isAnon) {
+			if (authMethod === 'anonymous') {
+				try {
+					await mwbot.saveOption(key, value);
 					assert.fail('Expected action=options to fail for anonymous users');
-				} else {
-					assert.deepInclude(res, {
-						options: 'success',
-					});
-				}
-			} catch (err) {
-				assert.instanceOf(err, MwbotError);
-
-				if (isAnon) {
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
 					assert.strictEqual(err.code, 'anonymous');
-				} else {
-					assert.fail('Expected action=options to succeed for registered users');
 				}
-			} finally {
-				// @ts-expect-error - Protected property
-				assert.isNull(mwbot.saveOptionsRequest);
+				return;
 			}
 
-			if (!isAnon) {
-				const savedValue = await mwbot.getOption(key);
+			const res = await mwbot.saveOption(key, value);
 
-				assert.strictEqual(savedValue, value);
-			}
+			assert.deepInclude(res, {
+				options: 'success',
+			});
+
+			// @ts-expect-error - Protected property
+			assert.isNull(mwbot.saveOptionsRequest);
+
+			const savedValue = await mwbot.getOption(key);
+
+			assert.strictEqual(savedValue, value);
 		});
 	});
 }

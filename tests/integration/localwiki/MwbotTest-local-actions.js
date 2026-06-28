@@ -2,9 +2,6 @@ import { describe, it } from 'mocha';
 import { assert } from 'chai';
 import { getNonExistingTitle } from './title-provider.js';
 import { MwbotError } from '../../../dist/index.js';
-import { Logger } from '../../../dist/build/Logger.js';
-
-const logger = new Logger({ outputErrors: true });
 
 /**
  * @type {import('./../provider-types.js').MwbotTestSuite}
@@ -17,63 +14,58 @@ export function testMwbotLocalActions(getMwbot, _testDomain, authMethod) {
 				const source = 'Move from';
 				const goal = 'Move to';
 				const reason = 'reason';
-				const isAnon = authMethod === 'anonymous';
 
-				try {
-					const res = await mwbot.move(source, goal, { reason, movetalk: true });
-
-					if (isAnon) {
+				if (authMethod === 'anonymous') {
+					try {
+						await mwbot.move(source, goal, { reason, movetalk: true });
 						assert.fail('Expected move() to throw');
-					} else {
-						/* eslint-disable @typescript-eslint/no-unused-vars */
-						const { // Fully checked (source code level)
-							from,
-							to,
-							reason: _reason,
-							redirectcreated,
-							moveoverredirect,
-							talkfrom,
-							talkto,
-							talkmoveoverredirect,
-							'talkmove-errors': talkmove_errors,
-							subpages,
-							'subpages-talk': subpages_talk,
-							...rest
-						} = res;
-						/* eslint-enable @typescript-eslint/no-unused-vars */
-
-						assert.deepInclude(
-							res,
-							{
-								from: source,
-								to: goal,
-								reason,
-								redirectcreated: true,
-								moveoverredirect: false,
-								talkfrom: `Talk:${source}`,
-								talkto: `Talk:${goal}`,
-								talkmoveoverredirect: false,
-								// 'talkmove-errors',
-								// subpages,
-								// 'subpages-talk',
-							}
-						);
-						assert.notProperty(res, 'talkmove-errors');
-						assert.notProperty(res, 'subpages');
-						assert.notProperty(res, 'subpages-talk');
-
-						assert.isEmpty(rest);
-					}
-				} catch (err) {
-					assert.instanceOf(err, MwbotError);
-
-					if (isAnon) {
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
 						assert.strictEqual(err.code, 'anonymous');
-					} else {
-						logger.error(err);
-						assert.fail('Expected move() to succeed');
 					}
+					return;
 				}
+
+				const res = await mwbot.move(source, goal, { reason, movetalk: true });
+
+				/* eslint-disable @typescript-eslint/no-unused-vars */
+				const { // Fully checked (source code level)
+					from,
+					to,
+					reason: _reason,
+					redirectcreated,
+					moveoverredirect,
+					talkfrom,
+					talkto,
+					talkmoveoverredirect,
+					'talkmove-errors': talkmove_errors,
+					subpages,
+					'subpages-talk': subpages_talk,
+					...rest
+				} = res;
+				/* eslint-enable @typescript-eslint/no-unused-vars */
+
+				assert.deepInclude(
+					res,
+					{
+						from: source,
+						to: goal,
+						reason,
+						redirectcreated: true,
+						moveoverredirect: false,
+						talkfrom: `Talk:${source}`,
+						talkto: `Talk:${goal}`,
+						talkmoveoverredirect: false,
+						// 'talkmove-errors',
+						// subpages,
+						// 'subpages-talk',
+					}
+				);
+				assert.notProperty(res, 'talkmove-errors');
+				assert.notProperty(res, 'subpages');
+				assert.notProperty(res, 'subpages-talk');
+
+				assert.isEmpty(rest);
 			});
 
 			it('should fail to move a non-existing page', async function () {
