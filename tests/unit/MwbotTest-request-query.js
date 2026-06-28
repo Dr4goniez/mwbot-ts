@@ -780,5 +780,188 @@ export function testMwbotRequestQuery() {
 				});
 			});
 		});
+
+		describe('getCategoriesByPrefix()', function () {
+			/**
+			 * @type {sinon.SinonStub}
+			 */
+			let continuedRequestStub;
+
+			beforeEach(function () {
+				continuedRequestStub = sinon.stub(mwbot, 'continuedRequest');
+			});
+
+			it('should throw "invalidlimit" for zero', async function () {
+				try {
+					await mwbot.getCategoriesByPrefix('Foo', 0);
+					assert.fail('Expected getCategoriesByPrefix() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'invalidlimit');
+					sinon.assert.notCalled(continuedRequestStub);
+				}
+			});
+
+			it('should throw "invalidlimit" for a negative limit', async function () {
+				try {
+					await mwbot.getCategoriesByPrefix('Foo', -1);
+					assert.fail('Expected getCategoriesByPrefix() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'invalidlimit');
+					sinon.assert.notCalled(continuedRequestStub);
+				}
+			});
+
+			it('should throw "invalidlimit" for a non-integer limit', async function () {
+				try {
+					await mwbot.getCategoriesByPrefix('Foo', 1.5);
+					assert.fail('Expected getCategoriesByPrefix() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'invalidlimit');
+					sinon.assert.notCalled(continuedRequestStub);
+				}
+			});
+
+			it('should throw "empty" when response.query.allpages is missing', async function () {
+				continuedRequestStub.resolves([
+					{},
+				]);
+
+				try {
+					await mwbot.getCategoriesByPrefix('Foo');
+					assert.fail('Expected getCategoriesByPrefix() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'empty');
+				}
+			});
+
+			it('should call continuedRequest() with the correct parameters', async function () {
+				const reqOpts = { timeout: 12345 };
+
+				continuedRequestStub.resolves([
+					{
+						query: {
+							allpages: [],
+						},
+					},
+				]);
+
+				await mwbot.getCategoriesByPrefix('Foo', 7, reqOpts);
+
+				sinon.assert.calledOnceWithMatch(
+					continuedRequestStub,
+					{
+						action: 'query',
+						format: 'json',
+						formatversion: '2',
+						list: 'allpages',
+						apprefix: 'Foo',
+						aplimit: 'max',
+					},
+					{
+						limit: 7,
+					},
+					reqOpts
+				);
+			});
+
+			it('should use Infinity as the default continuation limit', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {
+							allpages: [],
+						},
+					},
+				]);
+
+				await mwbot.getCategoriesByPrefix('Foo');
+
+				assert.strictEqual(
+					continuedRequestStub.firstCall.args[1].limit,
+					Infinity
+				);
+			});
+
+			it('should return category names without the namespace prefix', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {
+							allpages: [
+								{ title: 'Category:Foo' },
+								{ title: 'Category:Bar' },
+							],
+						},
+					},
+				]);
+
+				const res = await mwbot.getCategoriesByPrefix('F');
+
+				assert.deepEqual(res, ['Foo', 'Bar']);
+			});
+
+			it('should merge results from multiple continuation responses', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {
+							allpages: [
+								{ title: 'Category:Foo' },
+							],
+						},
+					},
+					{
+						query: {
+							allpages: [
+								{ title: 'Category:Bar' },
+							],
+						},
+					},
+				]);
+
+				const res = await mwbot.getCategoriesByPrefix('F');
+
+				assert.deepEqual(res, ['Foo', 'Bar']);
+			});
+
+			it('should remove duplicate category names', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {
+							allpages: [
+								{ title: 'Category:Foo' },
+							],
+						},
+					},
+					{
+						query: {
+							allpages: [
+								{ title: 'Category:Foo' },
+								{ title: 'Category:Bar' },
+							],
+						},
+					},
+				]);
+
+				const res = await mwbot.getCategoriesByPrefix('F');
+
+				assert.deepEqual(res, ['Foo', 'Bar']);
+			});
+
+			it('should return an empty array when no categories are found', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {
+							allpages: [],
+						},
+					},
+				]);
+
+				const res = await mwbot.getCategoriesByPrefix('F');
+
+				assert.deepEqual(res, []);
+			});
+		});
 	});
 }
