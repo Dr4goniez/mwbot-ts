@@ -1052,6 +1052,7 @@ export interface ApiResponseBlock { // Fully checked (source code level)
 	hidename: boolean;
 	allowusertalk: boolean;
 	watchuser: boolean;
+	watchlistexpiry: string | null;
 	partial: boolean;
 	pagerestrictions: string[] | null;
 	namespacerestrictions: number[] | null;
