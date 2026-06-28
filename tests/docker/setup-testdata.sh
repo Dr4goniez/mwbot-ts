@@ -25,3 +25,11 @@ create_page Talk:Move_from
 echo 'Creating two existing pages for read() tests...'
 create_page Read_1
 create_page Read_2
+
+echo 'Blocking 2.2.2.2 for unblock() tests...'
+php maintenance/run.php blockUsers \
+	--allow-email \
+    --allow-talkedit \
+    --disable-autoblock \
+    --disable-hardblock \
+	<<< '2.2.2.2'
