@@ -963,5 +963,145 @@ export function testMwbotRequestQuery() {
 				assert.deepEqual(res, []);
 			});
 		});
+
+		describe('getCategoryMembers()', function () {
+			/**
+			 * @type {sinon.SinonStub}
+			 */
+			let continuedRequestStub;
+
+			beforeEach(function () {
+				continuedRequestStub = sinon.stub(mwbot, 'continuedRequest');
+			});
+
+			it('should validate category titles', async function () {
+				try {
+					await mwbot.getCategoryMembers('Foo');
+					assert.fail('Expected getCategoryMembers() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'invalidtitle');
+					sinon.assert.notCalled(continuedRequestStub);
+				}
+			});
+
+			it('should map a string title to the "cmtitle" parameter', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {
+							categorymembers: [],
+						},
+					},
+				]);
+
+				await mwbot.getCategoryMembers('Category:Foo');
+
+				sinon.assert.calledOnceWithMatch(
+					continuedRequestStub,
+					{
+						action: 'query',
+						format: 'json',
+						formatversion: '2',
+						list: 'categorymembers',
+						cmtitle: 'Category:Foo',
+						cmlimit: 'max',
+					},
+					{ limit: Infinity }
+				);
+			});
+
+			it('should map a number to the "cmpageid" parameter', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {
+							categorymembers: [],
+						},
+					},
+				]);
+
+				await mwbot.getCategoryMembers(123);
+
+				sinon.assert.calledOnceWithMatch(
+					continuedRequestStub,
+					{ cmpageid: 123 }
+				);
+			});
+
+			it('should merge additional parameters', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {
+							categorymembers: [],
+						},
+					},
+				]);
+
+				const params = {
+					cmtype: 'page',
+				};
+				const reqOpts = {
+					timeout: 7777,
+				};
+
+				await mwbot.getCategoryMembers('Category:Foo', params, reqOpts);
+
+				sinon.assert.calledOnceWithMatch(
+					continuedRequestStub,
+					{
+						...params,
+						action: 'query',
+						format: 'json',
+						formatversion: '2',
+						list: 'categorymembers',
+						cmtitle: 'Category:Foo',
+						cmlimit: 'max',
+					},
+					{ limit: Infinity },
+					reqOpts
+				);
+			});
+
+			it('should concatenate categorymembers from multiple responses', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {
+							categorymembers: [
+								{ pageid: 1, title: 'Foo' },
+							],
+						},
+					},
+					{
+						query: {
+							categorymembers: [
+								{ pageid: 2, title: 'Bar' },
+							],
+						},
+					},
+				]);
+
+				const res = await mwbot.getCategoryMembers('Category:Foo');
+
+				assert.deepEqual(res, [
+					{ pageid: 1, title: 'Foo' },
+					{ pageid: 2, title: 'Bar' },
+				]);
+			});
+
+			it('should throw "empty" when response.query.categorymembers is missing', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {},
+					},
+				]);
+
+				try {
+					await mwbot.getCategoryMembers('Category:Foo');
+					assert.fail('Expected getCategoryMembers() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'empty');
+				}
+			});
+		});
 	});
 }
