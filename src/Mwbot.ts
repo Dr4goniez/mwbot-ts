@@ -4751,7 +4751,6 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<PartiallyRequired<ApiResponseQuery, 'search'>> {
 
-		// Validate `target`
 		if (typeof target !== 'string') {
 			Mwbot.dieWithTypeError('string', 'target', target);
 		}
@@ -4762,21 +4761,21 @@ export class Mwbot {
 			});
 		}
 
-		// Send an API request
-		const responses = await this.continuedRequest({
-			...additionalParams,
-			...Mwbot.getActionParams('query'),
-			list: 'search',
-			srsearch: target,
-			srlimit: 'max',
-		}, { limit: Infinity }, requestOptions);
-		if (!responses.length) {
-			// `responses` is never expected to be an empty array but just in case
-			Mwbot.dieAsEmpty();
-		}
+		const responses = await this.continuedRequest(
+			{
+				...additionalParams,
+				...Mwbot.getActionParams('query'),
+				list: 'search',
+				srsearch: target,
+				srlimit: 'max',
+			},
+			{ limit: Infinity },
+			requestOptions
+		);
 
 		// Merge the response arrays into a single object and return it
 		let ret: PartiallyRequired<ApiResponseQuery, 'search'> = Object.create(null);
+
 		for (const res of responses) {
 			if (!res.query) {
 				Mwbot.dieAsEmpty(true, 'missing "response.query"', { response: res });
@@ -4784,14 +4783,11 @@ export class Mwbot {
 			if (!res.query.search) {
 				Mwbot.dieAsEmpty(true, 'missing "response.query.search"', { response: res });
 			}
-			const query = res.query as PartiallyRequired<ApiResponseQuery, 'search'>;
-			if (responses.length === 1) {
-				return query;
-			}
-			ret = mergeDeep(ret, query);
-		}
-		return ret;
 
+			ret = mergeDeep(ret, res.query);
+		}
+
+		return ret;
 	}
 
 	/**
