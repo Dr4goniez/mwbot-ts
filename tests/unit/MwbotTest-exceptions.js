@@ -49,28 +49,6 @@ export function testMwbotExceptions() {
 					'You do not have permission to do something weird.'
 				);
 			});
-
-			it('should throw "anonymous" error if user is anonymous and allowAnonymous is false', async function () {
-				const mwbot = await getTestMwbot('anon');
-				assert.throws(
-					// @ts-expect-error - Protected method
-					() => mwbot.dieIfNoRights('read', 'read the page'),
-					MwbotError,
-					'Anonymous users are limited to non-write requests.'
-				);
-			});
-
-			it('should check rights correctly if user is anonymous but allowAnonymous is true', async function () {
-				const mwbot = await getTestMwbot('anon');
-				// @ts-expect-error - Protected method
-				assert.doesNotThrow(() =>mwbot.dieIfNoRights('read', 'read the page', true));
-				assert.throws(
-					// @ts-expect-error - Protected method
-					() => mwbot.dieIfNoRights('delete', 'delete the page', true),
-					MwbotError,
-					'You do not have permission to delete the page.'
-				);
-			});
 		});
 
 		describe('dieAsEmpty()', function () {

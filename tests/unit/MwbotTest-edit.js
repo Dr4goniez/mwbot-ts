@@ -20,26 +20,6 @@ export function testMwbotRequestEdit() {
 		});
 
 		describe('validateTitle()', function () {
-			it('should allow anonymous users when allowAnonymous is true', function () {
-				// @ts-expect-error - Protected method
-				const stub = sinon.stub(mwbot, 'dieIfAnonymous');
-
-				// @ts-expect-error - Protected method
-				mwbot.validateTitle('Main Page', { allowAnonymous: true });
-
-				sinon.assert.calledOnceWithExactly(stub, false);
-			});
-
-			it('should reject anonymous users by default', function () {
-				// @ts-expect-error - Protected method
-				const stub = sinon.stub(mwbot, 'dieIfAnonymous');
-
-				// @ts-expect-error - Protected method
-				mwbot.validateTitle('Main Page');
-
-				sinon.assert.calledOnceWithExactly(stub, true);
-			});
-
 			it('should convert a string to a Title object', function () {
 				// @ts-expect-error - Protected method
 				const title = mwbot.validateTitle('Main Page');
@@ -126,6 +106,20 @@ export function testMwbotRequestEdit() {
 		});
 
 		describe('_save()', function () {
+			it('should throw "anonymous" error for anonymous authentication', async function () {
+				// @ts-expect-error - Protected method
+				sinon.stub(mwbot, 'isAnonymous').returns(true);
+
+				try {
+					// @ts-expect-error - Protected method
+					await mwbot._save(new mwbot.Title('Sandbox'), 'content');
+					assert.fail('Expected _save() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'anonymous');
+				}
+			});
+
 			it('should call postWithCsrfToken with merged parameters', async function () {
 				const title = new mwbot.Title('Sandbox');
 				const expected = { result: /** @type {const} */ ('Success') };

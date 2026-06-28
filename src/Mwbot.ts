@@ -696,22 +696,18 @@ export class Mwbot {
 	}
 
 	/**
-	 * Throws an error if the client is anonymous or lacks the required rights.
+	 * Throws an error if the client lacks the required rights.
 	 *
 	 * @param rights A single right or list of rights required to perform the action.
 	 * @param actionDescription A brief description of the action requiring the rights.
 	 * This will be included in the error message if permission is denied.
-	 * @param allowAnonymous Whether to allow anonymous users to proceed. Defaults to `false`.
 	 * @throws {MwbotError} If:
-	 * - `allowAnonymous` is `false` and the client is anonymous. (`anonymous`)
 	 * - The client lacks the required rights. (`nopermission`)
 	 */
 	protected dieIfNoRights(
 		rights: string | string[],
-		actionDescription: string,
-		allowAnonymous = false
-	): never | void {
-		this.dieIfAnonymous(!allowAnonymous);
+		actionDescription: string
+	): void {
 		if (!this.hasRights(rights)) {
 			throw new MwbotError('api_mwbot', {
 				code: 'nopermission',
@@ -2303,19 +2299,16 @@ export class Mwbot {
 	 *
 	 * @param title The page title, either as a string or a {@link Title} instance.
 	 * @param options
-	 * @param options.allowAnonymous Whether to allow anonymous users to proceed. Defaults to `false`.
 	 * @param options.allowSpecial Whether to allow special page inputs. Defaults to `false`.
 	 * @returns A validated {@link Title} instance.
 	 * @throws {MwbotError} If:
-	 * - The user is anonymous while `allowAnonymous` is `false`. (`anonymous`)
 	 * - The title is neither a string nor a {@link Title} instance. (`typemismatch`)
 	 * - The title is empty. (`emptytitle`)
 	 * - The title is interwiki. (`interwikititle`)
 	 * - The title is in the Special or Media namespace while `allowSpecial` is `false`. (`specialtitle`)
 	 */
-	protected validateTitle(title: string | Title, options: { allowAnonymous?: boolean; allowSpecial?: boolean } = {}): Title {
-		const { allowAnonymous = false, allowSpecial = false } = options;
-		this.dieIfAnonymous(!allowAnonymous);
+	protected validateTitle(title: string | Title, options: { allowSpecial?: boolean } = {}): Title {
+		const { allowSpecial = false } = options;
 		if (typeof title !== 'string' && !(title instanceof this._Title)) {
 			Mwbot.dieWithTypeError('string or Title', 'title', title);
 		}
@@ -2370,6 +2363,8 @@ export class Mwbot {
 		additionalParams: ApiParamsActionEdit = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseEditSuccess> {
+		this.dieIfAnonymous();
+
 		const res = await this.postWithCsrfToken({
 			title: title.getPrefixedDb(),
 			text: content,
@@ -3370,6 +3365,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseMove> {
 		this.dieIfNoRights('move', 'move pages');
+		this.dieIfAnonymous();
 
 		let fromId: number | false = false;
 		let fromTitle: string | false = false;
@@ -3459,7 +3455,6 @@ export class Mwbot {
 
 		const titleSet = new Set<string>();
 		const validationOptions = {
-			allowAnonymous: true,
 			allowSpecial: true,
 		};
 
@@ -3532,6 +3527,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseBlock> {
 		this.dieIfNoRights('block', 'block users');
+		this.dieIfAnonymous();
 
 		let targetParam: { user: string } | { id: number };
 		if (typeof userOrId === 'string') {
@@ -3589,6 +3585,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseUnblock> {
 		this.dieIfNoRights('block', 'unblock users');
+		this.dieIfAnonymous();
 
 		let targetParam: { user: string } | { id: number };
 		if (typeof userOrId === 'string') {
@@ -3642,6 +3639,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseDelete> {
 		this.dieIfNoRights('delete', 'delete pages');
+		this.dieIfAnonymous();
 
 		let targetParam: { title: string } | { pageid: number };
 		if (typeof titleOrId === 'number') {
@@ -3695,6 +3693,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseUndelete> {
 		this.dieIfNoRights('undelete', 'undelete revisions');
+		this.dieIfAnonymous();
 
 		title = this.validateTitle(title).getPrefixedText();
 		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
@@ -3750,6 +3749,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseProtect> {
 		this.dieIfNoRights('protect', 'protect pages');
+		this.dieIfAnonymous();
 
 		let targetParam: { title: string } | { pageid: number };
 		if (typeof titleOrId === 'number') {
@@ -3850,6 +3850,7 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseRollback> {
 		this.dieIfNoRights('rollback', 'rollback edits');
+		this.dieIfAnonymous();
 
 		let targetParam: { title: string } | { pageid: number };
 		if (typeof titleOrId === 'number') {
@@ -3957,9 +3958,6 @@ export class Mwbot {
 			};
 		};
 
-		const validationOptions = {
-			allowAnonymous: true,
-		};
 		const baseParams: ApiParams = {
 			...Mwbot.getActionParams('query'),
 			prop: 'revisions',
@@ -3969,7 +3967,7 @@ export class Mwbot {
 		};
 
 		if (!Array.isArray(titles)) {
-			const title = this.validateTitle(titles, validationOptions).getPrefixedText();
+			const title = this.validateTitle(titles).getPrefixedText();
 
 			const res = await this.get({
 				...baseParams,
@@ -4020,7 +4018,7 @@ export class Mwbot {
 		for (let i = 0; i < titlesArray.length; i++) {
 			try {
 				// Normalize all titles as in the API response and remember the array index
-				const page = this.validateTitle(titlesArray[i], validationOptions).getPrefixedText();
+				const page = this.validateTitle(titlesArray[i]).getPrefixedText();
 
 				(titleMap[page] ??= []).push(i);
 
@@ -4174,14 +4172,11 @@ export class Mwbot {
 
 		// Collect valid titles
 		const targets = new Set<string>();
-		const validationOptions = {
-			allowAnonymous: true,
-		};
 		for (const title of titles) {
 			let t: Title;
 			if (loose) {
 				try {
-					t = this.validateTitle(title, validationOptions);
+					t = this.validateTitle(title);
 				} catch (err) {
 					if (err instanceof MwbotError) {
 						continue;
@@ -4189,7 +4184,7 @@ export class Mwbot {
 					throw err;
 				}
 			} else {
-				t = this.validateTitle(title, validationOptions);
+				t = this.validateTitle(title);
 			}
 			targets.add(t.getPrefixedText());
 		}
@@ -4277,11 +4272,8 @@ export class Mwbot {
 		titles = Array.isArray(titles) ? titles : [titles];
 
 		const titleSet = new Set<string>();
-		const validationOptions = {
-			allowAnonymous: true,
-		};
 		for (const t of titles) {
-			titleSet.add(this.validateTitle(t, validationOptions).getPrefixedText());
+			titleSet.add(this.validateTitle(t).getPrefixedText());
 		}
 		if (!titleSet.size) {
 			throw new MwbotError('fatal', {
@@ -4541,7 +4533,6 @@ export class Mwbot {
 
 		const titleSet = new Set<string>();
 		const validationOptions = {
-			allowAnonymous: true,
 			allowSpecial: true,
 		};
 		for (const t of titles) {
@@ -4654,7 +4645,6 @@ export class Mwbot {
 
 		const titleSet = new Set<string>();
 		const validationOptions = {
-			allowAnonymous: true,
 			allowSpecial: true,
 		};
 		for (const t of titles) {
