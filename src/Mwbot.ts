@@ -4649,11 +4649,16 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseQueryPagesPropTranscludedin[] | Record<string, ApiResponseQueryPagesPropTranscludedin[]>> {
 
-		// Normalize titles
 		const isArrayInput = Array.isArray(titles);
+		titles = Array.isArray(titles) ? titles : [titles];
+
 		const titleSet = new Set<string>();
-		for (const t of (isArrayInput ? titles : [titles])) {
-			titleSet.add(this.validateTitle(t, { allowAnonymous: true, allowSpecial: true }).getPrefixedText());
+		const validationOptions = {
+			allowAnonymous: true,
+			allowSpecial: true,
+		};
+		for (const t of titles) {
+			titleSet.add(this.validateTitle(t, validationOptions).getPrefixedText());
 		}
 		if (!titleSet.size) {
 			throw new MwbotError('fatal', {
@@ -4663,36 +4668,55 @@ export class Mwbot {
 		}
 
 		// Send API requests
-		const validatedTitles = [...titleSet];
-		const responses = await this.continuedRequest({
-			...additionalParams,
-			...Mwbot.getActionParams('query'),
-			titles: validatedTitles,
-			prop: 'transcludedin',
-			tilimit: 'max',
-		}, {
-			limit: Infinity,
-			multiValues: 'titles',
-		}, requestOptions);
+		const validatedTitles = Array.from(titleSet);
+		const responses = await this.continuedRequest(
+			{
+				...additionalParams,
+				...Mwbot.getActionParams('query'),
+				titles: validatedTitles,
+				prop: 'transcludedin',
+				tilimit: 'max',
+			},
+			{
+				limit: Infinity,
+				multiValues: 'titles',
+			},
+			requestOptions
+		);
 
-		// Process the responses and return them
 		const result: Record<string, ApiResponseQueryPagesPropTranscludedin[]> = Object.create(null);
+		for (const title of validatedTitles) {
+			result[title] = [];
+		}
+
 		for (const res of responses) {
 			const pages = res.query?.pages;
-			if (!pages) Mwbot.dieAsEmpty(true, 'missing "response.query.pages"', { response: res });
-			pages.forEach(({ title, transcludedin }) => {
-				if (!title || !transcludedin) return;
-				result[title] ||= [];
-				result[title].push(...transcludedin);
-			});
+			if (!pages) {
+				Mwbot.dieAsEmpty(true, 'missing "response.query.pages"', { response: res });
+			}
+
+			for (const { title, transcludedin } of pages) {
+				if (!title || !transcludedin) {
+					continue;
+				}
+
+				const list = result[title];
+				if (!list) {
+					throw new MwbotError('fatal', {
+						code: 'internal',
+						info: `Unexpected title "${title}" returned by the API.`,
+					});
+				}
+
+				list.push(...transcludedin);
+			}
 		}
 
 		if (isArrayInput) {
 			return result;
 		} else {
-			return result[validatedTitles[0]] || [];
+			return result[validatedTitles[0]];
 		}
-
 	}
 
 	/**
