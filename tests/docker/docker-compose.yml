@@ -14,6 +14,7 @@ services:
       # when it detects an existing LocalSettings.php. Later in setup.sh, the mounted
       # configuration file is copied into the web root.
       - ./LocalSettings.php:/var/www/html/conf/LocalSettings.php
+      - ./setup-testdata.sh:/tmp/setup-testdata.sh
 
   database:
     image: mariadb:12.3.2

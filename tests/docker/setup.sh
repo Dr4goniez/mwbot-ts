@@ -257,3 +257,6 @@ AUTH_METHOD='${AUTH_METHOD}'
 EOF
 
 echo "Setup complete. Credentials saved to ${JSON_FILE} and authentication method to ${ENV_FILE}"
+
+# Proceed with setting up test data
+MSYS_NO_PATHCONV=1 docker compose exec mediawiki bash /tmp/setup-testdata.sh
