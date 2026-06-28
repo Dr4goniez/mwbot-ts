@@ -4825,7 +4825,6 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseQueryListPrefixsearch[]> {
 
-		// Validate `target`
 		if (typeof target !== 'string') {
 			Mwbot.dieWithTypeError('string', 'target', target);
 		}
@@ -4836,7 +4835,6 @@ export class Mwbot {
 			});
 		}
 
-		// Validate limit
 		if ((!Number.isInteger(limit) && limit !== Infinity) || limit <= 0) {
 			throw new MwbotError('fatal', {
 				code: 'invalidlimit',
@@ -4844,28 +4842,30 @@ export class Mwbot {
 			});
 		}
 
-		// Send an API request
-		const responses = await this.continuedRequest({
-			...additionalParams,
-			...Mwbot.getActionParams('query'),
-			list: 'prefixsearch',
-			pssearch: target,
-			pslimit: 'max',
-		}, { limit }, requestOptions);
-		if (!responses.length) {
-			// `responses` is never expected to be an empty array but just in case
-			Mwbot.dieAsEmpty();
-		}
+		const responses = await this.continuedRequest(
+			{
+				...additionalParams,
+				...Mwbot.getActionParams('query'),
+				list: 'prefixsearch',
+				pssearch: target,
+				pslimit: 'max',
+			},
+			{ limit },
+			requestOptions
+		);
 
 		// Format the responses and return them as an array
-		let ret: ApiResponseQueryListPrefixsearch[] = [];
-		responses.forEach((res) => {
-			const prefixsearch = res.query?.prefixsearch;
-			if (!prefixsearch) Mwbot.dieAsEmpty(true, 'missing "response.query.prefixsearch"', { response: res });
-			ret = ret.concat(prefixsearch);
-		});
-		return ret;
+		const ret: ApiResponseQueryListPrefixsearch[] = [];
 
+		for (const res of responses) {
+			const prefixsearch = res.query?.prefixsearch;
+			if (!prefixsearch) {
+				Mwbot.dieAsEmpty(true, 'missing "response.query.prefixsearch"', { response: res });
+			}
+			ret.push(...prefixsearch);
+		}
+
+		return ret;
 	}
 
 }
