@@ -7,6 +7,7 @@ import { testMwbotConfig } from '../MwbotTest-config.js';
 import { testMwbotReadRequests } from '../MwbotTest-request-read.js';
 import { testMwbotWriteRequests } from '../MwbotTest-request-write.js';
 import { testMwbotLocalEdit } from './MwbotTest-local-edit.js';
+import { testMwbotLocalActions } from './MwbotTest-local-actions.js';
 
 const domain = 'localwiki';
 const authMethod = getAuthMethod(domain);
@@ -46,4 +47,5 @@ describe(`Mwbot via ${authMethod} authentication`, function () {
 	testMwbotWriteRequests(() => mwbot, domain, authMethod);
 
 	testMwbotLocalEdit(() => mwbot, domain, authMethod);
+	testMwbotLocalActions(() => mwbot, domain, authMethod);
 });

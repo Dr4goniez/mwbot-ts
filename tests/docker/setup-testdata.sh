@@ -12,3 +12,7 @@ php maintenance/run.php edit -a --createonly Edit_existing_page <<< 'dummy conte
 
 echo 'Creating an existing page for newSection() tests...'
 php maintenance/run.php edit -a --createonly Talk:NewSection <<< 'dummy content'
+
+echo 'Creating an existing page with an associated talk page for move() tests...'
+php maintenance/run.php edit -a --createonly Move_from <<< 'dummy content'
+php maintenance/run.php edit -a --createonly Talk:Move_from <<< 'dummy content'
