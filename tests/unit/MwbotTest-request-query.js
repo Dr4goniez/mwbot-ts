@@ -571,5 +571,214 @@ export function testMwbotRequestQuery() {
 				assert.strictEqual(exists('Invalid['), null);
 			});
 		});
+
+		describe('getCategories()', function () {
+			/**
+			 * @type {sinon.SinonStub}
+			 */
+			let continuedRequestStub;
+
+			beforeEach(function () {
+				continuedRequestStub = sinon.stub(mwbot, 'continuedRequest');
+			});
+
+			it('should throw "emptyinput" for an empty title array', async function () {
+				try {
+					await mwbot.getCategories([]);
+					assert.fail('Expected getCategories() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'emptyinput');
+					sinon.assert.notCalled(continuedRequestStub);
+				}
+			});
+
+			it('should pass hidden=true as clshow=hidden', async function () {
+				continuedRequestStub.resolves([]);
+
+				await mwbot.getCategories('Foo', true);
+
+				sinon.assert.calledOnceWithMatch(
+					continuedRequestStub,
+					{ clshow: 'hidden' }
+				);
+			});
+
+			it('should pass hidden=false as clshow=!hidden', async function () {
+				continuedRequestStub.resolves([]);
+
+				await mwbot.getCategories('Foo', false);
+
+				sinon.assert.calledOnceWithMatch(
+					continuedRequestStub,
+					{ clshow: '!hidden' }
+				);
+			});
+
+			it('should omit clshow when hidden is undefined', async function () {
+				continuedRequestStub.resolves([]);
+
+				await mwbot.getCategories('Foo');
+
+				const args = continuedRequestStub.firstCall.args[0];
+
+				assert.notProperty(args, 'clshow');
+			});
+
+			it('should throw "empty" when response.query.pages is missing', async function () {
+				continuedRequestStub.resolves([{}]);
+
+				try {
+					await mwbot.getCategories('Foo');
+					assert.fail('Expected getCategories() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'empty');
+				}
+			});
+
+			it('should throw "internal" for an unexpected title returned by the API', async function () {
+				continuedRequestStub.resolves([{
+					query: {
+						pages: [{
+							title: 'Unexpected',
+							categories: [
+								{ title: 'Category:A' },
+							],
+						}],
+					},
+				}]);
+
+				try {
+					await mwbot.getCategories('Foo');
+					assert.fail('Expected getCategories() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'internal');
+				}
+			});
+
+			describe('Single title', function () {
+				it('should return category names without the namespace prefix', async function () {
+					continuedRequestStub.resolves([{
+						query: {
+							pages: [{
+								title: 'Foo',
+								categories: [
+									{ title: 'Category:Bar' },
+									{ title: 'Category:Baz' },
+								],
+							}],
+						},
+					}]);
+
+					const res = await mwbot.getCategories('Foo');
+
+					assert.deepEqual(res, ['Bar', 'Baz']);
+				});
+
+				it('should return an empty array if the page has no categories', async function () {
+					continuedRequestStub.resolves([{
+						query: {
+							pages: [{
+								title: 'Foo',
+							}],
+						},
+					}]);
+
+					const res = await mwbot.getCategories('Foo');
+
+					assert.deepEqual(res, []);
+				});
+			});
+
+			describe('Multiple titles', function () {
+				it('should return a mapping from titles to category arrays', async function () {
+					continuedRequestStub.resolves([{
+						query: {
+							pages: [
+								{
+									title: 'Foo',
+									categories: [
+										{ title: 'Category:A' },
+										{ title: 'Category:B' },
+									],
+								},
+								{
+									title: 'Bar',
+									categories: [
+										{ title: 'Category:C' },
+									],
+								},
+							],
+						},
+					}]);
+
+					const res = await mwbot.getCategories(['Foo', 'Bar']);
+
+					assert.deepEqual(res, {
+						Foo: ['A', 'B'],
+						Bar: ['C'],
+					});
+				});
+
+				it('should include pages without categories', async function () {
+					continuedRequestStub.resolves([{
+						query: {
+							pages: [
+								{
+									title: 'Foo',
+									categories: [
+										{ title: 'Category:A' },
+									],
+								},
+								{
+									title: 'Bar',
+								},
+							],
+						},
+					}]);
+
+					const res = await mwbot.getCategories(['Foo', 'Bar']);
+
+					assert.deepEqual(res, {
+						Foo: ['A'],
+						Bar: [],
+					});
+				});
+
+				it('should deduplicate category names', async function () {
+					continuedRequestStub.resolves([
+						{
+							query: {
+								pages: [{
+									title: 'Foo',
+									categories: [
+										{ title: 'Category:A' },
+									],
+								}],
+							},
+						},
+						{
+							query: {
+								pages: [{
+									title: 'Foo',
+									categories: [
+										{ title: 'Category:A' },
+										{ title: 'Category:B' },
+									],
+								}],
+							},
+						},
+					]);
+
+					const res = await mwbot.getCategories(['Foo']);
+
+					assert.deepEqual(res, {
+						Foo: ['A', 'B'],
+					});
+				});
+			});
+		});
 	});
 }
