@@ -1287,5 +1287,189 @@ export function testMwbotRequestQuery() {
 				});
 			});
 		});
+
+		describe('getTransclusions()', function () {
+			/**
+			 * @type {sinon.SinonStub}
+			 */
+			let continuedRequestStub;
+
+			beforeEach(function () {
+				continuedRequestStub = sinon.stub(mwbot, 'continuedRequest');
+			});
+
+			it('should throw "emptyinput" for an empty array', async function () {
+				try {
+					await mwbot.getTransclusions([]);
+					assert.fail('Expected getTransclusions() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'emptyinput');
+					sinon.assert.notCalled(continuedRequestStub);
+				}
+			});
+
+			it('should throw "empty" when response.query.pages is missing', async function () {
+				continuedRequestStub.resolves([
+					{},
+				]);
+
+				try {
+					await mwbot.getTransclusions('Foo');
+					assert.fail('Expected getTransclusions() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'empty');
+				}
+			});
+
+			it('should throw when the API returns an unexpected title', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {
+							pages: [
+								{
+									title: 'Unexpected',
+									transcludedin: [],
+								},
+							],
+						},
+					},
+				]);
+
+				try {
+					await mwbot.getTransclusions('Foo');
+					assert.fail('Expected getTransclusions() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'internal');
+				}
+			});
+
+			describe('single title', function () {
+				it('should pass the correct parameters', async function () {
+					continuedRequestStub.resolves([
+						{ query: { pages: [] } },
+					]);
+
+					const params = { tinamespace: 10 };
+					const reqOpts = { timeout: 7777 };
+
+					await mwbot.getTransclusions('Foo', params, reqOpts);
+
+					sinon.assert.calledOnceWithMatch(
+						continuedRequestStub,
+						{
+							...params,
+							action: 'query',
+							format: 'json',
+							formatversion: '2',
+							titles: ['Foo'],
+							prop: 'transcludedin',
+							tilimit: 'max',
+						},
+						{
+							limit: Infinity,
+							multiValues: 'titles',
+						},
+						reqOpts
+					);
+				});
+
+				it('should return transclusions', async function () {
+					const expected = [
+						{ pageid: 1, title: 'Template:A' },
+						{ pageid: 2, title: 'Template:B' },
+					];
+
+					continuedRequestStub.resolves([
+						{
+							query: {
+								pages: [
+									{
+										title: 'Foo',
+										transcludedin: expected,
+									},
+								],
+							},
+						},
+					]);
+
+					const res = await mwbot.getTransclusions('Foo');
+
+					assert.deepEqual(res, expected);
+				});
+			});
+
+			describe('multiple titles', function () {
+				it('should return an object keyed by title', async function () {
+					continuedRequestStub.resolves([
+						{
+							query: {
+								pages: [
+									{
+										title: 'Foo',
+										transcludedin: [
+											{ pageid: 1, title: 'A' },
+										],
+									},
+									{
+										title: 'Bar',
+										transcludedin: [
+											{ pageid: 2, title: 'B' },
+										],
+									},
+								],
+							},
+						},
+					]);
+
+					const res = await mwbot.getTransclusions(['Foo', 'Bar']);
+
+					assert.deepEqual(res, {
+						Foo: [{ pageid: 1, title: 'A' }],
+						Bar: [{ pageid: 2, title: 'B' }],
+					});
+				});
+
+				it('should merge continuation responses', async function () {
+					continuedRequestStub.resolves([
+						{
+							query: {
+								pages: [
+									{
+										title: 'Foo',
+										transcludedin: [
+											{ pageid: 1, title: 'A' },
+										],
+									},
+								],
+							},
+						},
+						{
+							query: {
+								pages: [
+									{
+										title: 'Foo',
+										transcludedin: [
+											{ pageid: 2, title: 'B' },
+										],
+									},
+								],
+							},
+						},
+					]);
+
+					const res = await mwbot.getTransclusions(['Foo']);
+
+					assert.deepEqual(res, {
+						Foo: [
+							{ pageid: 1, title: 'A' },
+							{ pageid: 2, title: 'B' },
+						],
+					});
+				});
+			});
+		});
 	});
 }
