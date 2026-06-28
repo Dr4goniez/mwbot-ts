@@ -3366,8 +3366,8 @@ export class Mwbot {
 		additionalParams: Partial<ApiParamsActionMove> = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseMove> {
-		this.dieIfNoRights('move', 'move pages');
 		this.dieIfAnonymous();
+		this.dieIfNoRights('move', 'move pages');
 
 		let fromId: number | false = false;
 		let fromTitle: string | false = false;
@@ -3528,8 +3528,8 @@ export class Mwbot {
 		additionalParams: ApiParamsActionBlock = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseBlock> {
-		this.dieIfNoRights('block', 'block users');
 		this.dieIfAnonymous();
+		this.dieIfNoRights('block', 'block users');
 
 		let targetParam: { user: string } | { id: number };
 		if (typeof userOrId === 'string') {
@@ -3586,8 +3586,8 @@ export class Mwbot {
 		additionalParams: ApiParamsActionUnblock = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseUnblock> {
-		this.dieIfNoRights('block', 'unblock users');
 		this.dieIfAnonymous();
+		this.dieIfNoRights('block', 'unblock users');
 
 		let targetParam: { user: string } | { id: number };
 		if (typeof userOrId === 'string') {
@@ -3640,8 +3640,8 @@ export class Mwbot {
 		additionalParams: Partial<ApiParamsActionDelete> = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseDelete> {
-		this.dieIfNoRights('delete', 'delete pages');
 		this.dieIfAnonymous();
+		this.dieIfNoRights('delete', 'delete pages');
 
 		let targetParam: { title: string } | { pageid: number };
 		if (typeof titleOrId === 'number') {
@@ -3694,8 +3694,8 @@ export class Mwbot {
 		additionalParams: Partial<ApiParamsActionUndelete> = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseUndelete> {
-		this.dieIfNoRights('undelete', 'undelete revisions');
 		this.dieIfAnonymous();
+		this.dieIfNoRights('undelete', 'undelete revisions');
 
 		title = this.validateTitle(title).getPrefixedText();
 		requestOptions = Mwbot.unrefRequestOptions(requestOptions);
@@ -3750,8 +3750,8 @@ export class Mwbot {
 		additionalParams: Partial<ApiParamsActionProtect> = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseProtect> {
-		this.dieIfNoRights('protect', 'protect pages');
 		this.dieIfAnonymous();
+		this.dieIfNoRights('protect', 'protect pages');
 
 		let targetParam: { title: string } | { pageid: number };
 		if (typeof titleOrId === 'number') {
@@ -3851,8 +3851,8 @@ export class Mwbot {
 		additionalParams: Partial<ApiParamsActionRollback> = {},
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseRollback> {
-		this.dieIfNoRights('rollback', 'rollback edits');
 		this.dieIfAnonymous();
+		this.dieIfNoRights('rollback', 'rollback edits');
 
 		let targetParam: { title: string } | { pageid: number };
 		if (typeof titleOrId === 'number') {
