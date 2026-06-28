@@ -4366,7 +4366,8 @@ export class Mwbot {
 	 * Specify this if the `prefix` is very generic and may produce too many results.
 	 * @param requestOptions Optional HTTP request options.
 	 * @returns A Promise that resolves to an array of matched category titles, excluding the namespace prefix.
-	 * @throws {MwbotError} If `limit` is provided and is not a positive integer or `Infinity`. (`invalidlimit`)
+	 * @throws {MwbotError} If
+	 * - `limit` is provided and is not a positive integer or `Infinity`. (`invalidlimit`)
 	 */
 	async getCategoriesByPrefix(
 		prefix: string,
@@ -4384,26 +4385,36 @@ export class Mwbot {
 
 		const config = this.config;
 		const NS_CATEGORY = config.get('wgNamespaceIds').category;
-		const CATEGORY_PREFIX = config.get('wgFormattedNamespaces')[NS_CATEGORY] + ':';
 
-		const responses = await this.continuedRequest({
-			...Mwbot.getActionParams('query'),
-			list: 'allpages',
-			apprefix: prefix,
-			apnamespace: NS_CATEGORY,
-			aplimit: 'max',
-		}, { limit }, requestOptions);
+		const responses = await this.continuedRequest(
+			{
+				...Mwbot.getActionParams('query'),
+				list: 'allpages',
+				apprefix: prefix,
+				apnamespace: NS_CATEGORY,
+				aplimit: 'max',
+			},
+			{ limit },
+			requestOptions
+		);
 
+		const rCategoryPrefix = new RegExp(
+			'^' + escapeRegExp(config.get('wgFormattedNamespaces')[NS_CATEGORY]) + ':'
+		);
 		const retSet = new Set<string>();
+
 		for (const res of responses) {
 			const allpages = res.query?.allpages;
-			if (!allpages) Mwbot.dieAsEmpty(true, 'missing "response.query.allpages"', { response: res });
-			allpages.forEach(({ title }) => {
-				retSet.add(title.replace(CATEGORY_PREFIX, ''));
-			});
-		}
-		return Array.from(retSet);
+			if (!allpages) {
+				Mwbot.dieAsEmpty(true, 'missing "response.query.allpages"', { response: res });
+			}
 
+			for (const { title } of allpages) {
+				retSet.add(title.replace(rCategoryPrefix, ''));
+			}
+		}
+
+		return Array.from(retSet);
 	}
 
 	/**
