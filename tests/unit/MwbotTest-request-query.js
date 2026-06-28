@@ -1645,5 +1645,189 @@ export function testMwbotRequestQuery() {
 				);
 			});
 		});
+
+		describe('prefixSearch()', function () {
+			/**
+			 * @type {sinon.SinonStub}
+			 */
+			let continuedRequestStub;
+
+			beforeEach(function () {
+				continuedRequestStub = sinon.stub(mwbot, 'continuedRequest');
+			});
+
+			it('should throw "typemismatch" error if target is not a string', async function () {
+				try {
+					// @ts-expect-error - Passing a non-string
+					await mwbot.prefixSearch(123);
+					assert.fail('Expected prefixSearch() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'typemismatch');
+					sinon.assert.notCalled(continuedRequestStub);
+				}
+			});
+
+			it('should throw "emptyinput" error if target is empty', async function () {
+				try {
+					await mwbot.prefixSearch('   ');
+					assert.fail('Expected prefixSearch() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'emptyinput');
+					sinon.assert.notCalled(continuedRequestStub);
+				}
+			});
+
+			it('should throw "invalidlimit" error if limit is invalid', async function () {
+				for (const limit of [0, -1, 1.5, NaN]) {
+					try {
+						await mwbot.prefixSearch('Foo', {}, limit);
+						assert.fail(`Expected prefixSearch() to throw for limit=${limit}`);
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'invalidlimit');
+					}
+				}
+
+				sinon.assert.notCalled(continuedRequestStub);
+			});
+
+			it('should throw "empty" error if response.query.prefixsearch is missing', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {},
+					},
+				]);
+
+				try {
+					await mwbot.prefixSearch('Foo');
+					assert.fail('Expected prefixSearch() to throw');
+				} catch (err) {
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'empty');
+				}
+			});
+
+			it('should return prefix search results', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {
+							prefixsearch: [
+								{
+									ns: 0,
+									title: 'Foo',
+									pageid: 1,
+								},
+							],
+						},
+					},
+				]);
+
+				const res = await mwbot.prefixSearch('Foo');
+
+				assert.deepEqual(res, [
+					{
+						ns: 0,
+						title: 'Foo',
+						pageid: 1,
+					},
+				]);
+				assert.deepInclude(
+					continuedRequestStub.firstCall.args[0],
+					{
+						list: 'prefixsearch',
+						pssearch: 'Foo',
+						pslimit: 'max',
+					}
+				);
+			});
+
+			it('should concatenate continuation responses', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {
+							prefixsearch: [
+								{
+									ns: 0,
+									title: 'Foo',
+									pageid: 1,
+								},
+							],
+						},
+					},
+					{
+						query: {
+							prefixsearch: [
+								{
+									ns: 0,
+									title: 'Bar',
+									pageid: 2,
+								},
+							],
+						},
+					},
+				]);
+
+				const res = await mwbot.prefixSearch('Foo');
+
+				assert.deepEqual(res, [
+					{
+						ns: 0,
+						title: 'Foo',
+						pageid: 1,
+					},
+					{
+						ns: 0,
+						title: 'Bar',
+						pageid: 2,
+					},
+				]);
+			});
+
+			it('should honor additionalParams while enforcing required parameters', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {
+							prefixsearch: [],
+						},
+					},
+				]);
+
+				await mwbot.prefixSearch('Foo', {
+					list: 'wrong',
+					pssearch: 'wrong',
+					pslimit: 1,
+					psnamespace: 10,
+				});
+
+				assert.deepInclude(
+					continuedRequestStub.firstCall.args[0],
+					{
+						list: 'prefixsearch',
+						pssearch: 'Foo',
+						pslimit: 'max',
+						psnamespace: 10,
+					}
+				);
+			});
+
+			it('should pass the limit option to continuedRequest', async function () {
+				continuedRequestStub.resolves([
+					{
+						query: {
+							prefixsearch: [],
+						},
+					},
+				]);
+
+				await mwbot.prefixSearch('Foo', {}, 3);
+
+				assert.deepEqual(
+					continuedRequestStub.firstCall.args[1],
+					{ limit: 3 }
+				);
+			});
+		});
 	});
 }
