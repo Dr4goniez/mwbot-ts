@@ -84,7 +84,7 @@ import {
 } from './MwbotError.js';
 import { Logger, LoggerOptions } from './Logger.js';
 import * as Util from './Util.js';
-const { mergeDeep, cloneDeep, isPlainObject, isObject, sleep, isEmptyObject, arraysEqual } = Util;
+const { mergeDeep, cloneDeep, isPlainObject, isObject, sleep, isEmptyObject, arraysEqual, escapeRegExp } = Util;
 import * as mwString from './String.js';
 import { TitleFactory, TitleStatic, Title } from './Title.js';
 import { TemplateFactory, TemplateStatic, ParserFunctionStatic, ParsedTemplate } from './Template.js';
@@ -4273,11 +4273,15 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<string[] | Record<string, string[]>> {
 
-		// Normalize titles
 		const isArrayInput = Array.isArray(titles);
+		titles = Array.isArray(titles) ? titles : [titles];
+
 		const titleSet = new Set<string>();
-		for (const t of (isArrayInput ? titles : [titles])) {
-			titleSet.add(this.validateTitle(t, { allowAnonymous: true }).getPrefixedText());
+		const validationOptions = {
+			allowAnonymous: true,
+		};
+		for (const t of titles) {
+			titleSet.add(this.validateTitle(t, validationOptions).getPrefixedText());
 		}
 		if (!titleSet.size) {
 			throw new MwbotError('fatal', {
@@ -4286,42 +4290,72 @@ export class Mwbot {
 			});
 		}
 
-		// Send API requests
-		const validatedTitles = [...titleSet];
-		const responses = await this.continuedRequest({
-			...Mwbot.getActionParams('query'),
-			titles: validatedTitles,
-			prop: 'categories',
-			clshow: hidden ? 'hidden' : hidden === false ? '!hidden' : undefined,
-			cllimit: 'max',
-		}, {
-			limit: Infinity,
-			multiValues: 'titles',
-		}, requestOptions);
+		const clshowParam: { clshow?: 'hidden' | '!hidden' } = {};
+		if (hidden) {
+			clshowParam.clshow = 'hidden';
+		} else if (hidden === false) {
+			clshowParam.clshow = '!hidden';
+		}
 
-		// Process the responses and format categories
+		const validatedTitles = Array.from(titleSet);
+		const responses = await this.continuedRequest(
+			{
+				...Mwbot.getActionParams('query'),
+				titles: validatedTitles,
+				prop: 'categories',
+				...clshowParam,
+				cllimit: 'max',
+			},
+			{
+				limit: Infinity,
+				multiValues: 'titles',
+			},
+			requestOptions
+		);
+
+		const result: Record<string, Set<string>> = Object.create(null);
+		for (const title of validatedTitles) {
+			result[title] = new Set();
+		}
+
 		const config = this.config;
 		const NS_CATEGORY = config.get('wgNamespaceIds').category;
-		const CATEGORY_PREFIX = config.get('wgFormattedNamespaces')[NS_CATEGORY] + ':';
+		const rCategoryPrefix = new RegExp(
+			'^' + escapeRegExp(config.get('wgFormattedNamespaces')[NS_CATEGORY]) + ':'
+		);
 
-		const result: Record<string, string[]> = Object.create(null);
 		for (const res of responses) {
 			const pages = res.query?.pages;
-			if (!pages) Mwbot.dieAsEmpty(true, 'missing "response.query.pages"', { response: res });
-			pages.forEach(({ title, categories }) => {
-				if (!title || !categories) return;
-				const stripped = categories.map(c => c.title.replace(CATEGORY_PREFIX, ''));
-				result[title] ||= [];
-				result[title].push(...stripped);
-			});
+			if (!pages) {
+				Mwbot.dieAsEmpty(true, 'missing "response.query.pages"', { response: res });
+			}
+
+			for (const { title, categories } of pages) {
+				if (!title || !categories) {
+					continue;
+				}
+
+				const set = result[title];
+				if (!set) {
+					throw new MwbotError('fatal', {
+						code: 'internal',
+						info: `Unexpected title "${title}" returned by the API.`,
+					});
+				}
+
+				for (const cat of categories) {
+					set.add(cat.title.replace(rCategoryPrefix, ''));
+				}
+			}
 		}
 
 		if (isArrayInput) {
-			return result;
+			return Object.fromEntries(
+				Object.entries(result).map(([k, v]) => [k, [...v]])
+			);
 		} else {
-			return result[validatedTitles[0]] || [];
+			return Array.from(result[validatedTitles[0]]);
 		}
-
 	}
 
 	/**
