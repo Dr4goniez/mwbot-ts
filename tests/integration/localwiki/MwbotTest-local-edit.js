@@ -232,7 +232,7 @@ export function testMwbotLocalEdit(getMwbot, _testDomain, authMethod) {
 				}
 			});
 
-			it('should fail to edit to a non-existing page', async function () {
+			it('should fail to edit a non-existing page', async function () {
 				const mwbot = getMwbot();
 				const target = getNonExistingTitle();
 				const isAnon = authMethod === 'anonymous';

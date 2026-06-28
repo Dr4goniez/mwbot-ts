@@ -2518,6 +2518,8 @@ export class Mwbot {
 		/** @hidden @private */
 		retry?: number
 	): Promise<ApiResponseEditSuccess> {
+		this.dieIfAnonymous();
+
 		if (typeof transform !== 'function') {
 			Mwbot.dieWithTypeError('function', 'transform', transform);
 		}
