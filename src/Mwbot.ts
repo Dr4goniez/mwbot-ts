@@ -4449,13 +4449,12 @@ export class Mwbot {
 		requestOptions?: MwbotRequestConfig
 	): Promise<ApiResponseQueryListCategorymembers[]> {
 
-		// Validate title
-		let pageId: number | false = false;
-		let title: Title | false = false;
+		let targetParam: { cmtitle: string } | { cmpageid: number };
 		if (typeof titleOrId === 'number') {
-			pageId = titleOrId;
+			targetParam = { cmpageid: titleOrId };
 		} else {
-			title = this.validateTitle(titleOrId, { allowAnonymous: true });
+			const title = this.validateTitle(titleOrId);
+
 			const NS_CATEGORY = this.config.get('wgNamespaceIds').category;
 			if (title.getNamespaceId() !== NS_CATEGORY) {
 				throw new MwbotError('api_mwbot', {
@@ -4463,27 +4462,34 @@ export class Mwbot {
 					info: `"${titleOrId}" is not a category title.`,
 				});
 			}
+
+			targetParam = { cmtitle: title.getPrefixedText() };
 		}
 
-		// Query the API
-		const responses = await this.continuedRequest({
-			...additionalParams,
-			...Mwbot.getActionParams('query'),
-			list: 'categorymembers',
-			cmtitle: title && title.getPrefixedText(),
-			cmpageid: pageId,
-			cmlimit: 'max',
-		}, { limit: Infinity }, requestOptions);
+		const responses = await this.continuedRequest(
+			{
+				...additionalParams,
+				...Mwbot.getActionParams('query'),
+				list: 'categorymembers',
+				...targetParam,
+				cmlimit: 'max',
+			},
+			{ limit: Infinity },
+			requestOptions
+		);
 
 		// Format the responses and return them as an array
-		let ret: ApiResponseQueryListCategorymembers[] = [];
-		responses.forEach((res) => {
-			const members = res.query?.categorymembers;
-			if (!members) Mwbot.dieAsEmpty(true, 'missing "response.query.categorymembers"', { response: res });
-			ret = ret.concat(members);
-		});
-		return ret;
+		const ret: ApiResponseQueryListCategorymembers[] = [];
 
+		for (const res of responses) {
+			const categorymembers = res.query?.categorymembers;
+			if (!categorymembers) {
+				Mwbot.dieAsEmpty(true, 'missing "response.query.categorymembers"', { response: res });
+			}
+			ret.push(...categorymembers);
+		}
+
+		return ret;
 	}
 
 	/**
