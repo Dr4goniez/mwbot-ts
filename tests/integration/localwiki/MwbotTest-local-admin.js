@@ -1,6 +1,7 @@
 import { describe, it } from 'mocha';
 import { assert } from 'chai';
 import { MwbotError } from '../../../dist/index.js';
+import { getNonExistingTitle } from './title-provider.js';
 
 /**
  * @type {import('./../provider-types.js').MwbotTestSuite}
@@ -208,6 +209,120 @@ export function testMwbotLocalAdmin(getMwbot, _testDomain, authMethod) {
 				/* eslint-enable @typescript-eslint/no-unused-vars */
 
 				assert.isEmpty(rest);
+			});
+		});
+
+		/**
+		 * @param {import('../../../dist/index.js').ApiResponseProtect} res
+		 * @param {string} target
+		 * @param {string} reason
+		 * @param {Record<string, string>} levels
+		 * @param {boolean} [cascade]
+		 */
+		const validateProtectResponse = (res, target, reason, levels, cascade = false) => {
+			/**
+			 * @type {import('../../../dist/index.js').ApiResponseProtectProtections[]}
+			 */
+			const protections = [];
+
+			for (const [action, level] of Object.entries(levels)) {
+				protections.push({
+					[action]: level,
+					expiry: 'infinite',
+				});
+			}
+
+			assert.deepInclude(
+				res,
+				{
+					title: target,
+					reason,
+					// cascade: true,
+					protections,
+				}
+			);
+			if (cascade) {
+				assert.propertyVal(res, 'cascade', true);
+			} else {
+				assert.notProperty(res, 'cascade');
+			}
+
+			/* eslint-disable @typescript-eslint/no-unused-vars */
+			const {
+				title,
+				reason: _reason,
+				cascade: _cascade,
+				protections: _protections,
+				...rest
+			} = res;
+			/* eslint-enable @typescript-eslint/no-unused-vars */
+
+			assert.isEmpty(rest);
+		};
+
+		describe('protect()', function () {
+			it('should protect an existing page', async function () {
+				const target = 'Protect existing page';
+				const levels = { edit: 'sysop', move: 'sysop' };
+				const reason = 'reason';
+
+				if (authMethod === 'anonymous') {
+					try {
+						await getMwbot().protect(target, levels, { reason, cascade: true });
+						assert.fail('Expected protect() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'anonymous');
+					}
+					return;
+				}
+
+				const res = await getMwbot().protect(target, levels, { reason, cascade: true });
+
+				validateProtectResponse(res, target, reason, levels, true);
+			});
+
+			it('should protect a non-existing page', async function () {
+				const target = getNonExistingTitle();
+				const levels = { create: 'sysop' };
+				const reason = 'reason';
+
+				if (authMethod === 'anonymous') {
+					try {
+						await getMwbot().protect(target, levels, { reason });
+						assert.fail('Expected protect() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'anonymous');
+					}
+					return;
+				}
+
+				const res = await getMwbot().protect(target, levels, { reason });
+
+				validateProtectResponse(res, target, reason, levels);
+			});
+		});
+
+		describe('unprotect()', function () {
+			it('should unprotect a page', async function () {
+				const target = 'Unprotect existing page';
+				const reason = 'reason';
+
+				if (authMethod === 'anonymous') {
+					try {
+						await getMwbot().unprotect(target, { reason });
+						assert.fail('Expected unprotect() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'anonymous');
+					}
+					return;
+				}
+
+				const res = await getMwbot().unprotect(target, { reason });
+
+				validateProtectResponse(res, target, reason, {});
 			});
 		});
 	});

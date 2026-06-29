@@ -40,3 +40,10 @@ create_page Delete_existing_page
 echo 'Creating and deleting a page for undelete() tests...'
 create_page Undelete_deleted_page
 php maintenance/run.php deleteBatch <<< 'Undelete_deleted_page'
+
+echo 'Creating an existing page for protect() tests...'
+create_page Protect_existing_page
+
+echo 'Creating and protecting an existing page for unprotect() tests...'
+create_page Unprotect_existing_page
+php maintenance/run.php protect Unprotect_existing_page
