@@ -640,7 +640,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	const IW_LOCALS = new Set<string>();
 	const IW_TRANSES = new Set<string>();
 	const IW_LOCALINTERWIKIS = new Set<string>();
-	info.interwikimap.forEach(({ prefix, local, trans, localinterwiki }) => {
+	for (const { prefix, local, trans, localinterwiki } of info.interwikimap) {
 		IW_PREFIXES.add(prefix);
 		if (local) {
 			IW_LOCALS.add(prefix);
@@ -651,7 +651,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		if (localinterwiki) {
 			IW_LOCALINTERWIKIS.add(prefix);
 		}
-	});
+	}
 	// If the local project has a namespace alias that conflicts with an interwiki prefix,
 	// that prefix is always recognized as a namespace prefix
 	for (const nsPrefix in namespaceIds) {
@@ -826,14 +826,14 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 *
 	 * *This variable is exclusive to `mwbot-ts`.*
 	 */
-	const ALWAYS_CAPITALIZED_NAMESPACES = Object.values(info.namespaces).reduce((acc, obj) => {
+	const ALWAYS_CAPITALIZED_NAMESPACES = new Set<number>();
+	for (const obj of Object.values(info.namespaces)) {
 		if (obj.case === 'first-letter') {
-			acc.add(obj.id);
+			ALWAYS_CAPITALIZED_NAMESPACES.add(obj.id);
 		} else { // "case-sensitive"
 			CAPITAL_LINK_OVERRIDES[obj.id] = false; // TODO: In theory this can be true
 		}
-		return acc;
-	}, new Set<number>());
+	}
 	/**
 	 * Is the namespace first-letter capitalized?
 	 *
@@ -985,7 +985,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 				// e.g., "mw:" is redirected to "mw:Main page"
 				const ret: ParsedTitle = {
 					namespace: NS_MAIN,
-					title: 'Main_page',
+					title: 'Main_Page',
 					fragment: null,
 					colon,
 					interwiki,
@@ -1155,7 +1155,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 */
 	const getMain = (title: string, namespace: number, interwiki: string): string => {
 		if (
-			config.get('wgCaseSensitiveNamespaces').indexOf(namespace) !== -1 ||
+			config.get('wgCaseSensitiveNamespaces').includes(namespace) ||
 			!title.length ||
 			// Normally, all wiki links are forced to have an initial capital letter so [[foo]]
 			// and [[Foo]] point to the same place. Don't force it for interwikis, since the
@@ -1180,10 +1180,14 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 
 		constructor(title: string, namespace = NS_MAIN) {
 			if (typeof title !== 'string') {
-				throw new MwbotError('fatal', {
-					code: 'typemismatch',
-					info: `"title" for Title.constructor must be a string.`,
-				}, { title });
+				throw new MwbotError(
+					'fatal',
+					{
+						code: 'typemismatch',
+						info: `"title" for Title.constructor must be a string.`,
+					},
+					{ title }
+				);
 			}
 			const parsed = parse(title, namespace);
 			if (!parsed) {
@@ -1207,10 +1211,14 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 
 		static newFromText(title: string, namespace = NS_MAIN): Title | null {
 			if (typeof title !== 'string') {
-				throw new MwbotError('fatal', {
-					code: 'typemismatch',
-					info: `"title" for Title.newFromText() must be a string.`,
-				}, { title });
+				throw new MwbotError(
+					'fatal',
+					{
+						code: 'typemismatch',
+						info: `"title" for Title.newFromText() must be a string.`,
+					},
+					{ title }
+				);
 			}
 			const parsed = parse(title, namespace);
 			if (!parsed) {
@@ -1327,10 +1335,14 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			} else if (title instanceof Title) {
 				match = obj[title.toString()];
 			} else {
-				throw new MwbotError('fatal', {
-					code: 'typemismatch',
-					info: `"title" for Title.exists() must be either a string or a Title instance.`,
-				}, { title });
+				throw new MwbotError(
+					'fatal',
+					{
+						code: 'typemismatch',
+						info: `"title" for Title.exists() must be either a string or a Title instance.`,
+					},
+					{ title }
+				);
 			}
 			if (typeof match !== 'boolean') {
 				return null;
@@ -1402,10 +1414,14 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 
 		static normalize(title: string, options: TitleNormalizeOptions = {}): string | null {
 			if (typeof title !== 'string') {
-				throw new MwbotError('fatal', {
-					code: 'typemismatch',
-					info: `"title" for Title.normalize() must be a string.`,
-				}, { title });
+				throw new MwbotError(
+					'fatal',
+					{
+						code: 'typemismatch',
+						info: `"title" for Title.normalize() must be a string.`,
+					},
+					{ title }
+				);
 			}
 			const parsed = parse(title, options.namespace ?? NS_MAIN);
 			if (!parsed) {
@@ -1606,18 +1622,18 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			if (!this.canHaveTalkPage() || this.isExternal()) {
 				return null;
 			}
-			return this.isTalkPage() ?
-				this :
-				Title.makeTitle(this.getNamespaceId() + 1, this.getMainText(), '', this.interwiki);
+			return this.isTalkPage()
+				? this
+				: Title.makeTitle(this.getNamespaceId() + 1, this.getMainText(), '', this.interwiki);
 		}
 
 		getSubjectPage(): Title | null {
 			if (this.isExternal()) {
 				return null;
 			}
-			return this.isTalkPage() ?
-				Title.makeTitle(this.getNamespaceId() - 1, this.getMainText(), '', this.interwiki) :
-				this;
+			return this.isTalkPage()
+				? Title.makeTitle(this.getNamespaceId() - 1, this.getMainText(), '', this.interwiki)
+				: this;
 		}
 
 		canHaveTalkPage(): boolean {
