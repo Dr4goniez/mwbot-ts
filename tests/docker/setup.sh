@@ -256,6 +256,25 @@ cat << EOF > "$ENV_FILE"
 AUTH_METHOD='${AUTH_METHOD}'
 EOF
 
+# Add interwiki entries for the local MediaWiki installation
+# shellcheck disable=SC2016
+readonly EN_SCRIPT_PATH='https://en.wikipedia.org/wiki/$1'
+# shellcheck disable=SC2016
+readonly SCRIPT_PATH='http://localhost:8080/index.php/$1'
+readonly API_PATH='http://localhost:8080/api.php'
+docker compose exec -T database \
+	mariadb \
+	-umwbot_ts \
+	-pmwbot_ts \
+	mwbot_ts <<EOF
+INSERT IGNORE INTO interwiki
+	(iw_prefix, iw_url, iw_api, iw_wikiid, iw_local, iw_trans)
+VALUES
+	('w', '${EN_SCRIPT_PATH}', '', '', 0, 0),
+	('en', '${EN_SCRIPT_PATH}', '', '', 0, 0),
+	('mwbot_ts', '${SCRIPT_PATH}', '${API_PATH}', '', 1, 0);
+EOF
+
 echo "Setup complete. Credentials saved to ${JSON_FILE} and authentication method to ${ENV_FILE}"
 
 # Proceed with setting up test data

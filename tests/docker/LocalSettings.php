@@ -141,6 +141,8 @@ $wgShowExceptionDetails = true;
 $wgShowDBErrorBacktrace = true;
 $wgShowSQLErrors = true;
 
+$wgLocalInterwikis[] = 'mwbot_ts';
+
 wfLoadExtension( 'OAuth' );
 $wgOAuth2PrivateKey = '/var/www/html/secrets/oauth-private.key';
 $wgOAuth2PublicKey = '/var/www/html/secrets/oauth-public.key';

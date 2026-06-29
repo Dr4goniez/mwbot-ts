@@ -1769,6 +1769,13 @@ function getFakeSiteAndUserInfo(anonymous) {
 					"protorel": false
 				},
 				{
+					"prefix": "en",
+					"language": "English",
+					"bcp47": "en",
+					"url": "https://en.wikipedia.org/wiki/$1",
+					"protorel": false
+				},
+				{
 					"prefix": "fandom",
 					"url": "https://community.fandom.com/wiki/w:c:$1",
 					"protorel": false
@@ -1850,6 +1857,14 @@ function getFakeSiteAndUserInfo(anonymous) {
 					"api": "https://www.mediawiki.org/w/api.php"
 				},
 				{
+					"prefix": "mwbot_ts",
+					"local": true,
+					"localinterwiki": true,
+					"url": "http://localhost:8080/index.php/$1",
+					"protorel": false,
+					"api": "http://localhost:8080/api.php"
+				},
+				{
 					"prefix": "oeis",
 					"url": "https://oeis.org/$1",
 					"protorel": false
@@ -1905,6 +1920,11 @@ function getFakeSiteAndUserInfo(anonymous) {
 				{
 					"prefix": "usemod",
 					"url": "https://www.usemod.org/cgi-bin/wiki.pl?$1",
+					"protorel": false
+				},
+				{
+					"prefix": "w",
+					"url": "https://en.wikipedia.org/wiki/$1",
 					"protorel": false
 				},
 				{
