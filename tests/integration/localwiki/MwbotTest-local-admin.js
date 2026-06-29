@@ -325,5 +325,55 @@ export function testMwbotLocalAdmin(getMwbot, _testDomain, authMethod) {
 				validateProtectResponse(res, target, reason, {});
 			});
 		});
+
+		describe('rollback()', function () {
+			it('should rollback edits', async function () {
+				const target = 'Rollback existing page';
+				const user = 'Admin';
+				const summary = 'Rollback test';
+
+				if (authMethod === 'anonymous') {
+					try {
+						await getMwbot().rollback(target, user, { summary });
+						assert.fail('Expected rollback() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'anonymous');
+					}
+					return;
+				}
+
+				const res = await getMwbot().rollback(target, user, { summary });
+
+				assert.deepInclude(
+					res,
+					{
+						title: target,
+						// pageid,
+						summary,
+						// revid,
+						// old_revid,
+						// last_revid,
+					}
+				);
+
+				const {
+					title: _title,
+					pageid,
+					summary: _summary,
+					revid,
+					old_revid,
+					last_revid,
+					...rest
+				} = res;
+
+				assert.isAbove(pageid, 0);
+				assert.isAbove(revid, 0);
+				assert.isAbove(old_revid, 0);
+				assert.isAbove(last_revid, 0);
+
+				assert.isEmpty(rest);
+			});
+		});
 	});
 }
