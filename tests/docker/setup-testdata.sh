@@ -33,3 +33,10 @@ php maintenance/run.php blockUsers \
     --disable-autoblock \
     --disable-hardblock \
 	<<< '2.2.2.2'
+
+echo 'Creating an existing page for delete() tests...'
+create_page Delete_existing_page
+
+echo 'Creating and deleting a page for undelete() tests...'
+create_page Undelete_deleted_page
+php maintenance/run.php deleteBatch <<< 'Undelete_deleted_page'

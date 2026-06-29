@@ -126,5 +126,89 @@ export function testMwbotLocalAdmin(getMwbot, _testDomain, authMethod) {
 				assert.isEmpty(rest);
 			});
 		});
+
+		describe('delete()', function () {
+			it('should delete a page', async function () {
+				const target = 'Delete existing page';
+				const reason = 'reason';
+
+				if (authMethod === 'anonymous') {
+					try {
+						await getMwbot().delete(target, { reason });
+						assert.fail('Expected delete() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'anonymous');
+					}
+					return;
+				}
+
+				const res = await getMwbot().delete(target, { reason });
+
+				assert.deepInclude(
+					res,
+					{
+						title: target,
+						reason,
+						// logid,
+					}
+				);
+
+				/* eslint-disable @typescript-eslint/no-unused-vars */
+				const {
+					title,
+					reason: _reason,
+					logid,
+					...rest
+				} = res;
+				/* eslint-enable @typescript-eslint/no-unused-vars */
+
+				assert.isAbove(logid ?? 0, 0);
+
+				assert.isEmpty(rest);
+			});
+		});
+
+		describe('undelete()', function () {
+			it('should undelete a page', async function () {
+				const target = 'Undelete deleted page';
+				const reason = 'reason';
+
+				if (authMethod === 'anonymous') {
+					try {
+						await getMwbot().undelete(target, { reason });
+						assert.fail('Expected undelete() to throw');
+					} catch (err) {
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'anonymous');
+					}
+					return;
+				}
+
+				const res = await getMwbot().undelete(target, { reason });
+
+				assert.deepInclude(
+					res,
+					{
+						title: target,
+						revisions: 1,
+						fileversions: 0,
+						reason,
+					}
+				);
+
+				/* eslint-disable @typescript-eslint/no-unused-vars */
+				const {
+					title,
+					revisions,
+					fileversions,
+					reason: _reason,
+					...rest
+				} = res;
+				/* eslint-enable @typescript-eslint/no-unused-vars */
+
+				assert.isEmpty(rest);
+			});
+		});
 	});
 }
