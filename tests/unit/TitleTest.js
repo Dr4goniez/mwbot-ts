@@ -1,6 +1,6 @@
 import { describe, it, before, beforeEach } from 'mocha';
 import { assert } from 'chai';
-import { getTestMwbot } from './MwbotTest-fixtures.js';
+import { assertThrowsMwbotError, getTestMwbot } from './MwbotTest-fixtures.js';
 
 describe('Mwbot.Title', function () {
 	/**
@@ -301,15 +301,15 @@ describe('Mwbot.Title', function () {
 					assert.strictEqual(title.getPrefixedDb(options), output);
 					test(title);
 				} else {
-					assert.throws(() => new mwbot.Title(input));
+					assertThrowsMwbotError(() => new mwbot.Title(input), 'unparsabletitle');
 				}
 			});
 		}
 
 		it('should throw for non-string inputs', () => {
-			assert.throws(() => new mwbot.Title(/** @type {any} */ (null)));
-			assert.throws(() => new mwbot.Title(/** @type {any} */ (undefined)));
-			assert.throws(() => new mwbot.Title(/** @type {any} */ (123)));
+			assertThrowsMwbotError(() => new mwbot.Title(/** @type {any} */ (null)), 'typemismatch');
+			assertThrowsMwbotError(() => new mwbot.Title(/** @type {any} */ (undefined)), 'typemismatch');
+			assertThrowsMwbotError(() => new mwbot.Title(/** @type {any} */ (123)), 'typemismatch');
 		});
 	});
 
@@ -359,9 +359,9 @@ describe('Mwbot.Title', function () {
 		});
 
 		it('should throw for non-string inputs', () => {
-			assert.throws(() => mwbot.Title.newFromText(/** @type {any} */ (null)));
-			assert.throws(() => mwbot.Title.newFromText(/** @type {any} */ (undefined)));
-			assert.throws(() => mwbot.Title.newFromText(/** @type {any} */ (123)));
+			assertThrowsMwbotError(() => mwbot.Title.newFromText(/** @type {any} */ (null)), 'typemismatch');
+			assertThrowsMwbotError(() => mwbot.Title.newFromText(/** @type {any} */ (undefined)), 'typemismatch');
+			assertThrowsMwbotError(() => mwbot.Title.newFromText(/** @type {any} */ (123)), 'typemismatch');
 		});
 	});
 
@@ -653,8 +653,9 @@ describe('Mwbot.Title', function () {
 		}
 
 		it('should throw when the input is not a string', () => {
-			assert.throws(
+			assertThrowsMwbotError(
 				() => mwbot.Title.normalize(/** @type {never} */ (123)),
+				'typemismatch',
 				/title.*string/i
 			);
 		});
@@ -762,7 +763,7 @@ describe('Mwbot.Title', function () {
 		});
 
 		it('should throw for invalid arguments', () => {
-			assert.throws(() => mwbot.Title.exists(/** @type {any} */ (123)));
+			assertThrowsMwbotError(() => mwbot.Title.exists(/** @type {any} */ (123)), 'typemismatch');
 		});
 	});
 

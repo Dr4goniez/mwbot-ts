@@ -1,3 +1,4 @@
+import { assert } from 'chai';
 import { Mwbot, MwbotError } from '../../dist/index.js';
 
 /**
@@ -2315,4 +2316,31 @@ export function createMwbotError(code = 'testerror') {
 			info: code,
 		}
 	);
+}
+
+/**
+ * @param {() => void} fn Function that is expected to throw.
+ * @param {string} code Expected error code.
+ * @param {string | RegExp} [info] Expected error info, or a pattern to match it.
+ */
+export function assertThrowsMwbotError(fn, code, info) {
+	try {
+		fn();
+		assert.fail('Expected the function to throw.');
+	} catch (err) {
+		assert.instanceOf(err, MwbotError);
+		assert.strictEqual(
+			err.code,
+			code,
+			`Expected the error code to be "${code}", but got "${err.code}".`
+		);
+
+		if (info !== undefined) {
+			if (info instanceof RegExp) {
+				assert.match(err.info, info);
+			} else {
+				assert.strictEqual(err.info, info);
+			}
+		}
+	}
 }

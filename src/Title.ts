@@ -131,7 +131,8 @@ export interface TitleStatic {
 	 * @param title The title of the page. If no `namespace` is provided, this will be analyzed
 	 * to determine if it includes a namespace prefix.
 	 * @param namespace The default namespace to use for the given title. (Default: `NS_MAIN`)
-	 * @throws {MwbotError} If the provided title is invalid.
+	 * @throws {MwbotError} If:
+	 * * The provided title is invalid. (`unparsabletitle`)
 	 */
 	new(title: string, namespace?: number): Title;
 	/**
@@ -203,7 +204,6 @@ export interface TitleStatic {
 	 * @param title The title to normalize.
 	 * @param options Options that control how the title is normalized.
 	 * @returns The normalized title as a string, or `null` if the input is not a valid title.
-	 * @throws If `title` is not a string.
 	 */
 	normalize(title: string, options?: TitleNormalizeOptions): string | null;
 	/**
@@ -218,7 +218,6 @@ export interface TitleStatic {
 	 *
 	 * @param title Prefixed DB title (string) or instance of Title.
 	 * @return Boolean if the information is available, otherwise `null`.
-	 * @throws {MwbotError} If `title` is not a string or Title.
 	 */
 	exists(title: string | Title): boolean | null;
 	/**
@@ -839,8 +838,21 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 * @param title
 	 * @param defaultNamespace
 	 * @return
+	 * @throws {MwbotError} If:
+	 * * The provided title is not a string. (`typemismatch`)
 	 */
 	const parse = function(title: string, defaultNamespace = NS_MAIN): ParsedTitle | false {
+		if (typeof title !== 'string') {
+			throw new MwbotError(
+				'fatal',
+				{
+					code: 'typemismatch',
+					info: `"title" must be a string.`,
+				},
+				{ title }
+			);
+		}
+
 		let namespace = parseInt(<never>defaultNamespace) || NS_MAIN;
 		title = title
 			// Strip Unicode bidi override characters
@@ -1156,22 +1168,16 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		private local_interwiki: boolean;
 
 		constructor(title: string, namespace = NS_MAIN) {
-			if (typeof title !== 'string') {
+			const parsed = parse(title, namespace);
+			if (!parsed) {
 				throw new MwbotError(
 					'fatal',
 					{
-						code: 'typemismatch',
-						info: `"title" for Title.constructor must be a string.`,
+						code: 'unparsabletitle',
+						info: `Unable to parse the title "${title}".`,
 					},
 					{ title }
 				);
-			}
-			const parsed = parse(title, namespace);
-			if (!parsed) {
-				throw new MwbotError('fatal', {
-					code: 'unparsabletitle',
-					info: `Unable to parse the title "${title}".`,
-				});
 			}
 			this.namespace = parsed.namespace;
 			this.title = parsed.title;
@@ -1182,16 +1188,6 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		}
 
 		static newFromText(title: string, namespace = NS_MAIN): Title | null {
-			if (typeof title !== 'string') {
-				throw new MwbotError(
-					'fatal',
-					{
-						code: 'typemismatch',
-						info: `"title" for Title.newFromText() must be a string.`,
-					},
-					{ title }
-				);
-			}
 			const parsed = parse(title, namespace);
 			if (!parsed) {
 				return null;
@@ -1276,16 +1272,6 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		}
 
 		static normalize(title: string, options: TitleNormalizeOptions = {}): string | null {
-			if (typeof title !== 'string') {
-				throw new MwbotError(
-					'fatal',
-					{
-						code: 'typemismatch',
-						info: `"title" for Title.normalize() must be a string.`,
-					},
-					{ title }
-				);
-			}
 			const parsed = parse(title, options.namespace ?? NS_MAIN);
 			if (!parsed) {
 				return null;
