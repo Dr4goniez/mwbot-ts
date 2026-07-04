@@ -1907,6 +1907,12 @@ function getFakeSiteAndUserInfo(anonymous) {
 					"api": "https://tmbw.net/wiki/api.php"
 				},
 				{
+					"prefix": "trans",
+					"trans": true,
+					"url": "http://localhost:8080/index.php/$1",
+					"protorel": false
+				},
+				{
 					"prefix": "twiki",
 					"url": "https://twiki.org/cgi-bin/view/$1",
 					"protorel": false

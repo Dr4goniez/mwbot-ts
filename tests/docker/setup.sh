@@ -272,6 +272,7 @@ INSERT IGNORE INTO interwiki
 VALUES
 	('w', '${EN_SCRIPT_PATH}', '', '', 0, 0),
 	('en', '${EN_SCRIPT_PATH}', '', '', 0, 0),
+	('trans', '${SCRIPT_PATH}', '', '', 0, 1),
 	('mwbot_ts', '${SCRIPT_PATH}', '${API_PATH}', '', 1, 0);
 EOF
 

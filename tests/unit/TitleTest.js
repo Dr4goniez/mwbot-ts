@@ -34,6 +34,8 @@ describe('Mwbot.Title', function () {
 		NS_CATEGORY = wgNamespaceIds.category;
 	});
 
+	// ********** Static members **********
+
 	/**
 	 * @typedef {object} TestData
 	 * @property {string} input The input title to test.
@@ -1005,6 +1007,312 @@ describe('Mwbot.Title', function () {
 				mwbot.Title.lc(''),
 				''
 			);
+		});
+	});
+
+	// ********** Instance members **********
+
+	describe.skip('hadLeadingColon()', () => {});
+	describe.skip('isExternal()', () => {});
+
+	describe('isLocal()', () => {
+		it('should return true for ordinary local titles', () => {
+			assert.isTrue(
+				new mwbot.Title('Foo').isLocal()
+			);
+		});
+
+		it('should return false for external interwiki titles', () => {
+			assert.isFalse(
+				new mwbot.Title('w:Foo').isLocal()
+			);
+		});
+
+		it('should return true for local interwiki titles', () => {
+			assert.isTrue(
+				new mwbot.Title('mwbot_ts:Foo').isLocal()
+			);
+		});
+	});
+
+	describe('getInterwiki()', () => {
+		it('should return an empty string for local titles', () => {
+			assert.strictEqual(
+				new mwbot.Title('Foo').getInterwiki(),
+				''
+			);
+		});
+
+		it('should append a trailing colon', () => {
+			assert.strictEqual(
+				new mwbot.Title('w:en:Foo').getInterwiki(),
+				'w:en:'
+			);
+		});
+	});
+
+	describe.skip('wasLocalInterwiki()', () => {});
+
+	describe('isTrans()', () => {
+		it('should return false for local titles', () => {
+			assert.isFalse(
+				new mwbot.Title('Foo').isTrans()
+			);
+		});
+
+		it('should return false for ordinary interwiki links', () => {
+			assert.isFalse(
+				new mwbot.Title('w:Foo').isTrans()
+			);
+		});
+
+		it('should return true for transcluding interwiki prefixes', () => {
+			const title = new mwbot.Title('trans:Foo');
+			assert.isTrue(title.isTrans());
+		});
+	});
+
+	describe.skip('getNamespaceId()', () => {});
+	describe.skip('getNamespacePrefix()', () => {});
+
+	describe('getFileNameWithoutExtension()', () => {
+		it('should strip only the last extension', () => {
+			assert.strictEqual(
+				new mwbot.Title('File:foo.tar.gz').getFileNameWithoutExtension(),
+				'Foo.tar'
+			);
+		});
+
+		it('should leave names without extensions unchanged', () => {
+			assert.strictEqual(
+				new mwbot.Title('Foo').getFileNameWithoutExtension(),
+				'Foo'
+			);
+		});
+	});
+
+	describe('getFileNameTextWithoutExtension()', () => {
+		it('should convert underscores to spaces', () => {
+			assert.strictEqual(
+				new mwbot.Title('File:foo_bar.jpg').getFileNameTextWithoutExtension(),
+				'Foo bar'
+			);
+		});
+	});
+
+	describe('getExtension()', () => {
+		it('should return null when there is no extension', () => {
+			assert.isNull(
+				new mwbot.Title('Foo').getExtension()
+			);
+		});
+
+		it('should return the last extension', () => {
+			assert.strictEqual(
+				new mwbot.Title('File:foo.tar.gz').getExtension(),
+				'gz'
+			);
+		});
+	});
+
+	describe.skip('getMain()', () => {});
+	describe.skip('getMainText()', () => {});
+	describe.skip('getPrefixedDb()', () => {});
+
+	describe('getPrefixedText()', () => {
+		it('should convert underscores to spaces', () => {
+			assert.strictEqual(
+				new mwbot.Title('Category:Foo_bar').getPrefixedText(),
+				'Category:Foo bar'
+			);
+		});
+
+		it('should preserve fragments when requested', () => {
+			assert.strictEqual(
+				new mwbot.Title('Foo#Bar_baz')
+					.getPrefixedText({ fragment: true }),
+				'Foo#Bar baz'
+			);
+		});
+	});
+
+	describe('getRelativeText()', () => {
+		it('should return the main text in the same namespace', () => {
+			assert.strictEqual(
+				new mwbot.Title('Category:Foo_bar')
+					.getRelativeText(NS_CATEGORY),
+				'Foo bar'
+			);
+		});
+
+		it('should prefix main namespace titles with a colon', () => {
+			assert.strictEqual(
+				new mwbot.Title('Foo_bar')
+					.getRelativeText(NS_CATEGORY),
+				':Foo bar'
+			);
+		});
+
+		it('should keep namespace prefixes for other namespaces', () => {
+			assert.strictEqual(
+				new mwbot.Title('Template:Foo_bar')
+					.getRelativeText(NS_CATEGORY),
+				'Template:Foo bar'
+			);
+		});
+	});
+
+	describe.skip('getFragment()', () => {});
+
+	describe('isTalkPage()', () => {
+		it('should detect talk pages', () => {
+			assert.isFalse(new mwbot.Title('Foo').isTalkPage());
+			assert.isTrue(new mwbot.Title('Talk:Foo').isTalkPage());
+			assert.isFalse(new mwbot.Title('Special:RecentChanges').isTalkPage());
+		});
+	});
+
+	describe('getTalkPage()', () => {
+		it('should return the corresponding talk page', () => {
+			const talk = new mwbot.Title('Foo').getTalkPage();
+
+			assert.instanceOf(talk, mwbot.Title);
+			assert.strictEqual(talk.getPrefixedDb(), 'Talk:Foo');
+		});
+
+		it('should return itself for talk pages', () => {
+			const talk = new mwbot.Title('Talk:Foo');
+
+			assert.strictEqual(talk.getTalkPage(), talk);
+		});
+
+		it('should return null for pages without talk pages', () => {
+			assert.isNull(new mwbot.Title('Special:RecentChanges').getTalkPage());
+		});
+
+		it('should return null for external pages', () => {
+			assert.isNull(new mwbot.Title('w:Foo').getTalkPage());
+		});
+	});
+
+	describe('getSubjectPage()', () => {
+		it('should return the corresponding subject page', () => {
+			const page = new mwbot.Title('Talk:Foo').getSubjectPage();
+
+			assert.instanceOf(page, mwbot.Title);
+			assert.strictEqual(page.getPrefixedDb(), 'Foo');
+		});
+
+		it('should return itself for subject pages', () => {
+			const page = new mwbot.Title('Foo');
+
+			assert.strictEqual(page.getSubjectPage(), page);
+		});
+
+		it('should return null for external pages', () => {
+			assert.isNull(new mwbot.Title('w:Talk:Foo').getSubjectPage());
+		});
+	});
+
+	describe('canHaveTalkPage()', () => {
+		it('should identify namespaces that can have talk pages', () => {
+			assert.isTrue(new mwbot.Title('Foo').canHaveTalkPage());
+			assert.isTrue(new mwbot.Title('Talk:Foo').canHaveTalkPage());
+			assert.isFalse(new mwbot.Title('Special:RecentChanges').canHaveTalkPage());
+			assert.isFalse(new mwbot.Title('Media:Foo.jpg').canHaveTalkPage());
+		});
+	});
+
+	describe('exists()', () => {
+		it('should delegate to Title.exists()', () => {
+			mwbot.Title.exist.pages = {};
+
+			mwbot.Title.exist.set('Foo');
+			mwbot.Title.exist.set('Bar', false);
+
+			assert.isTrue(new mwbot.Title('Foo').exists());
+			assert.isFalse(new mwbot.Title('Bar').exists());
+			assert.isNull(new mwbot.Title('Baz').exists());
+		});
+	});
+
+	describe('toString()', () => {
+		it('should return the normalized DB key', () => {
+			assert.strictEqual(
+				new mwbot.Title('Foo bar').toString(),
+				'Foo_bar'
+			);
+		});
+	});
+
+	describe('toText()', () => {
+		it('should return the normalized text title', () => {
+			assert.strictEqual(
+				new mwbot.Title('Foo_bar').toText(),
+				'Foo bar'
+			);
+		});
+	});
+
+	describe('equals', () => {
+		it('should compare against strings', () => {
+			const title = new mwbot.Title('Foo');
+
+			assert.isTrue(title.equals('Foo'));
+			assert.isTrue(title.equals('foo'));
+			assert.isFalse(title.equals('Bar'));
+		});
+
+		it('should compare against mwbot.Title objects', () => {
+			const a = new mwbot.Title('Foo');
+			const b = new mwbot.Title('foo');
+			const c = new mwbot.Title('Bar');
+
+			assert.isTrue(a.equals(b));
+			assert.isFalse(a.equals(c));
+		});
+
+		it('should optionally compare fragments', () => {
+			const title = new mwbot.Title('Foo#Bar');
+
+			assert.isTrue(title.equals('Foo'));
+			assert.isTrue(title.equals('Foo#Bar', true));
+			assert.isFalse(title.equals('Foo#Baz', true));
+		});
+
+		it('should return null for invalid strings', () => {
+			const title = new mwbot.Title('Foo');
+
+			assert.isNull(title.equals('Foo~~~Bar'));
+		});
+
+		it('should return null for unsupported argument types', () => {
+			const title = new mwbot.Title('Foo');
+
+			assert.isNull(title.equals(/** @type {any} */ (123)));
+			assert.isNull(title.equals(/** @type {any} */ ({})));
+		});
+	});
+
+	describe('_clone()', () => {
+		it('should clone all internal state', () => {
+			const original = new mwbot.Title(':w:Foo#Bar');
+			const clone = original._clone(new WeakMap());
+
+			assert.instanceOf(clone, mwbot.Title);
+			assert.notStrictEqual(clone, original);
+
+			assert.strictEqual(clone.getPrefixedDb({
+				colon: true,
+				interwiki: true,
+				fragment: true,
+			}), original.getPrefixedDb({
+				colon: true,
+				interwiki: true,
+				fragment: true,
+			}));
+
+			assert.strictEqual(clone.wasLocalInterwiki(), original.wasLocalInterwiki());
 		});
 	});
 });
