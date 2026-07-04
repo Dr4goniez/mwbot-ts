@@ -42,9 +42,9 @@ export type OnlyOneRecord<K extends string, V = any> = {
  * in a generally optional object type are known to be present.
  *
  * For example, the `linkshere` property in the response from
- * {@link https://en.wikipedia.org/w/api.php?action=query&formatversion=2&titles=Main_page&prop=linkshere&lhprop= | titles=Main_page&prop=linkshere&lhprop=}
+ * {@link https://en.wikipedia.org/w/api.php?action=query&formatversion=2&titles=Main_Page&prop=linkshere&lhprop= | titles=Main_Page&prop=linkshere&lhprop=}
  * will be an array of empty objects because `lhprop=` is left empty. However, specifying
- * {@link https://en.wikipedia.org/w/api.php?action=query&formatversion=2&titles=Main_page&prop=linkshere&lhprop=pageid | lhprop=pageid}
+ * {@link https://en.wikipedia.org/w/api.php?action=query&formatversion=2&titles=Main_Page&prop=linkshere&lhprop=pageid | lhprop=pageid}
  * guarantees that each object will contain a `pageid` property. In such cases, you can do:
  *
  * ```ts
@@ -90,7 +90,7 @@ export type OptionPrimitive = string | number | boolean | null;
 
 /**
  * The API query parameters.
- * @see https://www.mediawiki.org/wiki/API:Main_page
+ * @see https://www.mediawiki.org/wiki/API:Action_API
  */
 export interface ApiParams {
 	action?: ApiParamsAction;

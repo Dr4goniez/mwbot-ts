@@ -750,7 +750,7 @@ console.log(wikitext.parseTags());
 const text =
   '== Foo ==\n' +
   '=== Bar ===\n' +
-  '[[Main page]]\n' +
+  '[[Main Page]]\n' +
   '== Baz ==\n' +
   '[[Another page]]';
 
@@ -778,7 +778,7 @@ console.log(wikitext.parseSections());
     index: 1,
     startIndex: 0,
     endIndex: 36,
-    content: '=== Bar ===\n[[Main page]]\n',
+    content: '=== Bar ===\n[[Main Page]]\n',
     text: [Getter],
     parent: null,
     children: Set(1) { 2 }
@@ -790,7 +790,7 @@ console.log(wikitext.parseSections());
     index: 2,
     startIndex: 10,
     endIndex: 36,
-    content: '[[Main page]]\n',
+    content: '[[Main Page]]\n',
     text: [Getter],
     parent: 1,
     children: Set(0) {}

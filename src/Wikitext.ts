@@ -331,7 +331,7 @@ export interface Wikitext {
 	 * const text =
 	 * `== Foo ==
 	 * === Bar ===
-	 * [[Main page]]
+	 * [[Main Page]]
 	 * == Baz ==
 	 * [[Another page]]`;
 	 *
@@ -346,7 +346,7 @@ export interface Wikitext {
 	 * //   index: 2,
 	 * //   startIndex: 10,
 	 * //   endIndex: 36,
-	 * //   text: '=== Bar ===\n[[Main page]]\n'
+	 * //   text: '=== Bar ===\n[[Main Page]]\n'
 	 * // }
 	 * ```
 	 *

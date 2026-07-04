@@ -1390,7 +1390,7 @@ export class Mwbot {
 				Mwbot.dieAsEmpty(true, 'check HTTP headers?', { axios: response });
 			}
 			if (!isPlainObject(response.data)) {
-				// In most cases the raw HTML of [[Main page]]
+				// In most cases the raw HTML of [[Main Page]]
 				throw new MwbotError(
 					'api_mwbot',
 					{
