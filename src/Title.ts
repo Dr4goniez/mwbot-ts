@@ -135,19 +135,6 @@ export interface TitleStatic {
 	 */
 	new(title: string, namespace?: number): Title;
 	/**
-	 * Remove unicode bidirectional characters and trim a string.
-	 *
-	 * "Unicode bidirectional characters" are characters that can slip into cut-and-pasted texts,
-	 * represented as red dots in WikiEditor.
-	 *
-	 * *This method is exclusive to `mwbot-ts`.*
-	 *
-	 * @param str Input string.
-	 * @param trim Whether to trim the string. Defaults to `true`.
-	 * @returns
-	 */
-	clean(str: string, trim?: boolean): string;
-	/**
 	 * Constructor for Title objects with a null return instead of an exception for invalid titles.
 	 *
 	 * Note that `namespace` is the **default** namespace only, and can be overridden by a namespace
@@ -159,28 +146,6 @@ export interface TitleStatic {
 	 * @return A valid Title object or `null` if the title is invalid.
 	 */
 	newFromText(title: string, namespace?: number): Title | null;
-	/**
-	 * Constructor for Title objects with predefined namespace.
-	 *
-	 * Unlike {@link newFromText} or the constructor, this method doesn't allow the given `namespace`
-	 * to be overridden by a namespace prefix in `title`. See {@link TitleStatic | the class desciprtion}
-	 * for details about this behavior.
-	 *
-	 * The single exception to this is when `namespace` is `0`, indicating the main namespace.
-	 * The function behaves like {@link newFromText} in that case.
-	 *
-	 * @param namespace Namespace to use for the title.
-	 * @param title The unprefixed title.
-	 * @param fragment The link fragment (after the "#").
-	 *
-	 * *This parameter is exclusive to `mwbot-ts`.*
-	 * @param interwiki The interwiki prefix.
-	 *
-	 * *This parameter is exclusive to `mwbot-ts`.*
-	 *
-	 * @return A valid Title object or `null` if the title is invalid.
-	 */
-	makeTitle(namespace: number, title: string, fragment?: string, interwiki?: string): Title | null;
 	/**
 	 * Constructor for Title objects from user input altering that input to produce a title that
 	 * MediaWiki will accept as legal.
@@ -206,12 +171,41 @@ export interface TitleStatic {
 	 */
 	newFromFileName(uncleanName: string): Title | null;
 	/**
-	 * Get the file title from an image element.
+	 * Constructor for Title objects with predefined namespace.
 	 *
-	 * @param img The image to use as a base.
-	 * @return The file title or null if unsuccessful.
+	 * Unlike {@link newFromText} or the constructor, this method doesn't allow the given `namespace`
+	 * to be overridden by a namespace prefix in `title`. See {@link TitleStatic | the class desciprtion}
+	 * for details about this behavior.
+	 *
+	 * The single exception to this is when `namespace` is `0`, indicating the main namespace.
+	 * The function behaves like {@link newFromText} in that case.
+	 *
+	 * @param namespace Namespace to use for the title.
+	 * @param title The unprefixed title.
+	 * @param fragment The link fragment (after the "#").
+	 *
+	 * *This parameter is exclusive to `mwbot-ts`.*
+	 * @param interwiki The interwiki prefix.
+	 *
+	 * *This parameter is exclusive to `mwbot-ts`.*
+	 *
+	 * @return A valid Title object or `null` if the title is invalid.
 	 */
-	// newFromImg(img: HTMLElement | JQuery<HTMLImageElement>): Title | null;
+	makeTitle(namespace: number, title: string, fragment?: string, interwiki?: string): Title | null;
+	/**
+	 * Normalizes a title to its canonical form.
+	 *
+	 * This capitalizes the first character of the base (unprefixed) title and localizes the
+	 * namespace according to the wiki’s configuration.
+	 *
+	 * *This method is exclusive to `mwbot-ts`.*
+	 *
+	 * @param title The title to normalize.
+	 * @param options Options that control how the title is normalized.
+	 * @returns The normalized title as a string, or `null` if the input is not a valid title.
+	 * @throws If `title` is not a string.
+	 */
+	normalize(title: string, options?: TitleNormalizeOptions): string | null;
 	/**
 	 * Check if a given namespace is a talk namespace.
 	 *
@@ -219,13 +213,6 @@ export interface TitleStatic {
 	 * @return A boolean indicating whether the namespace is a talk namespace.
 	 */
 	isTalkNamespace(namespaceId: number): boolean;
-	/**
-	 * Check if signature buttons should be shown in a given namespace.
-	 *
-	 * @param namespaceId The namespace ID.
-	 * @return A boolean indicating whether the namespace is a signature namespace.
-	 */
-	// wantSignaturesNamespace(namespaceId: number): boolean;
 	/**
 	 * Check whether this title exists on the wiki.
 	 *
@@ -269,6 +256,31 @@ export interface TitleStatic {
 	 */
 	normalizeExtension(extension: string): string;
 	/**
+	 * Normalizes a username by capitalizing its first letter, following MediaWiki conventions.
+	 * IP addresses are capitalized with all hexadecimal segments spelled out (e.g., `192.168.0.1`
+	 * for IPv4 and `FD12:3456:789A:1:0:0:0:0` for IPv6).
+	 *
+	 * *This method is exclusive to `mwbot-ts`.*
+	 *
+	 * @param username The username to normalize.
+	 * @returns The normalized username, or `null` if the input contains characters that are not
+	 * allowed in usernames.
+	 */
+	normalizeUsername(username: string): string | null;
+	/**
+	 * Remove unicode bidirectional characters and trim a string.
+	 *
+	 * "Unicode bidirectional characters" are characters that can slip into cut-and-pasted texts,
+	 * represented as red dots in WikiEditor.
+	 *
+	 * *This method is exclusive to `mwbot-ts`.*
+	 *
+	 * @param str Input string.
+	 * @param trim Whether to trim the string. Defaults to `true`.
+	 * @returns
+	 */
+	clean(str: string, trim?: boolean): string;
+	/**
 	 * Capitalizes a character as in PHP.
 	 *
 	 * This method handles the difference between PHP's `strtoupper` and JS's `String.toUpperCase`
@@ -308,32 +320,6 @@ export interface TitleStatic {
 	 * @returns
 	 */
 	lc(str: string): string;
-	/**
-	 * Normalizes a title to its canonical form.
-	 *
-	 * This capitalizes the first character of the base (unprefixed) title and localizes the
-	 * namespace according to the wiki’s configuration.
-	 *
-	 * *This method is exclusive to `mwbot-ts`.*
-	 *
-	 * @param title The title to normalize.
-	 * @param options Options that control how the title is normalized.
-	 * @returns The normalized title as a string, or `null` if the input is not a valid title.
-	 * @throws If `title` is not a string.
-	 */
-	normalize(title: string, options?: TitleNormalizeOptions): string | null;
-	/**
-	 * Normalizes a username by capitalizing its first letter, following MediaWiki conventions.
-	 * IP addresses are capitalized with all hexadecimal segments spelled out (e.g., `192.168.0.1`
-	 * for IPv4 and `FD12:3456:789A:1:0:0:0:0` for IPv6).
-	 *
-	 * *This method is exclusive to `mwbot-ts`.*
-	 *
-	 * @param username The username to normalize.
-	 * @returns The normalized username, or `null` if the input contains characters that are not
-	 * allowed in usernames.
-	 */
-	normalizeUsername(username: string): string | null;
 }
 
 /**
@@ -1217,11 +1203,6 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			this.local_interwiki = parsed.local_interwiki;
 		}
 
-		static clean(str: string, trim = true): string {
-			str = str.replace(rUnicodeBidi, '');
-			return trim ? str.trim() : str;
-		}
-
 		static newFromText(title: string, namespace = NS_MAIN): Title | null {
 			if (typeof title !== 'string') {
 				throw new MwbotError(
@@ -1245,17 +1226,6 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			t.interwiki = parsed.interwiki;
 			t.local_interwiki = parsed.local_interwiki;
 			return t;
-		}
-
-		static makeTitle(namespace: number, title: string, fragment = '', interwiki = ''): Title | null {
-			if (!isKnownNamespace(namespace)) {
-				return null;
-			} else {
-				if (interwiki && !/:[^\S\r\n]*$/.test(interwiki)) {
-					interwiki += ':';
-				}
-				return Title.newFromText(interwiki + getNamespacePrefix(namespace) + title + getHashedFragment(fragment));
-			}
 		}
 
 		static newFromUserInput(title: string, defaultNamespace = NS_MAIN, options: { forUploading?: boolean } = {}): Title | null {
@@ -1316,24 +1286,53 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			return Title.newFromUserInput('File:' + uncleanName);
 		}
 
-		/*
-		Title.newFromImg = function(img) {
-			const src = img.jquery ? img[0].src : img.src,
-				data = mw.util.parseImageUrl(src);
-			return data ? Title.newFromText('File:' + data.name) : null;
-		};
-		*/
+		static makeTitle(namespace: number, title: string, fragment = '', interwiki = ''): Title | null {
+			if (!isKnownNamespace(namespace)) {
+				return null;
+			} else {
+				if (interwiki && !/:[^\S\r\n]*$/.test(interwiki)) {
+					interwiki += ':';
+				}
+				return Title.newFromText(interwiki + getNamespacePrefix(namespace) + title + getHashedFragment(fragment));
+			}
+		}
+
+		static normalize(title: string, options: TitleNormalizeOptions = {}): string | null {
+			if (typeof title !== 'string') {
+				throw new MwbotError(
+					'fatal',
+					{
+						code: 'typemismatch',
+						info: `"title" for Title.normalize() must be a string.`,
+					},
+					{ title }
+				);
+			}
+			const parsed = parse(title, options.namespace ?? NS_MAIN);
+			if (!parsed) {
+				return null;
+			}
+			let ret = '';
+			if (options.colon) {
+				ret += parsed.colon;
+			}
+			if (options.interwiki !== false) {
+				ret += parsed.interwiki && parsed.interwiki + ':';
+			}
+			let t = getNamespacePrefix(parsed.namespace) + getMain(parsed.title, parsed.namespace, parsed.interwiki);
+			if (options.format === 'api') {
+				t = text(t);
+			}
+			ret += t;
+			if (options.fragment) {
+				ret += getHashedFragment(parsed.fragment);
+			}
+			return ret;
+		}
 
 		static isTalkNamespace(namespaceId: number): boolean {
 			return namespaceId > NS_MAIN && namespaceId % 2 === 1;
 		}
-
-		/*
-		Title.wantSignaturesNamespace = function(namespaceId) {
-			return Title.isTalkNamespace(namespaceId) ||
-				config.get('wgExtraSignatureNamespaces').indexOf(namespaceId) !== -1;
-		};
-		*/
 
 		static exists(title: string | Title): boolean | null {
 			const obj = Title.exist.pages;
@@ -1392,6 +1391,32 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			}
 		}
 
+		static normalizeUsername(username: string): string | null {
+			if (typeof username !== 'string') {
+				return null;
+			}
+			username = Title.clean(username);
+			const ip = IPUtil.sanitize(username, { capitalize: true });
+			if (ip) {
+				return ip;
+			}
+			if (/[/@#<>[\]|{}:]|^(\d{1,3}\.){3}\d{1,3}$/.test(username)) {
+				// Contains invalid characters or invalid IPv4 string
+				return null;
+			}
+			if (/^[\u10A0-\u10FF]/.test(username)) {
+				// Georgean first letters shouldn't be capitalized
+				return username;
+			} else {
+				return Title.phpCharToUpper(mwString.charAt(username, 0)) + username.slice(1);
+			}
+		}
+
+		static clean(str: string, trim = true): string {
+			str = str.replace(rUnicodeBidi, '');
+			return trim ? str.trim() : str;
+		}
+
 		static phpCharToUpper(chr: string): string {
 			const mapped = toUpperMap[chr as keyof typeof toUpperMap];
 			if (mapped === 0) {
@@ -1418,60 +1443,6 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 				return Array.from(str, Title.phpCharToLower).join('');
 			}
 			return str.toLowerCase();
-		}
-
-		static normalize(title: string, options: TitleNormalizeOptions = {}): string | null {
-			if (typeof title !== 'string') {
-				throw new MwbotError(
-					'fatal',
-					{
-						code: 'typemismatch',
-						info: `"title" for Title.normalize() must be a string.`,
-					},
-					{ title }
-				);
-			}
-			const parsed = parse(title, options.namespace ?? NS_MAIN);
-			if (!parsed) {
-				return null;
-			}
-			let ret = '';
-			if (options.colon) {
-				ret += parsed.colon;
-			}
-			if (options.interwiki !== false) {
-				ret += parsed.interwiki && parsed.interwiki + ':';
-			}
-			let t = getNamespacePrefix(parsed.namespace) + getMain(parsed.title, parsed.namespace, parsed.interwiki);
-			if (options.format === 'api') {
-				t = text(t);
-			}
-			ret += t;
-			if (options.fragment) {
-				ret += getHashedFragment(parsed.fragment);
-			}
-			return ret;
-		}
-
-		static normalizeUsername(username: string): string | null {
-			if (typeof username !== 'string') {
-				return null;
-			}
-			username = Title.clean(username);
-			const ip = IPUtil.sanitize(username, { capitalize: true });
-			if (ip) {
-				return ip;
-			}
-			if (/[/@#<>[\]|{}:]|^(\d{1,3}\.){3}\d{1,3}$/.test(username)) {
-				// Contains invalid characters or invalid IPv4 string
-				return null;
-			}
-			if (/^[\u10A0-\u10FF]/.test(username)) {
-				// Georgean first letters shouldn't be capitalized
-				return username;
-			} else {
-				return Title.phpCharToUpper(mwString.charAt(username, 0)) + username.slice(1);
-			}
 		}
 
 		hadLeadingColon(): boolean {
