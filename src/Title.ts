@@ -68,18 +68,18 @@ import { MwbotError } from './MwbotError.js';
  *
  * - mediawiki.Title
  * ```js
- * new mw.Title('w:en:Main_page').getPrefixedDb();
- * // => 'W:en:Main_page'
- * // { namespace: 0, title: 'w:en:Main_page', fragment: null }
+ * new mw.Title('w:en:Main_Page').getPrefixedDb();
+ * // => 'W:en:Main_Page'
+ * // { namespace: 0, title: 'w:en:Main_Page', fragment: null }
  * ```
  * - mwbot.Title
  * ```js
- * new mwbot.Title('w:en:Main_page').getPrefixedDb();
- * // => 'w:en:Main_page'
- * // { namespace: 0, title: 'Main_page', fragment: null, colon: '', interwiki: 'w:en', local_interwiki: false }
+ * new mwbot.Title('w:en:Main_Page').getPrefixedDb();
+ * // => 'w:en:Main_Page'
+ * // { namespace: 0, title: 'Main_Page', fragment: null, colon: '', interwiki: 'w:en', local_interwiki: false }
  * ```
  *
- * Here, `Main_page` is correctly extracted as the title in `mwbot.Title`. To check whether
+ * Here, `Main_Page` is correctly extracted as the title in `mwbot.Title`. To check whether
  * a title contains an interwiki prefix, use {@link Title.isExternal}, and to retrieve the interwiki
  * prefixes, use {@link Title.getInterwiki}.
  *
@@ -196,7 +196,7 @@ export interface TitleStatic {
 	 *
 	 * @return A valid Title object or `null` if the input cannot be turned into a valid title.
 	 */
-	newFromUserInput(title: string, defaultNamespace?: number, options?: { forUploading?: true }): Title | null;
+	newFromUserInput(title: string, defaultNamespace?: number, options?: { forUploading?: boolean }): Title | null;
 	/**
 	 * Sanitizes a file name as supplied by the user, originating in the user's file system
 	 * so it is most likely a valid MediaWiki title and file name after processing.
@@ -373,7 +373,7 @@ export interface Title {
 	/**
 	 * Get the interwiki prefix.
 	 *
-	 * Example: `mw:` for `mw:Main_page`.
+	 * Example: `mw:` for `mw:Main_Page`.
 	 *
 	 * If an interwiki is set, interwiki prefix plus `:`, an empty string otherwise.
 	 * Use {@link isExternal} to check if an interwiki is set.
@@ -384,9 +384,9 @@ export interface Title {
 	 */
 	getInterwiki(): string;
 	/**
-	 * Check if this Title had a local interwiki prefix (e.g., `en:Main_page` on enwiki).
+	 * Check if this Title had a local interwiki prefix (e.g., `en:Main_Page` on enwiki).
 	 *
-	 * Such a prefix is erased on instance initialization (i.e., {@link getPrefixedDb} outputs `Main_page`).
+	 * Such a prefix is erased on instance initialization (i.e., {@link getPrefixedDb} outputs `Main_Page`).
 	 *
 	 * *This method is exclusive to `mwbot-ts`.*
 	 *
@@ -652,17 +652,6 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			IW_LOCALINTERWIKIS.add(prefix);
 		}
 	}
-	// If the local project has a namespace alias that conflicts with an interwiki prefix,
-	// that prefix is always recognized as a namespace prefix
-	for (const nsPrefix in namespaceIds) {
-		if (IW_PREFIXES.has(nsPrefix)) {
-			// Delete conflicting prefixes from the lists of interwiki prefixes
-			IW_PREFIXES.delete(nsPrefix);
-			IW_LOCALS.delete(nsPrefix);
-			IW_TRANSES.delete(nsPrefix);
-			IW_LOCALINTERWIKIS.delete(nsPrefix);
-		}
-	}
 
 	/**
 	 * Get the namespace id from a namespace name (either from the localized, canonical or alias
@@ -687,6 +676,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		}
 		return id;
 	};
+
 	/**
 	 * @param namespace that may or may not exist
 	 * @return
@@ -694,6 +684,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	const isKnownNamespace = function(namespace: number): boolean {
 		return namespace === NS_MAIN || wgFormattedNamespaces[namespace] !== undefined;
 	};
+
 	/**
 	 * @param namespace that is valid and known. Callers should call {@link isKnownNamespace}
 	 * before executing this method.
@@ -704,6 +695,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			? ''
 			: (wgFormattedNamespaces[namespace].replace(/ /g, '_') + ':');
 	};
+
 	const rUnderscoreTrim = /^_+|_+$/g;
 	const rSplit = /^(.+?)_*:_*(.*)$/;
 	// See MediaWikiTitleCodec.php#getTitleInvalidRegex
@@ -786,6 +778,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			generalRule: true,
 		},
 	];
+
 	/**
 	 * Checks if an interwiki prefix is valid.
 	 *
@@ -798,6 +791,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		prefix = Title.lc(prefix);
 		return IW_PREFIXES.has(prefix) ? prefix : false;
 	};
+
 	/**
 	 * Get the subject namespace index for a given namespace.
 	 * Special namespaces (`NS_MEDIA`, `NS_SPECIAL`) are always the subject.
@@ -815,6 +809,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			? index - 1
 			: index;
 	};
+
 	/**
 	 * An attemped copy of `MainConfigNames::CapitalLinkOverrides`.
 	 *
@@ -827,6 +822,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 * *This variable is exclusive to `mwbot-ts`.*
 	 */
 	const ALWAYS_CAPITALIZED_NAMESPACES = new Set<number>();
+
 	for (const obj of Object.values(info.namespaces)) {
 		if (obj.case === 'first-letter') {
 			ALWAYS_CAPITALIZED_NAMESPACES.add(obj.id);
@@ -834,6 +830,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			CAPITAL_LINK_OVERRIDES[obj.id] = false; // TODO: In theory this can be true
 		}
 	}
+
 	/**
 	 * Is the namespace first-letter capitalized?
 	 *
@@ -858,6 +855,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		// Default to the global setting
 		return info.general.case === 'first-letter';
 	};
+
 	interface ParsedTitle {
 		namespace: number;
 		title: string;
@@ -866,7 +864,9 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		interwiki: string;
 		local_interwiki: boolean;
 	}
+
 	type Colon = '' | ':';
+
 	/**
 	 * Internal helper for #constructor and #newFromText.
 	 *
@@ -885,6 +885,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			.replace(rWhitespace, '_')
 			// Trim underscores
 			.replace(rUnderscoreTrim, '');
+
 		if (title.includes('\uFFFD')) {
 			// Contained illegal UTF-8 sequences or forbidden Unicode chars.
 			// Commonly occurs when the text was obtained using the `URL` API, and the 'title' parameter
@@ -892,6 +893,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			// new URL('https://en.wikipedia.org/w/index.php?title=Apollo%96Soyuz').searchParams.get('title')
 			return false;
 		}
+
 		// Process initial colon
 		let colon: Colon = '';
 		if (title !== '' && title[0] === ':') {
@@ -904,99 +906,83 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 				.replace(rUnderscoreTrim, '');
 			colon = ':';
 		}
+
 		if (title === '') {
 			return false;
 		}
-		// Process namespace and interwiki prefixes (if any)
-		let iw: string[] = [];
+
+		// Process namespace and interwiki prefixes (if any).
+		// Note: Unlike TitleParser::splitTitleString(), this implementation accumulates interwiki prefixes.
+		// For example, "w:en:Main_Page" is parsed as interwiki = "w:en", title = "Main_Page", whereas the PHP
+		// implementation produces interwiki = "w", title = "en:Main_Page".
+		let interwiki = '';
 		let local_interwiki = false;
-		const parts = title.split(':');
-		if (parts.length > 1) { // Contains a potential prefix followed by the main title
-			let ns: number | null = null;
-			title = parts.at(-1)!;
-			for (let i = parts.length - 2; i >= 0; i--) { // Start from the second last
-				const part = parts[i].replace(rUnderscoreTrim, '');
-				const iwOrNs = isValidInterwiki(part) || getNsIdByName(part);
-				if (typeof iwOrNs === 'string') {
-					// `part` is an interwiki prefix
-					if (IW_LOCALINTERWIKIS.has(iwOrNs)) {
-						// Local interwiki should be erased
-						// e.g., on enwiki, "en:Main_page" is the same as "Main_page"
-						local_interwiki = true;
-					} else {
-						// Interwiki resets the namespace because there's no guarantee that
-						// the target project has a corresponding namespace
-						ns = NS_MAIN;
-						// e.g., in "w:en:Main_page" and if we're parsing "w", "Main_page" is the title,
-						// where `parts = ['w', 'en', 'Main_page']` and iw = ['en']
-						title = parts.slice(i + iw.length + 1).join(':');
-						// Register the interwiki prefix
-						local_interwiki = false;
-						iw.unshift(iwOrNs);
-					}
-				} else if (typeof iwOrNs === 'number') {
-					// `part` is a namespace prefix
-					if (iwOrNs === NS_MAIN) {
-						// Empty string was passed to getNsIdByName (occurs when the title has a "::" sequence)
-						if (iw.length) {
-							// If this is part of an interwiki, it should be ignored ("w::en" is recognized as "w:en")
-							continue;
-						} else {
-							// Otherwise, it's part of the main title
-							title = ':' + title;
-						}
-					} else if (ns !== null && iwOrNs === NS_TALK) {
-						// Disallow titles like Talk:File:x
-						return false;
-					} else {
-						if (iw.length) {
-							// Disallow titles like Talk:Interwiki:x
-							if (iwOrNs === NS_TALK) {
-								return false;
-							}
-							// NS prefix precedes interwiki; that resets the ns-title division
-							// e.g., "Wikipedia:en:Foo" is "en:Foo" in the Wikipedia namespace
-							iw = [];
-							local_interwiki = false;
-							title = parts.slice(i + 1).join(':');
-						} else if (ns !== null) {
-							// Ns prefix was previously found; that resets the ns-title division
-							// e.g., "Category:Template:Foo" where "Template:Foo" is the new title
-							title = parts.slice(i + 1).join(':');
-						}
-						ns = iwOrNs;
-					}
-				} else {
-					// `part` is neither an interwiki prefix nor a namespace prefix
-					title = parts.slice(i).join(':');
-					// Resets all prefixes
-					iw = [];
-					local_interwiki = false;
-					ns = null;
+		while (true) {
+			const m = title.match(rSplit);
+			if (!m) {
+				break;
+			}
+
+			const prefix = m[1].replace(rUnderscoreTrim, '');
+			const rest = m[2];
+
+			// Namespace prefix
+			const ns = getNsIdByName(prefix);
+			if (ns !== false) {
+				if (interwiki) {
+					// Interwiki resets the namespace because there's no guarantee that
+					// the target project has a corresponding namespace
+					break;
 				}
+				namespace = ns;
+				title = rest;
+				if (ns === NS_TALK) {
+					// Disallow "Talk:File:x" and "Talk:Interwiki:x" type titles
+					const mRest = title.match(rSplit);
+					if (mRest && (getNsIdByName(mRest[1]) !== false || isValidInterwiki(mRest[1]))) {
+						return false;
+					}
+				}
+				break;
 			}
-			namespace = ns !== null ? ns : NS_MAIN;
-		}
-		// Handle empty title
-		const interwiki = iw.join(':');
-		if (title === '') {
-			if (iw.length || local_interwiki) {
-				// Empty iw-links should point to the Main Page
-				// e.g., "mw:" is redirected to "mw:Main page"
-				const ret: ParsedTitle = {
-					namespace: NS_MAIN,
-					title: 'Main_Page',
-					fragment: null,
-					colon,
-					interwiki,
-					local_interwiki,
-				};
-				return ret;
-			} else {
-				// Namespace prefix only or entirely empty title; consistently invalid
-				return false;
+
+			// Interwiki prefix
+			const iw = isValidInterwiki(prefix);
+			if (!iw) {
+				break;
+			}
+
+			title = rest;
+			if (IW_LOCALINTERWIKIS.has(iw)) {
+				local_interwiki = true;
+				if (title === '') {
+					// Empty self-links should point to the Main Page
+					return {
+						namespace: NS_MAIN,
+						title: (info.general.mainpage ?? 'Main Page').replace(rWhitespace, '_'),
+						fragment: null,
+						colon,
+						interwiki,
+						local_interwiki,
+					};
+				}
+				continue;
+			}
+
+			local_interwiki = false;
+			interwiki = interwiki
+				? interwiki + ':' + iw
+				: iw;
+			namespace = NS_MAIN;
+
+			if (title !== '' && title[0] === ':') {
+				// Strip a redundant colon after the interwiki ("w::en" is recognized as "w:en")
+				title = title
+					.slice(1)
+					.replace(rUnderscoreTrim, '');
 			}
 		}
+
 		// Process fragment
 		const i = title.indexOf('#');
 		let fragment;
@@ -1015,10 +1001,12 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 				// Trim underscores, again (strips "_" from "bar" in "Foo_bar_#quux")
 				.replace(rUnderscoreTrim, '');
 		}
+
 		// Reject illegal characters
 		if (rInvalid.test(title)) {
 			return false;
 		}
+
 		// Disallow titles that browsers or servers might resolve as directory navigation
 		if (
 			title.indexOf('.') !== -1 && (
@@ -1033,10 +1021,12 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		) {
 			return false;
 		}
+
 		// Disallow magic tilde sequence
-		if (title.indexOf('~~~') !== -1) {
+		if (title.includes('~~~')) {
 			return false;
 		}
+
 		// Disallow titles exceeding the TITLE_MAX_BYTES byte size limit (size of underlying database field)
 		// Except for special pages, e.g. [[Special:Block/Long name]]
 		// Note: The PHP implementation also asserts that even in NS_SPECIAL, the title should
@@ -1044,17 +1034,21 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		if (namespace !== NS_SPECIAL && mwString.byteLength(title) > TITLE_MAX_BYTES) {
 			return false;
 		}
+
 		// Sanitize IP for user/user_talk titles
 		// This also allows IPv6 usernames to start with '::'
-		const sanitizedIp = (namespace === NS_USER || namespace === NS_USER_TALK) &&
+		const sanitizedIp =
+			(namespace === NS_USER || namespace === NS_USER_TALK) &&
 			IPUtil.sanitize(title, { capitalize: true });
 		if (sanitizedIp) {
 			title = sanitizedIp;
 		}
+
 		// Any remaining initial :s are illegal.
 		if (title[0] === ':') {
 			return false;
 		}
+
 		return {
 			namespace,
 			title,
@@ -1064,6 +1058,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			local_interwiki,
 		};
 	};
+
 	/**
 	 * Convert db-key to readable text.
 	 *
@@ -1073,25 +1068,25 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	const text = function(s: string): string {
 		return s.replace(/_/g, ' ');
 	};
+
 	/**
 	 * Sanitizes a string based on a rule set and a filter
 	 *
 	 * @param s
-	 * @param filter
+	 * @param filters
 	 * @return
 	 */
-	const sanitize = function(s: string, filter: string[]): string {
-		const rules = sanitationRules;
-		for (let i = 0, ruleLength = rules.length; i < ruleLength; ++i) {
-			const rule = rules[i];
-			for (let m = 0, filterLength = filter.length; m < filterLength; ++m) {
-				if (rule[filter[m] as keyof typeof rule]) {
+	const sanitize = function(s: string, filters: ('generalRule' | 'fileRule')[]): string {
+		for (const rule of sanitationRules) {
+			for (const filter of filters) {
+				if (rule[filter]) {
 					s = s.replace(rule.pattern, rule.replace);
 				}
 			}
 		}
 		return s;
 	};
+
 	/**
 	 * Cuts a string to a specific byte length, assuming UTF-8
 	 * or less, if the last character is a multi-byte one
@@ -1103,6 +1098,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	const trimToByteLength = function(s: string, length: number): string {
 		return mwString.trimByteLength('', s, length).newVal;
 	};
+
 	/**
 	 * Cuts a file name to a specific byte length
 	 *
@@ -1114,6 +1110,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		// There is a special byte limit for file names and ... remember the dot
 		return trimToByteLength(name, FILENAME_MAX_BYTES - extension.length - 1) + '.' + extension;
 	};
+
 	/**
 	 * Encode page titles in a way that matches `wfUrlencode` in PHP.
 	 *
@@ -1136,6 +1133,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			.replace(/%3A/g, ':');
 	};
 	*/
+
 	/**
 	 * Matches lowercase characters (including Greek and others) that have
 	 * different capitalization behavior in PHP's strtoupper.
@@ -1150,12 +1148,14 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 * *This variable is exclusive to `mwbot-ts`.*
 	 */
 	const rLowerPhpChars = new RegExp(`[${Object.keys(toLowerMap).join('')}]`);
+
+	const wgCaseSensitiveNamespaces = new Set(config.get('wgCaseSensitiveNamespaces'));
 	/**
 	 * *This function is exclusive to `mwbot-ts`.*
 	 */
 	const getMain = (title: string, namespace: number, interwiki: string): string => {
 		if (
-			config.get('wgCaseSensitiveNamespaces').includes(namespace) ||
+			wgCaseSensitiveNamespaces.has(namespace) ||
 			!title.length ||
 			// Normally, all wiki links are forced to have an initial capital letter so [[foo]]
 			// and [[Foo]] point to the same place. Don't force it for interwikis, since the
@@ -1166,6 +1166,19 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		}
 		const firstChar = mwString.charAt(title, 0);
 		return Title.phpCharToUpper(firstChar) + title.slice(firstChar.length);
+	};
+
+	/**
+	 * *This function is exclusive to `mwbot-ts`.*
+	 */
+	const getHashedFragment = (fragment: string | null) => {
+		if (!fragment) {
+			return '';
+		}
+		if (fragment[0] !== '#') {
+			fragment = '#' + fragment;
+		}
+		return fragment.replace(/_/g, ' ');
 	};
 
 	class Title implements Title {
@@ -1238,17 +1251,14 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			if (!isKnownNamespace(namespace)) {
 				return null;
 			} else {
-				if (fragment && fragment[0] !== '#') {
-					fragment = '#' + fragment;
-				}
 				if (interwiki && !/:[^\S\r\n]*$/.test(interwiki)) {
 					interwiki += ':';
 				}
-				return Title.newFromText(interwiki + getNamespacePrefix(namespace) + title + fragment);
+				return Title.newFromText(interwiki + getNamespacePrefix(namespace) + title + getHashedFragment(fragment));
 			}
 		}
 
-		static newFromUserInput(title: string, defaultNamespace = NS_MAIN, options = { forUploading : true }): Title | null {
+		static newFromUserInput(title: string, defaultNamespace = NS_MAIN, options: { forUploading?: boolean } = {}): Title | null {
 			let namespace = parseInt(<never>defaultNamespace) || NS_MAIN;
 			// Normalise additional whitespace
 			title = title.replace(/\s/g, ' ').trim();
@@ -1272,10 +1282,8 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 					title = m[2];
 				}
 			}
-			if (
-				namespace === NS_MEDIA ||
-				(options.forUploading && (namespace === NS_FILE))
-			) {
+			const forUploading = options.forUploading ?? true;
+			if (namespace === NS_MEDIA || (forUploading && namespace === NS_FILE)) {
 				title = sanitize(title, ['generalRule', 'fileRule']);
 				// Operate on the file extension
 				// Although it is possible having spaces between the name and the ".ext" this isn't nice for
@@ -1440,9 +1448,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			}
 			ret += t;
 			if (options.fragment) {
-				let fragment = parsed.fragment || '';
-				fragment = fragment && '#' + fragment;
-				ret += fragment;
+				ret += getHashedFragment(parsed.fragment);
 			}
 			return ret;
 		}
@@ -1554,8 +1560,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			}
 			const colon = options.colon ? this.colon : '';
 			const interwiki = options.interwiki ? this.getInterwiki() : '';
-			let fragment = options.fragment ? this.getFragment() || '' : '';
-			fragment = fragment && '#' + fragment;
+			const fragment = options.fragment ? getHashedFragment(this.fragment) : '';
 			return colon + interwiki + this.getNamespacePrefix() + this.getMain() + fragment;
 		}
 
@@ -1565,8 +1570,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			}
 			const colon = options.colon ? this.colon : '';
 			const interwiki = options.interwiki ? this.getInterwiki() : '';
-			let fragment = options.fragment ? this.getFragment() || '' : '';
-			fragment = fragment && '#' + fragment;
+			const fragment = options.fragment ? getHashedFragment(this.fragment) : '';
 			// NOTE: Interwiki prefixes might contain obligatory underscores
 			return colon + interwiki + text(this.getNamespacePrefix() + this.getMain() + fragment);
 		}
