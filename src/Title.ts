@@ -428,28 +428,6 @@ export interface Title {
 	 */
 	getFileNameTextWithoutExtension(): string;
 	/**
-	 * Get the page name as if it is a file name, without extension or namespace prefix. Warning,
-	 * this is usually not what you want! A title like `User:Dr._J._Fail` will be returned as
-	 * `Dr. J`! Use {@link getMain} or {@link getMainText} for the actual page name.
-	 *
-	 * @return File name without file extension, in the canonical form with underscores
-	 * instead of spaces. For example, the title `File:Example_image.svg` will be returned as
-	 * `Example_image`.
-	 * @deprecated since 1.40, use {@link getFileNameWithoutExtension} instead
-	 */
-	// getName(): string;
-	/**
-	 * Get the page name as if it is a file name, without extension or namespace prefix. Warning,
-	 * this is usually not what you want! A title like `User:Dr._J._Fail` will be returned as
-	 * `Dr. J`! Use {@link getMainText} for the actual page name.
-	 *
-	 * @return File name without file extension, formatted with spaces instead of
-	 * underscores. For example, the title `File:Example_image.svg` will be returned as
-	 * `Example image`.
-	 * @deprecated since 1.40, use {@link getFileNameTextWithoutExtension} instead
-	 */
-	// getNameText(): string;
-	/**
 	 * Get the extension of the page name (if any).
 	 *
 	 * @return Name extension or `null` if there is none.
@@ -1496,18 +1474,6 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		getFileNameTextWithoutExtension(): string {
 			return text(this.getFileNameWithoutExtension());
 		}
-
-		/*
-		getName(): string {
-			return this.getFileNameWithoutExtension();
-		}
-		*/
-
-		/*
-		getNameText(): string {
-			return text(this.getFileNameTextWithoutExtension());
-		}
-		*/
 
 		getExtension(): string | null {
 			const lastDot = this.title.lastIndexOf('.');
