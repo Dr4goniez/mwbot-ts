@@ -2303,7 +2303,6 @@ export class Mwbot {
 	 * @returns A validated {@link Title} instance.
 	 * @throws {MwbotError} If:
 	 * - The title is neither a string nor a {@link Title} instance. (`typemismatch`)
-	 * - The title is empty. (`emptytitle`)
 	 * - The title is interwiki. (`interwikititle`)
 	 * - The title is in the Special or Media namespace while `allowSpecial` is `false`. (`specialtitle`)
 	 */
@@ -2321,12 +2320,6 @@ export class Mwbot {
 				});
 			}
 			title = t;
-		}
-		if (!title.getMain()) {
-			throw new MwbotError('api_mwbot', {
-				code: 'emptytitle',
-				info: 'The title is empty.',
-			});
 		}
 		if (title.isExternal()) {
 			throw new MwbotError('api_mwbot', {

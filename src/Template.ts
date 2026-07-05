@@ -868,7 +868,6 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 * @throws {MwbotError} If:
 		 * * `title` is neither a string nor a Title instance. (`typemismatch`)
 		 * * A valid function hook is provided but `asHook` is not `true`. (`internal`)
-		 * * The provided title is empty and cannot be transcluded. (`invalidtitle`)
 		 * * The provided title is interwiki and cannot be transcluded. (`invalidtitle`)
 		 */
 		protected static validateTitle(title: string | Title, asHook?: false): Title;
@@ -881,7 +880,6 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 * @returns
 		 * @throws {MwbotError} If:
 		 * * `title` is neither a string nor a Title instance. (`typemismatch`)
-		 * * The provided title is empty and cannot be transcluded. (`invalidtitle`)
 		 * * The provided title is interwiki and cannot be transcluded. (`invalidtitle`)
 		 */
 		protected static validateTitle(title: string | Title, asHook: true): VerifiedFunctionHook;
@@ -924,16 +922,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				: NS_TEMPLATE;
 			title = new Title(rawTitle, namespace);
 
-			if (!title.getMain()) {
-				throw new MwbotError(
-					'fatal',
-					{
-						code: 'invalidtitle',
-						info: `The provided title is empty and cannot be transcluded.`,
-					},
-					{ title }
-				);
-			} else if (title.isExternal() && !title.isTrans()) {
+			if (title.isExternal() && !title.isTrans()) {
 				throw new MwbotError(
 					'fatal',
 					{

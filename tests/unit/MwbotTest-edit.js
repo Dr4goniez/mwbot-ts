@@ -61,20 +61,6 @@ export function testMwbotRequestEdit() {
 				}
 			});
 
-			it('should throw emptytitle for empty titles', function () {
-				const title = new mwbot.Title('Sandbox');
-				sinon.stub(title, 'getMain').returns('');
-
-				try {
-					// @ts-expect-error - Protected method
-					mwbot.validateTitle(title);
-					assert.fail('Expected validateTitle() to throw');
-				} catch (err) {
-					assert.instanceOf(err, MwbotError);
-					assert.strictEqual(err.code, 'emptytitle');
-				}
-			});
-
 			it('should throw interwikititle for interwiki titles', function () {
 				try {
 					// @ts-expect-error - Protected method

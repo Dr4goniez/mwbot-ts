@@ -216,7 +216,6 @@ export interface MwbotErrorCodes {
 		badnamedtoken: 'An unknown token name was specified for Mwbot.getToken.';
 		// Used in Mwbot.prepEdit or in read() or edit()-related methods
 		invalidtitle: 'The given title cannot be processed because it is invalid.';
-		emptytitle: 'The given title cannot be processed because it is empty.';
 		interwikititle: 'The given title cannot be processed because it is interwiki.';
 		specialtitle: 'The given title cannot be processed because it is in the Special or Media namespace.';
 		pagemissing: 'The requested page does not exist.';
