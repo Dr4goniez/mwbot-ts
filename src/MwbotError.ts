@@ -18,6 +18,7 @@ import type { Mwbot } from './Mwbot.js';
 import type { ModificationPredicate } from './Wikitext.js';
 import type { AxiosResponse, AxiosError } from 'axios';
 import { XOR } from 'ts-essentials';
+import { Title } from './Title.js';
 
 /**
  * Custom error class for {@link Mwbot}, extending the built-in `Error` class.
@@ -231,6 +232,8 @@ export interface MwbotErrorCodes {
 		invalidcreds: 'There is an issue with the credential information passed to Mwbot.';
 		emptyinput: 'A required input value is empty.';
 		internal: 'An unexpected internal error occurred.';
+		invalidtitle: 'The provided title is invalid.';
+		invalidinput: 'An input value is invalid.';
 		// Used in Mwbot.createBatchArray
 		invalidsize: 'The "batchSize" argument for massRequest() or continuedRequest() is invalid.';
 		fieldmismatch: 'API parameters passed to massRequest() or continuedRequest() involve unmatching multi-value fields.';
@@ -267,7 +270,7 @@ export interface MwbotErrorData {
 	/**
 	 * Present when the error involves a processed page title, such as in {@link Mwbot.read}.
 	 */
-	title?: string;
+	title?: string | Title;
 	/**
 	 * Present when the callback return value from {@link Mwbot.edit} is invalid.
 	 */

@@ -26,6 +26,7 @@ import { ParamBase } from './baseClasses.js';
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { Wikitext, SkipTags, ParseTemplatesConfig } from './Wikitext.js';
+import { MwbotError } from './MwbotError.js';
 
 /**
  * The base class for {@link TemplateStatic} and {@link RawTemplateStatic}.
@@ -219,6 +220,7 @@ export interface TemplateStatic extends Omit<TemplateBaseStatic<Title>, 'new'> {
 	 * @param title The title that the template transcludes.
 	 * @param params Template parameters.
 	 * @param hierarchies Optional template parameter hierarchies.
+	 * @throws {MwbotError} If title validation fails.
 	 */
 	new(
 		title: string | Title,
@@ -271,7 +273,8 @@ export interface TemplateStatic extends Omit<TemplateBaseStatic<Title>, 'new'> {
 	 * @param obj The object to check.
 	 * @param type The template type to compare against.
 	 * @returns `true` if `obj` is an instance of the specified template class, otherwise `false`.
-	 * @throws {Error} If an invalid `type` is provided.
+	 * @throws {MwbotError} If:
+	 * * An invalid `type` is provided. (`invalidinput`)
 	 */
 	is<T extends keyof TemplateTypeMap>(obj: unknown, type: T): obj is TemplateTypeMap[T];
 }
@@ -332,6 +335,7 @@ export interface ParsedTemplateStatic extends Omit<TemplateStatic, 'new'> {
 	/**
 	 * @param initializer
 	 * @param options
+	 * @throws {MwbotError} If title validation fails.
 	 * @private
 	 */
 	new(initializer: ParsedTemplateInitializer, options?: ParsedTemplateOptions): ParsedTemplate;
@@ -929,6 +933,11 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 * @param title The (prefixed) title to validate as a template title.
 		 * @param asHook Whether to validate the title as a function hook.
 		 * @returns
+		 * @throws {MwbotError} If:
+		 * * `title` is neither a string nor a Title instance. (`typemismatch`)
+		 * * A valid function hook is provided but `asHook` is not `true`. (`internal`)
+		 * * The provided title is empty and cannot be transcluded. (`invalidtitle`)
+		 * * The provided title is interwiki and cannot be transcluded. (`invalidtitle`)
 		 */
 		protected static validateTitle(title: string | Title, asHook?: false): Title;
 		/**
@@ -938,11 +947,22 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 * @param title The (prefixed) title to validate as a function hook.
 		 * @param asHook Whether to validate the title as a function hook.
 		 * @returns
+		 * @throws {MwbotError} If:
+		 * * `title` is neither a string nor a Title instance. (`typemismatch`)
+		 * * The provided title is empty and cannot be transcluded. (`invalidtitle`)
+		 * * The provided title is interwiki and cannot be transcluded. (`invalidtitle`)
 		 */
 		protected static validateTitle(title: string | Title, asHook: true): VerifiedFunctionHook;
 		protected static validateTitle(title: string | Title, asHook = false): Title | VerifiedFunctionHook {
 			if (typeof title !== 'string' && !(title instanceof Title)) {
-				throw new TypeError(`Expected a string or Title instance for "title", but got ${typeof title}.`);
+				throw new MwbotError(
+					'fatal',
+					{
+						code: 'typemismatch',
+						info: `"title" must be either a string or a Title instance.`,
+					},
+					{ title }
+				);
 			}
 			const hook = ParserFunction.verify(
 				typeof title === 'string'
@@ -952,7 +972,10 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			if (hook && asHook) {
 				return hook;
 			} else if (hook) {
-				throw new Error(`"${hook}" is a parser function hook.`);
+				throw new MwbotError('fatal', {
+					code: 'internal',
+					info: `"${hook}" is a parser function hook.`,
+				});
 			} else if (typeof title === 'string') {
 				title = Title.clean(title);
 				// TODO: Handle "/" (subpage) and "#" (in-page section)?
@@ -962,9 +985,23 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				title = new Title(title.getPrefixedDb({ colon: true, fragment: true }));
 			}
 			if (!title.getMain()) {
-				throw new Error('The empty title cannot be transcluded.');
+				throw new MwbotError(
+					'fatal',
+					{
+						code: 'invalidtitle',
+						info: `The provided title is empty and cannot be transcluded.`,
+					},
+					{ title }
+				);
 			} else if (title.isExternal() && !title.isTrans()) {
-				throw new Error('The interwiki title cannot be transcluded.');
+				throw new MwbotError(
+					'fatal',
+					{
+						code: 'invalidtitle',
+						info: `The provided title is interwiki and cannot be transcluded.`,
+					},
+					{ title }
+				);
 			}
 			return title;
 		}
@@ -1356,7 +1393,10 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				case 'ParsedParserFunction':
 					return obj instanceof ParsedParserFunction;
 				default:
-					throw new Error(`"${type}" is not a valid input to Template.is().`);
+					throw new MwbotError('fatal', {
+						code: 'invalidinput',
+						info: `"${type}" is not a valid input to Template.is().`,
+					});
 			}
 		}
 
