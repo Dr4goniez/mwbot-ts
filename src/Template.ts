@@ -59,11 +59,9 @@ export interface TemplateBaseStatic<T extends string | Title> {
  */
 export interface TemplateBase<T extends string | Title> {
 	/**
-	 * The template's title.
-	 *
-	 * This property is read-only. To update it, use {@link setTitle}.
+	 * Returns the template's title.
 	 */
-	readonly title: T;
+	get title(): T;
 	/**
 	 * The template's parameters.
 	 *
@@ -810,7 +808,12 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 	class TemplateBase<T extends string | Title> implements TemplateBase<T> {
 
-		readonly title: T;
+		protected _title: T;
+
+		get title(): T {
+			return this._title;
+		}
+
 		readonly params: Record<string, TemplateParameter>;
 		/**
 		 * The order of parameter registration.
@@ -826,7 +829,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			params: NewTemplateParameter[] = [],
 			hierarchies: TemplateParameterHierarchies = []
 		) {
-			this.title = title;
+			this._title = title;
 			this.params = Object.create(null);
 			this._paramOrder = new Set();
 			this._hierarchyMap = new Map();
@@ -1318,9 +1321,9 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 			// Process the title part
 			if (typeof prepend === 'string') {
-				const hasLeadingColon = typeof this.title === 'string'
-					? this.title.startsWith(':')
-					: this.title.hadLeadingColon();
+				const hasLeadingColon = typeof this._title === 'string'
+					? this._title.startsWith(':')
+					: this._title.hadLeadingColon();
 				prepend = hasLeadingColon ? prepend.replace(/:$/, '') : prepend;
 				ret.push(prepend);
 			}
@@ -1328,7 +1331,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			if (typeof append === 'string') {
 				ret.push(append);
 			}
-			if (brPredicateTitle(this.title)) {
+			if (brPredicateTitle(this._title)) {
 				ret.push('\n');
 			}
 
@@ -1402,8 +1405,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		setTitle(title: string | Title, verbose = false): boolean {
 			try {
-				// @ts-expect-error FIXME: Updating readonly property
-				this.title = Template.validateTitle(title);
+				this._title = Template.validateTitle(title);
 				return true;
 			} catch (err) {
 				if (verbose) {
@@ -1414,9 +1416,9 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		stringify(options: TemplateOutputConfig<Title> = {}): string {
-			const title = this.title.getNamespaceId() === NS_TEMPLATE
-				? this.title.getMain()
-				: this.title.getPrefixedText({ colon: true });
+			const title = this._title.getNamespaceId() === NS_TEMPLATE
+				? this._title.getMain()
+				: this._title.getPrefixedText({ colon: true });
 			return this._stringify(title, options);
 		}
 
@@ -1485,9 +1487,9 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		override stringify(options: ParsedTemplateOutputConfig = {}): string {
 			const { rawTitle: optRawTitle, ...rawOptions } = options;
-			let title = this.title.getNamespaceId() === NS_TEMPLATE
-				? this.title.getMain()
-				: this.title.getPrefixedText({ colon: true });
+			let title = this._title.getNamespaceId() === NS_TEMPLATE
+				? this._title.getMain()
+				: this._title.getPrefixedText({ colon: true });
 			if (optRawTitle && this.#rawTitle.includes('\x01')) {
 				title = this.#rawTitle.replace('\x01', title);
 			}
@@ -1561,8 +1563,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		setTitle(title: string): this {
-			// @ts-expect-error FIXME: Updating readonly property
-			this.title = title;
+			this._title = title;
 			return this;
 		}
 
@@ -1598,7 +1599,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		stringify(options: RawTemplateOutputConfig = {}): string {
 			const { rawTitle: optRawTitle, ...rawOptions } = options;
-			let title = this.title;
+			let title = this._title;
 			if (optRawTitle && this.#rawTitle.includes('\x01')) {
 				title = this.#rawTitle.replace('\x01', title);
 			}
