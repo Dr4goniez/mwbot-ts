@@ -216,6 +216,10 @@ export interface TemplateStatic extends Omit<TemplateBaseStatic<Title>, 'new'> {
 	 * ```
 	 *
 	 * @param title The title that the template transcludes.
+	 *
+	 * **NOTE**: Both string titles and `Title` instances are normalized using the same namespace rules.
+	 * Titles without a namespace prefix are treated as belonging to the Template namespace unless they
+	 * have a leading colon.
 	 * @param params Template parameters.
 	 * @param hierarchies Optional template parameter hierarchies.
 	 * @throws {MwbotError} If title validation fails.
@@ -234,6 +238,10 @@ export interface TemplateStatic extends Omit<TemplateBaseStatic<Title>, 'new'> {
 	 * ```
 	 *
 	 * @param title The title that the template transcludes.
+	 *
+	 * **NOTE**: Both string titles and `Title` instances are normalized using the same namespace rules.
+	 * Titles without a namespace prefix are treated as belonging to the Template namespace unless they
+	 * have a leading colon.
 	 * @param params Template parameters.
 	 * @param hierarchies Optional template parameter hierarchies.
 	 * @returns `null` if initialization fails.
@@ -888,6 +896,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 					{ title }
 				);
 			}
+
 			const hook = ParserFunction.verify(
 				typeof title === 'string'
 					? title
@@ -900,14 +909,21 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 					code: 'internal',
 					info: `"${hook}" is a parser function hook.`,
 				});
-			} else if (typeof title === 'string') {
-				title = Title.clean(title);
-				// TODO: Handle "/" (subpage) and "#" (in-page section)?
-				const namespace = title[0] === ':' ? NS_MAIN : NS_TEMPLATE;
-				title = new Title(title, namespace);
-			} else {
-				title = new Title(title.getPrefixedDb({ colon: true, fragment: true }));
 			}
+
+			// TODO: Handle "/" (subpage) and "#" (in-page section)?
+			const rawTitle = typeof title === 'string'
+				? Title.clean(title.replace(/_/g, ' '))
+				: title.getPrefixedDb({
+					colon: true,
+					fragment: true,
+					interwiki: true,
+				});
+			const namespace = rawTitle.startsWith(':')
+				? NS_MAIN
+				: NS_TEMPLATE;
+			title = new Title(rawTitle, namespace);
+
 			if (!title.getMain()) {
 				throw new MwbotError(
 					'fatal',
@@ -927,6 +943,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 					{ title }
 				);
 			}
+
 			return title;
 		}
 
