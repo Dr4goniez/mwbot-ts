@@ -114,6 +114,12 @@ describe('Mwbot.Title', function () {
 		'should reject "Talk:interwiki:x" type titles': {
 			input: ': _Talk:_wikt :x',
 		},
+		'should reject namespace-only titles': {
+			input: 'User:',
+		},
+		'should reject namespace-only titles with a fragment': {
+			input: 'User:#section',
+		},
 		'should accept mixed-case namespace names': {
 			input: 'CaTeGoRy:Foo',
 			output: 'Category:Foo',
@@ -171,6 +177,12 @@ describe('Mwbot.Title', function () {
 				assert.isFalse(title.isExternal());
 				assert.isTrue(title.wasLocalInterwiki());
 			},
+		},
+		'should reject foreign-interwiki-only titles': {
+			input: 'en:',
+		},
+		'should reject foreign-interwiki-only titles with a fragment': {
+			input: 'en:#section',
 		},
 		'should parse multiple-interwiki titles': {
 			input: 'w:en:Main Page',

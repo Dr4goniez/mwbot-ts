@@ -1025,6 +1025,14 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			return false;
 		}
 
+		// Empty and namespace-only titles are illegal.
+		// Interwiki-only links are also rejected. While some interwiki prefixes (e.g. `en:`)
+		// resolve to the target wiki's Main Page, others may point to non-wiki sites where
+		// such a page does not exist.
+		if (title === '') {
+			return false;
+		}
+
 		return {
 			namespace,
 			title,
