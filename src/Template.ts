@@ -28,61 +28,6 @@ import { ParamBase } from './baseClasses.js';
 import type { Wikitext, SkipTags, ParseTemplatesConfig } from './Wikitext.js';
 
 /**
- * A list of no-hash functions. The listed members must not have a leading hash to function as a parser function.
- *
- * This is hard-coded in
- * https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/65e671bb809773bba40257288e890d8f24d824fd/includes/parser/CoreParserFunctions.php#81.
- */
-const noHashFunctions = [
-	'ns', 'nse', 'urlencode', 'lcfirst', 'ucfirst', 'lc', 'uc',
-	'localurl', 'localurle', 'fullurl', 'fullurle', 'canonicalurl',
-	'canonicalurle', 'formatnum', 'grammar', 'gender', 'plural', 'formal',
-	'bidi', 'numberingroup', 'language',
-	'padleft', 'padright', 'anchorencode', 'defaultsort', 'filepath',
-	'pagesincategory', 'pagesize', 'protectionlevel', 'protectionexpiry',
-	// The following are the "parser function" forms of magic
-	// variables defined in CoreMagicVariables. The no-args form will
-	// go through the magic variable code path (and be cached); the
-	// presence of arguments will cause the parser function form to
-	// be invoked. (Note that the actual implementation will pass
-	// a Parser object as first argument, in addition to the
-	// parser function parameters.)
-	// For this group, the first parameter to the parser function is
-	// "page title", and the no-args form (and the magic variable)
-	// defaults to "current page title".
-	'pagename', 'pagenamee',
-	'fullpagename', 'fullpagenamee',
-	'subpagename', 'subpagenamee',
-	'rootpagename', 'rootpagenamee',
-	'basepagename', 'basepagenamee',
-	'talkpagename', 'talkpagenamee',
-	'subjectpagename', 'subjectpagenamee',
-	'pageid', 'revisionid', 'revisionday',
-	'revisionday2', 'revisionmonth', 'revisionmonth1', 'revisionyear',
-	'revisiontimestamp',
-	'revisionuser',
-	'cascadingsources',
-	'namespace', 'namespacee', 'namespacenumber', 'talkspace', 'talkspacee',
-	'subjectspace', 'subjectspacee',
-	// More parser functions corresponding to CoreMagicVariables.
-	// For this group, the first parameter to the parser function is
-	// "raw" (uses the 'raw' format if present) and the no-args form
-	// (and the magic variable) defaults to 'not raw'.
-	'numberofarticles', 'numberoffiles',
-	'numberofusers',
-	'numberofactiveusers',
-	'numberofpages',
-	'numberofadmins',
-	'numberofedits',
-	// These magic words already contain the hash, and the no-args form
-	// is the same as passing an empty first argument
-	'bcp47',
-	'dir',
-	'interwikilink',
-	'interlanguagelink',
-];
-
-/**
  * The base class for {@link TemplateStatic} and {@link RawTemplateStatic}.
  *
  * This interface defines the static members of the `TemplateBase` class. For instance members,
@@ -742,22 +687,90 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 	const NS_TEMPLATE = namespaceIds.template;
 
 	/**
+	 * A list of no-hash functions. The listed members must not have a leading hash to function as a parser function.
+	 *
+	 * See CoreParserFunctions::register in
+	 * https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/refs/heads/master/includes/Parser/CoreParserFunctions.php
+	 */
+	const noHashFunctions = new Set([
+		'ns', 'nse', 'urlencode', 'lcfirst', 'ucfirst', 'lc', 'uc',
+		'localurl', 'localurle', 'fullurl', 'fullurle', 'canonicalurl',
+		'canonicalurle', 'formatnum', 'grammar', 'gender', 'plural', 'formal',
+		'bidi', 'numberingroup', 'language',
+		'padleft', 'padright', 'anchorencode', 'defaultsort', 'filepath',
+		'pagesincategory', 'pagesize', 'protectionlevel', 'protectionexpiry',
+		// The following are the "parser function" forms of magic
+		// variables defined in CoreMagicVariables. The no-args form will
+		// go through the magic variable code path (and be cached); the
+		// presence of arguments will cause the parser function form to
+		// be invoked. (Note that the actual implementation will pass
+		// a Parser object as first argument, in addition to the
+		// parser function parameters.)
+		// For this group, the first parameter to the parser function is
+		// "page title", and the no-args form (and the magic variable)
+		// defaults to "current page title".
+		'pagename', 'pagenamee',
+		'fullpagename', 'fullpagenamee',
+		'subpagename', 'subpagenamee',
+		'rootpagename', 'rootpagenamee',
+		'basepagename', 'basepagenamee',
+		'talkpagename', 'talkpagenamee',
+		'subjectpagename', 'subjectpagenamee',
+		'pageid', 'revisionid', 'revisionday',
+		'revisionday2', 'revisionmonth', 'revisionmonth1', 'revisionyear',
+		'revisiontimestamp',
+		'revisionuser',
+		'cascadingsources',
+		'namespace', 'namespacee', 'namespacenumber', 'talkspace', 'talkspacee',
+		'subjectspace', 'subjectspacee',
+		// More parser functions corresponding to CoreMagicVariables.
+		// For this group, the first parameter to the parser function is
+		// "raw" (uses the 'raw' format if present) and the no-args form
+		// (and the magic variable) defaults to 'not raw'.
+		'numberofarticles', 'numberoffiles',
+		'numberofusers',
+		'numberofactiveusers',
+		'numberofpages',
+		'numberofadmins',
+		'numberofedits',
+		// These magic words already contain the hash, and the no-args form
+		// is the same as passing an empty first argument
+		'bcp47',
+		'dir',
+		'interwikilink',
+		'interlanguagelink',
+		'contentmodel',
+		'isbn',
+		// The following are handled by dedicated internal functions.
+		'int',
+		'displaytitle',
+		'pagesinnamespace',
+	]);
+	const functionHooks = new Set(info.functionhooks);
+	/**
 	 * Object that maps canonical parser function names to their validation regular expressions.
 	 * The validation includes the trailing colon, which can be a 2-byte character in some cases.
 	 */
-	const parserFunctionMap = info.magicwords.reduce((acc: Record<string, RegExp>, obj) => {
-		if (!info.functionhooks.includes(obj.name)) {
-			return acc;
+	const parserFunctionMap: Record<string, RegExp> = Object.create(null);
+
+	for (const obj of info.magicwords) {
+		if (!functionHooks.has(obj.name)) {
+			continue;
 		}
-		const caseSensitive = obj['case-sensitive'];
-		const keys = [obj.name];
-		const noHash = noHashFunctions.includes(obj.name);
-		obj.aliases.forEach((alias) => {
-			if (alias !== obj.name && !/^[_＿].+[_＿]$/.test(alias)) {
-				keys.push(alias);
+
+		const sensitive = obj['case-sensitive'];
+		const keys = new Set([obj.name]);
+		const noHash = noHashFunctions.has(obj.name);
+
+		for (const alias of obj.aliases) {
+			if (!/^[_＿].+[_＿]$/.test(alias)) {
+				keys.add(alias);
 			}
-		});
-		const arrRegExp = keys.reduce((ret: string[], key) => {
+		}
+
+		const regexSources: string[] = [];
+
+		for (let key of keys) {
 			let hash = noHash ? '' : '#';
 			if (key.startsWith('#')) {
 				hash = '#';
@@ -766,18 +779,30 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			if (!/[:：]$/.test(key)) {
 				key += ':';
 			}
-			if (caseSensitive) {
-				// The first letter is not case-sensitive even if this function hook is case-sensitive
-				ret.push(`^${hash}[${key[0].toLowerCase() + key[0].toUpperCase()}]${key.slice(1)}$`);
+
+			if (sensitive) {
+				// The first letter is case-insensitive even if the function hook itself is case-sensitive
+				const first = key.charAt(0);
+				let source = `${hash}[`;
+				source += escapeRegExp(Title.uc(first));
+				source += escapeRegExp(Title.lc(first));
+				source += ']';
+
+				const rest = key.slice(1);
+				if (rest) {
+					source += escapeRegExp(rest);
+				}
+
+				regexSources.push(source);
 			} else {
-				ret.push(`^${hash + key}$`);
+				regexSources.push(hash + escapeRegExp(key));
 			}
-			return ret;
-		}, []);
+		}
+
 		const canonical = (noHash ? '' : '#') + obj.name + ':';
-		acc[canonical] = new RegExp(arrRegExp.join('|'), caseSensitive ? '' : 'i');
-		return acc;
-	}, Object.create(null));
+		const flag = sensitive ? '' : 'i';
+		parserFunctionMap[canonical] = new RegExp(`^(?:${regexSources.join('|')})$`, flag);
+	}
 
 	class TemplateBase<T extends string | Title> implements TemplateBase<T> {
 
@@ -788,26 +813,34 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 */
 		protected _paramOrder: Set<string>;
 		/**
-		 * Template parameter hierarchies.
+		 * Template parameter hierarchies as a Map.
 		 */
-		protected _hierarchies: TemplateParameterHierarchies;
+		protected _hierarchyMap: Map<string, { hierarchy: ReadonlyArray<string>; index: number; }>;
 
 		constructor(
 			title: T,
 			params: NewTemplateParameter[] = [],
-			hierarchies?: TemplateParameterHierarchies
+			hierarchies: TemplateParameterHierarchies = []
 		) {
-
 			this.title = title;
 			this.params = Object.create(null);
 			this._paramOrder = new Set();
-			this._hierarchies = Array.isArray(hierarchies) ? hierarchies.map((arr) => [...arr]) : [];
+			this._hierarchyMap = new Map();
+
+			for (const hierarchy of hierarchies) {
+				for (const [index, key] of hierarchy.entries()) {
+					if (this._hierarchyMap.has(key)) {
+						// TODO: Throw if a key belongs to multiple hierarchies
+						continue;
+					}
+					this._hierarchyMap.set(key, { hierarchy, index });
+				}
+			}
 
 			// Register parameters
 			params.forEach(({ key, value }) => {
 				this.registerParam(key || '', value, { overwrite: true, position: 'end', listDuplicates: true });
 			});
-
 		}
 
 		insertParam(
@@ -824,13 +857,12 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		getParam(key: string, resolveHierarchy = false): TemplateParameter | null {
-			if (resolveHierarchy) {
-				const hier = this._hierarchies.find((arr) => arr.includes(key));
-				if (hier) {
-					for (let i = hier.length - 1; i >= 0; i--) {
-						if (hier[i] in this.params) {
-							return this.params[hier[i]];
-						}
+			const hierInfo = resolveHierarchy && this._hierarchyMap.get(key);
+			if (hierInfo) {
+				const hier = hierInfo.hierarchy;
+				for (let i = hier.length - 1; i >= 0; i--) {
+					if (hier[i] in this.params) {
+						return this.params[hier[i]];
 					}
 				}
 			}
@@ -873,12 +905,12 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		deleteParam(key: string, resolveHierarchy = false): boolean {
 			if (!(key in this.params) && resolveHierarchy) {
-				const overrideStatus = this.checkKeyOverride(key);
-				if (overrideStatus) {
-					if (overrideStatus.overrides) {
-						key = overrideStatus.overrides;
-					} else if (overrideStatus.overridden) {
-						key = overrideStatus.overridden;
+				const rel = this.checkKeyOverride(key);
+				if (rel) {
+					if (rel.overrides) {
+						key = rel.overrides;
+					} else if (rel.overridden) {
+						key = rel.overridden;
 					}
 				}
 			}
@@ -923,7 +955,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				throw new Error(`"${hook}" is a parser function hook.`);
 			} else if (typeof title === 'string') {
 				title = Title.clean(title);
-				const namespace = title[0] === ':' ? NS_MAIN : NS_TEMPLATE; // TODO: Handle "/" (subpage) and "#" (in-page section)?
+				// TODO: Handle "/" (subpage) and "#" (in-page section)?
+				const namespace = title[0] === ':' ? NS_MAIN : NS_TEMPLATE;
 				title = new Title(title, namespace);
 			} else {
 				title = new Title(title.getPrefixedDb({ colon: true, fragment: true }));
@@ -941,12 +974,13 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 * @returns A string-cast numeric key.
 		 */
 		protected findNumericKey(): string {
-			const numericKeys = Object.keys(this.params).reduce((acc, key) => {
+			const numericKeys = new Set<number>();
+			for (const key in this.params) {
 				if (/^[1-9]\d*$/.test(key)) {
-					acc.add(+key);
+					numericKeys.add(Number(key));
 				}
-				return acc;
-			}, new Set<number>());
+			}
+
 			let i = 1;
 			while (numericKeys.has(i)) {
 				i++;
@@ -967,26 +1001,24 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 * The returned key will always be different from the input key.
 		 */
 		protected checkKeyOverride(key: string): XOR<{ overrides: string }, { overridden: string }> | null {
-			if (!this._hierarchies.length) {
+			const info = this._hierarchyMap.get(key);
+			if (!info) {
 				return null;
 			}
 
-			// Locate the hierarchy that includes the input key
-			const hier = this._hierarchies.find((arr) => arr.includes(key));
-			if (!hier) {
-				return null;
+			const { hierarchy, index } = info;
+
+			for (const [i, candidate] of hierarchy.entries()) {
+				if (candidate === key || !(candidate in this.params)) {
+					continue;
+				}
+
+				return index > i
+					? { overrides: candidate } // Input key overrides an existing key
+					: { overridden: candidate }; // Input key is overridden by an existing key
 			}
 
-			// Find an already registered key within the same hierarchy (excluding the input key)
-			const registeredKey = Object.keys(this.params).find((k) => hier.includes(k) && k !== key);
-			if (!registeredKey) {
-				return null;
-			}
-
-			// Compare their positions in the hierarchy to determine precedence
-			return hier.indexOf(key) > hier.indexOf(registeredKey)
-				? { overrides: registeredKey } // Input key overrides an existing key
-				: { overridden: registeredKey }; // Input key is overridden by an existing key
+			return null;
 		}
 
 		/**
@@ -1062,7 +1094,6 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				listDuplicates?: true;
 			}
 		): this {
-
 			key = key.trim();
 			const unnamed = key === '';
 			if (unnamed) {
@@ -1072,8 +1103,8 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			}
 
 			const { overwrite, position, listDuplicates = false } = options;
-			const overrideStatus = this.checkKeyOverride(key);
-			const existing = overrideStatus !== null || key in this.params;
+			const rel = this.checkKeyOverride(key);
+			const existing = rel !== null || key in this.params;
 
 			// Early exit conditions:
 			// 1. If the key already exists and overwrite is not allowed.
@@ -1082,115 +1113,149 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				return this;
 			}
 
-			/**
-			 * Helper function to resolve the index of a reference key inside _paramOrder.
-			 * Handles possible override relationships by checking both overriding and overridden keys.
-			 */
-			const findReferenceIndex = (order: string[], ref: string): number => {
-				let i = order.indexOf(ref);
-				if (i !== -1) return i;
-				const rel = this.checkKeyOverride(ref);
-				if (typeof rel?.overrides === 'string' && (i = order.indexOf(rel.overrides)) !== -1) return i;
-				if (typeof rel?.overridden === 'string' && (i = order.indexOf(rel.overridden)) !== -1) return i;
-				return -1;
-			};
+			const order = Array.from(this._paramOrder);
 
-			const order = [...this._paramOrder];
-			if (existing) {
-				// Handle updates for an existing key
-
-				// The input key overrides another key (i.e., an alias), or it exists directly
-				if (overrideStatus?.overrides || key in this.params) {
-
-					const targetKey = overrideStatus?.overrides ?? key;
-					const { duplicates, ...previousParam } = this.params[targetKey];
-					if (listDuplicates) {
-						// If duplicate tracking is enabled, save the previous param state
-						duplicates.push(previousParam);
-					}
-					delete this.params[targetKey]; // Remove the old parameter before replacing
-
-					// Get the reference key if `position` is an object, ensuring that the ref key is a string
-					let refKey: string | null = null;
-					let isAfter = false;
-					if (isPlainObject(position)) {
-						if ('before' in position && typeof position.before === 'string') {
-							refKey = position.before;
-						} else if ('after' in position && typeof position.after === 'string') {
-							isAfter = true;
-							refKey = position.after;
-						}
-					}
-
-					// Self-reference should fall back to in-place update: Exclude such cases
-					if (!(refKey === targetKey || refKey === key)) {
-
-						// Remove the target from current order before reinserting
-						const targetKeyIndex = order.indexOf(targetKey);
-						order.splice(targetKeyIndex, 1);
-
-						if (refKey && isPlainObject(position)) {
-							let insertIndex = findReferenceIndex(order, refKey);
-							if (insertIndex !== -1) {
-								insertIndex = isAfter ? insertIndex + 1 : insertIndex;
-								order.splice(insertIndex, 0, key);
-							} else {
-								order.push(key);
-							}
-						} else if (position === 'start') {
-							order.unshift(key);
-						} else if (position === 'end') {
-							order.push(key);
-						} else {
-							// Default: preserve original index
-							order.splice(targetKeyIndex, 0, key);
-						}
-					}
-
-					this.params[key] = this.createParam(key, value, unnamed, duplicates);
-					this._paramOrder = new Set(order);
-				}
-
-				// The input key is overridden by an existing parameter
-				else if (overrideStatus?.overridden) {
-					if (listDuplicates) {
-						this.params[overrideStatus.overridden].duplicates.push(
-							this.createParam(key, value, unnamed, null)
-						);
-					}
-					// Do not modify existing parameter or reorder
-				}
-			} else {
-				// Handle a brand new parameter
-
+			// Handle a brand new parameter
+			if (!existing) {
 				this.params[key] = this.createParam(key, value, unnamed, []);
 
 				// Update the insertion order with respect to the position
-				if (isPlainObject(position)) {
-					const isBefore = 'before' in position;
-					const refKey = isBefore ? position.before : position.after;
-					if (typeof refKey === 'string') {
-						const refIndex = findReferenceIndex(order, refKey);
-						if (refIndex !== -1) {
-							const insertAt = isBefore ? refIndex : refIndex + 1;
-							order.splice(insertAt, 0, key);
-						} else {
-							// If reference key is not found, append to end
-							order.push(key);
-						}
-					} else {
-						order.push(key);
-					}
-				} else if (position === 'start') {
-					order.unshift(key);
-				} else {
-					// Default to inserting at the end (position === 'end' or undefined)
-					order.push(key);
+				this.insertIntoOrder(order, key, position);
+				this._paramOrder = new Set(order);
+
+				return this;
+			}
+
+			// Handle updates to an existing key
+
+			// The input key overrides another key (i.e., an alias), or it exists directly
+			if (rel?.overrides || key in this.params) {
+
+				const targetKey = rel?.overrides ?? key;
+				const { duplicates, ...previousParam } = this.params[targetKey];
+				if (listDuplicates) {
+					// If duplicate tracking is enabled, save the previous param state
+					duplicates.push(previousParam);
 				}
+				delete this.params[targetKey]; // Remove the old parameter before replacing
+
+				// Remove the target from current order before reinserting
+				const targetKeyIndex = order.indexOf(targetKey);
+				order.splice(targetKeyIndex, 1);
+
+				this.insertIntoOrder(
+					order,
+					key,
+					position,
+					targetKeyIndex,
+					[targetKey, key]
+				);
+
+				this.params[key] = this.createParam(key, value, unnamed, duplicates);
 				this._paramOrder = new Set(order);
 			}
 
+			// The input key is overridden by an existing parameter
+			else if (rel?.overridden) {
+				if (listDuplicates) {
+					this.params[rel.overridden].duplicates.push(
+						this.createParam(key, value, unnamed, null)
+					);
+				}
+				// Do not modify existing parameter or reorder
+			}
+
 			return this;
+		}
+
+		/**
+		 * Inserts a parameter key into the given order array according to the specified position.
+		 *
+		 * If `position` references another parameter, hierarchy aliases are resolved automatically via
+		 * {@link findReferenceIndex}. When the reference cannot be resolved, the key is appended to the end.
+		 *
+		 * @param order The current parameter order.
+		 * @param key The parameter key to insert.
+		 * @param position The requested insertion position.
+		 * @param defaultIndex The index to use when `position` is `undefined`. This is typically the
+		 * original index of an existing parameter being updated.
+		 * @param selfReferenceKeys Parameter keys that should be treated as self-references when specified
+		 * as `before`/`after` targets. In such cases, the key is inserted at `defaultIndex` instead of being
+		 * moved relative to itself.
+		 */
+		protected insertIntoOrder(
+			order: string[],
+			key: string,
+			position?: 'start' | 'end' | { before: string } | { after: string },
+			defaultIndex?: number,
+			selfReferenceKeys?: string[]
+		): void {
+			if (isPlainObject(position)) {
+				const isBefore = 'before' in position;
+				const refKey = isBefore ? position.before : position.after;
+
+				if (typeof refKey === 'string') {
+					if (selfReferenceKeys?.includes(refKey)) {
+						// Preserve the original position for self-references
+						order.splice(defaultIndex ?? order.length, 0, key);
+						return;
+					}
+
+					const refIndex = this.findReferenceIndex(order, refKey);
+					if (refIndex !== -1) {
+						order.splice(isBefore ? refIndex : refIndex + 1, 0, key);
+						return;
+					}
+				}
+
+				order.push(key);
+				return;
+			}
+
+			if (position === 'start') {
+				order.unshift(key);
+			} else if (position === 'end') {
+				order.push(key);
+			} else if (defaultIndex !== undefined) {
+				// Preserve the original index if `position` is undefined and `defaultIndex` is specified
+				order.splice(defaultIndex, 0, key);
+			} else {
+				// Fall back to `position === 'end'`
+				order.push(key);
+			}
+		}
+
+		/**
+		 * Finds the index of a parameter in the given order array.
+		 *
+		 * If `key` itself is not present, this method also checks whether it overrides
+		 * or is overridden by a registered key via the configured parameter hierarchies.
+		 *
+		 * @param order The current parameter order (an array-cast {@link _paramOrder}).
+		 * @param key The reference parameter key.
+		 * @returns The resolved index, or `-1` if no matching parameter exists.
+		 */
+		protected findReferenceIndex(order: string[], key: string): number {
+			let index = order.indexOf(key);
+			if (index !== -1) {
+				return index;
+			}
+
+			const rel = this.checkKeyOverride(key);
+			if (rel?.overrides) {
+				index = order.indexOf(rel.overrides);
+				if (index !== -1) {
+					return index;
+				}
+			}
+			if (rel?.overridden) {
+				index = order.indexOf(rel.overridden);
+				if (index !== -1) {
+					return index;
+				}
+			}
+
+			return -1;
 		}
 
 		/**
@@ -1201,14 +1266,16 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 */
 		protected _stringify(title: string, options: TemplateOutputConfig<T>): string {
 
-			const order = [...this._paramOrder];
+			const order = Array.from(this._paramOrder);
 			const {
 				append,
 				sortPredicate = (param1, param2) => order.indexOf(param1.key) - order.indexOf(param2.key),
 				brPredicateTitle = () => false,
 				brPredicateParam = () => false,
 			} = options;
-			const suppressKeys = (options.suppressKeys || []).filter((key) => /^[1-9]\d*$/.test(key));
+			const suppressKeys = new Set(
+				(options.suppressKeys || []).filter((key) => /^[1-9]\d*$/.test(key))
+			);
 			let { prepend } = options;
 			const ret = ['{{'];
 
@@ -1235,7 +1302,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				if (value.includes('=')) {
 					// Always show key if value contains '='
 					noKey = false;
-				} else if (suppressKeys.includes(key)) {
+				} else if (suppressKeys.has(key)) {
 					// Suppress key if it's in the list
 					noKey = true;
 				}
@@ -1247,9 +1314,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 			ret.push('}}');
 			return ret.join('');
-
 		}
-
 	}
 
 	// Check missing members
@@ -1318,7 +1383,6 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		override toString() {
 			return this.stringify();
 		}
-
 	}
 
 	// Check missing members
@@ -1781,7 +1845,6 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		ParserFunction: ParserFunction as ParserFunctionStatic,
 		ParsedParserFunction: ParsedParserFunction as ParsedParserFunctionStatic,
 	};
-
 }
 
 /**
@@ -1861,6 +1924,9 @@ export interface TemplateParameter {
  *
  * To specify such hierarchies, use `[['1', 'user'], [...]]`, meaning `|1=` will be overridden by `|user=`
  * whenever a parameter registration detects a lower-hierarchy parameter in the {@link Template} instance.
+ *
+ * Note that if a key appears in multiple hierarchy arrays, only the first occurrence is used and
+ * subsequent occurrences are ignored.
  */
 export type TemplateParameterHierarchies = string[][];
 
