@@ -850,85 +850,6 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			});
 		}
 
-		insertParam(
-			key: string,
-			value: string,
-			overwrite?: boolean,
-			position?: 'start' | 'end' | { before: string } | { after: string }
-		): this {
-			return this.registerParam(key, value, { overwrite: overwrite ?? true, position });
-		}
-
-		updateParam(key: string, value: string): this {
-			return this.registerParam(key, value, { overwrite: 'must' });
-		}
-
-		getParam(key: string, resolveHierarchy = false): TemplateParameter | null {
-			const hierInfo = resolveHierarchy && this._hierarchyMap.get(key);
-			if (hierInfo) {
-				const hier = hierInfo.hierarchy;
-				for (let i = hier.length - 1; i >= 0; i--) {
-					if (hier[i] in this.params) {
-						return this.params[hier[i]];
-					}
-				}
-			}
-			return this.params[key] || null;
-		}
-
-		hasParam(
-			keyOrPred: string | RegExp | ((param: TemplateParameter) => boolean),
-			value?: string | RegExp
-		): boolean {
-			if (
-				typeof keyOrPred !== 'string' &&
-				!(keyOrPred instanceof RegExp) &&
-				typeof keyOrPred !== 'function' ||
-				keyOrPred === ''
-			) {
-				return false;
-			}
-
-			// If `keyOrPred` is a function, check against each param
-			if (typeof keyOrPred === 'function') {
-				return Object.values(this.params).some((obj) => keyOrPred(cloneDeep(obj)));
-			}
-
-			// Convert string key to a strict RegExp match
-			const keyPattern = typeof keyOrPred === 'string'
-				? new RegExp(`^${escapeRegExp(keyOrPred)}$`)
-				: keyOrPred;
-
-			// Search for a matching key and validate its value
-			return Object.entries(this.params).some(([k, obj]) =>
-				keyPattern.test(k) &&
-				(
-					value === undefined ||
-					(typeof value === 'string' && value === obj.value) ||
-					(value instanceof RegExp && value.test(obj.value))
-				)
-			);
-		}
-
-		deleteParam(key: string, resolveHierarchy = false): boolean {
-			if (!(key in this.params) && resolveHierarchy) {
-				const rel = this.checkKeyOverride(key);
-				if (rel) {
-					if (rel.overrides) {
-						key = rel.overrides;
-					} else if (rel.overridden) {
-						key = rel.overridden;
-					}
-				}
-			}
-			if (!this.params[key]) {
-				return false;
-			}
-			delete this.params[key];
-			this._paramOrder.delete(key);
-			return true;
-		}
-
 		/**
 		 * Validates the given title as a template title and returns a Title instance. The title must not be
 		 * a parser function hook. On failure, this method throws an error.
@@ -1007,6 +928,85 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				);
 			}
 			return title;
+		}
+
+		insertParam(
+			key: string,
+			value: string,
+			overwrite?: boolean,
+			position?: 'start' | 'end' | { before: string } | { after: string }
+		): this {
+			return this.registerParam(key, value, { overwrite: overwrite ?? true, position });
+		}
+
+		updateParam(key: string, value: string): this {
+			return this.registerParam(key, value, { overwrite: 'must' });
+		}
+
+		getParam(key: string, resolveHierarchy = false): TemplateParameter | null {
+			const hierInfo = resolveHierarchy && this._hierarchyMap.get(key);
+			if (hierInfo) {
+				const hier = hierInfo.hierarchy;
+				for (let i = hier.length - 1; i >= 0; i--) {
+					if (hier[i] in this.params) {
+						return this.params[hier[i]];
+					}
+				}
+			}
+			return this.params[key] || null;
+		}
+
+		hasParam(
+			keyOrPred: string | RegExp | ((param: TemplateParameter) => boolean),
+			value?: string | RegExp
+		): boolean {
+			if (
+				typeof keyOrPred !== 'string' &&
+				!(keyOrPred instanceof RegExp) &&
+				typeof keyOrPred !== 'function' ||
+				keyOrPred === ''
+			) {
+				return false;
+			}
+
+			// If `keyOrPred` is a function, check against each param
+			if (typeof keyOrPred === 'function') {
+				return Object.values(this.params).some((obj) => keyOrPred(cloneDeep(obj)));
+			}
+
+			// Convert string key to a strict RegExp match
+			const keyPattern = typeof keyOrPred === 'string'
+				? new RegExp(`^${escapeRegExp(keyOrPred)}$`)
+				: keyOrPred;
+
+			// Search for a matching key and validate its value
+			return Object.entries(this.params).some(([k, obj]) =>
+				keyPattern.test(k) &&
+				(
+					value === undefined ||
+					(typeof value === 'string' && value === obj.value) ||
+					(value instanceof RegExp && value.test(obj.value))
+				)
+			);
+		}
+
+		deleteParam(key: string, resolveHierarchy = false): boolean {
+			if (!(key in this.params) && resolveHierarchy) {
+				const rel = this.checkKeyOverride(key);
+				if (rel) {
+					if (rel.overrides) {
+						key = rel.overrides;
+					} else if (rel.overridden) {
+						key = rel.overridden;
+					}
+				}
+			}
+			if (!this.params[key]) {
+				return false;
+			}
+			delete this.params[key];
+			this._paramOrder.delete(key);
+			return true;
 		}
 
 		/**
