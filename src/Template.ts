@@ -936,177 +936,6 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return title;
 		}
 
-		insertParam(
-			key: string,
-			value: string,
-			overwrite?: boolean,
-			position?: 'start' | 'end' | { before: string } | { after: string }
-		): this {
-			return this.registerParam(key, value, { overwrite: overwrite ?? true, position });
-		}
-
-		updateParam(key: string, value: string): this {
-			return this.registerParam(key, value, { overwrite: 'must' });
-		}
-
-		getParam(key: string, resolveHierarchy = false): TemplateParameter | null {
-			const hierInfo = resolveHierarchy && this._hierarchyMap.get(key);
-			if (hierInfo) {
-				const hier = hierInfo.hierarchy;
-				for (let i = hier.length - 1; i >= 0; i--) {
-					if (hier[i] in this.params) {
-						return this.params[hier[i]];
-					}
-				}
-			}
-			return this.params[key] || null;
-		}
-
-		hasParam(
-			keyOrPred: string | RegExp | ((param: TemplateParameter) => boolean),
-			value?: string | RegExp
-		): boolean {
-			if (
-				typeof keyOrPred !== 'string' &&
-				!(keyOrPred instanceof RegExp) &&
-				typeof keyOrPred !== 'function' ||
-				keyOrPred === ''
-			) {
-				return false;
-			}
-
-			// If `keyOrPred` is a function, check against each param
-			if (typeof keyOrPred === 'function') {
-				return Object.values(this.params).some((obj) => keyOrPred(cloneDeep(obj)));
-			}
-
-			// Convert string key to a strict RegExp match
-			const keyPattern = typeof keyOrPred === 'string'
-				? new RegExp(`^${escapeRegExp(keyOrPred)}$`)
-				: keyOrPred;
-
-			// Search for a matching key and validate its value
-			return Object.entries(this.params).some(([k, obj]) =>
-				keyPattern.test(k) &&
-				(
-					value === undefined ||
-					(typeof value === 'string' && value === obj.value) ||
-					(value instanceof RegExp && value.test(obj.value))
-				)
-			);
-		}
-
-		deleteParam(key: string, resolveHierarchy = false): boolean {
-			if (!(key in this.params) && resolveHierarchy) {
-				const rel = this.checkKeyOverride(key);
-				if (rel) {
-					if (rel.overrides) {
-						key = rel.overrides;
-					} else if (rel.overridden) {
-						key = rel.overridden;
-					}
-				}
-			}
-			if (!this.params[key]) {
-				return false;
-			}
-			delete this.params[key];
-			this._paramOrder.delete(key);
-			return true;
-		}
-
-		/**
-		 * Find the first available numeric key for a template parameter.
-		 * @returns A string-cast numeric key.
-		 */
-		protected findNumericKey(): string {
-			const numericKeys = new Set<number>();
-			for (const key in this.params) {
-				if (/^[1-9]\d*$/.test(key)) {
-					numericKeys.add(Number(key));
-				}
-			}
-
-			let i = 1;
-			while (numericKeys.has(i)) {
-				i++;
-			}
-			return String(i);
-		}
-
-		/**
-		 * Determines whether a given template parameter key overrides another key
-		 * or is itself overridden based on parameter hierarchies.
-		 *
-		 * @param key The parameter key to check.
-		 * @returns An object describing the override relationship:
-		 * - `{ overrides: string }` if the input key overrides an existing key.
-		 * - `{ overridden: string }` if the input key is overridden by an existing key.
-		 * - `null` if no override relationship exists.
-		 *
-		 * The returned key will always be different from the input key.
-		 */
-		protected checkKeyOverride(key: string): XOR<{ overrides: string }, { overridden: string }> | null {
-			const info = this._hierarchyMap.get(key);
-			if (!info) {
-				return null;
-			}
-
-			const { hierarchy, index } = info;
-
-			for (const [i, candidate] of hierarchy.entries()) {
-				if (candidate === key || !(candidate in this.params)) {
-					continue;
-				}
-
-				return index > i
-					? { overrides: candidate } // Input key overrides an existing key
-					: { overridden: candidate }; // Input key is overridden by an existing key
-			}
-
-			return null;
-		}
-
-		/**
-		 * Creates a template parameter object.
-		 */
-		protected createParam(
-			key: string,
-			value: string,
-			unnamed: boolean,
-			duplicates: Omit<TemplateParameter, "duplicates">[]
-		): TemplateParameter;
-		/**
-		 * Creates a duplicate template parameter object.
-		 */
-		protected createParam(
-			key: string,
-			value: string,
-			unnamed: boolean,
-			duplicates: null
-		): Omit<TemplateParameter, "duplicates">;
-		protected createParam(
-			key: string,
-			value: string,
-			unnamed: boolean,
-			duplicates: Omit<TemplateParameter, "duplicates">[] | null
-		): TemplateParameter | Omit<TemplateParameter, "duplicates"> {
-			const ret: Partial<TemplateParameter> = {
-				key,
-				value,
-				get text() {
-					return '|' + (!this.unnamed ? this.key + '=' : '') + this.value;
-				},
-				unnamed,
-			};
-			if (duplicates) {
-				ret.duplicates = duplicates;
-				return ret as TemplateParameter;
-			} else {
-				return ret as Omit<TemplateParameter, "duplicates">;
-			}
-		}
-
 		/**
 		 * Registers a template parameter.
 		 *
@@ -1215,6 +1044,98 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		}
 
 		/**
+		 * Find the first available numeric key for a template parameter.
+		 * @returns A string-cast numeric key.
+		 */
+		protected findNumericKey(): string {
+			const numericKeys = new Set<number>();
+			for (const key in this.params) {
+				if (/^[1-9]\d*$/.test(key)) {
+					numericKeys.add(Number(key));
+				}
+			}
+
+			let i = 1;
+			while (numericKeys.has(i)) {
+				i++;
+			}
+			return String(i);
+		}
+
+		/**
+		 * Determines whether a given template parameter key overrides another key
+		 * or is itself overridden based on parameter hierarchies.
+		 *
+		 * @param key The parameter key to check.
+		 * @returns An object describing the override relationship:
+		 * - `{ overrides: string }` if the input key overrides an existing key.
+		 * - `{ overridden: string }` if the input key is overridden by an existing key.
+		 * - `null` if no override relationship exists.
+		 *
+		 * The returned key will always be different from the input key.
+		 */
+		protected checkKeyOverride(key: string): XOR<{ overrides: string }, { overridden: string }> | null {
+			const info = this._hierarchyMap.get(key);
+			if (!info) {
+				return null;
+			}
+
+			const { hierarchy, index } = info;
+
+			for (const [i, candidate] of hierarchy.entries()) {
+				if (candidate === key || !(candidate in this.params)) {
+					continue;
+				}
+
+				return index > i
+					? { overrides: candidate } // Input key overrides an existing key
+					: { overridden: candidate }; // Input key is overridden by an existing key
+			}
+
+			return null;
+		}
+
+		/**
+		 * Creates a template parameter object.
+		 */
+		protected createParam(
+			key: string,
+			value: string,
+			unnamed: boolean,
+			duplicates: Omit<TemplateParameter, "duplicates">[]
+		): TemplateParameter;
+		/**
+		 * Creates a duplicate template parameter object.
+		 */
+		protected createParam(
+			key: string,
+			value: string,
+			unnamed: boolean,
+			duplicates: null
+		): Omit<TemplateParameter, "duplicates">;
+		protected createParam(
+			key: string,
+			value: string,
+			unnamed: boolean,
+			duplicates: Omit<TemplateParameter, "duplicates">[] | null
+		): TemplateParameter | Omit<TemplateParameter, "duplicates"> {
+			const ret: Partial<TemplateParameter> = {
+				key,
+				value,
+				get text() {
+					return '|' + (!this.unnamed ? this.key + '=' : '') + this.value;
+				},
+				unnamed,
+			};
+			if (duplicates) {
+				ret.duplicates = duplicates;
+				return ret as TemplateParameter;
+			} else {
+				return ret as Omit<TemplateParameter, "duplicates">;
+			}
+		}
+
+		/**
 		 * Inserts a parameter key into the given order array according to the specified position.
 		 *
 		 * If `position` references another parameter, hierarchy aliases are resolved automatically via
@@ -1302,6 +1223,85 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			}
 
 			return -1;
+		}
+
+		insertParam(
+			key: string,
+			value: string,
+			overwrite?: boolean,
+			position?: 'start' | 'end' | { before: string } | { after: string }
+		): this {
+			return this.registerParam(key, value, { overwrite: overwrite ?? true, position });
+		}
+
+		updateParam(key: string, value: string): this {
+			return this.registerParam(key, value, { overwrite: 'must' });
+		}
+
+		getParam(key: string, resolveHierarchy = false): TemplateParameter | null {
+			const hierInfo = resolveHierarchy && this._hierarchyMap.get(key);
+			if (hierInfo) {
+				const hier = hierInfo.hierarchy;
+				for (let i = hier.length - 1; i >= 0; i--) {
+					if (hier[i] in this.params) {
+						return this.params[hier[i]];
+					}
+				}
+			}
+			return this.params[key] || null;
+		}
+
+		hasParam(
+			keyOrPred: string | RegExp | ((param: TemplateParameter) => boolean),
+			value?: string | RegExp
+		): boolean {
+			if (
+				typeof keyOrPred !== 'string' &&
+				!(keyOrPred instanceof RegExp) &&
+				typeof keyOrPred !== 'function' ||
+				keyOrPred === ''
+			) {
+				return false;
+			}
+
+			// If `keyOrPred` is a function, check against each param
+			if (typeof keyOrPred === 'function') {
+				return Object.values(this.params).some((obj) => keyOrPred(cloneDeep(obj)));
+			}
+
+			// Convert string key to a strict RegExp match
+			const keyPattern = typeof keyOrPred === 'string'
+				? new RegExp(`^${escapeRegExp(keyOrPred)}$`)
+				: keyOrPred;
+
+			// Search for a matching key and validate its value
+			return Object.entries(this.params).some(([k, obj]) =>
+				keyPattern.test(k) &&
+				(
+					value === undefined ||
+					(typeof value === 'string' && value === obj.value) ||
+					(value instanceof RegExp && value.test(obj.value))
+				)
+			);
+		}
+
+		deleteParam(key: string, resolveHierarchy = false): boolean {
+			if (!(key in this.params) && resolveHierarchy) {
+				const rel = this.checkKeyOverride(key);
+				if (rel) {
+					if (rel.overrides) {
+						key = rel.overrides;
+					} else if (rel.overridden) {
+						key = rel.overridden;
+					}
+				}
+			}
+			if (!this.params[key]) {
+				return false;
+			}
+			delete this.params[key];
+			this._paramOrder.delete(key);
+			return true;
 		}
 
 		/**
