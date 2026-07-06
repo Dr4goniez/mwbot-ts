@@ -589,17 +589,13 @@ export interface ParserFunctionStatic extends Omit<typeof ParamBase, 'prototype'
  */
 export interface ParserFunction extends InstanceType<typeof ParamBase> {
 	/**
-	 * The parser function hook. This may be an alias of the canonical hook.
-	 *
-	 * This property is read-only. To update it, use {@link setHook}.
+	 * Returns the parser function hook, including a trailing colon.
 	 */
-	readonly hook: string;
+	get hook(): string;
 	/**
-	 * The canonical parser function hook.
-	 *
-	 * This property is automatically set and updated on a successful call of {@link setHook}.
+	 * Returns the canonical parser function hook, including a trailing colon.
 	 */
-	readonly canonicalHook: string;
+	get canonicalHook(): string;
 
 	/**
 	 * Sets a new function hook, overwriting the current one.
@@ -1644,8 +1640,15 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 	class ParserFunction extends ParamBase implements ParserFunction {
 
-		readonly hook: string;
-		readonly canonicalHook: string;
+		protected _verifiedHook: VerifiedFunctionHook;
+
+		get hook(): string {
+			return this._verifiedHook.match;
+		}
+
+		get canonicalHook(): string {
+			return this._verifiedHook.canonical;
+		}
 
 		constructor(hook: string, params: string[] = []) {
 			const verified = ParserFunction.verify(hook);
@@ -1653,8 +1656,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				throw new Error(`"${hook}" is not a valid function hook.`);
 			}
 			super(params);
-			this.hook = verified.match;
-			this.canonicalHook = verified.canonical;
+			this._verifiedHook = verified;
 		}
 
 		static verify(hook: string): VerifiedFunctionHook | null {
@@ -1679,10 +1681,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			if (!verified) {
 				return false;
 			}
-			// @ts-expect-error FIXME: Updating readonly property
-			this.hook = verified.match;
-			// @ts-expect-error FIXME: Updating readonly property
-			this.canonicalHook = verified.canonical;
+			this._verifiedHook = verified;
 			return true;
 		}
 
@@ -1728,7 +1727,6 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		override toString() {
 			return this.stringify();
 		}
-
 	}
 
 	// Check missing members
