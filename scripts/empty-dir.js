@@ -34,7 +34,7 @@ async function emptyDir(dirPath) {
 
 const targetDir = process.argv[2];
 if (!targetDir) {
-	console.error('Usage: node empty-dir.mjs <directory-path>');
+	console.error('Usage: node empty-dir.js <directory-path>');
 	process.exit(1);
 }
 

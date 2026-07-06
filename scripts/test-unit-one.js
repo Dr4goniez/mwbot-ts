@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
-import rootDir from './root-dir.mjs';
+import rootDir from './root-dir.js';
 
 const name = process.argv[2];
 if (!name) {
