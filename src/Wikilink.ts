@@ -171,7 +171,7 @@ export interface Wikilink extends WikilinkBase<Title> {
 	 */
 	toFileWikilink(title: string | Title, verbose?: boolean): FileWikilink | null;
 	/**
-	 * Strigifies the instance.
+	 * Stringifies the instance.
 	 *
 	 * @param options Options to format the output.
 	 * @returns The wikilink as a string.
@@ -241,7 +241,7 @@ export interface ParsedWikilink extends Wikilink, ParsedWikilinkProps<ParsedWiki
 	 */
 	toFileWikilink(title: string | Title, verbose?: boolean): ParsedFileWikilink | null;
 	/**
-	 * Strigifies the instance.
+	 * Stringifies the instance.
 	 *
 	 * @param options Options to format the output.
 	 * @returns The wikilink as a string.
@@ -613,15 +613,19 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		constructor(title: T, display?: string) {
 			this._title = title;
-			this._display = typeof display === 'string' ? Title.clean(display) : null;
+
+			if (typeof display === 'string') {
+				display = Title.clean(display);
+			}
+			this._display = isNonEmptyString(display) ? display : null;
 		}
 
 		/**
 		 * Validates the given title as a wikilink title and returns a Title instance.
 		 * On failure, this method throws an error.
 		 *
-		 * @param title The prefixed title as a string or a Title instance to validate as a wikilink title.
-		 * @returns A Title instance. If the input title is an Title instance in itself, a clone is returned.
+		 * @param title The title as a string or a Title instance to validate as a wikilink title.
+		 * @returns A Title instance. If the input title is a Title instance in itself, a clone is returned.
 		 * @throws {MwbotError} If:
 		 * * `title` is neither a string nor a Title instance. (`typemismatch`)
 		 */
@@ -646,8 +650,8 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		}
 
 		getDisplay(): string {
-			if (this.hasDisplay()) {
-				return this._display as string;
+			if (this._display) {
+				return this._display;
 			} else if (typeof this._title === 'string') {
 				return Title.clean(this._title);
 			} else {
@@ -696,7 +700,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			ret.push(']]');
 			return ret.join('');
 		}
-
 	}
 
 	// Check missing members
@@ -772,14 +775,15 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		}
 
 		stringify(options: WikilinkOutputConfig = {}): string {
-			const right = !options.suppressDisplay && this._display || undefined;
+			const right = options.suppressDisplay
+				? undefined
+				: this._display || undefined;
 			return this._stringify(this._title.getPrefixedText({ colon: true, fragment: true }), right);
 		}
 
 		override toString(): string {
 			return this.stringify();
 		}
-
 	}
 
 	// Check missing members
@@ -901,8 +905,8 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		 * Validates the given title as a **file** wikilink title and returns a Title instance.
 		 * On failure, this method throws an error.
 		 *
-		 * @param title The prefixed title as a string or a Title instance to validate as a **file** wikilink title.
-		 * @returns A Title instance. If the input title is an Title instance in itself, a clone is returned.
+		 * @param title The title as a string or a Title instance to validate as a **file** wikilink title.
+		 * @returns A Title instance. If the input title is a Title instance in itself, a clone is returned.
 		 * @throws {MwbotError} If:
 		 * * `title` is neither a string nor a Title instance. (`typemismatch`)
 		 */
