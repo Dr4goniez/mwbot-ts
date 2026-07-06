@@ -18,9 +18,10 @@
  * @module
  */
 
-import { isNonEmptyString } from './internal/helpers.js';
+import { formatType, isNonEmptyString } from './internal/helpers.js';
 import { ParamBase } from './internal/ParamBase.js';
 import type { Mwbot } from './Mwbot.js';
+import { MwbotError } from './MwbotError.js';
 import type { TitleStatic, Title } from './Title.js';
 
 // Imported only for docs
@@ -107,10 +108,9 @@ export interface WikilinkStatic extends Omit<WikilinkBaseStatic<Title>, 'new'> {
 	 *
 	 * @param title The title of the (non-file) page that the wikilink links to.
 	 * @param display An optional display text for the wikilink.
-	 * @throws
-	 * - If the title is invalid.
-	 * - If the title is a file title. To objectify a `'[[File:...]]'` wikilink,
-	 * use {@link FileWikilink} instead.
+	 * @throws {MwbotError} If:
+	 * - Title validation fails. (`unparsabletitle`)
+	 * - The provided title is a file title (without a leading colon). (`invalidinput`)
 	 */
 	new(title: string | Title, display?: string): Wikilink;
 	/**
@@ -140,7 +140,8 @@ export interface WikilinkStatic extends Omit<WikilinkBaseStatic<Title>, 'new'> {
 	 * @param obj The object to check.
 	 * @param type The wikilink type to compare against.
 	 * @returns `true` if `obj` is an instance of the specified wikilink class, otherwise `false`.
-	 * @throws {Error} If an invalid `type` is provided.
+	 * @throws {MwbotError} If:
+	 * * An invalid `type` is provided. (`invalidinput`)
 	 */
 	is<T extends keyof WikilinkTypeMap>(obj: unknown, type: T): obj is WikilinkTypeMap[T];
 }
@@ -328,10 +329,9 @@ export interface FileWikilinkStatic extends Omit<typeof ParamBase, 'prototype'> 
 	 *
 	 * @param title The title of the file that the wikilink transcludes.
 	 * @param params Optional parameters for the file link (e.g., `['thumb', '300px', ...]`).
-	 * @throws
-	 * - If the title is invalid.
-	 * - If the title is a non-file title. To objectify a non-file `[[wikilink]]`,
-	 * use {@link Wikilink} instead.
+	 * @throws {MwbotError} If:
+	 * - Title validation fails. (`unparsabletitle`)
+	 * - The provided title is not a file title. (`invalidinput`)
 	 */
 	new(title: string | Title, params?: string[]): FileWikilink;
 }
@@ -622,17 +622,25 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		 *
 		 * @param title The prefixed title as a string or a Title instance to validate as a wikilink title.
 		 * @returns A Title instance. If the input title is an Title instance in itself, a clone is returned.
+		 * @throws {MwbotError} If:
+		 * * `title` is neither a string nor a Title instance. (`typemismatch`)
 		 */
 		protected static validateTitle(title: string | Title): Title {
 			// Whenever updating this method, also update FileWikilink.validateTitle
-			if (typeof title !== 'string' && !(title instanceof Title)) {
-				throw new TypeError(`Expected a string or Title instance for "title", but got ${typeof title}.`);
-			}
 			if (typeof title === 'string') {
 				// TODO: Handle "/" (subpage) and "#" (in-page section)?
 				title = new Title(title);
+			} else if (title instanceof Title) {
+				title = title._clone(new WeakMap());
 			} else {
-				title = new Title(title.getPrefixedDb({ colon: true, fragment: true }));
+				throw new MwbotError(
+					'fatal',
+					{
+						code: 'typemismatch',
+						info: `"title" must be either a string or a Title instance.`,
+					},
+					{ title }
+				);
 			}
 			return title;
 		}
@@ -662,7 +670,10 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 				return this;
 			}
 
-			throw new TypeError(`Expected a string or null for "display", but got ${typeof display}.`);
+			throw new MwbotError('fatal', {
+				code: 'typemismatch',
+				info: `Expected a string or null for "display", but got ${formatType(display)}.`,
+			});
 		}
 
 		hasDisplay(): boolean {
@@ -695,10 +706,21 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		constructor(title: string | Title, display?: string) {
 			title = Wikilink.validateTitle(title);
-			if (title.getNamespaceId() === NS_FILE && !title.hadLeadingColon()) {
-				throw new Error('The provided title is a file title.');
-			}
+			Wikilink.dieIfFileTitle(title);
 			super(title, display);
+		}
+
+		protected static dieIfFileTitle(title: Title): void {
+			if (title.getNamespaceId() === NS_FILE && !title.hadLeadingColon()) {
+				throw new MwbotError(
+					'fatal',
+					{
+						code: 'invalidinput',
+						info: `The provided title is a file title (without a leading colon).`,
+					},
+					{ title }
+				);
+			}
 		}
 
 		static is<T extends keyof WikilinkTypeMap>(obj: unknown, type: T): obj is WikilinkTypeMap[T] {
@@ -716,17 +738,17 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 				case 'ParsedRawWikilink':
 					return obj instanceof ParsedRawWikilink;
 				default:
-					throw new Error(`"${type}" is not a valid input to Wikilink.is().`);
+					throw new MwbotError('fatal', {
+						code: 'invalidinput',
+						info: `"${type}" is not a valid input to Wikilink.is().`,
+					});
 			}
 		}
 
 		setTitle(title: string | Title, verbose = false): boolean {
 			try {
 				title = Wikilink.validateTitle(title);
-				// If `title` is a file title, throw an error.
-				if (title.getNamespaceId() === NS_FILE && !title.hadLeadingColon()) {
-					throw new Error('A file title cannot be set with setTitle. Use toFileWikilink instead.');
-				}
+				Wikilink.dieIfFileTitle(title);
 			} catch (err) {
 				if (verbose) {
 					console.error(err);
@@ -870,45 +892,62 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		constructor(title: string | Title, params: string[] = []) {
 			title = FileWikilink.validateTitle(title);
-			if (title.isExternal()) {
-				throw new Error('The title is interwiki.');
-			} else if (title.hadLeadingColon()) {
-				throw new Error('The title has a leading colon.');
-			} else if (title.getNamespaceId() !== NS_FILE) {
-				throw new Error('The title does not belong to the File namespace.');
-			}
+			FileWikilink.dieIfNotFileTitle(title);
 			super(params);
 			this._title = title;
 		}
 
 		/**
-		 * Validates the given title as a wikilink title and returns a Title instance.
+		 * Validates the given title as a **file** wikilink title and returns a Title instance.
 		 * On failure, this method throws an error.
 		 *
-		 * @param title The prefixed title as a string or a Title instance to validate as a wikilink title.
+		 * @param title The prefixed title as a string or a Title instance to validate as a **file** wikilink title.
 		 * @returns A Title instance. If the input title is an Title instance in itself, a clone is returned.
+		 * @throws {MwbotError} If:
+		 * * `title` is neither a string nor a Title instance. (`typemismatch`)
 		 */
 		protected static validateTitle(title: string | Title): Title {
 			// Whenever updating this method, also update WikilinkBase.validateTitle
-			if (typeof title !== 'string' && !(title instanceof Title)) {
-				throw new TypeError(`Expected a string or Title instance for "title", but got ${typeof title}.`);
-			}
 			if (typeof title === 'string') {
 				// TODO: Handle "/" (subpage) and "#" (in-page section)?
 				title = new Title(title);
+			} else if (title instanceof Title) {
+				title = title._clone(new WeakMap());
 			} else {
-				title = new Title(title.getPrefixedDb({ colon: true, fragment: true }));
+				throw new MwbotError(
+					'fatal',
+					{
+						code: 'typemismatch',
+						info: `"title" must be either a string or a Title instance.`,
+					},
+					{ title }
+				);
 			}
 			return title;
+		}
+
+		protected static dieIfNotFileTitle(title: Title): void {
+			let info = '';
+			if (title.isExternal()) {
+				info = '"title" is interwiki and invalid as a file title.';
+			} else if (title.hadLeadingColon()) {
+				info = '"title" has a leading colon and is invalid as a file title.';
+			} else if (title.getNamespaceId() !== NS_FILE) {
+				info = '"title" is not a title in the File namespace.';
+			}
+			if (info) {
+				throw new MwbotError(
+					'fatal',
+					{ code: 'invalidinput', info },
+					{ title }
+				);
+			}
 		}
 
 		setTitle(title: string | Title, verbose = false): boolean {
 			try {
 				title = FileWikilink.validateTitle(title);
-				// If `title` is a non-file title, throw an error.
-				if (!(title.getNamespaceId() === NS_FILE && !title.hadLeadingColon())) {
-					throw new Error('A non-file title is not accepted unless true is passed as the second argument.');
-				}
+				FileWikilink.dieIfNotFileTitle(title);
 			} catch (err) {
 				if (verbose) {
 					console.error(err);
@@ -1072,12 +1111,15 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		}
 
 		setTitle(title: string): this {
+			// TODO: Disallow empty titles?
 			if (typeof title === 'string') {
 				this._title = title;
 				return this;
-			} else {
-				throw new TypeError(`Expected a string for "title", but got "${typeof title}".`);
 			}
+			throw new MwbotError('fatal', {
+				code: 'typemismatch',
+				info: `Expected a string for "title", but got ${formatType(title)}.`,
+			});
 		}
 
 		toWikilink(title: string | Title, verbose = false): Wikilink | null {
