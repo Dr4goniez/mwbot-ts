@@ -1556,14 +1556,24 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			if (!m) {
 				return null;
 			}
+
+			const match = m[0];
+			if (parserFunctionMap[match]) {
+				return {
+					canonical: match,
+					match,
+				};
+			}
+
 			for (const [canonical, regex] of Object.entries(parserFunctionMap)) {
-				if (regex.test(m[0])) {
+				if (regex.test(match)) {
 					return {
 						canonical,
-						match: m[0],
+						match,
 					};
 				}
 			}
+
 			return null;
 		}
 
