@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
 import { resolve } from 'node:path';
-import rootDir from './root-dir.mjs';
+import rootDir from './root-dir.js';
 
 const buildDir = resolve(rootDir, 'dist/build');
 if (!existsSync(buildDir)) {

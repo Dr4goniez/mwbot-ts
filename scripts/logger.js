@@ -8,11 +8,11 @@
  * current date and time in `YYYYMMDDHHMMSS` format, optionally suffixed with a custom tag.
  *
  * Example usage (from package.json scripts):
- *   "start": "node logger.mjs dist/entry.js"
- *   "test-log": "node logger.mjs src/test.ts _test"
+ *   "start": "node scripts/logger.js dist/entry.js"
+ *   "test-log": "node scripts/logger.js src/test.ts _test"
  *
  * Usage:
- *   node logger.mjs <scriptPath> [logSuffix]
+ *   node scripts/logger.js <scriptPath> [logSuffix]
  *
  * Parameters:
  *   scriptPath  - Path to the script to execute (.ts or .js)
@@ -43,7 +43,7 @@ const __dirname = dirname(__filename);
 const [,, scriptPath, logSuffix = ''] = process.argv;
 
 if (!scriptPath) {
-	console.error('Usage: node logger.mjs <scriptPath> [logSuffix]');
+	console.error('Usage: node scripts/logger.js <scriptPath> [logSuffix]');
 	process.exit(1);
 }
 

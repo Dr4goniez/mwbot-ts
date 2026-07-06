@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import rootDir from './root-dir.mjs';
+import rootDir from './root-dir.js';
 
 // Read version from package.json
 const packageJson = resolve(rootDir, 'package.json');

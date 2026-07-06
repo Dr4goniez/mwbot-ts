@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import rootDir from './root-dir.mjs';
+import rootDir from './root-dir.js';
 
 /**
  * Empties the contents of a given directory without deleting the directory itself.
