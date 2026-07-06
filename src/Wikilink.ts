@@ -615,6 +615,27 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			this._display = typeof display === 'string' ? Title.clean(display) : null;
 		}
 
+		/**
+		 * Validates the given title as a wikilink title and returns a Title instance.
+		 * On failure, this method throws an error.
+		 *
+		 * @param title The prefixed title as a string or a Title instance to validate as a wikilink title.
+		 * @returns A Title instance. If the input title is an Title instance in itself, a clone is returned.
+		 */
+		protected static validateTitle(title: string | Title): Title {
+			// Whenever updating this method, also update FileWikilink.validateTitle
+			if (typeof title !== 'string' && !(title instanceof Title)) {
+				throw new TypeError(`Expected a string or Title instance for "title", but got ${typeof title}.`);
+			}
+			if (typeof title === 'string') {
+				// TODO: Handle "/" (subpage) and "#" (in-page section)?
+				title = new Title(title);
+			} else {
+				title = new Title(title.getPrefixedDb({ colon: true, fragment: true }));
+			}
+			return title;
+		}
+
 		getDisplay(): string {
 			if (this.hasDisplay()) {
 				return this._display as string;
@@ -639,27 +660,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		hasDisplay(): boolean {
 			return !!this._display;
-		}
-
-		/**
-		 * Validates the given title as a wikilink title and returns a Title instance.
-		 * On failure, this method throws an error.
-		 *
-		 * @param title The prefixed title as a string or a Title instance to validate as a wikilink title.
-		 * @returns A Title instance. If the input title is an Title instance in itself, a clone is returned.
-		 */
-		protected static validateTitle(title: string | Title): Title {
-			// Whenever updating this method, also update FileWikilink.validateTitle
-			if (typeof title !== 'string' && !(title instanceof Title)) {
-				throw new TypeError(`Expected a string or Title instance for "title", but got ${typeof title}.`);
-			}
-			if (typeof title === 'string') {
-				// TODO: Handle "/" (subpage) and "#" (in-page section)?
-				title = new Title(title);
-			} else {
-				title = new Title(title.getPrefixedDb({ colon: true, fragment: true }));
-			}
-			return title;
 		}
 
 		/**
@@ -874,6 +874,27 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			this._title = title;
 		}
 
+		/**
+		 * Validates the given title as a wikilink title and returns a Title instance.
+		 * On failure, this method throws an error.
+		 *
+		 * @param title The prefixed title as a string or a Title instance to validate as a wikilink title.
+		 * @returns A Title instance. If the input title is an Title instance in itself, a clone is returned.
+		 */
+		protected static validateTitle(title: string | Title): Title {
+			// Whenever updating this method, also update WikilinkBase.validateTitle
+			if (typeof title !== 'string' && !(title instanceof Title)) {
+				throw new TypeError(`Expected a string or Title instance for "title", but got ${typeof title}.`);
+			}
+			if (typeof title === 'string') {
+				// TODO: Handle "/" (subpage) and "#" (in-page section)?
+				title = new Title(title);
+			} else {
+				title = new Title(title.getPrefixedDb({ colon: true, fragment: true }));
+			}
+			return title;
+		}
+
 		setTitle(title: string | Title, verbose = false): boolean {
 			try {
 				title = FileWikilink.validateTitle(title);
@@ -915,31 +936,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			return this._stringify(this._title.getPrefixedText({ interwiki: false }), right);
 		}
 
-		override toString(): string {
-			return this.stringify();
-		}
-
-		/**
-		 * Validates the given title as a wikilink title and returns a Title instance.
-		 * On failure, this method throws an error.
-		 *
-		 * @param title The prefixed title as a string or a Title instance to validate as a wikilink title.
-		 * @returns A Title instance. If the input title is an Title instance in itself, a clone is returned.
-		 */
-		protected static validateTitle(title: string | Title): Title {
-			// Whenever updating this method, also update WikilinkBase.validateTitle
-			if (typeof title !== 'string' && !(title instanceof Title)) {
-				throw new TypeError(`Expected a string or Title instance for "title", but got ${typeof title}.`);
-			}
-			if (typeof title === 'string') {
-				// TODO: Handle "/" (subpage) and "#" (in-page section)?
-				title = new Title(title);
-			} else {
-				title = new Title(title.getPrefixedDb({ colon: true, fragment: true }));
-			}
-			return title;
-		}
-
 		/**
 		 * Internal stringification handler.
 		 *
@@ -956,6 +952,9 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			return ret.join('');
 		}
 
+		override toString(): string {
+			return this.stringify();
+		}
 	}
 
 	// Check missing members
