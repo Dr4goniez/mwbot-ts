@@ -4,7 +4,7 @@ import {
 	MwbotError,
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	type MwbotErrorData, // Only referenced in comments
-} from './MwbotError.js';
+} from '../MwbotError.js';
 
 /**
  * @private

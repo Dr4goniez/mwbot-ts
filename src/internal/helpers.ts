@@ -1,5 +1,5 @@
 import { trainCase } from 'change-case';
-import { MwbotRequestConfig } from './Mwbot.js';
+import { MwbotRequestConfig } from '../Mwbot.js';
 
 export function isNonEmptyString(value: unknown): value is string {
 	return typeof value === 'string' && !!value;

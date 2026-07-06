@@ -1,7 +1,7 @@
 import { describe, it, before, afterEach, beforeEach } from 'mocha';
 import { assert } from 'chai';
 import { Mwbot, MwbotError } from '../../dist/index.js';
-import { Logger } from '../../dist/build/Logger.js';
+import { Logger } from '../../dist/build/internal/Logger.js';
 import {
 	createApiErrorResponse,
 	createAxiosError,

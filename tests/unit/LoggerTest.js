@@ -3,7 +3,7 @@ import { assert } from 'chai';
 import sinon from 'sinon';
 import { AxiosError } from 'axios';
 
-import { Logger } from '../../dist/build/Logger.js';
+import { Logger } from '../../dist/build/internal/Logger.js';
 import { MwbotError } from '../../dist/index.js';
 
 describe('Logger', () => {

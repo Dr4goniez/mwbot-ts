@@ -29,13 +29,8 @@ typeLines.push(
 );
 
 // Read files in the build directory
-const ignoredFiles = new Set([
-	'helpers.d.ts',
-	'Logger.d.ts',
-	'phpCharMap.d.ts',
-]);
 for (const file of readdirSync(buildDir)) {
-	if (file.endsWith('.d.ts') && !ignoredFiles.has(file)) {
+	if (file.endsWith('.d.ts')) {
 		typeLines.push(`export * from './build/${file.replace(/\.d\.ts$/, '')}';`);
 	}
 }

@@ -75,14 +75,14 @@ import {
 	ApiResponseUndelete,
 	ApiResponseLoginSuccess,
 } from './api_types.js';
-import { formatType, isNonEmptyString, normalizeHeaders } from './helpers.js';
+import { formatType, isNonEmptyString, normalizeHeaders } from './internal/helpers.js';
 import {
 	MwbotError,
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	MwbotErrorCodes, // Imported only for docs
 	MwbotErrorData,
 } from './MwbotError.js';
-import { Logger, LoggerOptions } from './Logger.js';
+import { Logger, LoggerOptions } from './internal/Logger.js';
 import * as Util from './Util.js';
 const { mergeDeep, cloneDeep, isPlainObject, isObject, sleep, isEmptyObject, arraysEqual, escapeRegExp } = Util;
 import * as mwString from './String.js';

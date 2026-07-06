@@ -18,7 +18,7 @@
 
 import { IPUtil } from 'ip-wiki';
 import type { Mwbot } from './Mwbot.js';
-import { toUpperMap, toLowerMap } from './phpCharMap.js';
+import { toUpperMap, toLowerMap } from './internal/phpCharMap.js';
 import * as mwString from './String.js';
 import { MwbotError } from './MwbotError.js';
 

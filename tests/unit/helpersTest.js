@@ -1,6 +1,6 @@
 import { describe, it } from 'mocha';
 import { assert } from 'chai';
-import { formatType, isNonEmptyString, normalizeHeaders } from '../../dist/build/helpers.js';
+import { formatType, isNonEmptyString, normalizeHeaders } from '../../dist/build/internal/helpers.js';
 
 describe('Helper functions', function () {
 	describe('isNonEmptyString', function () {
