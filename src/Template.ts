@@ -567,6 +567,7 @@ export interface ParserFunctionStatic extends Omit<typeof ParamBase, 'prototype'
 	 *
 	 * @param hook The function hook. This ***must*** end with a colon character.
 	 * @param params Parameters of the parser function.
+	 * @throws {MwbotError} If hook validation fails.
 	 */
 	new(hook: string, params?: string[]): ParserFunction;
 	/**
@@ -1653,7 +1654,10 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		constructor(hook: string, params: string[] = []) {
 			const verified = ParserFunction.verify(hook);
 			if (!verified) {
-				throw new Error(`"${hook}" is not a valid function hook.`);
+				throw new MwbotError('fatal', {
+					code: 'invalidinput',
+					info: `"${hook}" is not a valid function hook.`,
+				});
 			}
 			super(params);
 			this._verifiedHook = verified;
@@ -1759,7 +1763,10 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			const { title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children } = initializer;
 			const verified = ParserFunction.verify(title);
 			if (!verified) {
-				throw new Error(`"${title}" is not a valid function hook.`);
+				throw new MwbotError('fatal', {
+					code: 'invalidinput',
+					info: `"${title}" is not a valid function hook.`,
+				});
 			}
 
 			// Separate the function hook and the first argument
@@ -1800,7 +1807,10 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 						rawTitle,
 						hook: verified.match,
 					});
-					throw new Error('Unable to parse rawTitle.');
+					throw new MwbotError('fatal', {
+						code: 'internal',
+						info: `Unable to parse a function hook from "${rawTitle}".`,
+					});
 				}
 				paramPart = rawTitle.slice(hookEnd);
 				const hook = rawTitle.slice(0, hookEnd);
