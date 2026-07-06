@@ -24,6 +24,7 @@
     "docs": "node scripts/empty-dir.mjs docs && npx typedoc --options typedoc.json",
     "update": "update-version.sh",
     "test:unit": "mocha tests/unit/*Test.js",
+    "test:unit-one": "node scripts/test-unit-one.js",
     "test:setup": "cd tests/docker && bash setup.sh",
     "test:localwiki": "mocha tests/integration/localwiki/test.js",
     "test:testwiki": "node tests/integration/testwiki/run.js"
