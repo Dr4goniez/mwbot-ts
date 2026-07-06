@@ -18,6 +18,7 @@
  * @module
  */
 
+import { isNonEmptyString } from './internal/helpers.js';
 import { ParamBase } from './internal/ParamBase.js';
 import type { Mwbot } from './Mwbot.js';
 import type { TitleStatic, Title } from './Title.js';
@@ -647,15 +648,21 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		}
 
 		setDisplay(display: string | null): this {
-			if (typeof display === 'string' && (display = Title.clean(display))) {
+			if (typeof display === 'string') {
+				display = Title.clean(display);
+			}
+
+			if (isNonEmptyString(display)) {
 				this._display = display;
 				return this;
-			} else if (display === null) {
+			}
+
+			if (display === '' || display === null) {
 				this._display = null;
 				return this;
-			} else {
-				throw new TypeError(`Expected a string or null for "display", but got ${typeof display}.`);
 			}
+
+			throw new TypeError(`Expected a string or null for "display", but got ${typeof display}.`);
 		}
 
 		hasDisplay(): boolean {
