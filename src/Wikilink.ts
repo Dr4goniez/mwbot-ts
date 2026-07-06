@@ -52,11 +52,9 @@ export interface WikilinkBaseStatic<T extends string | Title> {
  */
 export interface WikilinkBase<T extends string | Title> {
 	/**
-	 * The title of the page that the wikilink links to.
-	 *
-	 * This property is read-only. To update it, use {@link setTitle}.
+	 * Returns the title of the page that the wikilink links to.
 	 */
-	readonly title: T;
+	get title(): T;
 
 	/**
 	 * Gets the display text of the wikilink. If no display text is set,
@@ -343,11 +341,9 @@ export interface FileWikilinkStatic extends Omit<typeof ParamBase, 'prototype'> 
  */
 export interface FileWikilink extends InstanceType<typeof ParamBase> {
 	/**
-	 * The title of the file that the wikilink transcludes.
-	 *
-	 * This property is read-only. To update it, use {@link setTitle}.
+	 * Returns the title of the file that the wikilink transcludes.
 	 */
-	readonly title: Title;
+	get title(): Title;
 
 	/**
 	 * Sets a new file title to the instance.
@@ -600,7 +596,12 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 	class WikilinkBase<T extends string | Title> implements WikilinkBase<T> {
 
-		readonly title: T;
+		protected _title: T;
+
+		get title(): T {
+			return this._title;
+		}
+
 		/**
 		 * The display text of the wikilink (the part after `|`).
 		 *
@@ -610,17 +611,17 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		protected _display: string | null;
 
 		constructor(title: T, display?: string) {
-			this.title = title;
+			this._title = title;
 			this._display = typeof display === 'string' ? Title.clean(display) : null;
 		}
 
 		getDisplay(): string {
 			if (this.hasDisplay()) {
 				return this._display as string;
-			} else if (typeof this.title === 'string') {
-				return Title.clean(this.title);
+			} else if (typeof this._title === 'string') {
+				return Title.clean(this._title);
 			} else {
-				return this.title.getPrefixedText({ fragment: true });
+				return this._title.getPrefixedText({ fragment: true });
 			}
 		}
 
@@ -725,8 +726,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 				}
 				return false;
 			}
-			// @ts-expect-error FIXME: Updating readonly property
-			this.title = title;
+			this._title = title;
 			return true;
 		}
 
@@ -744,7 +744,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		stringify(options: WikilinkOutputConfig = {}): string {
 			const right = !options.suppressDisplay && this._display || undefined;
-			return this._stringify(this.title.getPrefixedText({ colon: true, fragment: true }), right);
+			return this._stringify(this._title.getPrefixedText({ colon: true, fragment: true }), right);
 		}
 
 		override toString(): string {
@@ -819,7 +819,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		override stringify(options: ParsedWikilinkOutputConfig = {}): string {
 			const { suppressDisplay, rawTitle } = options;
 			const right = !suppressDisplay && this._display || undefined;
-			let title = this.title.getPrefixedText({ colon: true, fragment: true });
+			let title = this._title.getPrefixedText({ colon: true, fragment: true });
 			if (rawTitle && this.#rawTitle.includes('\x01')) {
 				title = this.#rawTitle.replace('\x01', title);
 			}
@@ -855,7 +855,11 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		// but as parameters. This class hence extends ParamBase instead of WikilinkBase. validateTitle()
 		// and _stringify are neverthess the same as in WikilinkBase.
 
-		readonly title: Title;
+		protected _title: Title;
+
+		get title(): Title {
+			return this._title;
+		}
 
 		constructor(title: string | Title, params: string[] = []) {
 			title = FileWikilink.validateTitle(title);
@@ -867,7 +871,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 				throw new Error('The title does not belong to the File namespace.');
 			}
 			super(params);
-			this.title = title;
+			this._title = title;
 		}
 
 		setTitle(title: string | Title, verbose = false): boolean {
@@ -883,8 +887,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 				}
 				return false;
 			}
-			// @ts-expect-error FIXME: Updating readonly property
-			this.title = title;
+			this._title = title;
 			return true;
 		}
 
@@ -909,7 +912,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			const right = params.length ? params.join('|') : undefined;
 			// At this point, `title` shouldn't be interwiki and led by a colon
 			// TODO: Include the fragment?
-			return this._stringify(this.title.getPrefixedText({ interwiki: false }), right);
+			return this._stringify(this._title.getPrefixedText({ interwiki: false }), right);
 		}
 
 		override toString(): string {
@@ -1025,7 +1028,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			const right = params.length ? params.join('|') : undefined;
 			// At this point, `title` shouldn't be interwiki and led by a colon
 			// TODO: Include the fragment?
-			let title = this.title.getPrefixedText({ interwiki: false });
+			let title = this._title.getPrefixedText({ interwiki: false });
 			if (rawTitle && this.#rawTitle.includes('\x01')) {
 				title = this.#rawTitle.replace('\x01', title);
 			}
@@ -1064,8 +1067,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		setTitle(title: string): this {
 			if (typeof title === 'string') {
-				// @ts-expect-error FIXME: Updating readonly property
-				this.title = title;
+				this._title = title;
 				return this;
 			} else {
 				throw new TypeError(`Expected a string for "title", but got "${typeof title}".`);
@@ -1097,7 +1099,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		stringify(options: RawWikilinkOutputConfig = {}): string {
 			const right = !options.suppressDisplay && this._display || undefined;
-			return this._stringify(this.title, right);
+			return this._stringify(this._title, right);
 		}
 
 		override toString() {
@@ -1183,7 +1185,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		override stringify(options: ParsedRawWikilinkOutputConfig = {}): string {
 			const { suppressDisplay, rawTitle } = options;
 			const right = !suppressDisplay && this._display || undefined;
-			let title = this.title;
+			let title = this._title;
 			if (rawTitle && this.#rawTitle.includes('\x01')) {
 				title = this.#rawTitle.replace('\x01', title);
 			}
