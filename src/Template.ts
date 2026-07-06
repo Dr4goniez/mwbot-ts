@@ -579,7 +579,8 @@ export interface ParserFunctionStatic extends Omit<typeof ParamBase, 'prototype'
 	 * ```
 	 *
 	 * @param hook A potential parser function hook as a string. This **must** end with a colon character.
-	 * @returns An object representing the canonical function hook and the matched function hook, or `null`.
+	 * @returns An object containing the canonical function hook and the exact matched function hook,
+	 * or `null` if the hook is invalid.
 	 */
 	verify(hook: string): VerifiedFunctionHook | null;
 }
@@ -590,7 +591,9 @@ export interface ParserFunctionStatic extends Omit<typeof ParamBase, 'prototype'
  */
 export interface ParserFunction extends InstanceType<typeof ParamBase> {
 	/**
-	 * Returns the parser function hook, including a trailing colon.
+	 * Returns the matched parser function hook, including a trailing colon.
+	 *
+	 * Unlike {@link canonicalHook}, this preserves the matched text.
 	 */
 	get hook(): string;
 	/**
@@ -2130,7 +2133,10 @@ export interface VerifiedFunctionHook {
 	 */
 	canonical: string;
 	/**
-	 * The matched name of the parser function, including the trailing colon.
+	 * The exact function hook matched from the input, including the trailing colon.
+	 *
+	 * Unlike {@link canonical}, this preserves the matched text instead of
+	 * normalizing it to the canonical function hook.
 	 */
 	match: string;
 }
