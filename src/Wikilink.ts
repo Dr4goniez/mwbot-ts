@@ -18,7 +18,7 @@
  * @module
  */
 
-import { ParamBase } from './baseClasses.js';
+import { ParamBase } from './ParamBase.js';
 import type { Mwbot } from './Mwbot.js';
 import type { TitleStatic, Title } from './Title.js';
 

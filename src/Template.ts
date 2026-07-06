@@ -21,7 +21,7 @@ import { XOR } from 'ts-essentials';
 import type { Mwbot } from './Mwbot.js';
 import { escapeRegExp, isPlainObject, cloneDeep } from './Util.js';
 import type { TitleStatic, Title } from './Title.js';
-import { ParamBase } from './baseClasses.js';
+import { ParamBase } from './ParamBase.js';
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
