@@ -22,7 +22,7 @@
     "version": "node scripts/generate-version.js",
     "build": "npm run version && node scripts/empty-dir.js dist/build && tsc -p . && node scripts/generate-index.js",
     "docs": "node scripts/empty-dir.js docs && npx typedoc --options typedoc.json",
-    "update": "update-version.sh",
+    "update": "scripts/update-version.sh",
     "test:unit": "mocha tests/unit/*Test.js",
     "test:unit-one": "node scripts/test-unit-one.js",
     "test:setup": "cd tests/docker && bash setup.sh",
