@@ -1949,7 +1949,7 @@ export interface TemplateParameter {
 	 *
 	 * For unnamed parameters, the key is not rendered.
 	 */
-	readonly text: string;
+	get text(): string;
 	/**
 	 * Whether the parameter is unnamed.
 	 */
