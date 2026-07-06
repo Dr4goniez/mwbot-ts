@@ -15,8 +15,8 @@ export abstract class ParamBase {
 	 *
 	 * @param params Parameters of the instance.
 	 */
-	constructor(params: string[] = []) {
-		this.params = params.slice();
+	constructor(params?: string[]) {
+		this.params = params ? params.slice() : [];
 	}
 
 	/**
@@ -38,24 +38,31 @@ export abstract class ParamBase {
 	 * @param options Options to set the new parameter.
 	 * @returns A boolean indicating whether the new parameter has been set.
 	 */
-	setParam(param: string, index: number, options: {
-		/**
-		 * Whether to overwrite existing parameters. If `false`, the new parameter is not registered
-		 * if there is an existing parameter at the specified index. (Default: `true`)
-		 */
-		overwrite?: boolean;
-		/**
-		 * Whether to set the parameter only if a parameter is already set at the specified index.
-		 */
-		ifexist?: boolean;
-	} = {}): boolean {
+	setParam(
+		param: string,
+		index: number,
+		options: {
+			/**
+			 * Whether to overwrite existing parameters. If `false`, the new parameter is not registered
+			 * if there is an existing parameter at the specified index. (Default: `true`)
+			 */
+			overwrite?: boolean;
+			/**
+			 * Whether to set the parameter only if a parameter is already set at the specified index.
+			 */
+			ifexist?: boolean;
+		} = {}
+	): boolean {
 		const { overwrite = true, ifexist = false } = options;
-		if (
-			typeof this.params[index] !== 'string' && !ifexist ||
-			typeof this.params[index] === 'string' && !overwrite
-		) {
+
+		const exists = typeof this.params[index] === 'string';
+		if (!exists && ifexist) {
 			return false;
 		}
+		if (exists && !overwrite) {
+			return false;
+		}
+
 		this.params[index] = param;
 		return true;
 	}
@@ -67,7 +74,7 @@ export abstract class ParamBase {
 	 * @returns The parameter value, or `null` if no value is found at the specified index.
 	 */
 	getParam(index: number): string | null {
-		return this.params[index] === 'string' ? this.params[index] : null;
+		return this.params[index] ?? null;
 	}
 
 	/**
@@ -126,5 +133,4 @@ export abstract class ParamBase {
 		}
 		return true;
 	}
-
 }
