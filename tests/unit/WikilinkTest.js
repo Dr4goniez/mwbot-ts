@@ -646,4 +646,174 @@ describe('Mwbot.Wikilink', function () {
 			});
 		});
 	});
+
+	describe('RawWikilink', function () {
+		describe('constructor()', function () {
+			it('should create an instance', function () {
+				const raw = new mwbot.RawWikilink('{{{1}}}', 'Foo');
+
+				assert.strictEqual(raw.title, '{{{1}}}');
+				assert.strictEqual(raw.getDisplay(), 'Foo');
+			});
+
+			it('should trim the display text', function () {
+				const raw = new mwbot.RawWikilink('{{{1}}}', '  Foo  ');
+
+				assert.strictEqual(raw.getDisplay(), 'Foo');
+			});
+
+			it('should accept an empty title', function () {
+				const raw = new mwbot.RawWikilink('');
+
+				assert.strictEqual(raw.title, '');
+			});
+		});
+
+		describe('setTitle()', function () {
+			it('should set a new title', function () {
+				const raw = new mwbot.RawWikilink('Foo');
+
+				assert.strictEqual(
+					raw.setTitle('{{{2}}}'),
+					raw
+				);
+				assert.strictEqual(raw.title, '{{{2}}}');
+			});
+
+			it('should accept an empty title', function () {
+				const raw = new mwbot.RawWikilink('Foo');
+
+				raw.setTitle('');
+
+				assert.strictEqual(raw.title, '');
+			});
+
+			it('should reject invalid input types', function () {
+				const raw = new mwbot.RawWikilink('Foo');
+
+				assertThrowsMwbotError(
+					// @ts-expect-error - Passing a number
+					() => raw.setTitle(123),
+					'typemismatch'
+				);
+			});
+		});
+
+		describe('toWikilink()', function () {
+			it('should create a Wikilink', function () {
+				const raw = new mwbot.RawWikilink('{{{1}}}', 'Bar');
+
+				const lnk = raw.toWikilink('Foo');
+
+				assert.instanceOf(lnk, mwbot.Wikilink);
+				assert.strictEqual(lnk.title.getPrefixedDb(), 'Foo');
+				assert.strictEqual(lnk.getDisplay(), 'Bar');
+			});
+
+			it('should omit the display text when none exists', function () {
+				const raw = new mwbot.RawWikilink('{{{1}}}');
+
+				const lnk = raw.toWikilink('Foo');
+
+				assert.instanceOf(lnk, mwbot.Wikilink);
+				assert.isFalse(lnk.hasDisplay());
+			});
+
+			it('should return null on failure', function () {
+				const raw = new mwbot.RawWikilink('{{{1}}}');
+
+				assert.isNull(raw.toWikilink(''));
+			});
+
+			it('should log the error when verbose is true', function () {
+				const spy = sinon.stub(console, 'error');
+				const raw = new mwbot.RawWikilink('{{{1}}}');
+
+				assert.isNull(raw.toWikilink('', true));
+				sinon.assert.calledOnce(spy);
+
+				sinon.restore();
+			});
+		});
+
+		describe('toFileWikilink()', function () {
+			it('should create a FileWikilink', function () {
+				const raw = new mwbot.RawWikilink('{{{1}}}', 'thumb');
+
+				const file = raw.toFileWikilink('File:Foo');
+
+				assert.instanceOf(file, mwbot.FileWikilink);
+				assert.strictEqual(
+					file.title.getPrefixedDb(),
+					'File:Foo'
+				);
+				assert.strictEqual(file.getParam(0), 'thumb');
+			});
+
+			it('should omit parameters when no display text exists', function () {
+				const raw = new mwbot.RawWikilink('{{{1}}}');
+
+				const file = raw.toFileWikilink('File:Foo');
+
+				assert.instanceOf(file, mwbot.FileWikilink);
+				assert.deepEqual(file.params, []);
+			});
+
+			it('should return null on failure', function () {
+				const raw = new mwbot.RawWikilink('{{{1}}}');
+
+				assert.isNull(raw.toFileWikilink(''));
+			});
+
+			it('should log the error when verbose is true', function () {
+				const spy = sinon.stub(console, 'error');
+				const raw = new mwbot.RawWikilink('{{{1}}}');
+
+				assert.isNull(raw.toFileWikilink('', true));
+				sinon.assert.calledOnce(spy);
+
+				sinon.restore();
+			});
+		});
+
+		describe('stringify()', function () {
+			it('should stringify a raw wikilink without a display text', function () {
+				const raw = new mwbot.RawWikilink('{{{1}}}');
+
+				assert.strictEqual(
+					raw.stringify(),
+					'[[{{{1}}}]]'
+				);
+			});
+
+			it('should stringify a raw wikilink with a display text', function () {
+				const raw = new mwbot.RawWikilink('{{{1}}}', 'Foo');
+
+				assert.strictEqual(
+					raw.stringify(),
+					'[[{{{1}}}|Foo]]'
+				);
+			});
+
+			it('should suppress the display text when requested', function () {
+				const raw = new mwbot.RawWikilink('{{{1}}}', 'Foo');
+
+				assert.strictEqual(
+					raw.stringify({ suppressDisplay: true }),
+					'[[{{{1}}}]]'
+				);
+			});
+		});
+
+		describe('toString()', function () {
+			it('should return the same result as stringify()', function () {
+				const raw = new mwbot.RawWikilink('{{{1}}}', 'Foo');
+
+				assert.strictEqual(
+					raw.toString(),
+					raw.stringify()
+				);
+			});
+		});
+	});
 });

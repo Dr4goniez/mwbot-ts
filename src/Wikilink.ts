@@ -450,10 +450,11 @@ export interface ParsedFileWikilink extends FileWikilink, ParsedWikilinkProps<Pa
  * This interface defines the static members of the `RawWikilink` class. For instance members,
  * see {@link RawWikilink} (defined separately due to TypeScript limitations).
  *
- * `RawWikilink` is a class that serves to parse `[[wikilink]]` markups with an **invalid** title into an object structure,
- * which is accessible via {@link Mwbot.RawWikilink}. Note that wikilinks with a valid non-file title
- * are treated differently by the {@link WikilinkStatic | Wikilink} class, and those
- * with a valid file title by the {@link FileWikilinkStatic | FileWikilink} class.
+ * `RawWikilink` is a class that serves to parse `[[wikilink]]` markups with an **invalid** title into
+ * an object structure, which is accessible via {@link Mwbot.RawWikilink}.
+ *
+ * Note that wikilinks with a valid non-file title are treated differently by the {@link WikilinkStatic | Wikilink}
+ * class, and those with a valid file title by the {@link FileWikilinkStatic | FileWikilink} class.
  */
 export interface RawWikilinkStatic extends Omit<WikilinkBaseStatic<string>, 'new'> {
 	/**
@@ -1008,7 +1009,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			}
 			return this;
 		}
-
 	}
 
 	// Check missing members
@@ -1065,7 +1065,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		override toString() {
 			return this.stringify();
 		}
-
 	}
 
 	// Check missing members
@@ -1168,7 +1167,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			}
 			return this;
 		}
-
 	}
 
 	// Check missing members
@@ -1184,7 +1182,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		RawWikilink: RawWikilink as RawWikilinkStatic,
 		ParsedRawWikilink: ParsedRawWikilink as ParsedRawWikilinkStatic,
 	};
-
 }
 
 /**
