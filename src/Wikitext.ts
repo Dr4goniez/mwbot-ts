@@ -95,6 +95,7 @@ import type {
 	ParsedFileWikilinkInitializer,
 	ParsedRawWikilinkInitializer,
 } from './Wikilink.js';
+import { formatType } from './internal/helpers.js';
 
 /**
  * @expand
@@ -528,7 +529,7 @@ export function WikitextFactory(
 			if (typeof content !== 'string') {
 				throw new MwbotError('fatal', {
 					code: 'typemismatch',
-					info: `"${typeof content}" is not a valid type for Wikitext.constructor.`,
+					info: `Expected a string for "content", but got "${formatType(content)}".`,
 				});
 			}
 
@@ -625,7 +626,10 @@ export function WikitextFactory(
 				if (key === 'content') {
 					return val;
 				} else if (!Array.isArray(val)) {
-					throw new TypeError(`Expected an array for storage["${key}"], but got ${typeof val}.`);
+					throw new MwbotError('fatal', {
+						code: 'internal',
+						info: `Expected an array for storage["${key}"], but got ${formatType(val)}.`,
+					});
 				}
 				this.storage[key] = val; // Save
 				return clone ? val.map((obj) => cloneDeep(obj, CLONE_INSTANCE_CONFIG)) : val;
@@ -634,7 +638,10 @@ export function WikitextFactory(
 			// If setting a value
 			if (key === 'content') {
 				if (typeof valueOrClone !== 'string') {
-					throw new TypeError(`Expected a string for storage.content, but got ${typeof valueOrClone}.`);
+					throw new MwbotError('fatal', {
+						code: 'internal',
+						info: `Expected a string for storage.content, but got ${formatType(valueOrClone)}.`,
+					});
 				}
 				// Content update should reset parsing results
 				this.storage = {
@@ -650,7 +657,10 @@ export function WikitextFactory(
 				// Set the passed array
 				this.storage[key] = valueOrClone;
 			} else {
-				throw new ReferenceError(`Invalid key: ${key}.`);
+				throw new MwbotError('fatal', {
+					code: 'internal',
+					info: `Invalid key: ${key}.`,
+				});
 			}
 			return this;
 
@@ -660,17 +670,17 @@ export function WikitextFactory(
 			type: K,
 			modificationPredicate: ModificationPredicate<ModificationMap[K]>
 		): string {
-
-			// Validate the arguments
+			// Validate arguments
 			if (typeof type !== 'string' || !['tags', 'parameters', 'sections', 'templates', 'wikilinks'].includes(type)) {
 				throw new MwbotError('fatal', {
-					code: 'invalidtype',
+					code: 'invalidinput',
 					info: `"${type}" is not a valid expression type for Wikitext.modify.`,
 				});
-			} else if (typeof modificationPredicate !== 'function') {
+			}
+			if (typeof modificationPredicate !== 'function') {
 				throw new MwbotError('fatal', {
 					code: 'typemismatch',
-					info: 'modificationPredicate must be a function.',
+					info: `Expected a function for "modificationPredicate", but got ${formatType(modificationPredicate)}.`,
 				});
 			}
 
@@ -683,10 +693,14 @@ export function WikitextFactory(
 				// Expose the cloned objects to the user to prevent mutation
 				const mod = modificationPredicate(clonedMarkups[i], i, clonedMarkups, { touched: touched.has(i), content: newContent });
 				if (typeof mod !== 'string' && mod !== null) {
-					throw new MwbotError('fatal', {
-						code: 'typemismatch',
-						info: 'modificationPredicate must return either a string or null.',
-					}, { modified: { [i]: mod } });
+					throw new MwbotError(
+						'fatal',
+						{
+							code: 'typemismatch',
+							info: 'modificationPredicate must return either a string or null.',
+						},
+						{ modified: { [i]: mod } }
+					);
 				}
 
 				if (typeof mod === 'string') {
@@ -1229,13 +1243,13 @@ export function WikitextFactory(
 			if (typeof startIndex !== 'number') {
 				throw new MwbotError('fatal', {
 					code: 'typemismatch',
-					info: `Expected a number for "startIndex", but got ${typeof startIndex}.`,
+					info: `Expected a number for "startIndex", but got ${formatType(startIndex)}.`,
 				});
 			}
 			if (typeof endIndex !== 'number') {
 				throw new MwbotError('fatal', {
 					code: 'typemismatch',
-					info: `Expected a number for "endIndex", but got ${typeof endIndex}.`,
+					info: `Expected a number for "endIndex", but got ${formatType(endIndex)}.`,
 				});
 			}
 			const sections = this.storageManager('sections');
