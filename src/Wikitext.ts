@@ -63,10 +63,14 @@ import { CloneConfig, cloneDeep } from './Util.js';
 import { byteLength } from './String.js';
 import type { Title } from './Title.js';
 import type {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	TemplateStatic,
 	ParsedTemplateStatic,
 	ParsedTemplate,
 	RawTemplateStatic,
 	RawTemplate,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	ParserFunctionStatic,
 	ParsedParserFunctionStatic,
 	ParsedParserFunction,
 	NewTemplateParameter,
@@ -75,22 +79,22 @@ import type {
 	ParsedTemplateInitializer,
 } from './Template.js';
 import type {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	WikilinkStatic,
 	ParsedWikilinkStatic,
 	ParsedWikilink,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	FileWikilinkStatic,
 	ParsedFileWikilinkStatic,
 	ParsedFileWikilink,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	RawWikilinkStatic,
 	ParsedRawWikilinkStatic,
 	ParsedRawWikilink,
-	ParsedFileWikilinkInitializer,
 	ParsedWikilinkInitializer,
+	ParsedFileWikilinkInitializer,
 	ParsedRawWikilinkInitializer,
 } from './Wikilink.js';
-
-// Imported only for docs
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { TemplateStatic, ParserFunctionStatic } from './Template.js';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { WikilinkStatic, FileWikilinkStatic, RawWikilinkStatic } from './Wikilink.js';
 
 /**
  * @expand
@@ -521,13 +525,13 @@ export function WikitextFactory(
 		};
 
 		constructor(content: string) {
-
 			if (typeof content !== 'string') {
 				throw new MwbotError('fatal', {
 					code: 'typemismatch',
 					info: `"${typeof content}" is not a valid type for Wikitext.constructor.`,
 				});
 			}
+
 			this.storage = {
 				content,
 				tags: null,
@@ -537,14 +541,13 @@ export function WikitextFactory(
 				templates: null,
 				wikilinks: null,
 			};
-
 		}
 
 		static new(content: string): Wikitext {
 			return new Wikitext(content);
 		}
 
-		static async newFromTitle(title: string | Title, requestOptions: MwbotRequestConfig = {}): Promise<Wikitext> {
+		static async newFromTitle(title: string | Title, requestOptions?: MwbotRequestConfig): Promise<Wikitext> {
 			const rev = await mwbot.read(title, requestOptions);
 			return new Wikitext(rev.content);
 		}
@@ -578,6 +581,7 @@ export function WikitextFactory(
 		 *
 		 * @param key The storage key to retrieve.
 		 * @param clone Whether to return a deep copy of the value (default: `true`).
+		 * @param args Arguments to pass to the relevant parser method.
 		 * @returns The stored or parsed value.
 		 */
 		private storageManager<K extends keyof typeof this.storage>(
@@ -678,13 +682,13 @@ export function WikitextFactory(
 
 				// Expose the cloned objects to the user to prevent mutation
 				const mod = modificationPredicate(clonedMarkups[i], i, clonedMarkups, { touched: touched.has(i), content: newContent });
-
 				if (typeof mod !== 'string' && mod !== null) {
 					throw new MwbotError('fatal', {
 						code: 'typemismatch',
 						info: 'modificationPredicate must return either a string or null.',
 					}, { modified: { [i]: mod } });
 				}
+
 				if (typeof mod === 'string') {
 					const initialEndIndex = expr.endIndex;
 					const leadingPart = newContent.slice(0, expr.startIndex);
@@ -719,12 +723,10 @@ export function WikitextFactory(
 						}
 					}
 				}
-
 			});
 
 			// Update stored content and return result
 			return this.storageManager('content', newContent).content;
-
 		}
 
 		/**
@@ -882,7 +884,6 @@ export function WikitextFactory(
 					}
 
 					i += m[0].length - 1;
-
 				}
 			}
 
@@ -922,7 +923,6 @@ export function WikitextFactory(
 				setKinships(tag, arr);
 				return tag;
 			});
-
 		}
 
 		parseTags(config: ParseTagsConfig = {}): Tag[] {
@@ -971,7 +971,6 @@ export function WikitextFactory(
 			return (startIndex: number, endIndex: number) => {
 				return indexMap.some(([skipStartIndex, skipEndIndex]) => skipStartIndex < startIndex && endIndex < skipEndIndex);
 			};
-
 		}
 
 		/**
@@ -1199,7 +1198,6 @@ export function WikitextFactory(
 			}
 
 			return sections;
-
 		}
 
 		parseSections(config: ParseSectionsConfig = {}): Section[] {
@@ -1356,7 +1354,6 @@ export function WikitextFactory(
 				setKinships(obj, params);
 			}
 			return params;
-
 		}
 
 		parseParameters(config: ParseParametersConfig = {}): Parameter[] {
@@ -1456,7 +1453,6 @@ export function WikitextFactory(
 			}
 
 			return indexMap;
-
 		}
 
 		/**
@@ -1600,7 +1596,6 @@ export function WikitextFactory(
 			}
 
 			return links.sort((obj1, obj2) => obj1.startIndex - obj2.startIndex);
-
 		}
 
 		/**
@@ -1788,12 +1783,10 @@ export function WikitextFactory(
 					}
 					processTemplateFragment(components, fragment);
 				}
-
 			}
 
 			// <gallery> tags might contain pipe characters and can cause inaccuracy in the parsing results
 			do { // Just creating a block to prevent deep nests
-
 				if (!checkGallery) {
 					break;
 				}
@@ -1878,7 +1871,6 @@ export function WikitextFactory(
 						templates[i] = temp._clone(options);
 					}
 				}
-
 			// eslint-disable-next-line no-constant-condition
 			} while (false); // Always get out of the loop automatically
 
@@ -1894,7 +1886,6 @@ export function WikitextFactory(
 			}
 
 			return templates;
-
 		}
 
 		parseTemplates(config: ParseTemplatesConfig = {}): DoubleBracedClasses[] {
@@ -2047,11 +2038,9 @@ export function WikitextFactory(
 		): string | Promise<string> {
 			return this.modify('wikilinks', modificationPredicate);
 		}
-
 	}
 
 	return Wikitext as WikitextStatic;
-
 }
 
 // Interfaces for constructor and the entire module
@@ -2737,7 +2726,6 @@ function processTemplateFragment(components: Required<NewTemplateParameter>[], f
 		}
 		components[i].value += fragment;
 	}
-
 }
 
 // Interfaces and private members for "parseWikilinks"
