@@ -238,8 +238,6 @@ export interface MwbotErrorCodes {
 		fieldmismatch: 'API parameters passed to massRequest() or continuedRequest() involve unmatching multi-value fields.';
 		// Used in Mwbot.continuedRequest
 		invalidlimit: 'The "limit" argument for continuedRequest() is invalid.';
-		// Used in Wikitext.modify
-		invalidtype: 'Wikitext.modify does not support this expression type.';
 		// Used in Title
 		unparsabletitle: 'The title string passed to Title.constructor cannot be parsed.';
 	};
