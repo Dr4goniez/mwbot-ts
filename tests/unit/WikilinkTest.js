@@ -1,7 +1,8 @@
-import { describe, it, before, beforeEach } from 'mocha';
+import { describe, it, before } from 'mocha';
 import { assert } from 'chai';
 import * as sinon from 'sinon';
 import { assertThrowsMwbotError, getTestMwbot } from './MwbotTest-fixtures.js';
+import { serializeWikilink, validateWikilinkTitle } from '../../dist/build/internal/wikilinkHelpers.js';
 
 describe('Mwbot.Wikilink', function () {
 	/**
@@ -13,23 +14,10 @@ describe('Mwbot.Wikilink', function () {
 		mwbot = await getTestMwbot('named');
 	});
 
-	describe('WikilinkBase', function () {
-		describe('validateTitle()', function () {
-			/**
-			 * @typedef {import('../../dist/index.js').Title} Title
-			 */
-			/**
-			 * @type {(title: string | Title) => Title}
-			 */
-			let validateTitle;
-
-			beforeEach(function () {
-				// @ts-expect-error - Testing a protected method
-				validateTitle = mwbot.Wikilink.validateTitle.bind(mwbot.Wikilink);
-			});
-
+	describe('Helper functions', function () {
+		describe('validateWikilinkTitle()', function () {
 			it('should return a Title from a string', function () {
-				const title = validateTitle('Foo');
+				const title = validateWikilinkTitle('Foo', mwbot.Title);
 
 				assert.instanceOf(title, mwbot.Title);
 				assert.strictEqual(title.getMain(), 'Foo');
@@ -37,14 +25,14 @@ describe('Mwbot.Wikilink', function () {
 
 			it('should reject an empty string', function () {
 				assertThrowsMwbotError(
-					() => validateTitle(''),
+					() => validateWikilinkTitle('', mwbot.Title),
 					'unparsabletitle'
 				);
 			});
 
 			it('should clone a Title instance', function () {
 				const input = new mwbot.Title('Foo');
-				const output = validateTitle(input);
+				const output = validateWikilinkTitle(input, mwbot.Title);
 
 				assert.notStrictEqual(output, input);
 				assert.strictEqual(
@@ -56,12 +44,37 @@ describe('Mwbot.Wikilink', function () {
 			it('should reject invalid input types', function () {
 				assertThrowsMwbotError(
 					// @ts-expect-error - Passing a number
-					() => validateTitle(123),
+					() => validateWikilinkTitle(123, mwbot.Title),
 					'typemismatch'
 				);
 			});
 		});
 
+		describe('serializeWikilink()', function () {
+			it('should serialize a wikilink without a right part', function () {
+				assert.strictEqual(
+					serializeWikilink('Foo'),
+					'[[Foo]]'
+				);
+			});
+
+			it('should serialize a wikilink with a right part', function () {
+				assert.strictEqual(
+					serializeWikilink('Foo', 'Bar'),
+					'[[Foo|Bar]]'
+				);
+			});
+
+			it('should ignore an empty right part', function () {
+				assert.strictEqual(
+					serializeWikilink('Foo', ''),
+					'[[Foo]]'
+				);
+			});
+		});
+	});
+
+	describe('WikilinkBase', function () {
 		describe('getDisplay()', function () {
 			it('should return the internal display text', function () {
 				const display = 'Bar';

@@ -20,6 +20,7 @@
 
 import { formatType, isNonEmptyString } from './internal/helpers.js';
 import { ParamBase } from './internal/ParamBase.js';
+import { serializeWikilink, validateWikilinkTitle } from './internal/wikilinkHelpers.js';
 import type { Mwbot } from './Mwbot.js';
 import { MwbotError } from './MwbotError.js';
 import type { TitleStatic, Title } from './Title.js';
@@ -620,35 +621,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			this._display = isNonEmptyString(display) ? display : null;
 		}
 
-		/**
-		 * Validates the given title as a wikilink title and returns a Title instance.
-		 * On failure, this method throws an error.
-		 *
-		 * @param title The title as a string or a Title instance to validate as a wikilink title.
-		 * @returns A Title instance. If the input title is a Title instance in itself, a clone is returned.
-		 * @throws {MwbotError} If:
-		 * * `title` is neither a string nor a Title instance. (`typemismatch`)
-		 */
-		protected static validateTitle(title: string | Title): Title {
-			// Whenever updating this method, also update FileWikilink.validateTitle
-			if (typeof title === 'string') {
-				// TODO: Handle "/" (subpage) and "#" (in-page section)?
-				title = new Title(title);
-			} else if (title instanceof Title) {
-				title = title._clone(new WeakMap());
-			} else {
-				throw new MwbotError(
-					'fatal',
-					{
-						code: 'typemismatch',
-						info: `"title" must be either a string or a Title instance.`,
-					},
-					{ title }
-				);
-			}
-			return title;
-		}
-
 		getDisplay(): string {
 			if (this._display) {
 				return this._display;
@@ -683,23 +655,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		hasDisplay(): boolean {
 			return !!this._display;
 		}
-
-		/**
-		 * Internal stringification handler.
-		 *
-		 * @param left The left part of the wikilink.
-		 * @param right The right part of the wikilink.
-		 * @returns
-		 */
-		protected _stringify(left: string, right?: string): string {
-			// Whenever updating this method, also update FileWikilink._stringify
-			const ret = ['[[', left];
-			if (typeof right === 'string') {
-				ret.push(`|${right}`);
-			}
-			ret.push(']]');
-			return ret.join('');
-		}
 	}
 
 	// Check missing members
@@ -708,7 +663,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 	class Wikilink extends WikilinkBase<Title> implements Wikilink {
 
 		constructor(title: string | Title, display?: string) {
-			title = Wikilink.validateTitle(title);
+			title = validateWikilinkTitle(title, Title);
 			Wikilink.dieIfFileTitle(title);
 			super(title, display);
 		}
@@ -750,7 +705,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		setTitle(title: string | Title, verbose = false): boolean {
 			try {
-				title = Wikilink.validateTitle(title);
+				title = validateWikilinkTitle(title, Title);
 				Wikilink.dieIfFileTitle(title);
 			} catch (err) {
 				if (verbose) {
@@ -764,7 +719,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		toFileWikilink(title: string | Title, verbose = false): FileWikilink | null {
 			try {
-				title = Wikilink.validateTitle(title);
+				title = validateWikilinkTitle(title, Title);
 				return new FileWikilink(title, this._display ? [this._display] : []);
 			} catch (err) {
 				if (verbose) {
@@ -778,7 +733,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			const right = options.suppressDisplay
 				? undefined
 				: this._display || undefined;
-			return this._stringify(this._title.getPrefixedText({ colon: true, fragment: true }), right);
+			return serializeWikilink(this._title.getPrefixedText({ colon: true, fragment: true }), right);
 		}
 
 		override toString(): string {
@@ -831,7 +786,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			// ParsedWikilinkInitializer has a `display` property but ParsedFileWikilinkInitializer doesn't
 			// and instead has an optional `params` property
 			try {
-				title = Wikilink.validateTitle(title);
+				title = validateWikilinkTitle(title, Title);
 				const { display: _display, ...initializer } = this.#initializer;
 				initializer.title = title;
 				if (this._display) {
@@ -856,7 +811,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			if (rawTitle && this.#rawTitle.includes('\x01')) {
 				title = this.#rawTitle.replace('\x01', title);
 			}
-			return this._stringify(title, right);
+			return serializeWikilink(title, right);
 		}
 
 		override toString(): string {
@@ -875,7 +830,6 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			}
 			return this;
 		}
-
 	}
 
 	// Check missing members
@@ -885,8 +839,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 	class FileWikilink extends ParamBase implements FileWikilink {
 		// Unlike Wikilink and RawWikilink, the right part of file links doesn't work as their display text
-		// but as parameters. This class hence extends ParamBase instead of WikilinkBase. validateTitle()
-		// and _stringify are neverthess the same as in WikilinkBase.
+		// but as parameters. This class hence extends ParamBase instead of WikilinkBase.
 
 		protected _title: Title;
 
@@ -895,39 +848,10 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		}
 
 		constructor(title: string | Title, params: string[] = []) {
-			title = FileWikilink.validateTitle(title);
+			title = validateWikilinkTitle(title, Title);
 			FileWikilink.dieIfNotFileTitle(title);
 			super(params);
 			this._title = title;
-		}
-
-		/**
-		 * Validates the given title as a **file** wikilink title and returns a Title instance.
-		 * On failure, this method throws an error.
-		 *
-		 * @param title The title as a string or a Title instance to validate as a **file** wikilink title.
-		 * @returns A Title instance. If the input title is a Title instance in itself, a clone is returned.
-		 * @throws {MwbotError} If:
-		 * * `title` is neither a string nor a Title instance. (`typemismatch`)
-		 */
-		protected static validateTitle(title: string | Title): Title {
-			// Whenever updating this method, also update WikilinkBase.validateTitle
-			if (typeof title === 'string') {
-				// TODO: Handle "/" (subpage) and "#" (in-page section)?
-				title = new Title(title);
-			} else if (title instanceof Title) {
-				title = title._clone(new WeakMap());
-			} else {
-				throw new MwbotError(
-					'fatal',
-					{
-						code: 'typemismatch',
-						info: `"title" must be either a string or a Title instance.`,
-					},
-					{ title }
-				);
-			}
-			return title;
 		}
 
 		protected static dieIfNotFileTitle(title: Title): void {
@@ -950,7 +874,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		setTitle(title: string | Title, verbose = false): boolean {
 			try {
-				title = FileWikilink.validateTitle(title);
+				title = validateWikilinkTitle(title, Title);
 				FileWikilink.dieIfNotFileTitle(title);
 			} catch (err) {
 				if (verbose) {
@@ -964,8 +888,8 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		toWikilink(title: string | Title, verbose = false): Wikilink | null {
 			try {
-				const display = this.params.length ? this.params.join('|') : undefined;
-				return new Wikilink(title, display);
+				const serializedParams = this.params.length ? this.params.join('|') : undefined;
+				return new Wikilink(title, serializedParams);
 			} catch (err) {
 				if (verbose) {
 					console.error(err);
@@ -981,25 +905,9 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 				params.sort(sortPredicate);
 			}
 			const right = params.length ? params.join('|') : undefined;
-			// At this point, `title` shouldn't be interwiki and led by a colon
+			// At this point, `title` shouldn't be interwiki or led by a colon
 			// TODO: Include the fragment?
-			return this._stringify(this._title.getPrefixedText({ interwiki: false }), right);
-		}
-
-		/**
-		 * Internal stringification handler.
-		 *
-		 * @param left The left part of the wikilink.
-		 * @param right The right part of the wikilink.
-		 */
-		protected _stringify(left: string, right?: string): string {
-			// Whenever updating this method, also update WikilinkBase._stringify
-			const ret = ['[[', left];
-			if (typeof right === 'string') {
-				ret.push(`|${right}`);
-			}
-			ret.push(']]');
-			return ret.join('');
+			return serializeWikilink(this._title.getPrefixedText({ interwiki: false }), right);
 		}
 
 		override toString(): string {
@@ -1052,7 +960,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			// ParsedFileWikilinkInitializer has a `params` property but ParsedWikilinkInitializer doesn't,
 			// and has an additional `display` property (which is optional)
 			try {
-				title = FileWikilink.validateTitle(title);
+				title = validateWikilinkTitle(title, Title);
 				const { params: _params, ...initializer } = this.#initializer;
 				initializer.title = title;
 				if (this.params.length) {
@@ -1081,7 +989,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			if (rawTitle && this.#rawTitle.includes('\x01')) {
 				title = this.#rawTitle.replace('\x01', title);
 			}
-			return this._stringify(title, right);
+			return serializeWikilink(title, right);
 		}
 
 		override toString() {
@@ -1151,7 +1059,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 
 		stringify(options: RawWikilinkOutputConfig = {}): string {
 			const right = !options.suppressDisplay && this._display || undefined;
-			return this._stringify(this._title, right);
+			return serializeWikilink(this._title, right);
 		}
 
 		override toString() {
@@ -1206,7 +1114,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			try {
 				const { title: _title, ...initializerBase } = this.#initializer;
 				const initializer = initializerBase as ParsedWikilinkInitializer;
-				initializer.title = ParsedWikilink.validateTitle(title); // Set the missing property
+				initializer.title = validateWikilinkTitle(title, Title); // Set the missing property
 				initializer.display = this._display || undefined; // Update the property
 				return new ParsedWikilink(initializer);
 			} catch (err) {
@@ -1223,7 +1131,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			try {
 				const { title: _title, display: _display, ...initializerBase } = this.#initializer;
 				const initializer = initializerBase as ParsedFileWikilinkInitializer;
-				initializer.title = ParsedWikilink.validateTitle(title); // Set the missing property
+				initializer.title = validateWikilinkTitle(title, Title); // Set the missing property
 				initializer.params = typeof this._display === 'string' ? [this._display] : []; // Set the missing property
 				return new ParsedFileWikilink(initializer);
 			} catch (err) {
@@ -1241,7 +1149,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 			if (rawTitle && this.#rawTitle.includes('\x01')) {
 				title = this.#rawTitle.replace('\x01', title);
 			}
-			return this._stringify(title, right);
+			return serializeWikilink(title, right);
 		}
 
 		override toString() {
