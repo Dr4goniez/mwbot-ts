@@ -406,4 +406,244 @@ describe('Mwbot.Wikilink', function () {
 			});
 		});
 	});
+
+	describe('FileWikilink', function () {
+		describe('constructor()', function () {
+			it('should create an instance from a string', function () {
+				const file = new mwbot.FileWikilink(
+					'File:Example.png',
+					['thumb', '300px']
+				);
+
+				assert.instanceOf(file.title, mwbot.Title);
+				assert.strictEqual(
+					file.title.getPrefixedDb(),
+					'File:Example.png'
+				);
+				assert.deepEqual(file.params, ['thumb', '300px']);
+			});
+
+			it('should create an instance from a Title', function () {
+				const title = new mwbot.Title('File:Example.png');
+				const file = new mwbot.FileWikilink(title);
+
+				assert.strictEqual(
+					file.title.getPrefixedDb(),
+					title.getPrefixedDb()
+				);
+			});
+
+			it('should clone the provided Title', function () {
+				const title = new mwbot.Title('File:Example.png');
+				const file = new mwbot.FileWikilink(title);
+
+				assert.notStrictEqual(file.title, title);
+				assert.strictEqual(
+					file.title.getPrefixedDb(),
+					title.getPrefixedDb()
+				);
+			});
+
+			it('should reject a non-file title', function () {
+				assertThrowsMwbotError(
+					() => new mwbot.FileWikilink('Foo'),
+					'invalidinput'
+				);
+			});
+
+			it('should reject a file title with a leading colon', function () {
+				assertThrowsMwbotError(
+					() => new mwbot.FileWikilink(':File:Foo'),
+					'invalidinput'
+				);
+			});
+
+			it('should reject an interwiki file title', function () {
+				assertThrowsMwbotError(
+					() => new mwbot.FileWikilink('commons:File:Foo'),
+					'invalidinput'
+				);
+			});
+
+			it('should reject an unparsable title', function () {
+				assertThrowsMwbotError(
+					() => new mwbot.FileWikilink(''),
+					'unparsabletitle'
+				);
+			});
+
+			it('should reject invalid input types', function () {
+				assertThrowsMwbotError(
+					// @ts-expect-error - Passing a number
+					() => new mwbot.FileWikilink(123),
+					'typemismatch'
+				);
+			});
+		});
+
+		describe('setTitle()', function () {
+			it('should set a new file title from a string', function () {
+				const file = new mwbot.FileWikilink('File:Foo');
+
+				assert.isTrue(file.setTitle('File:Bar'));
+				assert.strictEqual(
+					file.title.getPrefixedDb(),
+					'File:Bar'
+				);
+			});
+
+			it('should set a new file title from a Title', function () {
+				const title = new mwbot.Title('File:Bar');
+				const file = new mwbot.FileWikilink('File:Foo');
+
+				assert.isTrue(file.setTitle(title));
+				assert.notStrictEqual(file.title, title);
+			});
+
+			it('should reject a non-file title', function () {
+				const file = new mwbot.FileWikilink('File:Foo');
+
+				assert.isFalse(file.setTitle('Bar'));
+				assert.strictEqual(
+					file.title.getPrefixedDb(),
+					'File:Foo'
+				);
+			});
+
+			it('should reject a leading-colon file title', function () {
+				const file = new mwbot.FileWikilink('File:Foo');
+
+				assert.isFalse(file.setTitle(':File:Bar'));
+			});
+
+			it('should reject an invalid title', function () {
+				const file = new mwbot.FileWikilink('File:Foo');
+
+				assert.isFalse(file.setTitle(''));
+			});
+
+			it('should log the error when verbose is true', function () {
+				const spy = sinon.stub(console, 'error');
+				const file = new mwbot.FileWikilink('File:Foo');
+
+				assert.isFalse(file.setTitle('', true));
+				sinon.assert.calledOnce(spy);
+
+				sinon.restore();
+			});
+		});
+
+		describe('toWikilink()', function () {
+			it('should create a Wikilink from a file wikilink', function () {
+				const file = new mwbot.FileWikilink(
+					'File:Foo',
+					['thumb', '300px']
+				);
+
+				const lnk = file.toWikilink('Bar');
+
+				assert.instanceOf(lnk, mwbot.Wikilink);
+				assert.strictEqual(
+					lnk.title.getPrefixedDb(),
+					'Bar'
+				);
+				assert.strictEqual(
+					lnk.getDisplay(),
+					'thumb|300px'
+				);
+			});
+
+			it('should omit the display text when no parameters exist', function () {
+				const file = new mwbot.FileWikilink('File:Foo');
+
+				const lnk = file.toWikilink('Bar');
+
+				assert.instanceOf(lnk, mwbot.Wikilink);
+				assert.isFalse(lnk.hasDisplay());
+			});
+
+			it('should return null on failure', function () {
+				const file = new mwbot.FileWikilink('File:Foo');
+
+				assert.isNull(file.toWikilink(''));
+			});
+
+			it('should log the error when verbose is true', function () {
+				const spy = sinon.stub(console, 'error');
+				const file = new mwbot.FileWikilink('File:Foo');
+
+				assert.isNull(file.toWikilink('', true));
+				sinon.assert.calledOnce(spy);
+
+				sinon.restore();
+			});
+		});
+
+		describe('stringify()', function () {
+			it('should stringify a file wikilink without parameters', function () {
+				const file = new mwbot.FileWikilink('File:Foo');
+
+				assert.strictEqual(
+					file.stringify(),
+					'[[File:Foo]]'
+				);
+			});
+
+			it('should stringify a file wikilink with parameters', function () {
+				const file = new mwbot.FileWikilink(
+					'File:Foo',
+					['thumb', '300px']
+				);
+
+				assert.strictEqual(
+					file.stringify(),
+					'[[File:Foo|thumb|300px]]'
+				);
+			});
+
+			it('should sort parameters when requested', function () {
+				const file = new mwbot.FileWikilink(
+					'File:Foo',
+					['c', 'a', 'b']
+				);
+
+				assert.strictEqual(
+					file.stringify({
+						sortPredicate: (a, b) => a.localeCompare(b),
+					}),
+					'[[File:Foo|a|b|c]]'
+				);
+			});
+
+			it('should not mutate the original parameter array', function () {
+				const file = new mwbot.FileWikilink(
+					'File:Foo',
+					['c', 'a', 'b']
+				);
+
+				file.stringify({
+					sortPredicate: (a, b) => a.localeCompare(b),
+				});
+
+				assert.deepEqual(
+					file.params,
+					['c', 'a', 'b']
+				);
+			});
+		});
+
+		describe('toString()', function () {
+			it('should return the same result as stringify()', function () {
+				const file = new mwbot.FileWikilink(
+					'File:Foo',
+					['thumb']
+				);
+
+				assert.strictEqual(
+					file.toString(),
+					file.stringify()
+				);
+			});
+		});
+	});
 });
