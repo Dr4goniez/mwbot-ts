@@ -510,6 +510,10 @@ export function WikitextFactory(
 
 	const CLONE_INSTANCE_CONFIG = new CloneConfig({ cloneClassInstances: true });
 
+	const MODIFICATION_TYPES: Set<keyof ModificationMap> = new Set(
+		['tags', 'parameters', 'sections', 'templates', 'wikilinks']
+	);
+
 	class Wikitext implements Wikitext {
 
 		/**
@@ -671,7 +675,7 @@ export function WikitextFactory(
 			modificationPredicate: ModificationPredicate<ModificationMap[K]>
 		): string {
 			// Validate arguments
-			if (typeof type !== 'string' || !['tags', 'parameters', 'sections', 'templates', 'wikilinks'].includes(type)) {
+			if (!MODIFICATION_TYPES.has(type)) {
 				throw new MwbotError('fatal', {
 					code: 'invalidinput',
 					info: `"${type}" is not a valid expression type for Wikitext.modify.`,
