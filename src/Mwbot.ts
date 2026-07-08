@@ -74,6 +74,8 @@ import {
 	ApiResponseUnblock,
 	ApiResponseUndelete,
 	ApiResponseLoginSuccess,
+	ApiResponseQueryMetaSiteinfoExtensions,
+	ApiResponseQueryMetaSiteinfoExtensiontags,
 } from './api_types.js';
 import { formatType, isNonEmptyString, normalizeHeaders } from './internal/helpers.js';
 import {
@@ -532,15 +534,33 @@ export class Mwbot {
 			...Mwbot.getActionParams('query'),
 			meta: 'userinfo|siteinfo',
 			uiprop: 'rights',
-			siprop: 'functionhooks|general|magicwords|interwikimap|namespaces|namespacealiases',
+			siprop: 'general|namespaces|namespacealiases|magicwords|interwikimap|extensions|extensiontags|functionhooks',
 			maxlag: void 0,
 		});
 
 		// NOTE: interwikimap is built-in since MW v1.44 but was initially an extension
-		const { userinfo, functionhooks, general, magicwords, interwikimap = [], namespaces, namespacealiases } = res.query || {};
+		const {
+			userinfo,
+			general,
+			namespaces,
+			namespacealiases,
+			magicwords,
+			interwikimap = [],
+			extensions,
+			extensiontags,
+			functionhooks,
+		} = res.query ?? {};
 		if (
-			!res || !res.query ||
-			!userinfo || !functionhooks || !general || !magicwords || !namespaces || !namespacealiases
+			!res?.query ||
+			!userinfo ||
+			!general ||
+			!namespaces ||
+			!namespacealiases ||
+			!magicwords ||
+			// !interwikimap ||
+			!extensions ||
+			!extensiontags ||
+			!functionhooks
 		) {
 			return retryIfPossible(
 				Mwbot.dieAsEmpty(false, 'check HTTP headers?', { response: res }),
@@ -580,28 +600,58 @@ export class Mwbot {
 		// Set up instance properties
 		const config = this.config;
 		this._info = {
-			functionhooks,
+			user: userinfo as SiteAndUserInfo['user'],
 			general,
-			magicwords,
-			interwikimap,
 			namespaces,
 			namespacealiases,
-			user: userinfo as SiteAndUserInfo['user'],
+			magicwords,
+			interwikimap,
+			extensions,
+			extensiontags,
+			functionhooks,
 		};
+
 		this._Title = TitleFactory(
 			// Pass individual properties instead of the instance to avoid redundant deep copies
 			// from getter functions, improving efficiency in the factory function
 			config,
 			this._info
 		);
-		const { Template, ParsedTemplate, RawTemplate, ParserFunction, ParsedParserFunction } = TemplateFactory(config, this._info, this._Title);
+
+		const {
+			Template,
+			ParsedTemplate,
+			RawTemplate,
+			ParserFunction,
+			ParsedParserFunction,
+		} = TemplateFactory(config, this._info, this._Title);
+
 		this._ParserFunction = ParserFunction;
 		this._Template = Template;
-		const { Wikilink, ParsedWikilink, FileWikilink, ParsedFileWikilink, RawWikilink, ParsedRawWikilink } = WikilinkFactory(config, this._Title);
+
+		const {
+			Wikilink,
+			ParsedWikilink,
+			FileWikilink,
+			ParsedFileWikilink,
+			RawWikilink,
+			ParsedRawWikilink,
+		} = WikilinkFactory(config, this._Title);
+
 		this._Wikilink = Wikilink;
 		this._FileWikilink = FileWikilink;
 		this._RawWikilink = RawWikilink;
-		this._Wikitext = WikitextFactory(this, ParsedTemplate, RawTemplate, ParsedParserFunction, ParsedWikilink, ParsedFileWikilink, ParsedRawWikilink);
+
+		this._Wikitext = WikitextFactory(
+			this,
+			this._info,
+			ParsedTemplate,
+			RawTemplate,
+			ParsedParserFunction,
+			ParsedWikilink,
+			ParsedFileWikilink,
+			ParsedRawWikilink
+		);
 
 		this.logger.info('Connection established: ' + config.get('wgServerName'));
 		return this;
@@ -5129,16 +5179,29 @@ export interface ExclusionComplianceConfig {
  */
 export interface SiteAndUserInfo {
 	// The utility types used here just make the verified properties non-optional
-	functionhooks: ApiResponseQueryMetaSiteinfoFunctionhooks[];
-	general: Pick<
-		ApiResponseQueryMetaSiteinfoGeneral,
-		'articlepath' | 'lang' | 'legaltitlechars' | 'script' | 'scriptpath' | 'server' | 'servername' | 'sitename' | 'generator' | 'wikiid'
-	> & ApiResponseQueryMetaSiteinfoGeneral;
-	magicwords: ApiResponseQueryMetaSiteinfoMagicwords[];
-	interwikimap: ApiResponseQueryMetaSiteinfoInterwikimap[];
+	user: Required<Pick<ApiResponseQueryMetaUserinfo, 'id' | 'name' | 'rights'>>;
+	general:
+		Pick<
+			ApiResponseQueryMetaSiteinfoGeneral,
+			| 'articlepath'
+			| 'lang'
+			| 'legaltitlechars'
+			| 'script'
+			| 'scriptpath'
+			| 'server'
+			| 'servername'
+			| 'sitename'
+			| 'generator'
+			| 'wikiid'
+		> &
+		ApiResponseQueryMetaSiteinfoGeneral;
 	namespaces: ApiResponseQueryMetaSiteinfoNamespaces;
 	namespacealiases: ApiResponseQueryMetaSiteinfoNamespacealiases[];
-	user: Required<Pick<ApiResponseQueryMetaUserinfo, 'id' | 'name' | 'rights'>>;
+	magicwords: ApiResponseQueryMetaSiteinfoMagicwords[];
+	interwikimap: ApiResponseQueryMetaSiteinfoInterwikimap[];
+	extensions: ApiResponseQueryMetaSiteinfoExtensions[];
+	extensiontags: ApiResponseQueryMetaSiteinfoExtensiontags[];
+	functionhooks: ApiResponseQueryMetaSiteinfoFunctionhooks[];
 }
 
 /**

@@ -96,6 +96,7 @@ import type {
 	ParsedRawWikilinkInitializer,
 } from './Wikilink.js';
 import { formatType } from './internal/helpers.js';
+import { getParserExtensionTags, TAG_HTML, TAG_SKIP, tagRegex } from './internal/wikitext/tagHelpers.js';
 
 /**
  * @expand
@@ -107,12 +108,6 @@ export type DoubleBracedClasses = ParsedTemplate | ParsedParserFunction | RawTem
  * @private
  */
 export type DoubleBracketedClasses = ParsedWikilink | ParsedFileWikilink | ParsedRawWikilink;
-
-// TODO: Cannot handle rare cases like "<nowiki>[[link<!--]]-->|display]]</nowiki>", where a comment tag is nested
-// inside a non-comment skip tag. To handle these, it'll be necessary to differentiate the types of skip tags.
-const skipTags: SkipTags[] = ['!--', 'nowiki', 'pre', 'syntaxhighlight', 'source', 'math'];
-
-const rSkipTags = new RegExp(`^(?:${skipTags.join('|')})$`);
 
 /**
  * This interface defines the static members of the `Wikitext` class. For instance members,
@@ -169,7 +164,7 @@ export interface WikitextStatic {
 	 *
 	 * @returns Set of tag names (all elements are in lowercase).
 	 */
-	getValidTags(): Set<string>;
+	getValidTags(): ReadonlySet<string>;
 	/**
 	 * Checks whether a given tag name is valid in wikitext.
 	 *
@@ -432,6 +427,7 @@ export interface Wikitext {
  */
 export function WikitextFactory(
 	mwbot: Mwbot,
+	info: Mwbot['_info'],
 	ParsedTemplate: ParsedTemplateStatic,
 	RawTemplate: RawTemplateStatic,
 	ParsedParserFunction: ParsedParserFunctionStatic,
@@ -440,73 +436,13 @@ export function WikitextFactory(
 	ParsedRawWikilink: ParsedRawWikilinkStatic
 ) {
 
-	const namespaceIds = mwbot.config.get('wgNamespaceIds');
-	const NS_FILE = namespaceIds.file;
 	const rCtrlStart = /^\x01+/;
 
-	/**
-	 * List of valid HTML tag names that can be used in wikitext. All tag names are in lowercase.
-	 *
-	 * #### Behaviour of self-closure
-	 *
-	 * In HTML5, self-closure isn't a valid markup. For example:
-	 * ```html
-	 * <span style="color:red;" />foo</span>
-	 * ```
-	 * In this case, `'foo'` will be coloured red because the self-closed `span` tag isn't recognized
-	 * as closed. However, this doesn't apply to tags that are void by nature: `'<br />'` is ok in
-	 * wiki markup, and recognized as closed.
-	 *
-	 * On the other hand, MediaWiki-defined parser extension tags are "pseudo-void" in the sense that
-	 * they allow both self-closure and content-wrapping. Thus, both of the following are fine, and
-	 * the former self-closing tag is recognized as closed:
-	 * ```html
-	 * foo<pre />bar	<!-- "bar" won't be wrapped in the pre element (i.e., pre is closed) -->
-	 * <pre>foo</pre>	<!-- This is also a valid markup -->
-	 * ```
-	 * Note further that some of these tags aren't even parsed if self-closed. For example, the self-closing
-	 * tag in the following markup is displayed as raw text:
-	 * ```html
-	 * foo<tvar />bar
-	 * ```
-	 */
-	const validTags = new Map<'native' | 'mediawiki', Set<string>>([
-		[
-			'native',
-			new Set([
-				/**
-				 * Standard HTML tags
-				 * @see https://www.mediawiki.org/wiki/Help:HTML_in_wikitext
-				 */
-				'abbr', 'b', 'bdi', 'bdo', 'big', 'blockquote', 'br', 'caption', 'cite', 'code', 'data', 'dd', 'del',
-				'dfn', 'div', 'dl', 'dt', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'ins', 'kbd', 'li',
-				'link', 'mark', 'meta', 'ol', 'p', /*'pre',*/ 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'small', 'span',
-				'strong', 'sub', 'sup', 'table', 'td', 'th', 'time', 'tr', 'u', 'ul', 'var', 'wbr',
-				// Deprecated HTML tags
-				'center', 'font', 'rb', 'rtc', 'strike', 'tt',
-				// Comment tag, used in mwbot-ts
-				'!--',
-			]),
-		],
-		[
-			'mediawiki',
-			new Set([
-				/**
-				 * MediaWiki parser extension tags
-				 * @see https://www.mediawiki.org/wiki/Parser_extension_tags
-				 */
-				'categorytree', 'ce', 'chem', 'charinsert', 'gallery', 'graph', 'hiero', 'imagemap', 'indicator',
-				'inputbox', 'langconvert', 'mapframe', 'maplink', 'math', 'nowiki', 'poem', 'pre', 'ref', 'references',
-				'score', 'section', 'source', 'syntaxhighlight', 'templatedata', 'timeline',
-				// Other MediaWiki tags, added by extensions
-				'dynamicpagelist', 'languages', 'rss', 'talkpage', 'thread', 'html',
-				// Special MediaWiki inclusion/exclusion tags
-				'includeonly', 'noinclude', 'onlyinclude',
-				// Tags from Extension:Translate
-				'translate', 'tvar',
-			]),
-		],
-	]);
+	const namespaceIds = mwbot.config.get('wgNamespaceIds');
+	const NS_FILE = namespaceIds.file;
+
+	const TAG_EXT = getParserExtensionTags(info);
+	const TAG_VALID: ReadonlySet<string> = new Set([...TAG_HTML, ...TAG_EXT]);
 
 	const CLONE_INSTANCE_CONFIG = new CloneConfig({ cloneClassInstances: true });
 
@@ -557,13 +493,13 @@ export function WikitextFactory(
 			return new Wikitext(rev.content);
 		}
 
-		static getValidTags(): Set<string> {
-			return new Set([...validTags.values()].flatMap((set) => [...set]));
+		static getValidTags(): ReadonlySet<string> {
+			return new Set([...TAG_VALID]);
 		}
 
 		static isValidTag(tagName: string): boolean {
 			tagName = String(tagName).toLowerCase();
-			return [...validTags.values()].some((set) => set.has(tagName));
+			return TAG_VALID.has(tagName);
 		}
 
 		get length(): number {
@@ -759,44 +695,6 @@ export function WikitextFactory(
 			 */
 			const startTags: StartTag[] = [];
 
-			/**
-			 * Regular expressions for matching HTML tags (including comment tags).
-			 *
-			 * Accepted formats:
-			 * ```html
-			 * <foo >	<!-- No whitespace between "<" and "foo" -->
-			 * </foo >	<!-- No whitespace between "<" and "/" -->
-			 * <foo />	<!-- No whitespace between "/" and ">" -->
-			 * ```
-			 */
-			const regex = {
-				/**
-				 * Matches a start tag.
-				 * * `$0`: The full start tag (e.g. `<!--` or `<tag>`)
-				 * * `$1`: `--` (undefined for normal tags)
-				 * * `$2`: `tag` (undefined for comment tags)
-				 *
-				 * NOTE: This regex also matches self-closing tags.
-				 */
-				start: /^<!(--)|^<(?!\/)([^>\s]+)(?:\s[^>]*)?>/,
-				/**
-				 * Matches an end tag.
-				 * * `$0`: The full end tag (e.g. `-->` or `</tag>`)
-				 * * `$1`: `--` (undefined for normal tags)
-				 * * `$2`: `tag` (undefined for comment tags)
-				 */
-				end: /^(--)>|^<\/([^>\s]+)(?:\s[^>]*)?>/,
-				/**
-				 * Matches the names of void tags. `<source>` is excluded because it is not considered void in wikitext.
-				 * @see https://developer.mozilla.org/en-US/docs/Glossary/Void_element
-				 */
-				void: /^(?:area|base|br|col|embed|hr|img|input|link|meta|param|track|wbr)$/,
-				/**
-				 * Matches a self-closing tag.
-				 */
-				self: /\/>$/,
-			};
-
 			// Parse the wikitext string by checking each character
 			const wikitext = this.content;
 			const parsed: Tag[] = [];
@@ -806,14 +704,14 @@ export function WikitextFactory(
 				const wkt = wikitext.slice(i);
 
 				// If a start tag is found
-				if ((m = regex.start.exec(wkt))) {
+				if ((m = tagRegex.start.exec(wkt))) {
 
 					const nodeName = (m[1] || m[2]).toLowerCase();
-					const selfClosing = regex.self.test(m[0]);
+					const selfClosing = tagRegex.self.test(m[0]);
 
 					// Check if the tag is a void tag
 					let pseudoVoid = false;
-					if (regex.void.test(nodeName) || (pseudoVoid = (selfClosing && validTags.get('mediawiki')!.has(nodeName)))) {
+					if (tagRegex.void.test(nodeName) || (pseudoVoid = (selfClosing && TAG_EXT.has(nodeName)))) {
 						// Add void and "pseudo-void" self-closing tags to the stack immediately
 						// For "pseudo-void" tags, see the comments in the definition of `validTags`
 						parsed.push(
@@ -832,14 +730,14 @@ export function WikitextFactory(
 					// Skip ahead by the length of the matched tag to continue parsing
 					i += m[0].length - 1;
 
-				} else if ((m = regex.end.exec(wkt))) {
+				} else if ((m = tagRegex.end.exec(wkt))) {
 
 					// If an end tag is found, attempt to match it with the corresponding start tag
 					const nodeName = (m[1] || m[2]).toLowerCase();
 					const endTag = m[0];
 
 					// Different treatments for when this is the end of a void tag or a normal tag
-					if (regex.void.test(nodeName)) {
+					if (tagRegex.void.test(nodeName)) {
 						if (nodeName === 'br') {
 							// MediaWiki converts </br> to <br>
 							// Void start tags aren't stored in "startTags" (i.e. there's no need to look them up in the stack)
@@ -975,7 +873,7 @@ export function WikitextFactory(
 			tags = tags || this.storageManager('tags', false);
 			const indexMap = tags.reduce((acc: [number, number][], tagObj) => {
 				// If the tag is in the skip list and doesn't overlap with existing ranges, add its range
-				if (rSkipTags.test(tagObj.name)) {
+				if (TAG_SKIP.has(tagObj.name)) {
 					// Check if the current range is already covered by an existing range
 					const isCovered = acc.some(([startIndex, endIndex]) => startIndex < tagObj.startIndex && tagObj.endIndex < endIndex);
 					if (!isCovered) {
@@ -1414,7 +1312,7 @@ export function WikitextFactory(
 			// Process skipTags
 			this.storageManager('tags', false).forEach(({ text, startIndex, name, content }) => {
 				// If this is a skip tag or a gallery tag whose content contains a pipe character
-				if (rSkipTags.test(name) || name === 'gallery' && options.gallery && content && content.includes('|')) {
+				if (TAG_SKIP.has(name) || name === 'gallery' && options.gallery && content && content.includes('|')) {
 					// `inner` is the innerHTML of the tag
 					const inner = (() => {
 						if (content === null) {

@@ -119,26 +119,17 @@ export function testMwbotProperties() {
 				assert.isObject(mwbot.info);
 				assert.isNotEmpty(mwbot.info);
 				assert.deepEqual(_info, mwbot.info);
+				assert.notStrictEqual(_info, mwbot.info);
 			});
 
-			it('should expose functionhooks array', function () {
-				assert.isArray(mwbot.info.functionhooks);
-				assert.isNotEmpty(mwbot.info.functionhooks);
+			it('should expose user object', function () {
+				assert.isObject(mwbot.info.user);
+				assert.isNotEmpty(mwbot.info.user);
 			});
 
 			it('should expose general object', function () {
 				assert.isObject(mwbot.info.general);
 				assert.isNotEmpty(mwbot.info.general);
-			});
-
-			it('should expose magicwords array', function () {
-				assert.isArray(mwbot.info.magicwords);
-				assert.isNotEmpty(mwbot.info.magicwords);
-			});
-
-			it('should expose interwikimap array', function () {
-				assert.isArray(mwbot.info.interwikimap);
-				assert.isNotEmpty(mwbot.info.interwikimap);
 			});
 
 			it('should expose namespaces object', function () {
@@ -151,9 +142,29 @@ export function testMwbotProperties() {
 				assert.isNotEmpty(mwbot.info.namespacealiases);
 			});
 
-			it('should expose user object', function () {
-				assert.isObject(mwbot.info.user);
-				assert.isNotEmpty(mwbot.info.user);
+			it('should expose magicwords array', function () {
+				assert.isArray(mwbot.info.magicwords);
+				assert.isNotEmpty(mwbot.info.magicwords);
+			});
+
+			it('should expose interwikimap array', function () {
+				assert.isArray(mwbot.info.interwikimap);
+				assert.isNotEmpty(mwbot.info.interwikimap);
+			});
+
+			it('should expose extensions array', function () {
+				assert.isArray(mwbot.info.extensions);
+				assert.isNotEmpty(mwbot.info.extensions);
+			});
+
+			it('should expose extensiontags array', function () {
+				assert.isArray(mwbot.info.extensiontags);
+				assert.isNotEmpty(mwbot.info.extensiontags);
+			});
+
+			it('should expose functionhooks array', function () {
+				assert.isArray(mwbot.info.functionhooks);
+				assert.isNotEmpty(mwbot.info.functionhooks);
 			});
 		});
 
