@@ -204,4 +204,10 @@ export const tagRegex = {
 	 * Matches a self-closing tag.
 	 */
 	self: /\/>$/,
+	/**
+	 * Matches the next possible beginning of an HTML tag or comment end marker.
+	 *
+	 * Used to skip over plain text before attempting full tag matching.
+	 */
+	next: /<|-->/,
 };

@@ -662,11 +662,21 @@ export function WikitextFactory(
 			const parsed: Tag[] = [];
 			for (let i = 0; i < wikitext.length; i++) {
 
-				let m;
 				const wkt = wikitext.slice(i);
 
-				// If a start tag is found
+				if (wkt[0] !== '<' && !wkt.startsWith('-->')) {
+					const nextIndex = wkt.search(tagRegex.next);
+					if (nextIndex === -1) {
+						break;
+					}
+					i += nextIndex - 1;
+					continue;
+				}
+
+				let m: RegExpExecArray | null;
+
 				if ((m = tagRegex.start.exec(wkt))) {
+					// If a start tag is found
 
 					const nodeName = (m[1] || m[2]).toLowerCase();
 					const selfClosing = tagRegex.self.test(m[0]);
@@ -693,7 +703,6 @@ export function WikitextFactory(
 					i += m[0].length - 1;
 
 				} else if ((m = tagRegex.end.exec(wkt))) {
-
 					// If an end tag is found, attempt to match it with the corresponding start tag
 					const nodeName = (m[1] || m[2]).toLowerCase();
 					const endTag = m[0];
@@ -758,7 +767,6 @@ export function WikitextFactory(
 
 						// Remove the matched start tags from the stack
 						startTags.splice(0, closedTagCnt);
-
 					}
 
 					i += m[0].length - 1;
