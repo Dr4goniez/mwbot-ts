@@ -2058,69 +2058,6 @@ interface StorageArgumentMap {
 }
 
 /**
- * Type of the callback function used by {@link Wikitext.modify} and its shorthand variants.
- * This function is called once for each expression of the specified type and determines
- * whether the expression should be modified.
- *
- * @template T The type of markup expressions being modified. This corresponds to the values
- * of {@link ModificationMap}, such as {@link Tag} for `"tags"` or {@link Parameter} for `"parameters"`.
- *
- * @param value The current expression object under consideration for modification.
- *
- * Note: The object's `startIndex` and `endIndex` values (but not others) are **updated in-place**
- * as modifications are applied.
- *
- * @param index The position of this expression in the array of parsed expressions.
- *
- * @param array
- * The current array of all expressions of this type, as returned by the corresponding parsing method.
- *
- * Note: As with `value`, the `startIndex` and `endIndex` values of the objects in the array are dynamically
- * updated.
- *
- * @param context Dynamic modification-related information.
- *
- * @param context.touched
- * A boolean indicating whether this expression is a **nested child** of a previously modified expression.
- * This typically occurs when markup structures are nested (e.g., a `<b>` inside a `<div>`), and the parent
- * has already been replaced or modified. In such cases, the expression itself may be invalidated or contextually
- * incorrect in the new content, and the predicate can use this flag to skip or handle it differently.
- *
- * @param context.content
- * The current state of the full wikitext content. This string is updated after every successful modification
- * (i.e., whenever the predicate returns a string). It reflects the content as it exists *at the time* this predicate
- * is called for this expression. This is useful for context-sensitive changes, such as inspecting neighboring characters
- * or avoiding redundant edits.
- *
- * @returns
- * A `string` to replace the current expression, or `null` to leave it unchanged. Returning `null` ensures that
- * the original text is preserved.
- */
-export type ModificationPredicate<T> = (
-	value: T,
-	index: number,
-	array: T[],
-	context: {
-		touched: boolean;
-		content: string;
-	}
-) => string | null;
-
-/**
- * A mapping of a type key to its object type, used in {@link Wikitext.modify}.
- * @private
- */
-export interface ModificationMap {
-	tags: Tag;
-	parameters: Parameter;
-	sections: Section;
-	templates: DoubleBracedClasses;
-	wikilinks: DoubleBracketedClasses;
-}
-
-// --------------- Interfaces for parseTags() ---------------
-
-/**
  * Object that holds information about an HTML tag, parsed from wikitext.
  *
  * This object is returned by {@link Wikitext.parseTags}.
@@ -2659,4 +2596,67 @@ export interface ParseWikilinksConfig {
 	 * @returns `true` if the wikilink should be included, otherwise `false`.
 	 */
 	wikilinkPredicate?: (wikilink: DoubleBracketedClasses) => boolean;
+}
+
+// --------------- Interfaces for modify() ---------------
+
+/**
+ * Type of the callback function used by {@link Wikitext.modify} and its shorthand variants.
+ * This function is called once for each expression of the specified type and determines
+ * whether the expression should be modified.
+ *
+ * @template T The type of markup expressions being modified. This corresponds to the values
+ * of {@link ModificationMap}, such as {@link Tag} for `"tags"` or {@link Parameter} for `"parameters"`.
+ *
+ * @param value The current expression object under consideration for modification.
+ *
+ * Note: The object's `startIndex` and `endIndex` values (but not others) are **updated in-place**
+ * as modifications are applied.
+ *
+ * @param index The position of this expression in the array of parsed expressions.
+ *
+ * @param array
+ * The current array of all expressions of this type, as returned by the corresponding parsing method.
+ *
+ * Note: As with `value`, the `startIndex` and `endIndex` values of the objects in the array are dynamically
+ * updated.
+ *
+ * @param context Dynamic modification-related information.
+ *
+ * @param context.touched
+ * A boolean indicating whether this expression is a **nested child** of a previously modified expression.
+ * This typically occurs when markup structures are nested (e.g., a `<b>` inside a `<div>`), and the parent
+ * has already been replaced or modified. In such cases, the expression itself may be invalidated or contextually
+ * incorrect in the new content, and the predicate can use this flag to skip or handle it differently.
+ *
+ * @param context.content
+ * The current state of the full wikitext content. This string is updated after every successful modification
+ * (i.e., whenever the predicate returns a string). It reflects the content as it exists *at the time* this predicate
+ * is called for this expression. This is useful for context-sensitive changes, such as inspecting neighboring characters
+ * or avoiding redundant edits.
+ *
+ * @returns
+ * A `string` to replace the current expression, or `null` to leave it unchanged. Returning `null` ensures that
+ * the original text is preserved.
+ */
+export type ModificationPredicate<T> = (
+	value: T,
+	index: number,
+	array: T[],
+	context: {
+		touched: boolean;
+		content: string;
+	}
+) => string | null;
+
+/**
+ * A mapping of a type key to its object type, used in {@link Wikitext.modify}.
+ * @private
+ */
+export interface ModificationMap {
+	tags: Tag;
+	parameters: Parameter;
+	sections: Section;
+	templates: DoubleBracedClasses;
+	wikilinks: DoubleBracketedClasses;
 }
