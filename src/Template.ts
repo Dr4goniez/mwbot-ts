@@ -25,7 +25,7 @@ import { ParamBase } from './internal/ParamBase.js';
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { Wikitext, SkipTags, ParseTemplatesConfig } from './Wikitext.js';
+import type { Wikitext, ParseTemplatesConfig } from './Wikitext.js';
 import { MwbotError } from './MwbotError.js';
 import { createParserFunctionMap } from './internal/parserFunctionData.js';
 
@@ -414,7 +414,7 @@ export interface ParsedTemplateProps<CLS> {
 	 */
 	nestLevel: number;
 	/**
-	 * Whether the double-braced markup appears inside an HTML tag specified in {@link SkipTags}.
+	 * Whether the double-braced markup is enclosed in "skip tags", inside which wikitext is not parsed.
 	 */
 	skip: boolean;
 	/**

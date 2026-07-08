@@ -170,6 +170,29 @@ export const TAG_SKIP: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Returns the set of tag names inside which wikitext should not be parsed.
+ *
+ * Unlike {@link TAG_SKIP}, which lists all known skip tags, this function
+ * filters the set according to the parser extension tags recognized on the
+ * current wiki. HTML comments (`'!--'`) are always included because they are
+ * part of MediaWiki core.
+ *
+ * @param extensionTags The parser extension tags recognized on the current wiki.
+ * @returns The recognized skip tags.
+ */
+export function getRecognizedSkipTags(extensionTags: ReadonlySet<string>): ReadonlySet<string> {
+	const set = new Set<string>(['!--']);
+
+	for (const tag of TAG_SKIP) {
+		if (extensionTags.has(tag)) {
+			set.add(tag);
+		}
+	}
+
+	return set as ReadonlySet<string>;
+}
+
+/**
  * Regular expressions for matching HTML tags (including comment tags).
  *
  * Accepted formats:

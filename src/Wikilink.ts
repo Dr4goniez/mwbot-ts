@@ -27,7 +27,7 @@ import type { TitleStatic, Title } from './Title.js';
 
 // Imported only for docs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { Wikitext, SkipTags } from './Wikitext.js';
+import type { Wikitext } from './Wikitext.js';
 
 /**
  * The base class for {@link WikilinkStatic} and {@link RawWikilinkStatic}.
@@ -282,7 +282,7 @@ export interface ParsedWikilinkProps<CLS> {
 	 */
 	nestLevel: number;
 	/**
-	 * Whether the wikilink appears inside an HTML tag specified in {@link SkipTags}.
+	 * Whether the wikilink is enclosed in "skip tags", inside which wikitext is not parsed.
 	 */
 	skip: boolean;
 	/**

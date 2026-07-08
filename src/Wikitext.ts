@@ -96,7 +96,7 @@ import type {
 	ParsedRawWikilinkInitializer,
 } from './Wikilink.js';
 import { formatType } from './internal/helpers.js';
-import { createVoidTag, getParserExtensionTags, sanitizeNodeName, TAG_HTML, TAG_SINGLE_ONLY, TAG_SKIP, tagRegex } from './internal/wikitext/tagHelpers.js';
+import { createVoidTag, getParserExtensionTags, getRecognizedSkipTags, sanitizeNodeName, TAG_HTML, TAG_SINGLE_ONLY, tagRegex } from './internal/wikitext/tagHelpers.js';
 
 /**
  * @expand
@@ -443,6 +443,7 @@ export function WikitextFactory(
 
 	const TAG_EXT = getParserExtensionTags(info);
 	const TAG_VALID: ReadonlySet<string> = new Set([...TAG_HTML, ...TAG_EXT]);
+	const TAG_SKIP_RECOGNIZED = getRecognizedSkipTags(TAG_EXT);
 
 	const CLONE_INSTANCE_CONFIG = new CloneConfig({ cloneClassInstances: true });
 
@@ -621,7 +622,7 @@ export function WikitextFactory(
 			const indexMap: [number, number][] = [];
 
 			for (const tag of tags) {
-				if (!TAG_SKIP.has(tag.name)) {
+				if (!TAG_SKIP_RECOGNIZED.has(tag.name)) {
 					continue;
 				}
 
@@ -1264,7 +1265,7 @@ export function WikitextFactory(
 			// Process skipTags
 			this.storageManager('tags', false).forEach(({ text, startIndex, name, content }) => {
 				// If this is a skip tag or a gallery tag whose content contains a pipe character
-				if (TAG_SKIP.has(name) || name === 'gallery' && options.gallery && content && content.includes('|')) {
+				if (TAG_SKIP_RECOGNIZED.has(name) || name === 'gallery' && options.gallery && content && content.includes('|')) {
 					// `inner` is the innerHTML of the tag
 					const inner = (() => {
 						if (content === null) {
@@ -1991,24 +1992,6 @@ export function WikitextFactory(
 // Interfaces for constructor and the entire module
 
 /**
- * HTML tags in which elements shouldn't be parsed.
- *
- * Example:
- * ```
- * blah blah <!-- {{Template}} --> {{Template}} blah blah
- * ```
- * In many cases, `{{Template}}` inside a comment tag shouldn't be parsed.
- * This type declaration defines such tags to control parsing behavior.
- */
-export type SkipTags =
-	| '!--'
-	| 'nowiki'
-	| 'pre'
-	| 'syntaxhighlight'
-	| 'source'
-	| 'math';
-
-/**
  * Assigns the `parent` and `children` relationships for the given object by
  * examining its position and nesting level relative to other objects in the array.
  *
@@ -2133,7 +2116,7 @@ export interface Tag {
 	 */
 	selfClosing: boolean;
 	/**
-	 * Whether the tag appears inside an HTML tag specified in {@link SkipTags}.
+	 * Whether the tag is enclosed in "skip tags", inside which wikitext is not parsed.
 	 */
 	skip: boolean;
 	/**
@@ -2328,7 +2311,7 @@ export interface Parameter {
 	 */
 	nestLevel: number;
 	/**
-	 * Whether the parameter appears inside an HTML tag specified in {@link SkipTags}.
+	 * Whether the parameter is enclosed in "skip tags", inside which wikitext is not parsed.
 	 */
 	skip: boolean;
 	/**
@@ -2404,7 +2387,7 @@ interface FuzzyWikilink {
 	 */
 	nestLevel: number;
 	/**
-	 * Whether the wikilink appears inside an HTML tag specified in {@link SkipTags}.
+	 * Whether the wikilink is enclosed in "skip tags", inside which wikitext is not parsed.
 	 */
 	skip: boolean;
 }
