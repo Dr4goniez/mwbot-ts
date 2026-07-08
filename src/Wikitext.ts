@@ -213,81 +213,6 @@ export interface Wikitext {
 	 */
 	get content(): string;
 	/**
-	 * Modifies a specific type of expression in the wikitext content.
-	 *
-	 * This method extracts expressions of the given `type`, applies the `modificationPredicate`
-	 * to transform them, and updates the wikitext accordingly.
-	 *
-	 * #### Example: Closing unclosed tags
-	 * ```ts
-	 * const wikitext = new mwbot.Wikitext('<span>a<div><del>b</span><span>c');
-	 * const oldContent = wikitext.content;
-	 * const newContent = wikitext.modify('tags', (tag) => {
-	 *   if (tag.unclosed && !tag.skip) {
-	 *     // If this tag is unclosed, append its expected end tag to the tag text.
-	 *     // `Tag` objects with the `unclosed` property set to `true` have their
-	 *     // expected end tag stored in the `end` property.
-	 *     // In most cases, the `skip` property should be guaranteed to be `false`
-	 *     // to ensure we're not modifying special cases such as
-	 *     // "<nowiki><noinclude></nowiki>".
-	 *     return tag.text + tag.end; // Returning a string applies the modification.
-	 *   } else {
-	 *     return null; // Returning `null` means no modification is made.
-	 *   }
-	 * });
-	 *
-	 * if (oldContent !== newContent) {
-	 *   console.log(newContent);
-	 *   // Output: <span>a<div><del>b</del></div></span><span>c</span>
-	 * }
-	 * ```
-	 *
-	 * #### Shorthand methods
-	 * - {@link modifyTags}
-	 * - {@link modifyParameters}
-	 * - {@link modifySections}
-	 * - {@link modifyTemplates}
-	 * - {@link modifyWikilinks}
-	 *
-	 * #### Important notes
-	 * - This method (and its shorthand variants) modifies and updates {@link content} and its
-	 *   associated expressions.
-	 * - Any copies of `content` or parsed expressions made before calling this method should **not**
-	 *   be reused, as properties such as `startIndex` will change after modification.
-	 *
-	 * @param type The type of expressions to modify.
-	 *
-	 * <table>
-	 * 	<thead>
-	 * 		<tr><th>Type</th><th>First argument of <code>modificationPredicate</code></th></tr>
-	 * 	</thead>
-	 * 	<tbody>
-	 * 		<tr><td>tags</td><td>{@link Tag}</td></tr>
-	 * 		<tr><td>parameters</td><td>{@link Parameter}</td></tr>
-	 * 		<tr><td>sections</td><td>{@link Section}</td></tr>
-	 * 		<tr><td>templates</td><td>{@link ParsedTemplate}, {@link ParsedParserFunction}, or {@link RawTemplate}</td></tr>
-	 * 		<tr><td>wikilinks</td><td>{@link ParsedWikilink}, {@link ParsedFileWikilink}, or {@link ParsedRawWikilink}</td></tr>
-	 * 	</tbody>
-	 * </table>
-	 * See also {@link ModificationMap} for the interface that defines this mapping.
-	 *
-	 * @param modificationPredicate
-	 * A function that processes expression objects and returns a string or `null`.
-	 * - Each returned string replaces the corresponding expression.
-	 * - Returning `null` means no modification is applied to that expression.
-	 *
-	 * @returns The modified wikitext content.
-	 *
-	 * @throws {MwbotError}
-	 * - If `type` is invalid.
-	 * - If `modificationPredicate` is not a function.
-	 * - If the array created from `modificationPredicate` contains values other than strings or `null`.
-	 */
-	modify<K extends keyof ModificationMap>(
-		type: K,
-		modificationPredicate: ModificationPredicate<ModificationMap[K]>
-	): string;
-	/**
 	 * Parses the wikitext content for HTML tags.
 	 *
 	 * @param config Config to filter the output.
@@ -420,6 +345,81 @@ export interface Wikitext {
 	modifyWikilinks(
 		modificationPredicate: ModificationPredicate<ModificationMap['wikilinks']>
 	): string;
+	/**
+	 * Modifies a specific type of expression in the wikitext content.
+	 *
+	 * This method extracts expressions of the given `type`, applies the `modificationPredicate`
+	 * to transform them, and updates the wikitext accordingly.
+	 *
+	 * #### Example: Closing unclosed tags
+	 * ```ts
+	 * const wikitext = new mwbot.Wikitext('<span>a<div><del>b</span><span>c');
+	 * const oldContent = wikitext.content;
+	 * const newContent = wikitext.modify('tags', (tag) => {
+	 *   if (tag.unclosed && !tag.skip) {
+	 *     // If this tag is unclosed, append its expected end tag to the tag text.
+	 *     // `Tag` objects with the `unclosed` property set to `true` have their
+	 *     // expected end tag stored in the `end` property.
+	 *     // In most cases, the `skip` property should be guaranteed to be `false`
+	 *     // to ensure we're not modifying special cases such as
+	 *     // "<nowiki><noinclude></nowiki>".
+	 *     return tag.text + tag.end; // Returning a string applies the modification.
+	 *   } else {
+	 *     return null; // Returning `null` means no modification is made.
+	 *   }
+	 * });
+	 *
+	 * if (oldContent !== newContent) {
+	 *   console.log(newContent);
+	 *   // Output: <span>a<div><del>b</del></div></span><span>c</span>
+	 * }
+	 * ```
+	 *
+	 * #### Shorthand methods
+	 * - {@link modifyTags}
+	 * - {@link modifyParameters}
+	 * - {@link modifySections}
+	 * - {@link modifyTemplates}
+	 * - {@link modifyWikilinks}
+	 *
+	 * #### Important notes
+	 * - This method (and its shorthand variants) modifies and updates {@link content} and its
+	 *   associated expressions.
+	 * - Any copies of `content` or parsed expressions made before calling this method should **not**
+	 *   be reused, as properties such as `startIndex` will change after modification.
+	 *
+	 * @param type The type of expressions to modify.
+	 *
+	 * <table>
+	 * 	<thead>
+	 * 		<tr><th>Type</th><th>First argument of <code>modificationPredicate</code></th></tr>
+	 * 	</thead>
+	 * 	<tbody>
+	 * 		<tr><td>tags</td><td>{@link Tag}</td></tr>
+	 * 		<tr><td>parameters</td><td>{@link Parameter}</td></tr>
+	 * 		<tr><td>sections</td><td>{@link Section}</td></tr>
+	 * 		<tr><td>templates</td><td>{@link ParsedTemplate}, {@link ParsedParserFunction}, or {@link RawTemplate}</td></tr>
+	 * 		<tr><td>wikilinks</td><td>{@link ParsedWikilink}, {@link ParsedFileWikilink}, or {@link ParsedRawWikilink}</td></tr>
+	 * 	</tbody>
+	 * </table>
+	 * See also {@link ModificationMap} for the interface that defines this mapping.
+	 *
+	 * @param modificationPredicate
+	 * A function that processes expression objects and returns a string or `null`.
+	 * - Each returned string replaces the corresponding expression.
+	 * - Returning `null` means no modification is applied to that expression.
+	 *
+	 * @returns The modified wikitext content.
+	 *
+	 * @throws {MwbotError}
+	 * - If `type` is invalid.
+	 * - If `modificationPredicate` is not a function.
+	 * - If the array created from `modificationPredicate` contains values other than strings or `null`.
+	 */
+	modify<K extends keyof ModificationMap>(
+		type: K,
+		modificationPredicate: ModificationPredicate<ModificationMap[K]>
+	): string;
 }
 
 /**
@@ -491,27 +491,6 @@ export function WikitextFactory(
 		static async newFromTitle(title: string | Title, requestOptions?: MwbotRequestConfig): Promise<Wikitext> {
 			const rev = await mwbot.read(title, requestOptions);
 			return new Wikitext(rev.content);
-		}
-
-		static getValidTags(): ReadonlySet<string> {
-			return new Set([...TAG_VALID]);
-		}
-
-		static isValidTag(tagName: string): boolean {
-			tagName = String(tagName).toLowerCase();
-			return TAG_VALID.has(tagName);
-		}
-
-		get length(): number {
-			return this.storage.content.length;
-		}
-
-		get byteLength(): number {
-			return byteLength(this.storage.content);
-		}
-
-		get content(): string {
-			return this.storage.content;
 		}
 
 		/**
@@ -606,81 +585,55 @@ export function WikitextFactory(
 
 		}
 
-		modify<K extends keyof ModificationMap>(
-			type: K,
-			modificationPredicate: ModificationPredicate<ModificationMap[K]>
-		): string {
-			// Validate arguments
-			if (!MODIFICATION_TYPES.has(type)) {
-				throw new MwbotError('fatal', {
-					code: 'invalidinput',
-					info: `"${type}" is not a valid expression type for Wikitext.modify.`,
-				});
-			}
-			if (typeof modificationPredicate !== 'function') {
-				throw new MwbotError('fatal', {
-					code: 'typemismatch',
-					info: `Expected a function for "modificationPredicate", but got ${formatType(modificationPredicate)}.`,
-				});
-			}
+		get length(): number {
+			return this.storage.content.length;
+		}
 
-			// Apply modifications to the content
-			let newContent = this.content;
-			const clonedMarkups = this.storageManager(type) as ModificationMap[K][];
-			const touched = new Set<number>();
-			(this.storageManager(type, false) as ModificationMap[K][]).forEach((expr, i, markups) => {
+		get byteLength(): number {
+			return byteLength(this.storage.content);
+		}
 
-				// Expose the cloned objects to the user to prevent mutation
-				const mod = modificationPredicate(clonedMarkups[i], i, clonedMarkups, { touched: touched.has(i), content: newContent });
-				if (typeof mod !== 'string' && mod !== null) {
-					throw new MwbotError(
-						'fatal',
-						{
-							code: 'typemismatch',
-							info: 'modificationPredicate must return either a string or null.',
-						},
-						{ modified: { [i]: mod } }
-					);
-				}
+		get content(): string {
+			return this.storage.content;
+		}
 
-				if (typeof mod === 'string') {
-					const initialEndIndex = expr.endIndex;
-					const leadingPart = newContent.slice(0, expr.startIndex);
-					let trailingPart = newContent.slice(initialEndIndex);
-					let m: RegExpExecArray | null = null;
-					if (mod === '' && /(^|\n)[^\S\r\n]*$/.test(leadingPart) && (m = /^[^\S\r\n]*\n/.exec(trailingPart))) {
-						// If the modification removes the expression and that creates an empty line,
-						// also remove a trailing newline
-						trailingPart = trailingPart.slice(m[0].length);
-					}
-					newContent = leadingPart + mod + trailingPart;
+		static getValidTags(): ReadonlySet<string> {
+			return new Set([...TAG_VALID]);
+		}
 
-					// Update character indexes for subsequent modifications
-					const lengthGap = mod.length - (m ? m[0].length : 0) - expr.text.length;
-					expr.endIndex += lengthGap;
-					markups.forEach((obj, j) => {
-						if (j !== i) {
-							if (obj.startIndex >= initialEndIndex) {
-								obj.startIndex += lengthGap;
-								obj.endIndex += lengthGap;
-							} else if (obj.endIndex >= initialEndIndex) {
-								obj.endIndex += lengthGap;
-							}
-						}
-					});
+		static isValidTag(tagName: string): boolean {
+			tagName = String(tagName).toLowerCase();
+			return TAG_VALID.has(tagName);
+		}
 
-					// If the modification touched a nested markup, remember its index
-					for (const index of expr.children) {
-						const { startIndex, text } = markups[index];
-						if (!newContent.slice(startIndex).startsWith(text)) {
-							touched.add(index);
-						}
+		/**
+		 * Generates a function that evaluates whether a string starting at an index and ending at another
+		 * is inside a tag in which that string shouldn't be parsed.
+		 *
+		 * @param tags Use these {@link Tag} objects to create the function rather than calling
+		 * {@link storageManager}. Passed only from {@link _parseTags}.
+		 * @returns A function that checks whether a given range is inside any tag to skip parsing.
+		 */
+		private getSkipPredicate(tags?: Tag[]): (startIndex: number, endIndex: number) => boolean {
+
+			// Create an array to store the start and end indices of tags to skip
+			tags = tags || this.storageManager('tags', false);
+			const indexMap = tags.reduce((acc: [number, number][], tagObj) => {
+				// If the tag is in the skip list and doesn't overlap with existing ranges, add its range
+				if (TAG_SKIP.has(tagObj.name)) {
+					// Check if the current range is already covered by an existing range
+					const isCovered = acc.some(([startIndex, endIndex]) => startIndex < tagObj.startIndex && tagObj.endIndex < endIndex);
+					if (!isCovered) {
+						acc.push([tagObj.startIndex, tagObj.endIndex]);
 					}
 				}
-			});
+				return acc;
+			}, []);
 
-			// Update stored content and return result
-			return this.storageManager('content', newContent).content;
+			// Return a predicate function that checks if a given range is inside any of the skip tag ranges
+			return (startIndex: number, endIndex: number) => {
+				return indexMap.some(([skipStartIndex, skipEndIndex]) => skipStartIndex < startIndex && endIndex < skipEndIndex);
+			};
 		}
 
 		/**
@@ -857,36 +810,6 @@ export function WikitextFactory(
 			modificationPredicate: ModificationPredicate<ModificationMap['tags']>
 		): string | Promise<string> {
 			return this.modify('tags', modificationPredicate);
-		}
-
-		/**
-		 * Generates a function that evaluates whether a string starting at an index and ending at another
-		 * is inside a tag in which that string shouldn't be parsed.
-		 *
-		 * @param tags Use these {@link Tag} objects to create the function rather than calling
-		 * {@link storageManager}. Passed only from {@link _parseTags}.
-		 * @returns A function that checks whether a given range is inside any tag to skip parsing.
-		 */
-		private getSkipPredicate(tags?: Tag[]): (startIndex: number, endIndex: number) => boolean {
-
-			// Create an array to store the start and end indices of tags to skip
-			tags = tags || this.storageManager('tags', false);
-			const indexMap = tags.reduce((acc: [number, number][], tagObj) => {
-				// If the tag is in the skip list and doesn't overlap with existing ranges, add its range
-				if (TAG_SKIP.has(tagObj.name)) {
-					// Check if the current range is already covered by an existing range
-					const isCovered = acc.some(([startIndex, endIndex]) => startIndex < tagObj.startIndex && tagObj.endIndex < endIndex);
-					if (!isCovered) {
-						acc.push([tagObj.startIndex, tagObj.endIndex]);
-					}
-				}
-				return acc;
-			}, []);
-
-			// Return a predicate function that checks if a given range is inside any of the skip tag ranges
-			return (startIndex: number, endIndex: number) => {
-				return indexMap.some(([skipStartIndex, skipEndIndex]) => skipStartIndex < startIndex && endIndex < skipEndIndex);
-			};
 		}
 
 		/**
@@ -1953,6 +1876,83 @@ export function WikitextFactory(
 			modificationPredicate: ModificationPredicate<ModificationMap['wikilinks']>
 		): string | Promise<string> {
 			return this.modify('wikilinks', modificationPredicate);
+		}
+
+		modify<K extends keyof ModificationMap>(
+			type: K,
+			modificationPredicate: ModificationPredicate<ModificationMap[K]>
+		): string {
+			// Validate arguments
+			if (!MODIFICATION_TYPES.has(type)) {
+				throw new MwbotError('fatal', {
+					code: 'invalidinput',
+					info: `"${type}" is not a valid expression type for Wikitext.modify.`,
+				});
+			}
+			if (typeof modificationPredicate !== 'function') {
+				throw new MwbotError('fatal', {
+					code: 'typemismatch',
+					info: `Expected a function for "modificationPredicate", but got ${formatType(modificationPredicate)}.`,
+				});
+			}
+
+			// Apply modifications to the content
+			let newContent = this.content;
+			const clonedMarkups = this.storageManager(type) as ModificationMap[K][];
+			const touched = new Set<number>();
+			(this.storageManager(type, false) as ModificationMap[K][]).forEach((expr, i, markups) => {
+
+				// Expose the cloned objects to the user to prevent mutation
+				const mod = modificationPredicate(clonedMarkups[i], i, clonedMarkups, { touched: touched.has(i), content: newContent });
+				if (typeof mod !== 'string' && mod !== null) {
+					throw new MwbotError(
+						'fatal',
+						{
+							code: 'typemismatch',
+							info: 'modificationPredicate must return either a string or null.',
+						},
+						{ modified: { [i]: mod } }
+					);
+				}
+
+				if (typeof mod === 'string') {
+					const initialEndIndex = expr.endIndex;
+					const leadingPart = newContent.slice(0, expr.startIndex);
+					let trailingPart = newContent.slice(initialEndIndex);
+					let m: RegExpExecArray | null = null;
+					if (mod === '' && /(^|\n)[^\S\r\n]*$/.test(leadingPart) && (m = /^[^\S\r\n]*\n/.exec(trailingPart))) {
+						// If the modification removes the expression and that creates an empty line,
+						// also remove a trailing newline
+						trailingPart = trailingPart.slice(m[0].length);
+					}
+					newContent = leadingPart + mod + trailingPart;
+
+					// Update character indexes for subsequent modifications
+					const lengthGap = mod.length - (m ? m[0].length : 0) - expr.text.length;
+					expr.endIndex += lengthGap;
+					markups.forEach((obj, j) => {
+						if (j !== i) {
+							if (obj.startIndex >= initialEndIndex) {
+								obj.startIndex += lengthGap;
+								obj.endIndex += lengthGap;
+							} else if (obj.endIndex >= initialEndIndex) {
+								obj.endIndex += lengthGap;
+							}
+						}
+					});
+
+					// If the modification touched a nested markup, remember its index
+					for (const index of expr.children) {
+						const { startIndex, text } = markups[index];
+						if (!newContent.slice(startIndex).startsWith(text)) {
+							touched.add(index);
+						}
+					}
+				}
+			});
+
+			// Update stored content and return result
+			return this.storageManager('content', newContent).content;
 		}
 	}
 
