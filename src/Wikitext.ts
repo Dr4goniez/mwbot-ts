@@ -679,7 +679,7 @@ export function WikitextFactory(
 					// If a start tag is found
 
 					const nodeName = (m[1] || m[2]).toLowerCase();
-					const selfClosing = tagRegex.self.test(m[0]);
+					const selfClosing = m[0].endsWith('/>');
 
 					// Check if the tag is a void tag
 					let pseudoVoid = false;

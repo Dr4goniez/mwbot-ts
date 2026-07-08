@@ -180,6 +180,12 @@ export const TAG_SKIP: ReadonlySet<string> = new Set([
  */
 export const tagRegex = {
 	/**
+	 * Matches the next possible beginning of an HTML tag or comment end marker.
+	 *
+	 * Used to skip over plain text before attempting full tag matching.
+	 */
+	next: /<|-->/,
+	/**
 	 * Matches a start tag.
 	 * * `$0`: The full start tag (e.g. `<!--` or `<tag>`)
 	 * * `$1`: `--` (undefined for normal tags)
@@ -200,14 +206,4 @@ export const tagRegex = {
 	 * @see https://developer.mozilla.org/en-US/docs/Glossary/Void_element
 	 */
 	void: /^(?:area|base|br|col|embed|hr|img|input|link|meta|param|track|wbr)$/,
-	/**
-	 * Matches a self-closing tag.
-	 */
-	self: /\/>$/,
-	/**
-	 * Matches the next possible beginning of an HTML tag or comment end marker.
-	 *
-	 * Used to skip over plain text before attempting full tag matching.
-	 */
-	next: /<|-->/,
 };
