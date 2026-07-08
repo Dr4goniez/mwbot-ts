@@ -1,6 +1,6 @@
 import { describe, it, before, beforeEach, afterEach } from 'mocha';
 import { assert } from 'chai';
-import { MwbotError } from '../../dist/index.js';
+import { MwbotError } from '../../../dist/index.js';
 import { getTestMwbot } from './MwbotTest-fixtures.js';
 import sinon from 'sinon';
 

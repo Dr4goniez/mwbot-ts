@@ -1,6 +1,6 @@
 import { describe, it, before, beforeEach } from 'mocha';
 import { assert } from 'chai';
-import { assertThrowsMwbotError, getTestMwbot } from './MwbotTest-fixtures.js';
+import { assertThrowsMwbotError, getTestMwbot } from './MwbotTest/MwbotTest-fixtures.js';
 
 describe('Mwbot.Title', function () {
 	/**

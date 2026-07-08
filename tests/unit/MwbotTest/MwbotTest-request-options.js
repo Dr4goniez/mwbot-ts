@@ -1,6 +1,6 @@
 import { describe, it, before, beforeEach, afterEach } from 'mocha';
 import { assert } from 'chai';
-import { Mwbot,  MwbotError } from '../../dist/index.js';
+import { Mwbot,  MwbotError } from '../../../dist/index.js';
 import { getTestMwbot } from './MwbotTest-fixtures.js';
 import sinon from 'sinon';
 
@@ -31,8 +31,8 @@ export function testMwbotRequestOptions() {
 			});
 
 			/**
-			 * @param {import('../../dist/index.js').ApiResponseQueryMetaUserinfo['options']} options
-			 * @returns {import('../../dist/index.js').ApiResponse}
+			 * @param {import('../../../dist/index.js').ApiResponseQueryMetaUserinfo['options']} options
+			 * @returns {import('../../../dist/index.js').ApiResponse}
 			 */
 			const createOptionsResponse = (options = {}) => {
 				return {
@@ -155,9 +155,9 @@ export function testMwbotRequestOptions() {
 			});
 
 			/**
-			 * @param {import('../../dist/index.js').ApiResponseQueryMetaGlobalpreferences['preferences']} [preferences]
-			 * @param {import('../../dist/index.js').ApiResponseQueryMetaGlobalpreferences['localoverrides']} [localoverrides]
-			 * @returns {import('../../dist/index.js').ApiResponse}
+			 * @param {import('../../../dist/index.js').ApiResponseQueryMetaGlobalpreferences['preferences']} [preferences]
+			 * @param {import('../../../dist/index.js').ApiResponseQueryMetaGlobalpreferences['localoverrides']} [localoverrides]
+			 * @returns {import('../../../dist/index.js').ApiResponse}
 			 */
 			const createApiResponse = (preferences, localoverrides) => {
 				return {

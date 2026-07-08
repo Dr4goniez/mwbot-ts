@@ -1,7 +1,7 @@
 import { describe, it, before } from 'mocha';
 import { assert } from 'chai';
-import { Mwbot, MWBOT_VERSION } from '../../dist/index.js';
-import { Logger } from '../../dist/build/internal/Logger.js';
+import { Mwbot, MWBOT_VERSION } from '../../../dist/index.js';
+import { Logger } from '../../../dist/build/internal/Logger.js';
 import { getTestMwbot } from './MwbotTest-fixtures.js';
 import { CookieJar } from 'tough-cookie';
 

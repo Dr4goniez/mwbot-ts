@@ -1,6 +1,6 @@
 import { describe, it } from 'mocha';
 import { assert } from 'chai';
-import { Mwbot, MwbotError } from '../../dist/index.js';
+import { Mwbot, MwbotError } from '../../../dist/index.js';
 import { getTestMwbot } from './MwbotTest-fixtures.js';
 
 export function testMwbotExceptions() {

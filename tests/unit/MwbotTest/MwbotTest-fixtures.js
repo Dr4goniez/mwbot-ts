@@ -1,5 +1,5 @@
 import { assert } from 'chai';
-import { Mwbot, MwbotError } from '../../dist/index.js';
+import { Mwbot, MwbotError } from '../../../dist/index.js';
 
 /**
  * Creates a Mwbot subclass for testing init().
@@ -22,8 +22,8 @@ export function TestMwbotFactory(initError = false, errorCount = 1, loginError =
 
 	return class TestMwbot extends Mwbot {
 		/**
-		 * @param {import('../../dist/index.js').MwbotInitOptions} mwbotInitOptions
-		 * @param {import('../../dist/index.js').MwbotRequestConfig} requestOptions
+		 * @param {import('../../../dist/index.js').MwbotInitOptions} mwbotInitOptions
+		 * @param {import('../../../dist/index.js').MwbotRequestConfig} requestOptions
 		 * @override
 		 */
 		constructor(mwbotInitOptions, requestOptions) {
@@ -95,7 +95,7 @@ export function TestMwbotFactory(initError = false, errorCount = 1, loginError =
 
 /**
  * @param {'named' | 'anon'} userType
- * @returns {import('../../dist/index.js').MwbotInitOptions}
+ * @returns {import('../../../dist/index.js').MwbotInitOptions}
  */
 export function getMwbotInitOptionsBase(userType) {
 	let credentials;
@@ -2280,7 +2280,7 @@ function getFakeSiteAndUserInfo(anonymous) {
  * }
  * ```
  *
- * @param {import('../../dist/index.js').MwbotRequestConfig} requestOptions
+ * @param {import('../../../dist/index.js').MwbotRequestConfig} requestOptions
  * Request options used to populate the response headers.
  * @param {any} [data]
  * Optional response payload. If omitted, a minimal successful API response is returned.
@@ -2355,8 +2355,8 @@ export function createApiErrorResponse(code, info = code, merge) {
  * Mwbot before a request is sent.
  *
  * @param {Mwbot} bot
- * @param {import('../../dist/index.js').MwbotRequestConfig & import('../../dist/index.js').ReadRequestConfig} requestOptions
- * @returns {import('../../dist/index.js').MwbotRequestConfig & import('../../dist/index.js').ReadRequestConfig}
+ * @param {import('../../../dist/index.js').MwbotRequestConfig & import('../../../dist/index.js').ReadRequestConfig} requestOptions
+ * @returns {import('../../../dist/index.js').MwbotRequestConfig & import('../../../dist/index.js').ReadRequestConfig}
  */
 export function createRequestOptions(bot, requestOptions = {}) {
 	return Mwbot.Util.mergeDeep(

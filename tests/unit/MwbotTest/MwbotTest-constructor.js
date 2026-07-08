@@ -1,7 +1,7 @@
 import { describe, it, afterEach, beforeEach } from 'mocha';
 import { assert } from 'chai';
-import { Mwbot, MwbotError } from '../../dist/index.js';
-import { Logger } from '../../dist/build/internal/Logger.js';
+import { Mwbot, MwbotError } from '../../../dist/index.js';
+import { Logger } from '../../../dist/build/internal/Logger.js';
 import OAuth from 'oauth-1.0a';
 import { getMwbotInitOptionsBase, TestMwbotFactory } from './MwbotTest-fixtures.js';
 import sinon from 'sinon';

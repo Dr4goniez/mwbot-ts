@@ -1,9 +1,6 @@
 import { describe, it, before } from 'mocha';
 import { assert } from 'chai';
-import {
-	getTestMwbot,
-	TestMwbotFactory,
-} from './MwbotTest-fixtures.js';
+import { getTestMwbot, TestMwbotFactory } from './MwbotTest-fixtures.js';
 
 export function testMwbotConfig() {
 	describe('config', function () {

@@ -4,7 +4,7 @@ import {
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	Mwbot,
 	MwbotError,
-} from '../../dist/index.js';
+} from '../../../dist/index.js';
 import { getTestMwbot } from './MwbotTest-fixtures.js';
 import sinon from 'sinon';
 

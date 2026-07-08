@@ -1,7 +1,7 @@
 import { describe, it, before, afterEach, beforeEach } from 'mocha';
 import { assert } from 'chai';
-import { Mwbot, MwbotError } from '../../dist/index.js';
-import { Logger } from '../../dist/build/internal/Logger.js';
+import { Mwbot, MwbotError } from '../../../dist/index.js';
+import { Logger } from '../../../dist/build/internal/Logger.js';
 import {
 	createApiErrorResponse,
 	createAxiosError,
@@ -1595,8 +1595,8 @@ export function testMwbotRequest() {
 			});
 
 			/**
-			 * @param {import('../../dist/index.js').ApiParams} [merge]
-			 * @returns {import('../../dist/index.js').ApiParams}
+			 * @param {import('../../../dist/index.js').ApiParams} [merge]
+			 * @returns {import('../../../dist/index.js').ApiParams}
 			 */
 			const createParams = (merge) => {
 				const base = { action: /** @type {const} */ ('query') };

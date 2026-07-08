@@ -1,7 +1,7 @@
 import { describe, it, before, beforeEach } from 'mocha';
 import { assert } from 'chai';
 import * as sinon from 'sinon';
-import { assertThrowsMwbotError, getTestMwbot } from './MwbotTest-fixtures.js';
+import { assertThrowsMwbotError, getTestMwbot } from './MwbotTest/MwbotTest-fixtures.js';
 
 describe('Mwbot.Template', function () {
 	/**

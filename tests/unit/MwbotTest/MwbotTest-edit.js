@@ -1,6 +1,6 @@
 import { describe, it, before, beforeEach, afterEach } from 'mocha';
 import { assert } from 'chai';
-import { MwbotError } from '../../dist/index.js';
+import { MwbotError } from '../../../dist/index.js';
 import { getTestMwbot } from './MwbotTest-fixtures.js';
 import sinon from 'sinon';
 
@@ -220,11 +220,11 @@ export function testMwbotRequestEdit() {
 
 		describe('edit()', function () {
 			/**
-			 * @returns {import('../../dist/index.js').Title}
+			 * @returns {import('../../../dist/index.js').Title}
 			 */
 			const createTitle = () => new mwbot.Title('Sandbox');
 			/**
-			 * @param {import('../../dist/index.js').Title} title
+			 * @param {import('../../../dist/index.js').Title} title
 			 * @param {Record<string, any>} override
 			 * @returns
 			 */

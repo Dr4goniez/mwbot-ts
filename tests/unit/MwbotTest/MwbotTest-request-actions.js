@@ -1,6 +1,6 @@
 import { describe, it, before, beforeEach, afterEach } from 'mocha';
 import { assert } from 'chai';
-import { MwbotError } from '../../dist/index.js';
+import { MwbotError } from '../../../dist/index.js';
 import { getTestMwbot } from './MwbotTest-fixtures.js';
 import sinon from 'sinon';
 
@@ -107,7 +107,7 @@ export function testMwbotRequestActions() {
 			});
 
 			it('should use required API parameters', async function () {
-				/** @type {import('../../dist/index.js').ApiResponseParse} */
+				/** @type {import('../../../dist/index.js').ApiResponseParse} */
 				const expected = {
 					title: 'API',
 					pageid: 1,
@@ -198,7 +198,7 @@ export function testMwbotRequestActions() {
 			});
 
 			it('should use required API parameters', async function () {
-				/** @type {import('../../dist/index.js').ApiResponse} */
+				/** @type {import('../../../dist/index.js').ApiResponse} */
 				const expected = {
 					purge: [{
 						title: 'Foo',

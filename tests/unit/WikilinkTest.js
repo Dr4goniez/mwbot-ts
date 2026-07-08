@@ -1,7 +1,7 @@
 import { describe, it, before } from 'mocha';
 import { assert } from 'chai';
 import * as sinon from 'sinon';
-import { assertThrowsMwbotError, getTestMwbot } from './MwbotTest-fixtures.js';
+import { assertThrowsMwbotError, getTestMwbot } from './MwbotTest/MwbotTest-fixtures.js';
 import { serializeWikilink, validateWikilinkTitle } from '../../dist/build/internal/wikilinkHelpers.js';
 
 describe('Mwbot.Wikilink', function () {

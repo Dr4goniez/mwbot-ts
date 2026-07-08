@@ -1,19 +1,19 @@
 import { describe } from 'mocha';
-import { testMwbotProperties } from './MwbotTest-properties.js';
-import { testMwbotConstructor } from './MwbotTest-constructor.js';
-import { testMwbotState } from './MwbotTest-state.js';
-import { testMwbotExceptions } from './MwbotTest-exceptions.js';
-import { testMwbotConfig } from './MwbotTest-config.js';
-import { testMwbotRequest } from './MwbotTest-request.js';
-import { testMwbotRequestHelpers } from './MwbotTest-request-helpers.js';
-import { testMwbotRequestBatch } from './MwbotTest-request-batch.js';
-import { testMwbotRequestToken } from './MwbotTest-request-token.js';
-import { testMwbotRequestEdit } from './MwbotTest-edit.js';
-import { testMwbotRequestOptions } from './MwbotTest-request-options.js';
-import { testMwbotRequestAuth } from './MwbotTest-request-auth.js';
-import { testMwbotRequestActions } from './MwbotTest-request-actions.js';
-import { testMwbotRequestAdmin } from './MwbotTest-request-admin.js';
-import { testMwbotRequestQuery } from './MwbotTest-request-query.js';
+import { testMwbotProperties } from './MwbotTest/MwbotTest-properties.js';
+import { testMwbotConstructor } from './MwbotTest/MwbotTest-constructor.js';
+import { testMwbotState } from './MwbotTest/MwbotTest-state.js';
+import { testMwbotExceptions } from './MwbotTest/MwbotTest-exceptions.js';
+import { testMwbotConfig } from './MwbotTest/MwbotTest-config.js';
+import { testMwbotRequest } from './MwbotTest/MwbotTest-request.js';
+import { testMwbotRequestHelpers } from './MwbotTest/MwbotTest-request-helpers.js';
+import { testMwbotRequestBatch } from './MwbotTest/MwbotTest-request-batch.js';
+import { testMwbotRequestToken } from './MwbotTest/MwbotTest-request-token.js';
+import { testMwbotRequestEdit } from './MwbotTest/MwbotTest-edit.js';
+import { testMwbotRequestOptions } from './MwbotTest/MwbotTest-request-options.js';
+import { testMwbotRequestAuth } from './MwbotTest/MwbotTest-request-auth.js';
+import { testMwbotRequestActions } from './MwbotTest/MwbotTest-request-actions.js';
+import { testMwbotRequestAdmin } from './MwbotTest/MwbotTest-request-admin.js';
+import { testMwbotRequestQuery } from './MwbotTest/MwbotTest-request-query.js';
 
 describe('Mwbot', function () {
 	testMwbotProperties();
