@@ -23,6 +23,7 @@
 // See https://www.mediawiki.org/wiki/Help:HTML_in_wikitext
 
 import { Mwbot } from '../../Mwbot.js';
+import type { Tag } from '../../Wikitext.js';
 
 /**
  * Set of HTML tag names that must be closed.
@@ -207,3 +208,46 @@ export const tagRegex = {
 	 */
 	void: /^(?:area|base|br|col|embed|hr|img|input|link|meta|param|track|wbr)$/,
 };
+
+/**
+ * Create a {@link Tag} object from a parsed `<void>` tag.
+ *
+ * @param data
+ * @returns
+ */
+export function createVoidTag(
+	data: Pick<
+		Tag,
+		| 'name'
+		| 'start'
+		| 'startIndex'
+		| 'nestLevel'
+		| 'selfClosing'
+	>
+): Tag {
+	return {
+		...data,
+		get text() { // The entire void tag (e.g. <br>)
+			return this.start;
+		},
+		content: null, // Void tags have no content
+		end: '',
+		endIndex: data.startIndex + data.start.length,
+		void: true,
+		unclosed: false,
+		skip: false, // Lazy-loaded
+		index: -1, // Lazy-loaded
+		parent: null, // Lazy-loaded
+		children: new Set(), // Lazy-loaded
+	};
+}
+
+/**
+ * Sanitize the tag name `--` to `!--`, or else return the input as is.
+ *
+ * @param name
+ * @returns
+ */
+export function sanitizeNodeName(name: string): string {
+	return name === '--' ? '!' + name : name;
+}

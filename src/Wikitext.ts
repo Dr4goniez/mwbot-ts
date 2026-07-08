@@ -96,7 +96,7 @@ import type {
 	ParsedRawWikilinkInitializer,
 } from './Wikilink.js';
 import { formatType } from './internal/helpers.js';
-import { getParserExtensionTags, TAG_HTML, TAG_SKIP, tagRegex } from './internal/wikitext/tagHelpers.js';
+import { createVoidTag, getParserExtensionTags, sanitizeNodeName, TAG_HTML, TAG_SINGLE_ONLY, TAG_SKIP, tagRegex } from './internal/wikitext/tagHelpers.js';
 
 /**
  * @expand
@@ -675,75 +675,87 @@ export function WikitextFactory(
 
 				let m: RegExpExecArray | null;
 
+				// If a start tag is found
 				if ((m = tagRegex.start.exec(wkt))) {
-					// If a start tag is found
 
+					const startTag = m[0];
 					const nodeName = (m[1] || m[2]).toLowerCase();
-					const selfClosing = m[0].endsWith('/>');
+					const selfClosing = startTag.endsWith('/>');
 
-					// Check if the tag is a void tag
-					let pseudoVoid = false;
-					if (tagRegex.void.test(nodeName) || (pseudoVoid = (selfClosing && TAG_EXT.has(nodeName)))) {
-						// Add void and "pseudo-void" self-closing tags to the stack immediately
-						// For "pseudo-void" tags, see the comments in the definition of `validTags`
-						parsed.push(
-							createVoidTagObject(nodeName, m[0], i, startTags.length, selfClosing, pseudoVoid, false)
-						);
+					if (TAG_SINGLE_ONLY.has(nodeName)) {
+						// This is a "void" tag.
+						// MediaWiki disallows tags like <br> to have a close tag. If there's one
+						// (e.g., "<br></br>"), the sequence is recognized as two <br> tags.
+						const tag = createVoidTag({
+							name: nodeName,
+							start: startTag,
+							startIndex: i,
+							nestLevel: startTags.length,
+							selfClosing,
+						});
+						parsed.push(tag);
 					} else {
 						// Store non-void start tags for later matching with end tags.
 						startTags.unshift({
 							name: nodeName,
 							startIndex: i,
-							endIndex: i + m[0].length,
+							endIndex: i + startTag.length,
 							selfClosing,
 						});
 					}
 
 					// Skip ahead by the length of the matched tag to continue parsing
-					i += m[0].length - 1;
+					i += startTag.length - 1;
+					continue;
+				}
 
-				} else if ((m = tagRegex.end.exec(wkt))) {
-					// If an end tag is found, attempt to match it with the corresponding start tag
-					const nodeName = (m[1] || m[2]).toLowerCase();
+				// If an end tag is found
+				if ((m = tagRegex.end.exec(wkt))) {
+
 					const endTag = m[0];
+					const nodeName = (m[1] || m[2]).toLowerCase();
 
-					// Different treatments for when this is the end of a void tag or a normal tag
-					if (tagRegex.void.test(nodeName)) {
-						if (nodeName === 'br') {
-							// MediaWiki converts </br> to <br>
-							// Void start tags aren't stored in "startTags" (i.e. there's no need to look them up in the stack)
-							parsed.push(
-								createVoidTagObject(nodeName, m[0], i, startTags.length, false, false, false)
-							);
-						} else {
-							// Do nothing
-						}
-					} else if (startTags.find(({ name }) => name === nodeName)) {
-						// Ensure there's a matching start tag stored; otherwise, skip this end tag
+					if (TAG_SINGLE_ONLY.has(nodeName)) {
+						// Handle tags like </br> that are recognized as start tags
+						const tag = createVoidTag({
+							name: nodeName,
+							start: endTag,
+							startIndex: i,
+							nestLevel: startTags.length,
+							selfClosing: false,
+						});
+						parsed.push(tag);
+					} else {
+						// Attempt to match the end tag with the corresponding start tag
 
 						let closedTagCnt = 0;
 
-						// Check the collected start tags
-						startTags.some((start) => { // The most recently collected tag is at index 0 (because of unshift)
+						for (const startTag of startTags) {
+							// The most recently collected tag is at index 0 (because of unshift())
 
-							// true when e.g. <span></span>, false when e.g. <span><div></span>
-							const startTagMatched = start.name === nodeName;
-							// Get the last index of this end tag ("</span>|") or that of the unclosed tag ("<div>|</span>")
+							const startTagName = sanitizeNodeName(startTag.name);
+							/**
+							 * `true` when e.g. `<span></span>`, `false` when e.g. `<span><div></span>`
+							 */
+							const startTagMatched = startTag.name === nodeName;
+							/**
+							 * The last index of this end tag (`</span>|`), or that of an unclosed tag
+							 * (`<div>|</span>`)
+							 */
 							const endIndex = startTagMatched ? i + endTag.length : i;
-							const startTagName = sanitizeNodeName(start.name); // Sanitize the tag name, "--" becomes "!--"
 
 							parsed.push({
 								name: startTagName, // Can be the name of an unclosed tag
 								get text() {
 									return this.start + (this.content || '') + (this.unclosed ? '' : this.end);
 								},
-								start: wikitext.slice(start.startIndex, start.endIndex),
-								content: wikitext.slice(start.endIndex, endIndex - (startTagMatched ? endTag.length : 0)),
+								start: wikitext.slice(startTag.startIndex, startTag.endIndex),
+								content: wikitext.slice(startTag.endIndex, endIndex - (startTagMatched ? endTag.length : 0)),
 								// If we've found an unclosed tag, supplement an end tag for it
 								// NOTE: No need to handle comment tags here because they aren't closed unless closed
 								// But they nevertheless need to be handled when we get out of the iteration
 								end: !startTagMatched ? `</${startTagName}>` : endTag,
-								startIndex: start.startIndex,
+								startIndex: startTag.startIndex,
 								endIndex,
 								// closedTagCnt being more than 0 means we forcibly closed unclosed tags in the previous loops.
 								// But we have yet to remove the proccessed start tags, so we need to subtract the number of
@@ -751,19 +763,19 @@ export function WikitextFactory(
 								nestLevel: startTags.length - 1 - closedTagCnt,
 								void: false,
 								unclosed: !startTagMatched,
-								selfClosing: start.selfClosing,
-								skip: false,
-								index: -1,
-								parent: null,
-								children: new Set(),
+								selfClosing: startTag.selfClosing,
+								skip: false, // Lazy-loaded
+								index: -1, // Lazy-loaded
+								parent: null, // Lazy-loaded
+								children: new Set(), // Lazy-loaded
 							});
 							closedTagCnt++;
 
-							// Exit the loop when we find a start-end pair
+							// Bail the loop when we find a start-end pair
 							if (startTagMatched) {
-								return true;
+								break;
 							}
-						});
+						}
 
 						// Remove the matched start tags from the stack
 						startTags.splice(0, closedTagCnt);
@@ -774,32 +786,32 @@ export function WikitextFactory(
 			}
 
 			// Handle any unclosed tags left in the stack
-			startTags.forEach(({ name, startIndex, endIndex, selfClosing }, i, arr) => {
-				const startTagName = sanitizeNodeName(name);
+			for (const [i, startTag] of startTags.entries()) {
+				const startTagName = sanitizeNodeName(startTag.name);
 				parsed.push({
 					name: startTagName,
 					get text() {
 						return this.start + (this.content || '') + (this.unclosed ? '' : this.end);
 					},
-					start: wikitext.slice(startIndex, endIndex),
-					content: wikitext.slice(endIndex, wikitext.length),
+					start: wikitext.slice(startTag.startIndex, startTag.endIndex),
+					content: wikitext.slice(startTag.endIndex, wikitext.length),
 					// Supplement end tags for unclosed tags, including comment tags
 					end: startTagName !== '!--' ? `</${startTagName}>` : '-->',
-					startIndex,
+					startIndex: startTag.startIndex,
 					endIndex: wikitext.length,
-					nestLevel: arr.length - 1 - i,
+					nestLevel: startTags.length - 1 - i,
 					void: false,
 					unclosed: true,
-					selfClosing,
-					skip: false,
-					index: -1,
-					parent: null,
-					children: new Set(),
+					selfClosing: startTag.selfClosing,
+					skip: false, // Lazy-loaded
+					index: -1, // Lazy-loaded
+					parent: null, // Lazy-loaded
+					children: new Set(), // Lazy-loaded
 				});
-			});
+			}
 
-			// Sort the parsed tags based on their positions in the wikitext and return
-			parsed.sort((obj1, obj2) => obj1.startIndex - obj2.startIndex);
+			// Sort the parsed tags based on their positions in the wikitext
+			parsed.sort((tag1, tag2) => tag1.startIndex - tag2.startIndex);
 
 			// Set up the `skip` and index-related properties and return the result
 			const isInSkipRange = this.getSkipPredicate(parsed);
@@ -2106,7 +2118,7 @@ export interface ModificationMap {
 	wikilinks: DoubleBracketedClasses;
 }
 
-// Interfaces and private members for "parseTags"
+// --------------- Interfaces for parseTags() ---------------
 
 /**
  * Object that holds information about an HTML tag, parsed from wikitext.
@@ -2115,31 +2127,37 @@ export interface ModificationMap {
  */
 export interface Tag {
 	/**
-	 * The name of the tag (e.g. `'div'` for `<div></div>`). Comment tags (i.e. `<!-- -->`) are named `'!--'`.
+	 * The name of the tag (e.g., `'div'`). Comment tags are named `'!--'`.
 	 */
 	name: string;
 	/**
-	 * The outerHTML of the tag.
+	 * Returns the outerHTML of the tag.
+	 *
+	 * For unclosed tags, this may return a string like `'<span>content'`.
 	 */
 	get text(): string;
 	/**
-	 * The start tag.
+	 * The opening token of the tag.
+	 *
+	 * For {@link void} tags, this may be a syntactic end tag such as `'</br>'`,
+	 * since MediaWiki treats it as another occurrence of the same void tag.
 	 */
 	start: string;
 	/**
-	 * The innerHTML of the tag. May be `null` if this is a void tag.
+	 * The innerHTML of the tag.
+	 *
+	 * For {@link void} tags, this may be `null`.
 	 */
 	content: string | null;
 	/**
-	 * The end tag.
+	 * The ending token of the tag.
 	 *
-	 * Be aware of the following cases:
-	 * * If this tag is a void tag, this property is an empty string.
-	 * * If this tag is unclosed even though it should be closed, this property is the expected end tag.
+	 * * For {@link void} tags, this is an empty string.
+	 * * For {@link unclosed} non-void tags, this is a supplemented end tag.
 	 */
 	end: string;
 	/**
-	 * The index of this Tag object within the result array returned by `parseTags`.
+	 * The index of this Tag object within the result array returned by {@link Wikitext.parseTags | parseTags}.
 	 */
 	index: number;
 	/**
@@ -2155,20 +2173,26 @@ export interface Tag {
 	 */
 	nestLevel: number;
 	/**
-	 * Whether this tag is a void tag.
+	 * Whether this is a "void" tag under MediaWiki's specification.
 	 *
-	 * See {@link https://developer.mozilla.org/en-US/docs/Glossary/Void_element |MDN Web Docs}
-	 * for a list of void elements.
+	 * This slightly differs from void tags as defined in HTML5:
+	 * * MediaWiki's "void" tags are tags that are defined as disallowed to have a close tag,
+	 *   namely `'br'`, `'wbr'`, `'hr'`, `'meta'`, and `'link'`.
+	 * * If these tags have a corresponding close tag, that tag is recognized as another occurrence
+	 *   of the void tag (e.g., `'<br></br>'` is the same as `'<br><br>'`).
 	 */
 	void: boolean;
 	/**
-	 * Whether this tag is properly closed.
+	 * Whether the tag is unclosed.
 	 *
-	 * Note that {@link void} tags have this property set to `false` because they do not need to be closed.
+	 * For {@link void} tags, this is always `false`.
 	 */
 	unclosed: boolean;
 	/**
-	 * Whether this tag is a self-closing tag (which is invalid in HTML).
+	 * Whether the tag closes itself (e.g., `'<br />'`).
+	 *
+	 * * For {@link void} tags (e.g., `'<br />'`), it is considered valid (i.e., no difference from `'<br>'`).
+	 * * For non-void tags (e.g., `'<span />'`), it is considered unclosed and requires a close tag.
 	 */
 	selfClosing: boolean;
 	/**
@@ -2176,11 +2200,12 @@ export interface Tag {
 	 */
 	skip: boolean;
 	/**
-	 * The index of the parent Tag object within the `parseTags` result array, or `null` if there is no parent.
+	 * The index of the parent `Tag` object within the {@link Wikitext.parseTags | parseTags} result array,
+	 * or `null` if there is no parent.
 	 */
 	parent: number | null;
 	/**
-	 * The indices of the child Tag objects within the `parseTags` result array.
+	 * The indices of the child `Tag` objects within the {@link Wikitext.parseTags | parseTags} result array.
 	 */
 	children: Set<number>;
 }
@@ -2193,56 +2218,6 @@ interface StartTag {
 	startIndex: number;
 	endIndex: number;
 	selfClosing: boolean;
-}
-
-/**
- * Sanitize the tag name `--` to `!--`, or else return the input as is.
- * @param name
- * @returns
- */
-function sanitizeNodeName(name: string): string {
-	return name === '--' ? '!' + name : name;
-}
-
-/**
- * Create a {@link Tag} object from a parsed `<void>` tag.
- *
- * @param nodeName The node name of the void tag.
- * @param startTag The start void tag (i.e., the whole part of the void tag).
- * @param startIndex The start index of the void tag in the wikitext.
- * @param nestLevel The nesting level of the void tag.
- * @param selfClosing Whether the void tag closes itself.
- * @param pseudoVoid Whether this is a pseudo-void tag. Such tags are marked `{ void: false }`.
- * @returns
- */
-function createVoidTagObject(
-	nodeName: string,
-	startTag: string,
-	startIndex: number,
-	nestLevel: number,
-	selfClosing: boolean,
-	pseudoVoid: boolean,
-	skip: boolean
-): Tag {
-	return {
-		name: nodeName, // Not calling sanitizeNodeName because this is never a comment tag
-		get text() { // The entire void tag (e.g. <br>)
-			return this.start;
-		},
-		start: startTag,
-		content: null, // Void tags have no content
-		end: '',
-		startIndex,
-		endIndex: startIndex + startTag.length,
-		nestLevel,
-		void: !pseudoVoid,
-		unclosed: false,
-		selfClosing,
-		skip,
-		index: -1,
-		parent: null,
-		children: new Set(),
-	};
 }
 
 /**
