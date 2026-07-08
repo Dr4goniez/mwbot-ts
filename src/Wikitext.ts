@@ -615,24 +615,33 @@ export function WikitextFactory(
 		 * @returns A function that checks whether a given range is inside any tag to skip parsing.
 		 */
 		private getSkipPredicate(tags?: Tag[]): (startIndex: number, endIndex: number) => boolean {
+			tags ??= this.storageManager('tags', false);
 
 			// Create an array to store the start and end indices of tags to skip
-			tags = tags || this.storageManager('tags', false);
-			const indexMap = tags.reduce((acc: [number, number][], tagObj) => {
-				// If the tag is in the skip list and doesn't overlap with existing ranges, add its range
-				if (TAG_SKIP.has(tagObj.name)) {
-					// Check if the current range is already covered by an existing range
-					const isCovered = acc.some(([startIndex, endIndex]) => startIndex < tagObj.startIndex && tagObj.endIndex < endIndex);
-					if (!isCovered) {
-						acc.push([tagObj.startIndex, tagObj.endIndex]);
-					}
+			const indexMap: [number, number][] = [];
+
+			for (const tag of tags) {
+				if (!TAG_SKIP.has(tag.name)) {
+					continue;
 				}
-				return acc;
-			}, []);
+
+				const last = indexMap.at(-1);
+				if (!last || !(last[0] < tag.startIndex && tag.endIndex < last[1])) {
+					indexMap.push([tag.startIndex, tag.endIndex]);
+				}
+			}
 
 			// Return a predicate function that checks if a given range is inside any of the skip tag ranges
 			return (startIndex: number, endIndex: number) => {
-				return indexMap.some(([skipStartIndex, skipEndIndex]) => skipStartIndex < startIndex && endIndex < skipEndIndex);
+				for (const [skipStart, skipEnd] of indexMap) {
+					if (skipStart >= startIndex) {
+						break;
+					}
+					if (endIndex < skipEnd) {
+						return true;
+					}
+				}
+				return false;
 			};
 		}
 
