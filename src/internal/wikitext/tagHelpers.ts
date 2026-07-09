@@ -39,10 +39,10 @@ export const TAG_PAIRS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Set of HTML tag names that must be self-closed.
+ * Set of HTML tag names that may be written using self-closing syntax.
  *
- * For tags not also in {@link TAG_SINGLE_ONLY}, a self-closed tag will be emitted
- * as an empty element (open-tag/close-tag pair).
+ * Tags not also present in {@link TAG_SINGLE_ONLY} are emitted as empty
+ * elements (i.e. open-tag/close-tag pairs).
  */
 // $htmlsingle
 export const TAG_SINGLE: ReadonlySet<string> = new Set([
@@ -102,7 +102,7 @@ export const TAG_TABLE: ReadonlySet<string> = new Set([
 export const TAG_SINGLE_ALLOWED: ReadonlySet<string> = new Set([...TAG_SINGLE, ...TAG_TABLE]);
 
 /**
- * Set of HTML tag names recognized by MediaWiki.
+ * Set of built-in HTML tag names recognized by MediaWiki.
  */
 // $htmlelementsStatic
 export const TAG_HTML: ReadonlySet<string> = new Set([...TAG_SINGLE, ...TAG_PAIRS, ...TAG_NEST]);
@@ -160,7 +160,9 @@ export function getParserExtensionTags(info: Mwbot['_info']): ReadonlySet<string
 }
 
 /**
- * Set of tag names inside which wikitext is not parsed.
+ * Set of all known tags inside which wikitext is not parsed.
+ *
+ * Some of these tags are provided by optional extensions and may not be available on every wiki.
  */
 // TODO: Cannot handle rare cases like "<nowiki>[[link<!--]]-->|display]]</nowiki>",
 // where a comment tag is nested inside a non-comment skip tag. To handle these,

@@ -96,7 +96,16 @@ import type {
 	ParsedRawWikilinkInitializer,
 } from './Wikilink.js';
 import { formatType } from './internal/helpers.js';
-import { createVoidTag, getParserExtensionTags, getRecognizedSkipTags, sanitizeNodeName, TAG_HTML, TAG_SINGLE_ONLY, tagRegex } from './internal/wikitext/tagHelpers.js';
+import {
+	createVoidTag,
+	getParserExtensionTags,
+	getRecognizedSkipTags,
+	sanitizeNodeName,
+	TAG_HTML,
+	TAG_SINGLE_ALLOWED,
+	TAG_SINGLE_ONLY,
+	tagRegex,
+} from './internal/wikitext/tagHelpers.js';
 
 /**
  * @expand
@@ -160,18 +169,20 @@ export interface WikitextStatic {
 	 */
 	newFromTitle(title: string | Title, requestOptions?: MwbotRequestConfig): Promise<Wikitext>;
 	/**
-	 * Returns a list of valid HTML tag names that can be used in wikitext.
+	 * Returns the set of tag names recognized by MediaWiki.
 	 *
+	 * @param type The type of tags to retrieve.
 	 * @returns Set of tag names (all elements are in lowercase).
 	 */
-	getValidTags(): ReadonlySet<string>;
+	getValidTags(type?: TagType): ReadonlySet<string>;
 	/**
-	 * Checks whether a given tag name is valid in wikitext.
+	 * Checks whether a tag name is recognized by MediaWiki.
 	 *
 	 * @param tagName The tag name to check.
+	 * @param type The type of tags to validate `tagName` against.
 	 * @returns A boolean indicating whether the tag name is valid.
 	 */
-	isValidTag(tagName: string): boolean;
+	isValidTag(tagName: string, type?: TagType): boolean;
 }
 
 /**
@@ -443,7 +454,28 @@ export function WikitextFactory(
 
 	const TAG_EXT = getParserExtensionTags(info);
 	const TAG_VALID: ReadonlySet<string> = new Set([...TAG_HTML, ...TAG_EXT]);
+	const TAG_CLOSEABLE: ReadonlySet<string> = new Set(
+		Array.from(TAG_VALID).filter(tag => !TAG_SINGLE_ONLY.has(tag))
+	);
+	const TAG_SELF_CLOSEABLE: ReadonlySet<string> = new Set([...TAG_SINGLE_ALLOWED, ...TAG_EXT]);
 	const TAG_SKIP_RECOGNIZED = getRecognizedSkipTags(TAG_EXT);
+
+	const getTagsByType = (type: TagType = 'any'): ReadonlySet<string> => {
+		switch (type) {
+			case 'void':
+				return TAG_SINGLE_ONLY;
+			case 'extension':
+				return TAG_EXT;
+			case 'selfClosing':
+				return TAG_SELF_CLOSEABLE;
+			case 'closeable':
+				return TAG_CLOSEABLE;
+			case 'skip':
+				return TAG_SKIP_RECOGNIZED;
+			default:
+				return TAG_VALID;
+		}
+	};
 
 	const CLONE_INSTANCE_CONFIG = new CloneConfig({ cloneClassInstances: true });
 
@@ -598,13 +630,13 @@ export function WikitextFactory(
 			return this.storage.content;
 		}
 
-		static getValidTags(): ReadonlySet<string> {
-			return new Set([...TAG_VALID]);
+		static getValidTags(type?: TagType): ReadonlySet<string> {
+			return new Set([...getTagsByType(type)]);
 		}
 
-		static isValidTag(tagName: string): boolean {
+		static isValidTag(tagName: string, type?: TagType): boolean {
 			tagName = String(tagName).toLowerCase();
-			return TAG_VALID.has(tagName);
+			return getTagsByType(type).has(tagName);
 		}
 
 		/**
@@ -2039,6 +2071,27 @@ interface StorageArgumentMap {
 	templates: ParsedTemplateOptions;
 	wikilinks: never;
 }
+
+// --------------- Interfaces for tag-related methods ---------------
+
+/**
+ * Categories of tags supported by {@link WikitextStatic.getValidTags} and
+ * {@link WikitextStatic.isValidTag}.
+ *
+ * * `'any'` (default) - Any tags recognized by MediaWiki.
+ * * `'void'` - Tags that must not have a closing tag (e.g., `<br>`).
+ * * `'extension'` - Parser extension tags recognized on the current wiki.
+ * * `'selfClosing'` - Tags that may be written using self-closing syntax (e.g., `<ref />` or `<br />`).
+ * * `'closeable'` - Tags that can have a closing tag (i.e., not void).
+ * * `'skip'` - Tags inside which wikitext is not parsed.
+ */
+export type TagType =
+	| 'any'
+	| 'void'
+	| 'extension'
+	| 'selfClosing'
+	| 'closeable'
+	| 'skip';
 
 /**
  * Object that holds information about an HTML tag, parsed from wikitext.

@@ -14,13 +14,55 @@ export function testWikitextTags() {
 		});
 
 		describe('getValidTags()', function () {
-			it('should return a Set of valid tag names', function () {
+			it('should return a Set of recognized tag names by default', function () {
 				const tags = mwbot.Wikitext.getValidTags();
 
 				assert.instanceOf(tags, Set);
 				assert.isTrue(tags.has('div'));
 				assert.isTrue(tags.has('br'));
 				assert.isTrue(tags.has('nowiki'));
+			});
+
+			it('should return void tags', function () {
+				assert.sameMembers(
+					[...mwbot.Wikitext.getValidTags('void')],
+					['br', 'wbr', 'hr', 'meta', 'link']
+				);
+			});
+
+			it('should return parser extension tags', function () {
+				const tags = mwbot.Wikitext.getValidTags('extension');
+
+				assert.isTrue(tags.has('pre'));
+				assert.isTrue(tags.has('nowiki'));
+				assert.isFalse(tags.has('div'));
+			});
+
+			it('should return self-closing tags', function () {
+				const tags = mwbot.Wikitext.getValidTags('selfClosing');
+
+				assert.isTrue(tags.has('br'));
+				assert.isTrue(tags.has('li'));
+				assert.isTrue(tags.has('pre'));
+				assert.isFalse(tags.has('div'));
+			});
+
+			it('should return closeable tags', function () {
+				const tags = mwbot.Wikitext.getValidTags('closeable');
+
+				assert.isTrue(tags.has('div'));
+				assert.isTrue(tags.has('li'));
+				assert.isTrue(tags.has('pre'));
+				assert.isFalse(tags.has('br'));
+			});
+
+			it('should return skip tags', function () {
+				const tags = mwbot.Wikitext.getValidTags('skip');
+
+				assert.isTrue(tags.has('!--'));
+				assert.isTrue(tags.has('nowiki'));
+				assert.isTrue(tags.has('pre'));
+				assert.isFalse(tags.has('div'));
 			});
 
 			it('should not allow modifications to affect future results', function () {
@@ -36,10 +78,40 @@ export function testWikitextTags() {
 		});
 
 		describe('isValidTag()', function () {
-			it('should return true for valid tag names', function () {
+			it('should return true for recognized tag names', function () {
 				assert.isTrue(mwbot.Wikitext.isValidTag('div'));
 				assert.isTrue(mwbot.Wikitext.isValidTag('br'));
 				assert.isTrue(mwbot.Wikitext.isValidTag('nowiki'));
+			});
+
+			it('should validate void tags', function () {
+				assert.isTrue(mwbot.Wikitext.isValidTag('br', 'void'));
+				assert.isFalse(mwbot.Wikitext.isValidTag('div', 'void'));
+			});
+
+			it('should validate parser extension tags', function () {
+				assert.isTrue(mwbot.Wikitext.isValidTag('pre', 'extension'));
+				assert.isFalse(mwbot.Wikitext.isValidTag('div', 'extension'));
+			});
+
+			it('should validate self-closing tags', function () {
+				assert.isTrue(mwbot.Wikitext.isValidTag('li', 'selfClosing'));
+				assert.isTrue(mwbot.Wikitext.isValidTag('pre', 'selfClosing'));
+				assert.isFalse(mwbot.Wikitext.isValidTag('div', 'selfClosing'));
+			});
+
+			it('should validate closeable tags', function () {
+				assert.isTrue(mwbot.Wikitext.isValidTag('div', 'closeable'));
+				assert.isTrue(mwbot.Wikitext.isValidTag('li', 'closeable'));
+				assert.isTrue(mwbot.Wikitext.isValidTag('pre', 'closeable'));
+				assert.isFalse(mwbot.Wikitext.isValidTag('br', 'closeable'));
+			});
+
+			it('should validate skip tags', function () {
+				assert.isTrue(mwbot.Wikitext.isValidTag('!--', 'skip'));
+				assert.isTrue(mwbot.Wikitext.isValidTag('nowiki', 'skip'));
+				assert.isTrue(mwbot.Wikitext.isValidTag('pre', 'skip'));
+				assert.isFalse(mwbot.Wikitext.isValidTag('div', 'skip'));
 			});
 
 			it('should be case-insensitive', function () {
