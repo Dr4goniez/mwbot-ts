@@ -107,6 +107,7 @@ import {
 	TAG_SINGLE_ONLY,
 	tagRegex,
 } from './internal/wikitext/tagHelpers.js';
+import { CommentPlaceholderManager, headingRegex, removeComments } from './internal/wikitext/sectionHelpers.js';
 
 /**
  * @expand
@@ -561,7 +562,6 @@ export function WikitextFactory(
 			valueOrClone?: NonNullable<typeof this.storage[K]> | boolean,
 			args?: StorageArgumentMap[K]
 		) {
-
 			// If retrieving a value
 			if (typeof valueOrClone === 'boolean' || valueOrClone === undefined) {
 				const clone = valueOrClone ?? true; // Default to true
@@ -615,8 +615,8 @@ export function WikitextFactory(
 					info: `Invalid key: ${key}.`,
 				});
 			}
-			return this;
 
+			return this;
 		}
 
 		get length(): number {
@@ -884,117 +884,25 @@ export function WikitextFactory(
 
 			const isInSkipRange = this.getSkipPredicate();
 
-			/**
-			 * Regular expressions to parse `<hN>` tags and `==heading==` markups.
-			 */
-			const regex = {
-				/**
-				 * Capturing groups:
-				 * * `$1`: Heading level (1 through 6)
-				 */
-				tag: /^h([1-6])$/,
-				/**
-				 * Matches potential wikitext-style headings with comment placeholders.
-				 *
-				 * Examples of matched inputs:
-				 * `\x01(1)\x02\x02\x02\x02\x02 == heading ==<extra chars>`
-				 *
-				 * Comment tags are replaced with control sequences like `\x01{n}\x02+`.
-				 *
-				 * Capturing groups:
-				 * * `$1`: Leading equals or control chars (e.g. `==`, or `\x01...\x02`)
-				 * * `$2`: Heading text (can include inline markup)
-				 * * `$3`: Trailing equals or control chars
-				 * * `$4`: Trailing space characters (must be [\t\n\u0020\u00a0])
-				 *
-				 * Notes on wiki heading parsing:
-				 * * `== 1 ===` → `<h2>1 =</h2>` (left: 2, right: 3)
-				 * * `=== 1 ==` → `<h2>= 1</h2>` (left: 3, right: 2)
-				 * * `== 1 ==\S+` → Ignored as a valid heading (due to extra non-space characters)
-				 * * `<!--string-->== 1 ==` → `<h2>1</h2>` (comment is ignored)
-				 * * `== 1 ==<!--string-->` → `<h2>1</h2>`
-				 * * `=<!--string-->= 1 ==` → `<h1>1</h1>`
-				 * * `======= 1 =======` → `<h6>= 1 =</h6>` (left: 7, right: 7)
-				 */
-				headingCandidate: /^([\x01\x02\d=]+)(.+?)([\x01\x02\d=]+)(.*)$/gm,
-				/**
-				 * Strict heading matcher, applied after restoring comments.
-				 *
-				 * Uses same capturing groups as `headingCandidate`.
-				 */
-				heading: /^(=+)(.+?)(=+)(.*)$/,
-				/**
-				 * Matches whitespace characters allowed after a heading.
-				 *
-				 * This is not the same as the JavaScript `\s`, which is equivalent to
-				 * `[\t\n\v\f\r\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]`.
-				 */
-				whitespace: /[\t\u0020\u00a0]+/g,
-			};
-
 			// Extract HTML-style headings (<h1>–<h6>)
-			let wikitextWithPlaceholders = this.content;
-			const commentMap = new Map<string, { text: string; offset: number }>();
-			let offset = 0;
-			const nested = new Set<number>();
-			const headings = this.storageManager('tags', false).reduce((acc: Heading[], tag, _, arr) => {
+			const tags = this.storageManager('tags', false);
+			const headings: Heading[] = [];
 
-				// Collect HTML heading elements
-				const m = regex.tag.exec(tag.name);
-				if (m && !isInSkipRange(tag.startIndex, tag.endIndex)) {
-					acc.push({
+			for (const tag of tags) {
+				const match = headingRegex.tag.exec(tag.name);
+				if (match && !isInSkipRange(tag.startIndex, tag.endIndex)) {
+					headings.push({
 						text: tag.text,
 						// TODO: Should we handle tags like <span> or [[wikilinks]] within headings?
-						title: mwbot.Title.clean(removeComments(tag.content!)),
-						level: parseInt(m[1]),
+						title: mwbot.Title.clean(removeComments(tag.content ?? '')),
+						level: +match[1],
 						index: tag.startIndex,
 					});
 				}
-
-				// Replace comment tags in `wikitextWithPlaceholders` with placeholders
-				if (tag.name === '!--' && !nested.has(tag.index)) {
-					// Store the indices of nested comments to skip them in subsequent iterations
-					for (const index of tag.children) {
-						if (arr[index].name === tag.name) {
-							nested.add(index);
-						}
-					}
-
-					// Replace the comment with a placeholder and store it
-					const placeholder = '\x01' + commentMap.size + '\x02';
-					commentMap.set(placeholder, { text: tag.text, offset });
-					wikitextWithPlaceholders = wikitextWithPlaceholders.replace(tag.text, placeholder);
-					offset += (placeholder.length - tag.text.length);
-				}
-
-				return acc;
-			}, []);
-			/**
-			 * Restores or removes comment placeholders from a string.
-			 *
-			 * @param str The string containing comment placeholders.
-			 * @param remove If `true`, removes placeholders instead of restoring them.
-			 * @returns The updated string.
-			 */
-			const rebindComments = (str: string, remove = false): string => {
-				const rKeys = /\x01\d+\x02/g;
-				let m;
-				while ((m = rKeys.exec(str))) {
-					const placeholder = m[0];
-					const leadingPart = str.slice(0, m.index);
-					let middlePart = '';
-					const trailingPart = str.slice(m.index + placeholder.length);
-					if (!remove) {
-						middlePart = commentMap.get(placeholder)!.text;
-					}
-					str = leadingPart + middlePart + trailingPart;
-					rKeys.lastIndex += (middlePart.length - placeholder.length);
-				}
-				return str;
-			};
+			}
 
 			// Parse wikitext-style headings (==heading==)
-			// `RegExp.prototype.exec` here handles edge cases such as the following:
+			// RegExp#exec here handles edge cases such as the following:
 			// 1. <!--c-->== H ==
 			// 2. =<!--c-->= H ==
 			// 3. ==<!--c--> H ==
@@ -1006,31 +914,29 @@ export function WikitextFactory(
 			// because 1 equal sign precedes the comment; also for #5, the level is 1 because 1 equal sign follows
 			// the comment)
 			// The exec() here first matches lines including comment placeholders and equal signs, by virtue of using
-			// `regex.headingCandidate`. `regex.heading` validates the matched lines (from which comments are REMOVED)
+			// `regex.candidate`. `regex.heading` validates the matched lines (from which comments are REMOVED)
 			// as well-formed `==heading==` markups.
+			const placeholderManager = new CommentPlaceholderManager(this.content, tags);
+			const wikitextWithPlaceholders = placeholderManager.getText();
 			const wikitext = this.content;
-			let mWithPlaceholders;
-			while ((mWithPlaceholders = regex.headingCandidate.exec(wikitextWithPlaceholders))) {
+			let match: RegExpExecArray | null;
+
+			while ((match = headingRegex.candidate.exec(wikitextWithPlaceholders))) {
 
 				// Ensure the `== heading ==` markup is valid even after removing comment placeholders
-				const mClean = regex.heading.exec(rebindComments(mWithPlaceholders[0], true));
+				const mClean = headingRegex.heading.exec(placeholderManager.remove(match[0]));
 				if (!mClean) {
 					continue;
 				}
 
 				// Check for a non-empty `$4`, which invalidates the heading
-				if (mClean[4].replace(regex.whitespace, '')) {
+				if (mClean[4].replace(headingRegex.whitespace, '')) {
 					continue;
 				}
 
 				// Retrieve the real index of the heading
-				let startIndex = mWithPlaceholders.index;
-				const lastPlaceholder = (wikitextWithPlaceholders.slice(0, startIndex).match(/\x01\d+\x02/g) || []).at(-1);
-				let commentObj;
-				if (lastPlaceholder && (commentObj = commentMap.get(lastPlaceholder))) {
-					startIndex += -(commentObj.offset) + (commentObj.text.length - lastPlaceholder.length);
-				}
-				const endIndex = startIndex + rebindComments(mWithPlaceholders[0]).length;
+				const startIndex = placeholderManager.getOriginalIndex(match.index);
+				const endIndex = startIndex + placeholderManager.restore(match[0]).length;
 
 				// Check if the heading is within a skip range
 				if (isInSkipRange(startIndex, endIndex)) {
@@ -1040,15 +946,18 @@ export function WikitextFactory(
 				// If either of the left or right equals are interrupted, get the correct level for this section
 				let eq;
 				let maxLevel = -1;
-				if ((eq = /^(=+)(?:\x01\d+\x02+)+=/.exec(mWithPlaceholders[1]))) {
+				if ((eq = headingRegex.interruptedLeft.exec(match[1]))) {
 					maxLevel = eq[1].length;
 				}
-				if ((eq = /=(?:\x01\d+\x02+)+(=+)$/.exec(mWithPlaceholders[3])) && maxLevel < eq[1].length) {
+				if ((eq = headingRegex.interruptedRight.exec(match[3])) && maxLevel < eq[1].length) {
 					maxLevel = eq[1].length;
+				}
+				if (maxLevel === -1) {
+					maxLevel = 6;
 				}
 
 				// Determine heading level (up to 6)
-				const level = Math.min(maxLevel === -1 ? 6 : maxLevel, mClean[1].length, mClean[3].length);
+				const level = Math.min(maxLevel, mClean[1].length, mClean[3].length);
 				const overflowLeft = Math.max(0, mClean[1].length - level);
 				const overflowRight = Math.max(0, mClean[3].length - level);
 				const title = '='.repeat(overflowLeft) + mClean[2] + '='.repeat(overflowRight);
@@ -1062,7 +971,6 @@ export function WikitextFactory(
 					level,
 					index: startIndex,
 				});
-
 			}
 
 			// Sort headings by index and add the top section
@@ -1091,10 +999,11 @@ export function WikitextFactory(
 					get text() {
 						return this.heading + this.content;
 					},
-					parent: null,
-					children: new Set(),
+					parent: null, // Lazy-loaded
+					children: new Set(), // Lazy-loaded
 				};
 			});
+
 			for (const obj of sections) {
 				setKinships(obj, sections, true);
 			}
@@ -2228,16 +2137,7 @@ export interface ParseTagsConfig {
 	tagPredicate?: (tag: Tag) => boolean;
 }
 
-// Interfaces and private members for "parseSections"
-
-/**
- * Remove (all) `<!-- comment tags -->` from a string.
- * @param str
- * @returns
- */
-function removeComments(str: string): string {
-	return str.replace(/<!--.*?-->/g, '');
-}
+// --------------- Interfaces for section-related methods ---------------
 
 /**
  * Object that holds information about a `==heading==`, parsed from wikitext.
