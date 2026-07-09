@@ -97,6 +97,7 @@ import type {
 } from './Wikilink.js';
 import { formatType } from './internal/helpers.js';
 import {
+	createNonVoidTag,
 	createVoidTag,
 	getParserExtensionTags,
 	getRecognizedSkipTags,
@@ -654,7 +655,7 @@ export function WikitextFactory(
 			const indexMap: [number, number][] = [];
 
 			for (const tag of tags) {
-				if (!TAG_SKIP_RECOGNIZED.has(tag.name)) {
+				if (!Wikitext.isValidTag(tag.name, 'skip')) {
 					continue;
 				}
 
@@ -715,9 +716,9 @@ export function WikitextFactory(
 					const nodeName = (m[1] || m[2]).toLowerCase();
 					const selfClosing = startTag.endsWith('/>');
 
-					if (TAG_SINGLE_ONLY.has(nodeName)) {
+					if (Wikitext.isValidTag(nodeName, 'void')) {
 						// This is a "void" tag.
-						// MediaWiki disallows tags like <br> to have a close tag. If there's one
+						// MediaWiki disallows tags like <br> to have a closing tag. If there's one
 						// (e.g., "<br></br>"), the sequence is recognized as two <br> tags.
 						const tag = createVoidTag({
 							name: nodeName,
@@ -725,6 +726,20 @@ export function WikitextFactory(
 							startIndex: i,
 							nestLevel: startTags.length,
 							selfClosing,
+						});
+						parsed.push(tag);
+					} else if (selfClosing && Wikitext.isValidTag(nodeName, 'selfClosing')) {
+						// This is a non-void tag that can be self-closed.
+						const tag = createNonVoidTag({
+							name: nodeName,
+							start: startTag,
+							content: null,
+							end: '',
+							startIndex: i,
+							endIndex: i + startTag.length,
+							nestLevel: startTags.length,
+							unclosed: false,
+							selfClosing: true,
 						});
 						parsed.push(tag);
 					} else {
@@ -748,7 +763,7 @@ export function WikitextFactory(
 					const endTag = m[0];
 					const nodeName = (m[1] || m[2]).toLowerCase();
 
-					if (TAG_SINGLE_ONLY.has(nodeName)) {
+					if (Wikitext.isValidTag(nodeName, 'void')) {
 						// Handle tags like </br> that are recognized as start tags
 						const tag = createVoidTag({
 							name: nodeName,
@@ -777,11 +792,8 @@ export function WikitextFactory(
 							 */
 							const endIndex = startTagMatched ? i + endTag.length : i;
 
-							parsed.push({
+							const tag = createNonVoidTag({
 								name: startTagName, // Can be the name of an unclosed tag
-								get text() {
-									return this.start + (this.content || '') + (this.unclosed ? '' : this.end);
-								},
 								start: wikitext.slice(startTag.startIndex, startTag.endIndex),
 								content: wikitext.slice(startTag.endIndex, endIndex - (startTagMatched ? endTag.length : 0)),
 								// If we've found an unclosed tag, supplement an end tag for it
@@ -794,14 +806,10 @@ export function WikitextFactory(
 								// But we have yet to remove the proccessed start tags, so we need to subtract the number of
 								// the processed tags to calculate the nesting level properly
 								nestLevel: startTags.length - 1 - closedTagCnt,
-								void: false,
 								unclosed: !startTagMatched,
 								selfClosing: startTag.selfClosing,
-								skip: false, // Lazy-loaded
-								index: -1, // Lazy-loaded
-								parent: null, // Lazy-loaded
-								children: new Set(), // Lazy-loaded
 							});
+							parsed.push(tag);
 							closedTagCnt++;
 
 							// Bail the loop when we find a start-end pair
@@ -821,11 +829,8 @@ export function WikitextFactory(
 			// Handle any unclosed tags left in the stack
 			for (const [i, startTag] of startTags.entries()) {
 				const startTagName = sanitizeNodeName(startTag.name);
-				parsed.push({
-					name: startTagName,
-					get text() {
-						return this.start + (this.content || '') + (this.unclosed ? '' : this.end);
-					},
+				const tag = createNonVoidTag({
+					name: startTagName, // Can be the name of an unclosed tag
 					start: wikitext.slice(startTag.startIndex, startTag.endIndex),
 					content: wikitext.slice(startTag.endIndex, wikitext.length),
 					// Supplement end tags for unclosed tags, including comment tags
@@ -833,14 +838,10 @@ export function WikitextFactory(
 					startIndex: startTag.startIndex,
 					endIndex: wikitext.length,
 					nestLevel: startTags.length - 1 - i,
-					void: false,
 					unclosed: true,
 					selfClosing: startTag.selfClosing,
-					skip: false, // Lazy-loaded
-					index: -1, // Lazy-loaded
-					parent: null, // Lazy-loaded
-					children: new Set(), // Lazy-loaded
 				});
+				parsed.push(tag);
 			}
 
 			// Sort the parsed tags based on their positions in the wikitext
@@ -1297,7 +1298,10 @@ export function WikitextFactory(
 			// Process skipTags
 			this.storageManager('tags', false).forEach(({ text, startIndex, name, content }) => {
 				// If this is a skip tag or a gallery tag whose content contains a pipe character
-				if (TAG_SKIP_RECOGNIZED.has(name) || name === 'gallery' && options.gallery && content && content.includes('|')) {
+				if (
+					Wikitext.isValidTag(name, 'skip') ||
+					name === 'gallery' && options.gallery && content?.includes('|')
+				) {
 					// `inner` is the innerHTML of the tag
 					const inner = (() => {
 						if (content === null) {
@@ -2130,10 +2134,6 @@ export interface Tag {
 	 */
 	end: string;
 	/**
-	 * The index of this Tag object within the result array returned by {@link Wikitext.parseTags | parseTags}.
-	 */
-	index: number;
-	/**
 	 * The index at which this tag starts in the wikitext.
 	 */
 	startIndex: number;
@@ -2149,29 +2149,42 @@ export interface Tag {
 	 * Whether this is a "void" tag under MediaWiki's specification.
 	 *
 	 * This slightly differs from void tags as defined in HTML5:
-	 * * MediaWiki's "void" tags are tags that are defined as disallowed to have a close tag,
+	 * * MediaWiki's void tags are tags that must not have a closing tag,
 	 *   namely `'br'`, `'wbr'`, `'hr'`, `'meta'`, and `'link'`.
-	 * * If these tags have a corresponding close tag, that tag is recognized as another occurrence
-	 *   of the void tag (e.g., `'<br></br>'` is the same as `'<br><br>'`).
+	 * * If a closing tag is supplied (e.g., `'</br>'`), it is treated as another
+	 *   occurrence of the corresponding void tag rather than the end of the
+	 *   previous one.
 	 */
 	void: boolean;
 	/**
 	 * Whether the tag is unclosed.
 	 *
-	 * For {@link void} tags, this is always `false`.
+	 * A tag is considered unclosed only if MediaWiki requires a closing tag but
+	 * none is found. For {@link void} tags and tags that MediaWiki recognizes as
+	 * self-closing (e.g., parser extension tags such as `<ref />`), this property
+	 * is `false`.
 	 */
 	unclosed: boolean;
 	/**
-	 * Whether the tag closes itself (e.g., `'<br />'`).
+	 * Whether the source tag uses self-closing syntax (e.g., `'<br />'` or
+	 * `'<ref />'`).
 	 *
-	 * * For {@link void} tags (e.g., `'<br />'`), it is considered valid (i.e., no difference from `'<br>'`).
-	 * * For non-void tags (e.g., `'<span />'`), it is considered unclosed and requires a close tag.
+	 * This property reflects only the original markup and does not indicate
+	 * whether the tag is considered closed. For example:
+	 * * `'<br />'` is {@link void} and closed.
+	 * * `'<ref />'` is not {@link void} but is recognized by MediaWiki as closed.
+	 * * `'<span />'` is not recognized as closed and therefore has
+	 *   {@link unclosed} set to `true`.
 	 */
 	selfClosing: boolean;
 	/**
 	 * Whether the tag is enclosed in "skip tags", inside which wikitext is not parsed.
 	 */
 	skip: boolean;
+	/**
+	 * The index of this Tag object within the result array returned by {@link Wikitext.parseTags | parseTags}.
+	 */
+	index: number;
 	/**
 	 * The index of the parent `Tag` object within the {@link Wikitext.parseTags | parseTags} result array,
 	 * or `null` if there is no parent.

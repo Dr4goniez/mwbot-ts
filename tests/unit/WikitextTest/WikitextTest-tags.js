@@ -267,7 +267,7 @@ export function testWikitextTags() {
 				});
 			});
 
-			it('should recognize self-closing tags', function () {
+			it('should recognize self-closing void tags', function () {
 				const wkt = new mwbot.Wikitext('<br />');
 				const [tag] = wkt.parseTags();
 
@@ -299,6 +299,14 @@ export function testWikitextTags() {
 				});
 			});
 
+			it('should treat an unsupported self-closing tag as unclosed', function () {
+				const wkt = new mwbot.Wikitext('<div />Foo');
+				const [tag] = wkt.parseTags();
+
+				assert.isTrue(tag.selfClosing);
+				assert.isTrue(tag.unclosed);
+			});
+
 			it('should recognize parser extension tags', function () {
 				const wkt = new mwbot.Wikitext('<nowiki>Foo</nowiki>');
 				const [tag] = wkt.parseTags();
@@ -308,13 +316,60 @@ export function testWikitextTags() {
 				assert.isFalse(tag.unclosed);
 			});
 
-			it('should treat a self-closing parser extension tag as unclosed', function () {
+			it('should treat a self-closing parser extension tag as closed', function () {
 				const wkt = new mwbot.Wikitext('<nowiki />Foo');
 				const [tag] = wkt.parseTags();
 
-				assert.strictEqual(tag.name, 'nowiki');
-				assert.isTrue(tag.selfClosing);
-				assert.isTrue(tag.unclosed);
+				assert.include(tag, {
+					name: 'nowiki',
+					content: null,
+					end: '',
+					unclosed: false,
+					selfClosing: true,
+				});
+			});
+
+			it('should not match a closing tag with a self-closing parser extension tag', function () {
+				const wkt = new mwbot.Wikitext('<nowiki /></nowiki>');
+				const tags = wkt.parseTags();
+
+				assert.lengthOf(tags, 1);
+
+				assert.include(tags[0], {
+					name: 'nowiki',
+					selfClosing: true,
+					unclosed: false,
+					end: '',
+					text: '<nowiki />',
+				});
+			});
+
+			it('should treat a self-closing HTML tag as closed when allowed', function () {
+				const wkt = new mwbot.Wikitext('<li />');
+				const [tag] = wkt.parseTags();
+
+				assert.include(tag, {
+					name: 'li',
+					selfClosing: true,
+					void: false,
+					unclosed: false,
+					content: null,
+					end: '',
+					text: '<li />',
+				});
+			});
+
+			it('should not match a closing tag with a self-closing HTML tag', function () {
+				const wkt = new mwbot.Wikitext('<li /></li>');
+				const tags = wkt.parseTags();
+
+				assert.lengthOf(tags, 1);
+
+				assert.include(tags[0], {
+					name: 'li',
+					selfClosing: true,
+					unclosed: false,
+				});
 			});
 
 			it('should mark tags inside skip tags', function () {

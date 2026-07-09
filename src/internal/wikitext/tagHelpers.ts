@@ -235,10 +235,10 @@ export const tagRegex = {
 };
 
 /**
- * Create a {@link Tag} object from a parsed `<void>` tag.
+ * Creates a {@link Tag} object representing a void tag.
  *
- * @param data
- * @returns
+ * @param data Properties used to construct the tag.
+ * @returns The constructed {@link Tag}.
  */
 export function createVoidTag(
 	data: Pick<
@@ -260,6 +260,39 @@ export function createVoidTag(
 		endIndex: data.startIndex + data.start.length,
 		void: true,
 		unclosed: false,
+		skip: false, // Lazy-loaded
+		index: -1, // Lazy-loaded
+		parent: null, // Lazy-loaded
+		children: new Set(), // Lazy-loaded
+	};
+}
+
+/**
+ * Creates a {@link Tag} object representing a non-void tag.
+ *
+ * @param data Properties used to construct the tag.
+ * @returns The constructed {@link Tag}.
+ */
+export function createNonVoidTag(
+	data: Pick<
+		Tag,
+		| 'name'
+		| 'start'
+		| 'content'
+		| 'end'
+		| 'startIndex'
+		| 'endIndex'
+		| 'nestLevel'
+		| 'unclosed'
+		| 'selfClosing'
+	>
+): Tag {
+	return {
+		...data,
+		get text() {
+			return this.start + (this.content ?? '') + (this.unclosed ? '' : this.end);
+		},
+		void: false,
 		skip: false, // Lazy-loaded
 		index: -1, // Lazy-loaded
 		parent: null, // Lazy-loaded
