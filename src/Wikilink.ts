@@ -24,10 +24,11 @@ import { serializeWikilink, validateWikilinkTitle } from './internal/wikilinkHel
 import type { Mwbot } from './Mwbot.js';
 import { MwbotError } from './MwbotError.js';
 import type { TitleStatic, Title } from './Title.js';
-
-// Imported only for docs
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { Wikitext } from './Wikitext.js';
+import type {
+	ParseResultBase,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	Wikitext,
+} from './Wikitext.js';
 
 /**
  * The base class for {@link WikilinkStatic} and {@link RawWikilinkStatic}.
@@ -256,24 +257,12 @@ export interface ParsedWikilink extends Wikilink, ParsedWikilinkProps<ParsedWiki
 	toString(): string;
 }
 
-export interface ParsedWikilinkProps<CLS> {
+export interface ParsedWikilinkProps<CLS> extends ParseResultBase {
 	/**
 	 * The original text of the wikilink parsed from the wikitext.
 	 * The value of this property is static.
 	 */
 	text: string;
-	/**
-	 * The index of this object within the result array returned by {@link Wikitext.parseWikilinks | parseWikilinks}.
-	 */
-	index: number;
-	/**
-	 * The starting index of this wikilink in the wikitext.
-	 */
-	startIndex: number;
-	/**
-	 * The ending index of this wikilink in the wikitext (exclusive).
-	 */
-	endIndex: number;
 	/**
 	 * The nesting level of this wikilink. `0` if it is not nested within another wikilink.
 	 *
@@ -281,20 +270,6 @@ export interface ParsedWikilinkProps<CLS> {
 	 * within another wikilink, or that it serves as part of the thumb text of a file wikilink.
 	 */
 	nestLevel: number;
-	/**
-	 * Whether the wikilink is enclosed in "skip tags", inside which wikitext is not parsed.
-	 */
-	skip: boolean;
-	/**
-	 * The index of the parent object within the {@link Wikitext.parseWikilinks | parseWikilinks} result array,
-	 * or `null` if there is no parent.
-	 */
-	parent: number | null;
-	/**
-	 * The indices of the child objects within the {@link Wikitext.parseWikilinks | parseWikilinks} result array.
-	 */
-	children: Set<number>;
-
 	/**
 	 * @hidden
 	 */
@@ -757,7 +732,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		nestLevel: number;
 		skip: boolean;
 		parent: number | null;
-		children: Set<number>;
+		children: ReadonlySet<number>;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
@@ -931,7 +906,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		nestLevel: number;
 		skip: boolean;
 		parent: number | null;
-		children: Set<number>;
+		children: ReadonlySet<number>;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
@@ -1082,7 +1057,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic) {
 		nestLevel: number;
 		skip: boolean;
 		parent: number | null;
-		children: Set<number>;
+		children: ReadonlySet<number>;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
@@ -1273,19 +1248,13 @@ export interface ParsedRawWikilinkOutputConfig extends RawWikilinkOutputConfig {
 /**
  * The base initializer object for ParsedWikilink-related constructors.
  */
-interface ParsedWikilinkInitializerBase<T extends string | Title> {
+interface ParsedWikilinkInitializerBase<T extends string | Title> extends ParseResultBase {
 	title: T;
 	rawTitle: string;
 	/** Potentially includes a control character. */
 	_rawTitle: string;
 	text: string;
-	index: number;
-	startIndex: number;
-	endIndex: number;
 	nestLevel: number;
-	skip: boolean;
-	parent: number | null;
-	children: Set<number>;
 }
 
 /**

@@ -1937,6 +1937,36 @@ export function WikitextFactory(
 // Interfaces for constructor and the entire module
 
 /**
+ * The base schema of parser results.
+ */
+export interface ParseResultBase {
+	/**
+	 * The index at which this markup starts in the wikitext.
+	 */
+	startIndex: number;
+	/**
+	 * The index at which this markup ends in the wikitext.
+	 */
+	endIndex: number;
+	/**
+	 * Whether the markup is enclosed in "skip tags", inside which wikitext is not parsed.
+	 */
+	skip: boolean;
+	/**
+	 * The index of this markup within the parser result array.
+	 */
+	index: number;
+	/**
+	 * The index of the parent markup within the parser result array, or `null` if there is no parent.
+	 */
+	parent: number | null;
+	/**
+	 * The indices of the child markups within the parser result array.
+	 */
+	children: ReadonlySet<number>;
+}
+
+/**
  * Assigns the `parent` and `children` relationships for the given object by
  * examining its position and nesting level relative to other objects in the array.
  *
@@ -1966,7 +1996,7 @@ function setKinships<
 			getLevel(current) === getLevel(obj) + 1 &&
 			obj.startIndex < startIndex && precedes(endIndex, obj.endIndex)
 		) {
-			obj.children.add(index);
+			(obj.children as Set<number>).add(index);
 		}
 	}
 }
@@ -2011,7 +2041,7 @@ export type TagType =
  *
  * This object is returned by {@link Wikitext.parseTags}.
  */
-export interface Tag {
+export interface Tag extends ParseResultBase {
 	/**
 	 * The name of the tag (e.g., `'div'`). Comment tags are named `'!--'`.
 	 */
@@ -2042,14 +2072,6 @@ export interface Tag {
 	 * * For {@link unclosed} non-void tags, this is a supplemented end tag.
 	 */
 	end: string;
-	/**
-	 * The index at which this tag starts in the wikitext.
-	 */
-	startIndex: number;
-	/**
-	 * The index at which this tag ends in the wikitext.
-	 */
-	endIndex: number;
 	/**
 	 * The nesting level of this tag. `0` if not nested within another tag.
 	 */
@@ -2086,23 +2108,6 @@ export interface Tag {
 	 *   {@link unclosed} set to `true`.
 	 */
 	selfClosing: boolean;
-	/**
-	 * Whether the tag is enclosed in "skip tags", inside which wikitext is not parsed.
-	 */
-	skip: boolean;
-	/**
-	 * The index of this Tag object within the result array returned by {@link Wikitext.parseTags | parseTags}.
-	 */
-	index: number;
-	/**
-	 * The index of the parent `Tag` object within the {@link Wikitext.parseTags | parseTags} result array,
-	 * or `null` if there is no parent.
-	 */
-	parent: number | null;
-	/**
-	 * The indices of the child `Tag` objects within the {@link Wikitext.parseTags | parseTags} result array.
-	 */
-	children: Set<number>;
 }
 
 /**
@@ -2169,7 +2174,7 @@ interface Heading {
  *
  * This object is returned by {@link Wikitext.parseSections}.
  */
-export interface Section {
+export interface Section extends Omit<ParseResultBase, 'skip'> {
 	/**
 	 * `==heading==` or the outerHTML of a heading element, as directly parsed from the wikitext.
 	 * This may include comment tags and a trailing newline.
@@ -2187,21 +2192,6 @@ export interface Section {
 	 */
 	level: number;
 	/**
-	 * The index number of the section. This is the same as the `section` parameter of {@link https://www.mediawiki.org/wiki/API:Edit | the edit API}.
-	 * For the top section, the value is `0`.
-	 *
-	 * This property also matches the index of this Section object within the result array returned by `parseSections`.
-	 */
-	index: number;
-	/**
-	 * The index to the start of the section in the wikitext.
-	 */
-	startIndex: number;
-	/**
-	 * The index up to, but not including, the end of the section in the wikitext.
-	 */
-	endIndex: number;
-	/**
 	 * The body content of the section, with leading and trailing whitespace preserved.
 	 */
 	content: string;
@@ -2212,13 +2202,16 @@ export interface Section {
 	 */
 	get text(): string;
 	/**
-	 * The index of the parent Section object within the `parseSections` result array, or `null` if there is no parent.
+	 * The index number of the section.
+	 *
+	 * This is the same as the `section` parameter of {@link https://www.mediawiki.org/wiki/API:Edit | the edit API}.
+	 * For the top section, the value is `0`.
+	 *
+	 * This property also matches the index of this Section object within the parser result array.
+	 *
+	 * @override
 	 */
-	parent: number | null;
-	/**
-	 * The indices of the child Section objects within the `parseSections` result array.
-	 */
-	children: Set<number>;
+	index: number;
 }
 
 /**
@@ -2243,7 +2236,7 @@ export interface ParseSectionsConfig {
  *
  * This object is returned by {@link Wikitext.parseParameters}.
  */
-export interface Parameter {
+export interface Parameter extends ParseResultBase {
 	/**
 	 * The parameter key (i.e. the left operand of `{{{key|value}}}`).
 	 */
@@ -2259,35 +2252,11 @@ export interface Parameter {
 	 */
 	text: string;
 	/**
-	 * The index of this Parameter object within the result array returned by `parseParameters`.
-	 */
-	index: number;
-	/**
-	 * The starting index of the parameter in the wikitext.
-	 */
-	startIndex: number;
-	/**
-	 * The ending index of the parameter in the wikitext (exclusive).
-	 */
-	endIndex: number;
-	/**
 	 * The nesting level of the parameter.
 	 * * `0` for parameters that are not nested inside another parameter.
 	 * * Increments with deeper nesting.
 	 */
 	nestLevel: number;
-	/**
-	 * Whether the parameter is enclosed in "skip tags", inside which wikitext is not parsed.
-	 */
-	skip: boolean;
-	/**
-	 * The index of the parent Parameter object within the `parseParameters` result array, or `null` if there is no parent.
-	 */
-	parent: number | null;
-	/**
-	 * The indices of the child Parameter objects within the `parseParameters` result array.
-	 */
-	children: Set<number>;
 }
 
 /**
@@ -2319,7 +2288,7 @@ export interface ParseParametersConfig {
  * Object that holds information about a fuzzily parsed `[[wikilink]]`.
  * The right operand of the link needs to be parsed for the object to be a complete construct.
  */
-interface FuzzyWikilink {
+interface FuzzyWikilink extends Omit<ParseResultBase, 'index' | 'parent' | 'children'> {
 	/**
 	 * The right operand.
 	 */
@@ -2338,24 +2307,12 @@ interface FuzzyWikilink {
 	 */
 	text: string;
 	/**
-	 * The starting index of the wikilink in the wikitext.
-	 */
-	startIndex: number;
-	/**
-	 * The ending index of the wikilink in the wikitext (exclusive).
-	 */
-	endIndex: number;
-	/**
 	 * The nesting level of this wikilink. `0` if it is not nested within another wikilink.
 	 *
 	 * A value of `1` or greater indicates that the wikilink is either incorrectly embedded
 	 * within another wikilink, or that it serves as part of the thumb text of a file wikilink.
 	 */
 	nestLevel: number;
-	/**
-	 * Whether the wikilink is enclosed in "skip tags", inside which wikitext is not parsed.
-	 */
-	skip: boolean;
 }
 
 // Interfaces and private members for "parseTemplates"

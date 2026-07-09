@@ -22,10 +22,13 @@ import type { Mwbot } from './Mwbot.js';
 import { escapeRegExp, isPlainObject, cloneDeep } from './Util.js';
 import type { TitleStatic, Title } from './Title.js';
 import { ParamBase } from './internal/ParamBase.js';
-
-// Imported only for docs
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { Wikitext, ParseTemplatesConfig } from './Wikitext.js';
+import type {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	Wikitext,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	ParseTemplatesConfig,
+	ParseResultBase,
+} from './Wikitext.js';
 import { MwbotError } from './MwbotError.js';
 import { createParserFunctionMap } from './internal/parserFunctionData.js';
 
@@ -391,42 +394,16 @@ export interface ParsedTemplate extends Template, ParsedTemplateProps<ParsedTemp
 	toString(): string;
 }
 
-export interface ParsedTemplateProps<CLS> {
+export interface ParsedTemplateProps<CLS> extends ParseResultBase {
 	/**
 	 * The original text of the double-braced markup parsed from the wikitext.
 	 * The value of this property is static.
 	 */
 	text: string;
 	/**
-	 * The index of this object within the result array returned by {@link Wikitext.parseTemplates | parseTemplates}.
-	 */
-	index: number;
-	/**
-	 * The starting index of this double-braced markup in the wikitext.
-	 */
-	startIndex: number;
-	/**
-	 * The ending index of this double-braced markup in the wikitext (exclusive).
-	 */
-	endIndex: number;
-	/**
 	 * The nesting level of this double-braced markup. `0` if not nested within another double-braced expression.
 	 */
 	nestLevel: number;
-	/**
-	 * Whether the double-braced markup is enclosed in "skip tags", inside which wikitext is not parsed.
-	 */
-	skip: boolean;
-	/**
-	 * The index of the parent object within the {@link Wikitext.parseTemplates | parseTemplates} result array,
-	 * or `null` if there is no parent.
-	 */
-	parent: number | null;
-	/**
-	 * The indices of the child objects within the {@link Wikitext.parseTemplates | parseTemplates} result array.
-	 */
-	children: Set<number>;
-
 	/**
 	 * @hidden
 	 */
@@ -1332,7 +1309,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		nestLevel: number;
 		skip: boolean;
 		parent: number | null;
-		children: Set<number>;
+		children: ReadonlySet<number>;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
@@ -1426,7 +1403,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		nestLevel: number;
 		skip: boolean;
 		parent: number | null;
-		children: Set<number>;
+		children: ReadonlySet<number>;
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
@@ -1645,7 +1622,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		nestLevel: number;
 		skip: boolean;
 		parent: number | null;
-		children: Set<number>;
+		children: ReadonlySet<number>;
 		/**
 		 * {@link rawHook} with the insertion point of {@link hook} replaced with a control character.
 		 */
@@ -1993,18 +1970,12 @@ export interface RawTemplateOutputConfig extends TemplateOutputConfig<string> {
  * The initializer object for ParsedTemplate, ParsedParserFunction and RawTemplate constructors.
  * @internal
  */
-export interface ParsedTemplateInitializer {
+export interface ParsedTemplateInitializer extends ParseResultBase {
 	title: string;
 	rawTitle: string;
 	text: string;
 	params: NewTemplateParameter[];
-	startIndex: number;
-	index: number;
-	endIndex: number;
 	nestLevel: number;
-	skip: boolean;
-	parent: number | null;
-	children: Set<number>;
 }
 
 /**
