@@ -3,10 +3,12 @@ import { testWikitextConstructor } from './WikitextTest/WikitextTest-constructor
 import { testWikitextProperties } from './WikitextTest/WikitextTest-properties.js';
 import { testWikitextTags } from './WikitextTest/WikitextTest-tags.js';
 import { testWikitextSections } from './WikitextTest/WikitextTest-sections.js';
+import { testWikitextParameters } from './WikitextTest/WikitextTest-parameters.js';
 
 describe('Mwbot.Wikitext', function () {
 	testWikitextConstructor();
 	testWikitextProperties();
 	testWikitextTags();
 	testWikitextSections();
+	testWikitextParameters();
 });
