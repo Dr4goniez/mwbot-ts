@@ -96,6 +96,7 @@ import type {
 	ParsedRawWikilinkInitializer,
 } from './Wikilink.js';
 import { formatType } from './internal/helpers.js';
+import { assignNestedKinships, sortParseResults } from './internal/wikitext/sharedHelpers.js';
 import {
 	createNonVoidTag,
 	createVoidTag,
@@ -107,7 +108,7 @@ import {
 	TAG_SINGLE_ONLY,
 	tagRegex,
 } from './internal/wikitext/tagHelpers.js';
-import { CommentPlaceholderManager, headingRegex, removeComments } from './internal/wikitext/sectionHelpers.js';
+import { assignSectionKinships, CommentPlaceholderManager, headingRegex, removeComments } from './internal/wikitext/sectionHelpers.js';
 
 /**
  * @expand
@@ -844,17 +845,14 @@ export function WikitextFactory(
 				parsed.push(tag);
 			}
 
-			// Sort the parsed tags based on their positions in the wikitext
-			parsed.sort((tag1, tag2) => tag1.startIndex - tag2.startIndex);
-
-			// Set up the `skip` and index-related properties and return the result
+			sortParseResults(parsed);
 			const isInSkipRange = this.getSkipPredicate(parsed);
-			return parsed.map((tag, i, arr) => {
-				tag.index = i;
+			parsed.forEach((tag) => {
 				tag.skip = isInSkipRange(tag.startIndex, tag.endIndex);
-				setKinships(tag, arr);
-				return tag;
 			});
+			assignNestedKinships(parsed);
+
+			return parsed;
 		}
 
 		parseTags(config: ParseTagsConfig = {}): Tag[] {
@@ -1015,10 +1013,7 @@ export function WikitextFactory(
 					children: new Set(), // Lazy-loaded
 				};
 			});
-
-			for (const obj of sections) {
-				setKinships(obj, sections, true);
-			}
+			assignSectionKinships(sections);
 
 			return sections;
 		}
@@ -1173,9 +1168,8 @@ export function WikitextFactory(
 
 			}
 
-			for (const obj of params) {
-				setKinships(obj, params);
-			}
+			assignNestedKinships(params);
+
 			return params;
 		}
 
@@ -1418,10 +1412,11 @@ export function WikitextFactory(
 					title += wkt[0]; // A sealed "title" ends with a pipe
 					rawTitle += wkt[0];
 				}
-
 			}
 
-			return links.sort((obj1, obj2) => obj1.startIndex - obj2.startIndex);
+			sortParseResults(links);
+
+			return links;
 		}
 
 		/**
@@ -1700,16 +1695,16 @@ export function WikitextFactory(
 			// eslint-disable-next-line no-constant-condition
 			} while (false); // Always get out of the loop automatically
 
-			templates.sort((obj1, obj2) => obj1.startIndex - obj2.startIndex);
-			for (const [index, obj] of templates.entries()) {
-				obj.index = index;
-				setKinships(obj, templates);
-				obj._setInitializer({
+			sortParseResults(templates);
+			assignNestedKinships(templates);
+			templates.forEach((temp, index) => {
+				temp.index = index;
+				temp._setInitializer({
 					index,
-					parent: obj.parent,
-					children: obj.children,
+					parent: temp.parent,
+					children: temp.children,
 				});
-			}
+			});
 
 			return templates;
 		}
@@ -1837,13 +1832,15 @@ export function WikitextFactory(
 					return new ParsedRawWikilink(initializer);
 				}
 			});
-			for (const obj of links) {
-				setKinships(obj, links);
-				obj._setInitializer({
-					parent: obj.parent,
-					children: obj.children,
+
+			assignNestedKinships(links);
+			links.forEach((link) => {
+				link._setInitializer({
+					parent: link.parent,
+					children: link.children,
 				});
-			}
+			});
+
 			return links;
 		}
 
@@ -1946,8 +1943,6 @@ export function WikitextFactory(
 	return Wikitext as WikitextStatic;
 }
 
-// Interfaces for constructor and the entire module
-
 /**
  * The base schema of parser results.
  */
@@ -1976,41 +1971,6 @@ export interface ParseResultBase {
 	 * The indices of the child markups within the parser result array.
 	 */
 	children: ReadonlySet<number>;
-}
-
-/**
- * Assigns the `parent` and `children` relationships for the given object by
- * examining its position and nesting level relative to other objects in the array.
- *
- * @param obj The object whose relationships are to be assigned.
- * @param arr The array of the objects.
- * @param inclusive Whether to use inclusive comparison (`<=`) instead of strict comparison (`<`).
- */
-function setKinships<
-	T extends Tag | Section | Parameter | DoubleBracedClasses | DoubleBracketedClasses,
->(obj: T, arr: T[], inclusive = false): void {
-	const getLevel = (x: T): number => 'level' in x ? x.level : x.nestLevel;
-	const precedes = (a: number, b: number) => inclusive ? a <= b : a < b;
-	let parentIndex: [number, number] = [-1, Infinity];
-	for (const [index, current] of arr.entries()) {
-		const { startIndex, endIndex } = current;
-		// Set parent
-		if (
-			startIndex < obj.startIndex && precedes(obj.endIndex, endIndex) &&
-			// Ensure to retrieve the immediate parent
-			parentIndex[0] < startIndex && precedes(endIndex, parentIndex[1])
-		) {
-			obj.parent = index;
-			parentIndex = [startIndex, endIndex];
-		}
-		// Set children
-		if (
-			getLevel(current) === getLevel(obj) + 1 &&
-			obj.startIndex < startIndex && precedes(endIndex, obj.endIndex)
-		) {
-			(obj.children as Set<number>).add(index);
-		}
-	}
 }
 
 /**
@@ -2241,7 +2201,7 @@ export interface ParseSectionsConfig {
 	sectionPredicate?: (section: Section) => boolean;
 }
 
-// Interfaces and private members for "parseParameters"
+// --------------- Interfaces for parameter-related methods ---------------
 
 /**
  * Object that holds information about a `{{{parameter}}}`, parsed from wikitext.
@@ -2294,40 +2254,7 @@ export interface ParseParametersConfig {
 	parameterPredicate?: (parameter: Parameter) => boolean;
 }
 
-// Interfaces and private members for "parseWikilinksFuzzy"
-
-/**
- * Object that holds information about a fuzzily parsed `[[wikilink]]`.
- * The right operand of the link needs to be parsed for the object to be a complete construct.
- */
-interface FuzzyWikilink extends Omit<ParseResultBase, 'index' | 'parent' | 'children'> {
-	/**
-	 * The right operand.
-	 */
-	right: string | null;
-	/**
-	 * The target title of the wikilink (the part before the `|`). This is a string that is ready to be
-	 * passed to the Title constructor.
-	 */
-	title: string;
-	/**
-	 * The raw target title, as directly parsed from the first operand of a `[[wikilink|...]]` expression.
-	 */
-	rawTitle: string;
-	/**
-	 * The full wikitext representation of the wikilink (e.g., `[[target|display]]`).
-	 */
-	text: string;
-	/**
-	 * The nesting level of this wikilink. `0` if it is not nested within another wikilink.
-	 *
-	 * A value of `1` or greater indicates that the wikilink is either incorrectly embedded
-	 * within another wikilink, or that it serves as part of the thumb text of a file wikilink.
-	 */
-	nestLevel: number;
-}
-
-// Interfaces and private members for "parseTemplates"
+// --------------- Interfaces for template-related methods ---------------
 
 /**
  * A mapping of expression start indexes to their corresponding details.
@@ -2491,7 +2418,38 @@ function processTemplateFragment(components: Required<NewTemplateParameter>[], f
 	}
 }
 
-// Interfaces and private members for "parseWikilinks"
+// --------------- Interfaces for wikilink-related methods ---------------
+
+/**
+ * Object that holds information about a fuzzily parsed `[[wikilink]]`.
+ * The right operand of the link needs to be parsed for the object to be a complete construct.
+ */
+interface FuzzyWikilink extends Omit<ParseResultBase, 'index' | 'parent' | 'children'> {
+	/**
+	 * The right operand.
+	 */
+	right: string | null;
+	/**
+	 * The target title of the wikilink (the part before the `|`). This is a string that is ready to be
+	 * passed to the Title constructor.
+	 */
+	title: string;
+	/**
+	 * The raw target title, as directly parsed from the first operand of a `[[wikilink|...]]` expression.
+	 */
+	rawTitle: string;
+	/**
+	 * The full wikitext representation of the wikilink (e.g., `[[target|display]]`).
+	 */
+	text: string;
+	/**
+	 * The nesting level of this wikilink. `0` if it is not nested within another wikilink.
+	 *
+	 * A value of `1` or greater indicates that the wikilink is either incorrectly embedded
+	 * within another wikilink, or that it serves as part of the thumb text of a file wikilink.
+	 */
+	nestLevel: number;
+}
 
 /**
  * Configuration options for {@link Wikitext.parseWikilinks}.

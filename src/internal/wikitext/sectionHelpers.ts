@@ -1,4 +1,4 @@
-import type { Tag } from "../../Wikitext.js";
+import type { Section, Tag } from "../../Wikitext.js";
 
 /**
  * Regular expressions to parse `<hN>` tags and `==heading==` markups.
@@ -240,5 +240,33 @@ export class CommentPlaceholderManager {
 			return index;
 		}
 		return index - last.cumulativeOffset;
+	}
+}
+
+/**
+ * Assigns the `parent` and `children` relationships for parsed sections.
+ *
+ * Section hierarchy is determined from heading levels. The top section
+ * (`index = 0`) is treated as a virtual root and is never assigned as the
+ * parent of another section.
+ *
+ * @param sections Parsed sections in document order.
+ */
+export function assignSectionKinships(sections: Section[]): void {
+	const levelStack: (Section | undefined)[] = [];
+
+	for (const sec of sections.slice(1)) { // Ignore the top section
+		levelStack.length = sec.level;
+
+		for (let i = sec.level - 1; i >= 1; i--) {
+			const parent = levelStack[i];
+			if (parent) {
+				sec.parent = parent.index;
+				(parent.children as Set<number>).add(sec.index);
+				break;
+			}
+		}
+
+		levelStack[sec.level] = sec;
 	}
 }
