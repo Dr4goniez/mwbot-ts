@@ -109,6 +109,7 @@ import {
 	tagRegex,
 } from './internal/wikitext/tagHelpers.js';
 import { assignSectionKinships, CommentPlaceholderManager, headingRegex, removeComments } from './internal/wikitext/sectionHelpers.js';
+import { countConsecutiveBraces, parameterRegex } from './internal/wikitext/parameterHelpers.js';
 
 /**
  * @expand
@@ -1058,93 +1059,97 @@ export function WikitextFactory(
 
 			const isInSkipRange = this.getSkipPredicate();
 			const params: Parameter[] = [];
-			const regex = {
-				/**
-				 * Capturing groups:
-				 * * `$1`: Parameter name
-				 * * `$2`: Parameter value (possibly undefined)
-				 */
-				params: /\{{3}(?!{)([^|}]*)(?:\|([^}]*))?\}{3}/g,
-				twoOrMoreLeftBreaces: /\{{2,}/g,
-				twoOrMoreRightBreaces: /\}{2,}/g,
-				startWithTwoOrMoreRightBreaces: /^\}{2,}/,
-				endWithThreeRightBraces: /\}{3}$/,
-			};
 			const wikitext = this.content;
 			let nestLevel = 0;
 
 			let match: RegExpExecArray | null;
-			while ((match = regex.params.exec(wikitext))) {
+			const {
+				params: rParams,
+				leadingClosingBraces: rLeadingClosingBraces,
+				trailingTripleClosingBraces: rTrailingTripleClosingBraces,
+			} = parameterRegex;
+
+			while ((match = rParams.exec(wikitext))) {
 
 				// Skip parameters that don't satisfy the namePredicate
 				const paramName = match[1].trim();
 				let paramValue = (match[2] ?? null) as string | null;
 				let paramText = match[0];
 
-				/**
-				 * Parameters can contain nested templates (e.g., `{{{1|{{{page|{{PAGENAME}}}}}}}}`).
-				 * In such cases, `exec` initially captures an incomplete parameter like `{{{1|{{{page|{{PAGENAME}}}`.
-				 */
-				const leftBraceCnt = (paramText.match(regex.twoOrMoreLeftBreaces) || []).join('').length;
-				let rightBraceCnt = (paramText.match(regex.twoOrMoreRightBreaces) || []).join('').length;
+				// Parameters can contain nested templates (e.g., `{{{1|{{{page|{{PAGENAME}}}}}}}}`).
+				// In such cases, `exec` initially captures an incomplete parameter like `{{{1|{{{page|{{PAGENAME}}}`.
+				const openingBraceCount = countConsecutiveBraces(paramText, 'opening');
+				let closingBraceCount = countConsecutiveBraces(paramText, 'closing');
 				let isValid = true;
 
 				// If the number of opening and closing braces is unbalanced
-				if (leftBraceCnt > rightBraceCnt) {
+				if (openingBraceCount > closingBraceCount) {
 					isValid = false;
-					const rightBraceStartIndex = match.index + paramText.length - 3; // Get the end index of `{{{1|{{{page|{{PAGENAME` in `wikitext`
-					rightBraceCnt -= 3;
+
+					// Get the end index of `{{{1|{{{page|{{PAGENAME` in `wikitext`
+					const unmatchedClosingStart = match.index + paramText.length - 3;
+					closingBraceCount -= 3;
 
 					// Find the correct closing braces
-					for (let pos = rightBraceStartIndex; pos < wikitext.length; pos++) {
-						const closingMatch = wikitext.slice(pos).match(regex.startWithTwoOrMoreRightBreaces);
-						if (closingMatch) {
-							const closingBraces = closingMatch[0].length;
-							if (leftBraceCnt <= rightBraceCnt + closingBraces) {
-								// If the right braces close all the left braces
-								const lastIndex = pos + (leftBraceCnt - rightBraceCnt);
-								paramText = wikitext.slice(match.index, lastIndex); // Get the correct parameter
-								if (paramValue !== null) {
-									paramValue += paramText
-										.slice(rightBraceStartIndex - lastIndex)
-										.replace(regex.endWithThreeRightBraces, '');
-								}
-								isValid = true;
-								regex.params.lastIndex = lastIndex; // Update search position
-								break;
-							} else {
-								// If not, continue searching
-								pos += closingBraces - 1;
-								rightBraceCnt += closingBraces;
+					for (let pos = unmatchedClosingStart; pos < wikitext.length; pos++) {
+
+						const nextIndex = wikitext.indexOf('}}', pos);
+						if (nextIndex === -1) {
+							break;
+						}
+						if (nextIndex !== pos) {
+							// Skip ahead to the next occurrence of '}}' if wikitext.slice(pos) doesn't start
+							// with double braces
+							pos = nextIndex - 1;
+							continue;
+						}
+
+						const closingBraces = wikitext
+							.slice(pos)
+							.match(rLeadingClosingBraces)![0]
+							.length;
+						if (openingBraceCount <= closingBraceCount + closingBraces) {
+							// If the right braces close all the left braces
+							const lastIndex = pos + (openingBraceCount - closingBraceCount);
+							paramText = wikitext.slice(match.index, lastIndex); // Get the correct parameter
+							if (paramValue !== null) {
+								paramValue += paramText
+									.slice(unmatchedClosingStart - lastIndex)
+									.replace(rTrailingTripleClosingBraces, '');
 							}
+							isValid = true;
+							rParams.lastIndex = lastIndex; // Update search position
+							break;
+						} else {
+							// If not, continue searching
+							pos += closingBraces - 1;
+							closingBraceCount += closingBraces;
 						}
 					}
 				}
 
 				if (isValid) {
-					const param: Parameter = {
+					params.push({
 						key: paramName,
 						value: paramValue,
 						text: paramText,
 						index: params.length,
 						startIndex: match.index,
-						endIndex: regex.params.lastIndex,
+						endIndex: rParams.lastIndex,
 						nestLevel,
-						skip: isInSkipRange(match.index, regex.params.lastIndex),
+						skip: isInSkipRange(match.index, rParams.lastIndex),
 						parent: null,
 						children: new Set(),
-					};
-					params.push(param);
+					});
 
 					// Handle nested parameters
 					if (paramText.slice(3).includes('{{{')) {
-						regex.params.lastIndex = match.index + 3;
+						rParams.lastIndex = match.index + 3;
 						nestLevel++;
 					} else {
 						nestLevel = 0;
 					}
 				}
-
 			}
 
 			assignNestedKinships(params);
