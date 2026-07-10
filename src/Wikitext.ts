@@ -901,55 +901,67 @@ export function WikitextFactory(
 				}
 			}
 
-			// Parse wikitext-style headings (==heading==)
-			// RegExp#exec here handles edge cases such as the following:
-			// 1. <!--c-->== H ==
-			// 2. =<!--c-->= H ==
-			// 3. ==<!--c--> H ==
-			// 4. == H <!--c-->==
-			// 5. == H =<!--c-->=
-			// 6. == H ==<!--c-->
-			// Patterns 2 and 5, where a comment tag interrupts equal signs, are tricky in that the section level
-			// is determined based on the number of equals before/after the interruption (for #2, the level is 1
-			// because 1 equal sign precedes the comment; also for #5, the level is 1 because 1 equal sign follows
-			// the comment)
-			// The exec() here first matches lines including comment placeholders and equal signs, by virtue of using
-			// `regex.candidate`. `regex.heading` validates the matched lines (from which comments are REMOVED)
-			// as well-formed `==heading==` markups.
+			// Parse wikitext-style headings (== heading ==)
 			const placeholderManager = new CommentPlaceholderManager(this.content, tags);
 			const wikitextWithPlaceholders = placeholderManager.getText();
 			const wikitext = this.content;
-			let match: RegExpExecArray | null;
+			let mPlaceholder: RegExpExecArray | null;
 
-			while ((match = headingRegex.candidate.exec(wikitextWithPlaceholders))) {
+			while ((mPlaceholder = headingRegex.candidate.exec(wikitextWithPlaceholders))) {
+
+				const [
+					placeholderHeading,
+					placeholderLeft,
+					_placeholderText,
+					placeholderRight,
+					_placeholderExtra,
+				] = mPlaceholder;
 
 				// Ensure the `== heading ==` markup is valid even after removing comment placeholders
-				const mClean = headingRegex.heading.exec(placeholderManager.remove(match[0]));
-				if (!mClean) {
+				const mNoComment = headingRegex.heading.exec(placeholderManager.remove(placeholderHeading));
+				if (!mNoComment) {
 					continue;
 				}
+				const [
+					_cleanHeading,
+					cleanLeft,
+					cleanText,
+					cleanRight,
+					cleanExtra,
+				] = mNoComment;
 
 				// Check for a non-empty `$4`, which invalidates the heading
-				if (mClean[4].replace(headingRegex.whitespace, '')) {
+				if (cleanExtra.replace(headingRegex.whitespace, '')) {
 					continue;
 				}
 
 				// Retrieve the real index of the heading
-				const startIndex = placeholderManager.getOriginalIndex(match.index);
-				const endIndex = startIndex + placeholderManager.restore(match[0]).length;
+				const startIndex = placeholderManager.getOriginalIndex(mPlaceholder.index);
+				const endIndex = startIndex + placeholderManager.restore(placeholderHeading).length;
 
 				// Check if the heading is within a skip range
 				if (isInSkipRange(startIndex, endIndex)) {
 					continue;
 				}
 
-				// If either of the left or right equals are interrupted, get the correct level for this section
+				// If either of the left or right equals are interrupted, get the correct level for this section.
+				// Beware of edge cases like the following:
+				// 1. <!--c-->== H ==
+				// 2. =<!--c-->= H ==
+				// 3. ==<!--c--> H ==
+				// 4. == H <!--c-->==
+				// 5. == H =<!--c-->=
+				// 6. == H ==<!--c-->
+				// Patterns #2 and #5, where a comment tag interrupts equal signs, are tricky in that the section
+				// level is determined based on the number of equals before/after the interruption. For #2, the
+				// level is 1 because 1 equal sign precedes the comment; For #5, the level is 1 because 1 equal
+				// sign follows the comment.
 				let eq;
 				let maxLevel = -1;
-				if ((eq = headingRegex.interruptedLeft.exec(match[1]))) {
+				if ((eq = headingRegex.interruptedLeft.exec(placeholderLeft))) {
 					maxLevel = eq[1].length;
 				}
-				if ((eq = headingRegex.interruptedRight.exec(match[3])) && maxLevel < eq[1].length) {
+				if ((eq = headingRegex.interruptedRight.exec(placeholderRight)) && maxLevel < eq[1].length) {
 					maxLevel = eq[1].length;
 				}
 				if (maxLevel === -1) {
@@ -957,10 +969,10 @@ export function WikitextFactory(
 				}
 
 				// Determine heading level (up to 6)
-				const level = Math.min(maxLevel, mClean[1].length, mClean[3].length);
-				const overflowLeft = Math.max(0, mClean[1].length - level);
-				const overflowRight = Math.max(0, mClean[3].length - level);
-				const title = '='.repeat(overflowLeft) + mClean[2] + '='.repeat(overflowRight);
+				const level = Math.min(maxLevel, cleanLeft.length, cleanRight.length);
+				const overflowLeft = Math.max(0, cleanLeft.length - level);
+				const overflowRight = Math.max(0, cleanRight.length - level);
+				const title = '='.repeat(overflowLeft) + cleanText + '='.repeat(overflowRight);
 
 				// Include trailing newline if it directly follows the heading
 				const newline = wikitext.charAt(endIndex) === '\n' ? '\n' : '';
