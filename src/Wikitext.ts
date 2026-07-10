@@ -59,7 +59,7 @@
 
 import { MwbotError } from './MwbotError.js';
 import type { Mwbot, MwbotRequestConfig } from './Mwbot.js';
-import { CloneConfig, cloneDeep } from './Util.js';
+import { CloneConfig, cloneDeep, isObject } from './Util.js';
 import { byteLength } from './String.js';
 import type { Title } from './Title.js';
 import type {
@@ -264,30 +264,6 @@ export interface Wikitext {
 	): string;
 	/**
 	 * Identifies the section containing an expression based on its start and end indices.
-	 *
-	 * **Example**:
-	 * ```ts
-	 * const text =
-	 * `== Foo ==
-	 * === Bar ===
-	 * [[Main Page]]
-	 * == Baz ==
-	 * [[Another page]]`;
-	 *
-	 * const wikitext = new mwbot.Wikitext(text);
-	 * const [main] = wikitext.parseWikilinks();
-	 * console.log(wikitext.identifySection(main));
-	 * // Output:
-	 * // {
-	 * //   heading: '=== Bar ===',
-	 * //   title: 'Bar',
-	 * //   level: 3,
-	 * //   index: 2,
-	 * //   startIndex: 10,
-	 * //   endIndex: 36,
-	 * //   text: '=== Bar ===\n[[Main Page]]\n'
-	 * // }
-	 * ```
 	 *
 	 * @param obj Any (markup) object containing `startIndex` and `endIndex` properties.
 	 * @returns The deepest {@link Section} containing the expression, or `null` if none is found.
@@ -1034,11 +1010,11 @@ export function WikitextFactory(
 		}
 
 		identifySection(
-			startIndexOrObj: number | ({ startIndex: number; endIndex: number } & Record<string, any>),
+			startIndexOrObj: number | { startIndex: number; endIndex: number },
 			endIndex?: number
 		): Section | null {
 			let startIndex;
-			if (typeof startIndexOrObj === 'object') {
+			if (isObject(startIndexOrObj)) {
 				startIndex = startIndexOrObj.startIndex;
 				endIndex = startIndexOrObj.endIndex;
 			} else {
@@ -1056,8 +1032,10 @@ export function WikitextFactory(
 					info: `Expected a number for "endIndex", but got ${formatType(endIndex)}.`,
 				});
 			}
+
 			const sections = this.storageManager('sections');
 			let ret: Section | null = null;
+
 			for (const sect of sections) {
 				if (
 					sect.startIndex <= startIndex && endIndex <= sect.endIndex &&
@@ -1067,6 +1045,7 @@ export function WikitextFactory(
 					ret = sect;
 				}
 			}
+
 			return ret;
 		}
 

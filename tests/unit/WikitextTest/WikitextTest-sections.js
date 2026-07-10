@@ -1,6 +1,6 @@
 import { describe, it, before } from 'mocha';
 import { assert } from 'chai';
-import { getTestMwbot } from '../MwbotTest/MwbotTest-fixtures.js';
+import { assertThrowsMwbotError, getTestMwbot } from '../MwbotTest/MwbotTest-fixtures.js';
 
 export function testWikitextSections() {
 	describe('Section methods', function () {
@@ -233,6 +233,112 @@ export function testWikitextSections() {
 						wt.content.slice(sec.startIndex, sec.endIndex)
 					);
 				}
+			});
+		});
+
+		describe('identifySection()', function () {
+			it('should identify the top section', function () {
+				const wt = new mwbot.Wikitext('Foo');
+				const sec = wt.identifySection(0, 3);
+
+				assert.strictEqual(sec?.title, 'top');
+			});
+
+			it('should identify the deepest section', function () {
+				const wt = new mwbot.Wikitext(
+					'== A ==\n' +
+					'=== B ===\n' +
+					'Text'
+				);
+
+				const b = wt.parseSections()[2];
+				const sec = wt.identifySection(
+					b.startIndex,
+					b.endIndex
+				);
+				assert.strictEqual(sec?.title, 'B');
+			});
+
+			it('should accept an object with startIndex and endIndex', function () {
+				const wt = new mwbot.Wikitext(
+					'== A ==\nText'
+				);
+
+				const obj = {
+					startIndex: 8,
+					endIndex: 12,
+					foo: 'bar',
+				};
+
+				const sec = wt.identifySection(obj);
+
+				assert.strictEqual(sec?.title, 'A');
+			});
+
+			it('should return null when no section contains the range', function () {
+				const wt = new mwbot.Wikitext('Foo');
+
+				assert.isNull(
+					wt.identifySection(-1, 1)
+				);
+			});
+
+			it('should include boundary positions', function () {
+				const wt = new mwbot.Wikitext(
+					'== A ==\nText'
+				);
+
+				const sec = wt.parseSections()[1];
+				const found = wt.identifySection(sec.startIndex, sec.endIndex);
+
+				assert.deepEqual(found, sec);
+				assert.notStrictEqual(found, sec);
+			});
+
+			it('should throw for an invalid object.startIndex', function () {
+				const wt = new mwbot.Wikitext('');
+
+				assertThrowsMwbotError(
+					() => wt.identifySection({
+						startIndex: /** @type {any} */ (null),
+						endIndex: 0,
+					}),
+					'typemismatch',
+					'Expected a number for "startIndex", but got null.'
+				);
+			});
+
+			it('should throw for an invalid object.endIndex', function () {
+				const wt = new mwbot.Wikitext('');
+
+				assertThrowsMwbotError(
+					() => wt.identifySection({
+						startIndex: 0,
+						endIndex: /** @type {any} */ (null),
+					}),
+					'typemismatch',
+					'Expected a number for "endIndex", but got null.'
+				);
+			});
+
+			it('should throw for an invalid startIndex', function () {
+				const wt = new mwbot.Wikitext('');
+
+				assertThrowsMwbotError(
+					() => wt.identifySection(/** @type {any} */ (null), 0),
+					'typemismatch',
+					'Expected a number for "startIndex", but got null.'
+				);
+			});
+
+			it('should throw for an invalid endIndex', function () {
+				const wt = new mwbot.Wikitext('');
+
+				assertThrowsMwbotError(
+					() => wt.identifySection(0, /** @type {any} */ (null)),
+					'typemismatch',
+					'Expected a number for "endIndex", but got null.'
+				);
 			});
 		});
 	});
