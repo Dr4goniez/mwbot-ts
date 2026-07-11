@@ -1234,9 +1234,8 @@ export function WikitextFactory(
 		 * @param indexMap Optional index map to re-use.
 		 * @param isInSkipRange A function that evaluates whether parsed wikilinks are within a skip range.
 		 * Only passed from inside this method.
-		 * @param wikitext Alternative wikitext to parse. Should be passed when parsing nested wikilinks.
-		 * All characters before the range where there can be nested wikilinks should be replaced with `\x01`.
-		 * This method skips sequences of this control character, to reach the range early and efficiently.
+		 * @param offset Restricts parsing to a subsection of the wikitext. This is used internally when
+		 * recursively parsing the contents of skip tags, parameters, and similar expressions.
 		 * @returns An array of fuzzily parsed wikilinks.
 		 */
 		private _parseWikilinksFuzzy(
@@ -1244,74 +1243,56 @@ export function WikitextFactory(
 			// If included, that will be circular
 			indexMap = this.getIndexMap({ parameters: true }),
 			isInSkipRange = this.getSkipPredicate(),
-			wikitext = this.content
+			offset?: { start: number; end: number }
 		): FuzzyWikilink[] {
 
-			/**
-			 * Regular expressions to parse `[[wikilink]]`s.
-			 *
-			 * Usually, wikilinks are easy to parse, just with a `g`-flagged regex and a `while` loop.
-			 * However, the following unusual cases (and the like) should be accounted for:
-			 *
-			 * - `<!--[[-->[[wikilink]]`
-			 * - `[[wikilink<!--]]-->]]`
-			 *
-			 * That is, cases where a double bracket appears in a skip tag (which the g-regex approach can't handle).
-			 */
-			const regex = {
-				start: /^\[{2}(?!\[)/,
-				end: /^\]{2}/,
+			const wikitext = this.content;
+			offset ??= {
+				start: 0,
+				end: wikitext.length,
 			};
-			const links: FuzzyWikilink[] = [];
+
 			let inLink = false;
 			let startIndex = 0;
 			let title = '';
 			let rawTitle = '';
 			let isLeftSealed = false;
-			const unprocessed: number[] = [];
 
-			for (let i = 0; i < wikitext.length; i++) {
+			const links: FuzzyWikilink[] = [];
+			const parentStack: number[] = [];
 
-				const wkt = wikitext.slice(i);
-
-				// Skip sequences of "\x01", prepended instead of the usual text
-				// This makes it easy to retrieve the start indices of nested wikilinks
-				const ctrlMatch = wkt.match(rCtrlStart);
-				if (ctrlMatch) {
-					i += ctrlMatch[0].length - 1;
-					continue;
-				}
+			for (let i = offset.start; i < offset.end; i++) {
 
 				// Skip or deep-parse certain expressions
-				if (indexMap[i]) {
-					const { inner } = indexMap[i];
+				const indexMapEntry = indexMap[i];
+				if (indexMapEntry) {
+					const { inner, text } = indexMapEntry;
 					if (inner && inner.end <= wikitext.length) {
-						const { start, end } = inner;
-						// innerHTML of a skip tag or the right operand of a parameter
+						// The inner content of a skip tag, or the right operand of a parameter.
 						// TODO: This can cause a bug if the left operand of the parameter contains a nested wikilink,
 						// but could there be any occurrence of `{{{ [[wikilink]] | right }}}`?
-						// Modify getIndexMap() in case it turns out that this needs to be handled
-						const text = wikitext.slice(start, end);
-						if (text.includes('[[') && text.includes(']]')) {
-							// Parse wikilinks inside the expressions
+						// Modify getIndexMap() in case it turns out that this needs to be handled.
+						const chunk = wikitext.slice(inner.start, inner.end);
+						if (chunk.includes('[[') && chunk.includes(']]')) {
+							// Recursively parse wikilinks inside the expression
 							links.push(
-								...this._parseWikilinksFuzzy(indexMap, isInSkipRange, '\x01'.repeat(start) + text)
+								...this._parseWikilinksFuzzy(indexMap, isInSkipRange, inner)
 							);
 						}
 					}
 					if (inLink && !isLeftSealed) {
-						rawTitle += indexMap[i].text;
+						rawTitle += text;
 					}
-					i += indexMap[i].text.length - 1;
+					i += text.length - 1;
 					continue;
 				}
 
-				if (regex.start.test(wkt)) {
-					// Regard any occurrence of "[[" as the potential start of a wikilink
+				if (wikitext.startsWith('[[', i) && wikitext[i + 2] !== '[') {
+					// Treat every occurrence of "[[" as the potential start of a wikilink
 					if (inLink) {
 						// If this is the start of a wikilink nested inside another, store the start index of
 						// the parent wikilink to return to after processing this one
-						unprocessed.unshift(startIndex);
+						parentStack.unshift(startIndex);
 					}
 					inLink = true;
 					startIndex = i;
@@ -1319,9 +1300,10 @@ export function WikitextFactory(
 					rawTitle = '';
 					isLeftSealed = false;
 					i++;
-				} else if (regex.end.test(wkt) && inLink) {
+				} else if (wikitext.startsWith(']]', i) && inLink) {
 					const endIndex = i + 2;
 					const text = wikitext.slice(startIndex, endIndex);
+
 					let right: string | null = null;
 					if (title.endsWith('|')) {
 						right = wikitext.slice(startIndex + 2 + rawTitle.length, endIndex - 2) ||
@@ -1330,10 +1312,13 @@ export function WikitextFactory(
 							// and even if any, they aren't recognized as links but as raw texts.
 							// See https://en.wikipedia.org/wiki/Help:Pipe_trick
 							null;
-						title = title.slice(0, -1); // Remove the trailing pipe
+
+						// Remove the pipe delimiter retained to distinguish [[title]] from [[title|display]]
+						title = title.slice(0, -1);
 						rawTitle = rawTitle.slice(0, -1);
 					}
-					const nestLevel = unprocessed.length;
+
+					const nestLevel = parentStack.length;
 					links.push({
 						right,
 						title,
@@ -1352,17 +1337,18 @@ export function WikitextFactory(
 							type: 'wikilink_fuzzy',
 							inner: null, // If `inner` is `null`, its content won't be parsed recursively
 						};
-						i = (unprocessed.shift() as number) - 1; // Go back to the start of the nesting wikilink in the next iteration
+						i = parentStack.shift()! - 1; // Go back to the start of the nesting wikilink in the next iteration
 					} else {
 						i++;
 					}
 					inLink = false;
 				} else if (inLink && !isLeftSealed) {
-					if (wkt[0] === '|') {
+					const char = wikitext[i];
+					if (char === '|') {
 						isLeftSealed = true;
 					}
-					title += wkt[0]; // A sealed "title" ends with a pipe
-					rawTitle += wkt[0];
+					title += char; // A sealed title ends with a pipe
+					rawTitle += char;
 				}
 			}
 
