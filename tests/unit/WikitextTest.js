@@ -4,6 +4,7 @@ import { testWikitextProperties } from './WikitextTest/WikitextTest-properties.j
 import { testWikitextTags } from './WikitextTest/WikitextTest-tags.js';
 import { testWikitextSections } from './WikitextTest/WikitextTest-sections.js';
 import { testWikitextParameters } from './WikitextTest/WikitextTest-parameters.js';
+import { testWikitextWikilinks } from './WikitextTest/WikitextTest-wikilinks.js';
 
 describe('Mwbot.Wikitext', function () {
 	testWikitextConstructor();
@@ -11,4 +12,5 @@ describe('Mwbot.Wikitext', function () {
 	testWikitextTags();
 	testWikitextSections();
 	testWikitextParameters();
+	testWikitextWikilinks();
 });
