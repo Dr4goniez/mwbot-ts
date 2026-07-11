@@ -441,8 +441,6 @@ export function WikitextFactory(
 	ParsedRawWikilink: ParsedRawWikilinkStatic
 ) {
 
-	const rCtrlStart = /^\x01+/;
-
 	const namespaceIds = mwbot.config.get('wgNamespaceIds');
 	const NS_FILE = namespaceIds.file;
 
@@ -1365,9 +1363,7 @@ export function WikitextFactory(
 		 * @param isInSkipRange A function that evaluates whether parsed templates are within a skip range.
 		 * Only passed from inside this method.
 		 * @param nestLevel Nesting level of the parsing templates. Only passed from inside this method.
-		 * @param wikitext Alternative wikitext to parse. Should be passed when parsing nested templates.
-		 * All characters before the range where there can be nested templates should be replaced with `\x01`.
-		 * This method skips sequences of this control character, to reach the range early and efficiently.
+		 * @param offset Range of the original wikitext to parse.
 		 * @param checkGallery Whether to check gallery tags.
 		 * @returns An array of parsed templates.
 		 */
@@ -1376,36 +1372,32 @@ export function WikitextFactory(
 			indexMap = this.getIndexMap({ gallery: true, parameters: true, wikilinks_fuzzy: true }),
 			isInSkipRange = this.getSkipPredicate(),
 			nestLevel = 0,
-			wikitext = this.content,
+			offset?: { start: number, end: number },
 			checkGallery = true
 		): DoubleBracedClasses[] {
 
+			const wikitext = this.content;
+			offset ??= {
+				start: 0,
+				end: wikitext.length,
+			};
+
 			let numUnclosed = 0;
 			let startIndex = 0;
-			let components: Required<NewTemplateParameter>[] = [];
-			const regex = {
-				templateStart: /^\{\{/,
-				templateEnd: /^\}\}/,
-			};
+			const components: Required<NewTemplateParameter>[] = [];
 
 			// Character-by-character loop
 			const templates: DoubleBracedClasses[] = [];
-			for (let i = 0; i < wikitext.length; i++) {
-
-				const wkt = wikitext.slice(i);
-
-				const ctrlMatch = wkt.match(rCtrlStart);
-				if (ctrlMatch) {
-					i += ctrlMatch[0].length - 1;
-					continue;
-				}
+			for (let i = offset.start; i < offset.end; i++) {
 
 				// Skip or deep-parse certain expressions
-				if (indexMap[i] && indexMap[i].type !== 'gallery') {
+				const indexMapEntry = indexMap[i];
+				if (indexMapEntry && indexMapEntry.type !== 'gallery') {
+					const { text, inner } = indexMapEntry;
 					if (numUnclosed !== 0) {
 						// TODO: Should this `nonNameComponent` include all the indexMap expressions?
 						// Maybe we should limit it to the skip tags only.
-						processTemplateFragment(components, indexMap[i].text, { nonNameComponent: true });
+						processTemplateFragment(components, text, { nonNameComponent: true });
 					}
 					/**
 					 * Parse the inner content of this expression only if `nestLevel` is 0.
@@ -1417,37 +1409,35 @@ export function WikitextFactory(
 					 * We cannot simply remove the `if` block below, as that would cause `indexMap` expressions to be skipped
 					 * entirely, preventing their inner contents from being parsed.
 					 */
-					let inner;
-					if (nestLevel === 0 && (inner = indexMap[i].inner) && inner.end <= wikitext.length) {
-						const { start, end } = inner;
-						const text = wikitext.slice(start, end);
-						if (text.includes('{{') && text.includes('}}')) {
+					if (nestLevel === 0 && inner && inner.end <= wikitext.length) {
+						const chunk = wikitext.slice(inner.start, inner.end);
+						if (chunk.includes('{{') && chunk.includes('}}')) {
 							templates.push(
-								...this._parseTemplates(options, indexMap, isInSkipRange, nestLevel, '\x01'.repeat(inner.start) + text, false)
+								...this._parseTemplates(options, indexMap, isInSkipRange, nestLevel, inner, false)
 							);
 						}
 					}
-					i += indexMap[i].text.length - 1;
+					i += text.length - 1;
 					continue;
 				}
 
 				if (numUnclosed === 0) {
 					// We are not in a template
-					if (regex.templateStart.test(wkt)) {
+					if (wikitext.startsWith('{{', i)) {
 						// Found the start of a template
 						startIndex = i;
-						components = [];
+						components.length = 0;
 						numUnclosed += 2;
 						i++;
 					}
 				} else if (numUnclosed === 2) {
 					// We are looking for closing braces
-					if (regex.templateStart.test(wkt)) {
+					if (wikitext.startsWith('{{', i)) {
 						// Found a nested template
 						numUnclosed += 2;
 						i++;
 						processTemplateFragment(components, '{{');
-					} else if (regex.templateEnd.test(wkt)) {
+					} else if (wikitext.startsWith('}}', i)) {
 						// Found the end of the template
 						const [titleObj, ...params] = components;
 						const title = titleObj ? titleObj.key : '';
@@ -1512,25 +1502,30 @@ export function WikitextFactory(
 						templates.push(temp);
 						const inner = temp.text.slice(2, -2);
 						if (inner.includes('{{') && inner.includes('}}')) {
+							const nestedOffset = {
+								start: startIndex + 2,
+								end: endIndex - 2,
+							};
 							templates.push(
-								...this._parseTemplates(options, indexMap, isInSkipRange, nestLevel + 1, '\x01'.repeat(startIndex + 2) + inner, false)
+								...this._parseTemplates(options, indexMap, isInSkipRange, nestLevel + 1, nestedOffset, false)
 							);
 						}
 						numUnclosed -= 2;
 						i++;
 					} else {
 						// Just part of the template
-						processTemplateFragment(components, wkt[0], wkt[0] === '|' ? { isNew: true } : {});
+						const char = wikitext[i];
+						processTemplateFragment(components, char, { isNew: char === '|' });
 					}
 				} else {
 					// We are in a nested template
 					let fragment;
-					if (regex.templateStart.test(wkt)) {
+					if (wikitext.startsWith('{{', i)) {
 						// Found another nested template
 						fragment = '{{';
 						numUnclosed += 2;
 						i++;
-					} else if (regex.templateEnd.test(wkt)) {
+					} else if (wikitext.startsWith('}}', i)) {
 						// Found the end of the nested template
 						fragment = '}}';
 						numUnclosed -= 2;
@@ -1538,7 +1533,7 @@ export function WikitextFactory(
 					} else {
 						// Just part of the nested template
 						// TODO: Can we make this more efficient by registering multiple characters, not just one?
-						fragment = wkt[0];
+						fragment = wikitext[i];
 					}
 					processTemplateFragment(components, fragment);
 				}
@@ -1636,7 +1631,6 @@ export function WikitextFactory(
 			sortParseResults(templates);
 			assignNestedKinships(templates);
 			templates.forEach((temp, index) => {
-				temp.index = index;
 				temp._setInitializer({
 					index,
 					parent: temp.parent,
@@ -2270,7 +2264,11 @@ interface FragmentOptions {
  * @param fragment The character(s) to add to the `components` array.
  * @param options Optional settings for handling the fragment.
  */
-function processTemplateFragment(components: Required<NewTemplateParameter>[], fragment: string, options: FragmentOptions = {}): void {
+function processTemplateFragment(
+	components: Required<NewTemplateParameter>[],
+	fragment: string,
+	options: FragmentOptions = {}
+): void {
 
 	// Determine which element to modify: either a new element for a new parameter or an existing one
 	const { nonNameComponent, isNew } = options;
