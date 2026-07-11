@@ -96,7 +96,16 @@ import type {
 	ParsedRawWikilinkInitializer,
 } from './Wikilink.js';
 import { formatType } from './internal/helpers.js';
-import { assignNestedKinships, sortParseResults } from './internal/wikitext/sharedHelpers.js';
+import {
+	addFuzzyWikilinkIndexMap,
+	addParameterIndexMap,
+	addTagIndexMap,
+	addTemplateIndexMap,
+	assignNestedKinships,
+	IndexMap,
+	IndexMapOptions,
+	sortParseResults,
+} from './internal/wikitext/sharedHelpers.js';
 import {
 	createNonVoidTag,
 	createVoidTag,
@@ -108,7 +117,12 @@ import {
 	TAG_SINGLE_ONLY,
 	tagRegex,
 } from './internal/wikitext/tagHelpers.js';
-import { assignSectionKinships, CommentPlaceholderManager, headingRegex, removeComments } from './internal/wikitext/sectionHelpers.js';
+import {
+	assignSectionKinships,
+	CommentPlaceholderManager,
+	headingRegex,
+	removeComments,
+} from './internal/wikitext/sectionHelpers.js';
 import { countConsecutiveBraces, parameterRegex } from './internal/wikitext/parameterHelpers.js';
 
 /**
@@ -1188,72 +1202,26 @@ export function WikitextFactory(
 		 * @param options Options to index additional expressions.
 		 * @returns An object mapping start indices to their corresponding text content and type.
 		 */
-		private getIndexMap(
-			options: { gallery?: boolean; parameters?: boolean; wikilinks_fuzzy?: boolean, templates?: boolean } = {}
-		): IndexMap {
+		private getIndexMap(options: IndexMapOptions = {}): IndexMap {
 
 			const indexMap: IndexMap = Object.create(null);
 
-			// Process skipTags
-			this.storageManager('tags', false).forEach(({ text, startIndex, name, content }) => {
-				// If this is a skip tag or a gallery tag whose content contains a pipe character
-				if (
-					Wikitext.isValidTag(name, 'skip') ||
-					name === 'gallery' && options.gallery && content?.includes('|')
-				) {
-					// `inner` is the innerHTML of the tag
-					const inner = (() => {
-						if (content === null) {
-							return null;
-						}
-						const innerStartIndex = startIndex + text.indexOf(content);
-						return { start: innerStartIndex, end: innerStartIndex + content.length };
-					})();
-					indexMap[startIndex] = {
-						text,
-						type: name === 'gallery' ? 'gallery' : 'tag',
-						inner,
-					};
-				}
-			});
+			const tags = this.storageManager('tags', false);
+			addTagIndexMap(indexMap, tags, options, name => Wikitext.isValidTag(name, 'skip'));
 
-			// Process {{{parameter}}}s
 			if (options.parameters) {
-				this.storageManager('parameters', false).forEach(({ text, startIndex }) => {
-					const m = /^(\{{3}[^|}]*\|)(.+)\}{3}$/.exec(text);
-					// `inner` is the right operand of the parameter
-					const inner = m && {
-						start: startIndex + m[1].length,
-						end: startIndex + m[1].length + m[2].length,
-					};
-					indexMap[startIndex] = {
-						text,
-						type: 'parameter',
-						inner,
-					};
-				});
+				const parameters = this.storageManager('parameters', false);
+				addParameterIndexMap(indexMap, parameters);
 			}
 
-			// Process fuzzy [[wikilink]]s
 			if (options.wikilinks_fuzzy) {
-				this.storageManager('wikilinks_fuzzy', false).forEach(({ text, startIndex, endIndex }) => {
-					// `inner` is the inner text of the wikilink (the text without "[[" and "]]")
-					const inner = (() => {
-						const start = startIndex + 2;
-						const end = endIndex - 2;
-						return end - start > 1 ? { start, end } : null;
-					})();
-					indexMap[startIndex] = {
-						text,
-						type: 'wikilink_fuzzy',
-						inner,
-					};
-				});
+				const fuzzyWikilinks = this.storageManager('wikilinks_fuzzy', false);
+				addFuzzyWikilinkIndexMap(indexMap, fuzzyWikilinks);
 			}
 
-			// Process {{template}}s
 			if (options.templates) {
-				this.storageManager('templates', false).forEach((obj) => createTemplateIndexMap(indexMap, obj));
+				const templates = this.storageManager('templates', false);
+				addTemplateIndexMap(indexMap, templates);
 			}
 
 			return indexMap;
@@ -1618,7 +1586,7 @@ export function WikitextFactory(
 
 				// Update indexMap to include parsed templates
 				// Note that this can't be done at the beginning of this method because that'll be circular
-				templates.forEach((obj) => createTemplateIndexMap(indexMap, obj));
+				addTemplateIndexMap(indexMap, templates);
 
 				// Check each parsed template and if it contains a gallery tag, modify the parsing result
 				for (let i = 0; i < templates.length; i++) {
@@ -2241,52 +2209,6 @@ export interface ParseParametersConfig {
 // --------------- Interfaces for template-related methods ---------------
 
 /**
- * A mapping of expression start indexes to their corresponding details.
- *
- * This type is used to track expressions while skipping over tags, parameters, and wikilinks.
- * Each entry includes:
- * - `text`: The raw text of the expression.
- * - `type`: The type of the expression.
- * - `inner`: The start and end indexes of the inner content, or `null` if not applicable.
- */
-type IndexMap = {
-	[startIndex: number]: {
-		text: string;
-		type: 'tag' | 'gallery' | 'parameter' | 'wikilink_fuzzy' | 'template';
-		inner: { start: number; end: number } | null;
-	};
-};
-
-/**
- * Internal function to generate the index map of a template.
- *
- * @param indexMap The index map to modify in place.
- * @param obj The template instance.
- */
-function createTemplateIndexMap(indexMap: IndexMap, obj: DoubleBracedClasses): void {
-	const { text, startIndex, endIndex } = obj;
-	let rawTitle;
-	let isTemplate = true;
-	if ('rawTitle' in obj) {
-		rawTitle = obj.rawTitle;
-	} else {
-		rawTitle = obj.rawHook;
-		isTemplate = false;
-	}
-	// `inner` is, for templates, their right operand, and for parser functions, the text after their hook
-	const inner = (() => {
-		const start = startIndex + 2 + rawTitle.length + (isTemplate ? 1 : 0);
-		const end = endIndex - 2;
-		return end - start > 1 ? { start, end } : null;
-	})();
-	indexMap[startIndex] = {
-		text,
-		type: 'template',
-		inner,
-	};
-}
-
-/**
  * Configuration options for {@link Wikitext.parseTemplates}.
  */
 export interface ParseTemplatesConfig {
@@ -2407,8 +2329,10 @@ function processTemplateFragment(components: Required<NewTemplateParameter>[], f
 /**
  * Object that holds information about a fuzzily parsed `[[wikilink]]`.
  * The right operand of the link needs to be parsed for the object to be a complete construct.
+ *
+ * @internal
  */
-interface FuzzyWikilink extends Omit<ParseResultBase, 'index' | 'parent' | 'children'> {
+export interface FuzzyWikilink extends Omit<ParseResultBase, 'index' | 'parent' | 'children'> {
 	/**
 	 * The right operand.
 	 */
