@@ -123,7 +123,15 @@ import {
 	headingRegex,
 	removeComments,
 } from './internal/wikitext/sectionHelpers.js';
-import { countConsecutiveBraces, parameterRegex } from './internal/wikitext/parameterHelpers.js';
+import {
+	countConsecutiveBraces,
+	parameterRegex,
+} from './internal/wikitext/parameterHelpers.js';
+import {
+	findNextTemplateTokenIndex,
+	processTemplateFragment,
+	templateRegex,
+} from './internal/wikitext/templateHelpers.js';
 
 /**
  * @expand
@@ -1359,35 +1367,44 @@ export function WikitextFactory(
 		 * Parses the wikitext content for `{{template}}` markups.
 		 *
 		 * @param options Parser options.
-		 * @param indexMap Optional index map to re-use.
-		 * @param isInSkipRange A function that evaluates whether parsed templates are within a skip range.
-		 * Only passed from inside this method.
-		 * @param nestLevel Nesting level of the parsing templates. Only passed from inside this method.
-		 * @param offset Range of the original wikitext to parse.
-		 * @param checkGallery Whether to check gallery tags.
+		 * @param recurseOptions Data to reuse; Used only by the method itself.
+		 * @param recurseOptions.indexMap An index map.
+		 * @param recurseOptions.indexMapIndexes An array of number-cast `indexMap` keys.
+		 * @param recurseOptions.isInSkipRange A function that evaluates whether parsed templates are within a skip range.
+		 * @param recurseOptions.nestLevel Nesting level of the parsing templates.
+		 * @param recurseOptions.offset Range of the original wikitext to parse.
+		 * @param recurseOptions.checkGallery Whether to check gallery tags.
 		 * @returns An array of parsed templates.
 		 */
 		private _parseTemplates(
 			options: ParsedTemplateOptions = {},
-			indexMap = this.getIndexMap({ gallery: true, parameters: true, wikilinks_fuzzy: true }),
-			isInSkipRange = this.getSkipPredicate(),
-			nestLevel = 0,
-			offset?: { start: number, end: number },
-			checkGallery = true
+			recurseOptions: {
+				indexMap?: IndexMap;
+				indexMapIndexes?: number[];
+				isInSkipRange?: ReturnType<Wikitext['getSkipPredicate']>;
+				nestLevel?: number;
+				offset?: { start: number, end: number };
+				checkGallery?: boolean;
+			} = {}
 		): DoubleBracedClasses[] {
 
 			const wikitext = this.content;
-			offset ??= {
-				start: 0,
-				end: wikitext.length,
-			};
 
+			const {
+				indexMap = this.getIndexMap({ gallery: true, parameters: true, wikilinks_fuzzy: true }),
+				indexMapIndexes = Object.keys(indexMap).map(Number),
+				isInSkipRange = this.getSkipPredicate(),
+				nestLevel = 0,
+				offset = { start: 0, end: wikitext.length },
+				checkGallery = true,
+			} = recurseOptions;
+
+			let nextIndexMapPointer = indexMapIndexes.findIndex(n => n >= offset.start);
 			let numUnclosed = 0;
 			let startIndex = 0;
 			const components: Required<NewTemplateParameter>[] = [];
-
-			// Character-by-character loop
 			const templates: DoubleBracedClasses[] = [];
+
 			for (let i = offset.start; i < offset.end; i++) {
 
 				// Skip or deep-parse certain expressions
@@ -1395,9 +1412,9 @@ export function WikitextFactory(
 				if (indexMapEntry && indexMapEntry.type !== 'gallery') {
 					const { text, inner } = indexMapEntry;
 					if (numUnclosed !== 0) {
-						// TODO: Should this `nonNameComponent` include all the indexMap expressions?
+						// TODO: Should this `isNonName` include all the indexMap expressions?
 						// Maybe we should limit it to the skip tags only.
-						processTemplateFragment(components, text, { nonNameComponent: true });
+						processTemplateFragment(components, text, { isNonName: true });
 					}
 					/**
 					 * Parse the inner content of this expression only if `nestLevel` is 0.
@@ -1413,7 +1430,14 @@ export function WikitextFactory(
 						const chunk = wikitext.slice(inner.start, inner.end);
 						if (chunk.includes('{{') && chunk.includes('}}')) {
 							templates.push(
-								...this._parseTemplates(options, indexMap, isInSkipRange, nestLevel, inner, false)
+								...this._parseTemplates(options, {
+									indexMap,
+									indexMapIndexes,
+									isInSkipRange,
+									nestLevel,
+									offset: inner,
+									checkGallery: false,
+								})
 							);
 						}
 					}
@@ -1421,9 +1445,47 @@ export function WikitextFactory(
 					continue;
 				}
 
+				// Skip ahead to the next index where there is a template-related character
+				while (
+					nextIndexMapPointer < indexMapIndexes.length &&
+					indexMapIndexes[nextIndexMapPointer] <= i
+				) {
+					nextIndexMapPointer++;
+				}
+
+				const nextTokenIndex = findNextTemplateTokenIndex(wikitext, i, offset.end);
+				if (nextTokenIndex === i) {
+					// Already at a template token
+				} else {
+
+					const nextMapIndex = indexMapIndexes[nextIndexMapPointer] ?? -1;
+					let nextIndex: number;
+
+					if (nextTokenIndex === -1 && nextMapIndex === -1) {
+						if (numUnclosed !== 0) {
+							processTemplateFragment(components, wikitext.slice(i));
+						}
+						break;
+					} else if (nextTokenIndex === -1) {
+						nextIndex = nextMapIndex;
+					} else if (nextMapIndex === -1) {
+						nextIndex = nextTokenIndex;
+					} else {
+						nextIndex = Math.min(nextTokenIndex, nextMapIndex);
+					}
+
+					processTemplateFragment(components, wikitext.slice(i, nextIndex));
+					i = nextIndex - 1;
+					continue;
+				}
+
+				// Process the character at the current index
+				const startsTemplate = wikitext.startsWith('{{', i);
+				const endsTemplate = wikitext.startsWith('}}', i);
+
 				if (numUnclosed === 0) {
 					// We are not in a template
-					if (wikitext.startsWith('{{', i)) {
+					if (startsTemplate) {
 						// Found the start of a template
 						startIndex = i;
 						components.length = 0;
@@ -1432,12 +1494,12 @@ export function WikitextFactory(
 					}
 				} else if (numUnclosed === 2) {
 					// We are looking for closing braces
-					if (wikitext.startsWith('{{', i)) {
+					if (startsTemplate) {
 						// Found a nested template
 						numUnclosed += 2;
 						i++;
 						processTemplateFragment(components, '{{');
-					} else if (wikitext.startsWith('}}', i)) {
+					} else if (endsTemplate) {
 						// Found the end of the template
 						const [titleObj, ...params] = components;
 						const title = titleObj ? titleObj.key : '';
@@ -1458,7 +1520,7 @@ export function WikitextFactory(
 									break;
 								}
 							}
-						} else if (!/^\s+/.test(title)) {
+						} else if (!templateRegex.leadingSpaces.test(title)) {
 							// If `title` and `rawTitle` are identical, we just want to replace `rawTitle` with "\x01".
 							// But this isn't always so for parser functions, which must be parsed again for the function
 							// hook and the first argument. For example:
@@ -1502,12 +1564,18 @@ export function WikitextFactory(
 						templates.push(temp);
 						const inner = temp.text.slice(2, -2);
 						if (inner.includes('{{') && inner.includes('}}')) {
-							const nestedOffset = {
-								start: startIndex + 2,
-								end: endIndex - 2,
-							};
 							templates.push(
-								...this._parseTemplates(options, indexMap, isInSkipRange, nestLevel + 1, nestedOffset, false)
+								...this._parseTemplates(options, {
+									indexMap,
+									indexMapIndexes,
+									isInSkipRange,
+									nestLevel: nestLevel + 1,
+									offset: {
+										start: startIndex + 2,
+										end: endIndex - 2,
+									},
+									checkGallery: false,
+								})
 							);
 						}
 						numUnclosed -= 2;
@@ -1519,20 +1587,19 @@ export function WikitextFactory(
 					}
 				} else {
 					// We are in a nested template
-					let fragment;
-					if (wikitext.startsWith('{{', i)) {
+					let fragment: string;
+					if (startsTemplate) {
 						// Found another nested template
 						fragment = '{{';
 						numUnclosed += 2;
 						i++;
-					} else if (wikitext.startsWith('}}', i)) {
+					} else if (endsTemplate) {
 						// Found the end of the nested template
 						fragment = '}}';
 						numUnclosed -= 2;
 						i++;
 					} else {
 						// Just part of the nested template
-						// TODO: Can we make this more efficient by registering multiple characters, not just one?
 						fragment = wikitext[i];
 					}
 					processTemplateFragment(components, fragment);
@@ -1540,10 +1607,7 @@ export function WikitextFactory(
 			}
 
 			// <gallery> tags might contain pipe characters and can cause inaccuracy in the parsing results
-			do { // Just creating a block to prevent deep nests
-				if (!checkGallery) {
-					break;
-				}
+			while (checkGallery) {
 
 				// Collect the start and end indices of gallery tags containing "|"
 				// Note: getIndexMap() has already filtered out gallery tags that don't contain any pipe
@@ -1596,7 +1660,7 @@ export function WikitextFactory(
 							// Skip over skip tags, parameters, wikilinks, and templates
 							// No need to handle nested templates here because they're already in `templates`
 							// The outer `for` with `i` handles them recursively
-							processTemplateFragment(components, indexMap[realIndex].text, { nonNameComponent: true });
+							processTemplateFragment(components, indexMap[realIndex].text, { isNonName: true });
 							j += indexMap[realIndex].text.length - 1;
 						} else if (inGallery(realIndex)) {
 							// If we're in a gallery tag, register this character without restoring pipes
@@ -1625,8 +1689,8 @@ export function WikitextFactory(
 						templates[i] = temp._clone(options);
 					}
 				}
-			// eslint-disable-next-line no-constant-condition
-			} while (false); // Always get out of the loop automatically
+				break;
+			}
 
 			if (nestLevel === 0) {
 				sortParseResults(templates);
@@ -2229,85 +2293,6 @@ export interface ParseTemplatesConfig {
 	 * ```
 	 */
 	hierarchies?: Record<string, TemplateParameterHierarchies>;
-}
-
-/**
- * Options for {@link processTemplateFragment}.
- */
-interface FragmentOptions {
-	/**
-	 * Whether the fragment is **not** part of a template name or template parameter name.
-	 * This applies when the fragment represents a value or another non-name component.
-	 */
-	nonNameComponent?: boolean;
-	/**
-	 * Whether the passed fragment starts a new template parameter.
-	 * This is used when a fragment marks the beginning of a new parameter within the template.
-	 */
-	isNew?: boolean;
-}
-
-/**
- * Processes fragments of template parameters and updates the `components` array in place.
- *
- * #### How `components` is structured:
- * - `components[0]` stores the **template title**.
- * 	- `key`: The clean title without extra characters.
- * 	- `value`: The full title, including any extra characters (e.g., `{{Template<!--1-->|arg1=}}`).
- *
- * - `components[1+]` store **template parameters**.
- * 	- `key`: The parameter key (e.g., `|1`), starting with a pipe (`|`).
- * 	- `value`: The assigned value.
- *
- * `components[1+].key` always starts with a pipe character to prevent misinterpretation
- * when an unnamed parameter has a value starting with `=` (e.g., `{{Template|=}}`).
- *
- * @param components The array storing parsed template parameters.
- * @param fragment The character(s) to add to the `components` array.
- * @param options Optional settings for handling the fragment.
- */
-function processTemplateFragment(
-	components: Required<NewTemplateParameter>[],
-	fragment: string,
-	options: FragmentOptions = {}
-): void {
-
-	// Determine which element to modify: either a new element for a new parameter or an existing one
-	const { nonNameComponent, isNew } = options;
-	const i = isNew ? components.length : Math.max(components.length - 1, 0);
-
-	// Initialize the element if it does not exist
-	if (!(i in components)) {
-		components[i] = { key: '', value: '' };
-	}
-
-	// Process the fragment and update the `components` array
-	let equalIndex;
-	if (i === 0 && nonNameComponent) {
-		// `components[0]` handler (looking for a template title): extra characters
-		components[i].value += fragment;
-	} else if (i === 0) {
-		// `components[0]` handler (looking for a template title): part of the title
-		components[i].key += fragment;
-		components[i].value += fragment;
-	} else if (
-		// `equalIndex` is basically 0 if found
-		(equalIndex = fragment.indexOf('=')) !== -1 &&
-		!components[i].key &&
-		// Ignore {{=}}. `components[i].value` should end with "{{" when `equalIndex` is 0
-		// TODO: This doesn't handle "<!--{{=}}-->"
-		!/\{\{[\s_\u200E\u200F\u202A-\u202E]*$/.test(components[i].value) &&
-		!nonNameComponent
-	) {
-		// Found `=` when `key` is empty, indicating the start of a named parameter.
-		components[i].key = components[i].value + fragment.slice(0, equalIndex);
-		components[i].value = components[i].value.slice(components[i].key.length + 1);
-	} else {
-		if (!components[i].value && fragment.startsWith('|')) {
-			fragment = fragment.slice(1); // Exclude the pipe that starts a template parameter
-		}
-		components[i].value += fragment;
-	}
 }
 
 // --------------- Interfaces for wikilink-related methods ---------------
