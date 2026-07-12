@@ -1628,15 +1628,17 @@ export function WikitextFactory(
 			// eslint-disable-next-line no-constant-condition
 			} while (false); // Always get out of the loop automatically
 
-			sortParseResults(templates);
-			assignNestedKinships(templates);
-			templates.forEach((temp, index) => {
-				temp._setInitializer({
-					index,
-					parent: temp.parent,
-					children: temp.children,
+			if (nestLevel === 0) {
+				sortParseResults(templates);
+				assignNestedKinships(templates);
+				templates.forEach((temp, index) => {
+					temp._setInitializer({
+						index,
+						parent: temp.parent,
+						children: temp.children,
+					});
 				});
-			});
+			}
 
 			return templates;
 		}
