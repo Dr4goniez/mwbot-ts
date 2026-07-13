@@ -73,7 +73,6 @@ import type {
 	ParserFunctionStatic,
 	ParsedParserFunctionStatic,
 	ParsedParserFunction,
-	NewTemplateParameter,
 	TemplateParameterHierarchies,
 	ParsedTemplateOptions,
 	ParsedTemplateInitializer,
@@ -130,6 +129,8 @@ import {
 import {
 	findNextTemplateTokenIndex,
 	processTemplateFragment,
+	repairGallery,
+	TemplateComponent,
 	templateRegex,
 } from './internal/wikitext/templateHelpers.js';
 
@@ -482,6 +483,8 @@ export function WikitextFactory(
 	const MODIFICATION_TYPES: Set<keyof ModificationMap> = new Set(
 		['tags', 'parameters', 'sections', 'templates', 'wikilinks']
 	);
+
+	const verifyHook = ParsedParserFunction.verify.bind(ParsedParserFunction);
 
 	class Wikitext implements Wikitext {
 
@@ -1402,7 +1405,7 @@ export function WikitextFactory(
 			let nextIndexMapPointer = indexMapIndexes.findIndex(n => n >= offset.start);
 			let numUnclosed = 0;
 			let startIndex = 0;
-			const components: Required<NewTemplateParameter>[] = [];
+			const components: TemplateComponent[] = [];
 			const templates: DoubleBracedClasses[] = [];
 
 			for (let i = offset.start; i < offset.end; i++) {
@@ -1414,7 +1417,7 @@ export function WikitextFactory(
 					if (numUnclosed !== 0) {
 						// TODO: Should this `isNonName` include all the indexMap expressions?
 						// Maybe we should limit it to the skip tags only.
-						processTemplateFragment(components, text, { isNonName: true });
+						processTemplateFragment(components, text, verifyHook, { isNonName: true });
 					}
 					/**
 					 * Parse the inner content of this expression only if `nestLevel` is 0.
@@ -1463,7 +1466,7 @@ export function WikitextFactory(
 
 					if (nextTokenIndex === -1 && nextMapIndex === -1) {
 						if (numUnclosed !== 0) {
-							processTemplateFragment(components, wikitext.slice(i));
+							processTemplateFragment(components, wikitext.slice(i), verifyHook);
 						}
 						break;
 					} else if (nextTokenIndex === -1) {
@@ -1474,7 +1477,7 @@ export function WikitextFactory(
 						nextIndex = Math.min(nextTokenIndex, nextMapIndex);
 					}
 
-					processTemplateFragment(components, wikitext.slice(i, nextIndex));
+					processTemplateFragment(components, wikitext.slice(i, nextIndex), verifyHook);
 					i = nextIndex - 1;
 					continue;
 				}
@@ -1498,7 +1501,7 @@ export function WikitextFactory(
 						// Found a nested template
 						numUnclosed += 2;
 						i++;
-						processTemplateFragment(components, '{{');
+						processTemplateFragment(components, '{{', verifyHook);
 					} else if (endsTemplate) {
 						// Found the end of the template
 						const [titleObj, ...params] = components;
@@ -1537,20 +1540,20 @@ export function WikitextFactory(
 						const initializer: ParsedTemplateInitializer = {
 							title,
 							rawTitle,
-							text,
 							params,
-							index: -1,
+							text,
+							nestLevel,
 							startIndex,
 							endIndex,
-							nestLevel,
 							skip: isInSkipRange(startIndex, endIndex),
+							index: -1,
 							parent: null,
 							children: new Set(),
 						};
 						let temp: DoubleBracedClasses;
-						try {
-							temp = new ParsedParserFunction(initializer);
-						} catch {
+						if (titleObj.hook) {
+							temp = new ParsedParserFunction(initializer, titleObj.hook);
+						} else {
 							if (titlesMatch) {
 								// `title` and `rawTitle` are identical, and we verified that the {{template}} isn't a parser function
 								initializer.rawTitle = '\x01';
@@ -1581,9 +1584,9 @@ export function WikitextFactory(
 						numUnclosed -= 2;
 						i++;
 					} else {
-						// Just part of the template
+						// Just part of the template (effectively "|" or "=")
 						const char = wikitext[i];
-						processTemplateFragment(components, char, { isNew: char === '|' });
+						processTemplateFragment(components, char, verifyHook, { isNew: char === '|' });
 					}
 				} else {
 					// We are in a nested template
@@ -1599,97 +1602,16 @@ export function WikitextFactory(
 						numUnclosed -= 2;
 						i++;
 					} else {
-						// Just part of the nested template
+						// Just part of the nested template (effectively "|" or "=")
 						fragment = wikitext[i];
 					}
-					processTemplateFragment(components, fragment);
+					processTemplateFragment(components, fragment, verifyHook);
 				}
 			}
 
 			// <gallery> tags might contain pipe characters and can cause inaccuracy in the parsing results
-			while (checkGallery) {
-
-				// Collect the start and end indices of gallery tags containing "|"
-				// Note: getIndexMap() has already filtered out gallery tags that don't contain any pipe
-				const galleryIndexMap = Object.entries(indexMap).reduce((acc: [number, number][], [index, obj]) => {
-					if (obj.type === 'gallery') {
-						const startIndex = parseInt(index);
-						acc.push([startIndex, startIndex + obj.text.length]);
-					}
-					return acc;
-				}, []);
-				if (!galleryIndexMap.length) {
-					break;
-				}
-
-				const containsGallery = (startIndex: number, endIndex: number) => {
-					return galleryIndexMap.some(([galStartIndex, galEndIndex]) => startIndex < galStartIndex && galEndIndex < endIndex);
-				};
-				const inGallery = (index: number) => {
-					return galleryIndexMap.some(([galStartIndex, galEndIndex]) => galStartIndex <= index && index <= galEndIndex);
-				};
-
-				// Update indexMap to include parsed templates
-				// Note that this can't be done at the beginning of this method because that'll be circular
-				addTemplateIndexMap(indexMap, templates);
-
-				// Check each parsed template and if it contains a gallery tag, modify the parsing result
-				for (let i = 0; i < templates.length; i++) {
-					const temp = templates[i];
-
-					// We have nothing to do with templates not containing <gallery>
-					if (!containsGallery(temp.startIndex, temp.endIndex)) {
-						continue;
-					}
-
-					// Get the param part of the template
-					// This always works because we updated indexMap for the parsed templates
-					const { inner } = indexMap[temp.startIndex];
-					if (inner === null) {
-						continue;
-					}
-
-					// Get the param text with all pipes in it replaced with a control character
-					const paramText = wikitext.slice(inner.start, inner.end).replace(/\|/g, '\x02');
-
-					// `components[0]` represents the title part but this isn't what we're looking at here
-					const components: Required<NewTemplateParameter>[] = [{ key: '', value: '' }, { key: '', value: '' }];
-					for (let j = 0; j < paramText.length; j++) {
-						const realIndex = j + inner.start;
-						if (indexMap[realIndex] && indexMap[realIndex].type !== 'gallery') {
-							// Skip over skip tags, parameters, wikilinks, and templates
-							// No need to handle nested templates here because they're already in `templates`
-							// The outer `for` with `i` handles them recursively
-							processTemplateFragment(components, indexMap[realIndex].text, { isNonName: true });
-							j += indexMap[realIndex].text.length - 1;
-						} else if (inGallery(realIndex)) {
-							// If we're in a gallery tag, register this character without restoring pipes
-							processTemplateFragment(components, paramText[j]);
-						} else if (paramText[j] === '\x02') {
-							// If we're NOT in a gallery tag and this is '\x02', restore the pipe
-							processTemplateFragment(components, '|', { isNew: true });
-						} else {
-							// Just part of the parameter
-							processTemplateFragment(components, paramText[j]);
-						}
-					}
-
-					// Restore pipes in the newly parsed params
-					const params = components.slice(1).map(({ key, value }) => {
-						return { key: key.replace(/\x02/g, '|'), value: value.replace(/\x02/g, '|') };
-					});
-
-					// Update `params` in `_initializer` and recreate instance
-					if (temp instanceof mwbot.ParserFunction) {
-						const [param1] = temp._getInitializer('params');
-						temp._setInitializer({ params: [param1].concat(params) });
-						templates[i] = temp._clone();
-					} else {
-						temp._setInitializer({ params });
-						templates[i] = temp._clone(options);
-					}
-				}
-				break;
+			if (checkGallery) {
+				repairGallery(indexMap, templates, wikitext, verifyHook, options);
 			}
 
 			if (nestLevel === 0) {

@@ -17,7 +17,7 @@
  * @module
  */
 
-import { XOR } from 'ts-essentials';
+import { DeepReadonly, XOR } from 'ts-essentials';
 import type { Mwbot } from './Mwbot.js';
 import { escapeRegExp, isPlainObject, cloneDeep } from './Util.js';
 import type { TitleStatic, Title } from './Title.js';
@@ -50,8 +50,8 @@ export interface TemplateBaseStatic<T extends string | Title> {
 	 */
 	new(
 		title: T,
-		params?: NewTemplateParameter[],
-		hierarchies?: TemplateParameterHierarchies
+		params?: DeepReadonly<NewTemplateParameter[]>,
+		hierarchies?: TemplateParameterHierarchies,
 	): TemplateBase<T>;
 }
 
@@ -230,7 +230,7 @@ export interface TemplateStatic extends Omit<TemplateBaseStatic<Title>, 'new'> {
 	 */
 	new(
 		title: string | Title,
-		params?: NewTemplateParameter[],
+		params?: DeepReadonly<NewTemplateParameter[]>,
 		hierarchies?: TemplateParameterHierarchies
 	): Template;
 	/**
@@ -252,7 +252,7 @@ export interface TemplateStatic extends Omit<TemplateBaseStatic<Title>, 'new'> {
 	 */
 	'new'(
 		title: string | Title,
-		params?: NewTemplateParameter[],
+		params?: DeepReadonly<NewTemplateParameter[]>,
 		hierarchies?: TemplateParameterHierarchies
 	): Template | null;
 	/**
@@ -394,7 +394,7 @@ export interface ParsedTemplate extends Template, ParsedTemplateProps<ParsedTemp
 	toString(): string;
 }
 
-export interface ParsedTemplateProps<CLS> extends ParseResultBase {
+export interface ParsedTemplatePropsBase {
 	/**
 	 * The original text of the double-braced markup parsed from the wikitext.
 	 * The value of this property is static.
@@ -404,16 +404,13 @@ export interface ParsedTemplateProps<CLS> extends ParseResultBase {
 	 * The nesting level of this double-braced markup. `0` if not nested within another double-braced expression.
 	 */
 	nestLevel: number;
+}
+
+export interface ParsedTemplateProps<CLS> extends ParsedTemplatePropsBase, ParseResultBase {
 	/**
 	 * @hidden
 	 */
 	_clone(options?: ParsedTemplateOptions): CLS;
-	/**
-	 * @hidden
-	 */
-	_getInitializer<
-		K extends keyof ParsedTemplateInitializer,
-	>(key: K): ParsedTemplateInitializer[K];
 	/**
 	 * @hidden
 	 */
@@ -547,7 +544,7 @@ export interface ParserFunctionStatic extends Omit<typeof ParamBase, 'prototype'
 	 * @param params Parameters of the parser function.
 	 * @throws {MwbotError} If hook validation fails.
 	 */
-	new(hook: string, params?: string[]): ParserFunction;
+	new(hook: string, params?: ReadonlyArray<string>): ParserFunction;
 	/**
 	 * Verifies the given string as a parser function hook.
 	 *
@@ -628,9 +625,10 @@ export interface ParserFunction extends InstanceType<typeof ParamBase> {
 export interface ParsedParserFunctionStatic extends Omit<ParserFunctionStatic, 'new'> {
 	/**
 	 * @param initializer
+	 * @param verifiedHook
 	 * @private
 	 */
-	new(initializer: ParsedTemplateInitializer): ParsedParserFunction;
+	new(initializer: ParsedTemplateInitializer, verifiedHook?: VerifiedFunctionHook): ParsedParserFunction;
 }
 
 /**
@@ -695,7 +693,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		constructor(
 			title: T,
-			params: NewTemplateParameter[] = [],
+			params: DeepReadonly<NewTemplateParameter[]> = [],
 			hierarchies: TemplateParameterHierarchies = []
 		) {
 			this._title = title;
@@ -1231,7 +1229,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		constructor(
 			title: string | Title,
-			params: NewTemplateParameter[] = [],
+			params: DeepReadonly<NewTemplateParameter[]> = [],
 			hierarchies?: TemplateParameterHierarchies
 		) {
 			title = Template.validateTitle(title);
@@ -1240,7 +1238,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 		static new(
 			title: string | Title,
-			params: NewTemplateParameter[] = [],
+			params: DeepReadonly<NewTemplateParameter[]> = [],
 			hierarchies?: TemplateParameterHierarchies
 		): Template | null {
 			try {
@@ -1301,15 +1299,22 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 	class ParsedTemplate extends Template implements ParsedTemplate {
 
+		// ParsedTemplate
 		rawTitle: string;
+
+		// ParsedTemplatePropsBase
 		text: string;
-		index: number;
+		nestLevel: number;
+
+		// ParseResultBase
 		startIndex: number;
 		endIndex: number;
-		nestLevel: number;
 		skip: boolean;
+		index: number;
 		parent: number | null;
 		children: ReadonlySet<number>;
+
+		// internal
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
@@ -1320,19 +1325,34 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		#initializer: ParsedTemplateInitializer;
 
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
-			const { title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children } = initializer;
+			const {
+				title,
+				rawTitle,
+				params,
+				text,
+				nestLevel,
+				startIndex,
+				endIndex,
+				skip,
+				index,
+				parent,
+				children,
+			} = initializer;
+
 			const t = Template.validateTitle(title);
 			const titleStr = t.getPrefixedDb();
+
 			super(t, params, options.hierarchies?.[titleStr]);
-			this.#initializer = initializer;
+
+			this.#initializer = cloneDeep(initializer);
 			this.rawTitle = rawTitle.replace('\x01', title);
 			this.#rawTitle = rawTitle;
 			this.text = text;
-			this.index = index;
+			this.nestLevel = nestLevel;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
-			this.nestLevel = nestLevel;
 			this.skip = skip;
+			this.index = index;
 			this.parent = parent;
 			this.children = new Set([...children]);
 		}
@@ -1371,21 +1391,14 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return new ParsedTemplate(this.#initializer, options);
 		}
 
-		_getInitializer<
-			K extends keyof ParsedTemplateInitializer,
-		>(key: K): ParsedTemplateInitializer[K] {
-			return this.#initializer[key];
-		}
-
 		_setInitializer<T extends ParsedTemplateInitializer>(obj: Partial<T>): this {
 			for (const key in obj) {
 				if (obj[key] !== undefined) {
-					(this.#initializer as any)[key] = obj[key];
+					(this.#initializer as any)[key] = cloneDeep(obj[key]);
 				}
 			}
 			return this;
 		}
-
 	}
 
 	// Check missing members
@@ -1395,15 +1408,22 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 	class RawTemplate extends TemplateBase<string> implements RawTemplate {
 
+		// RawTemplate
 		rawTitle: string;
+
+		// ParsedTemplatePropsBase
 		text: string;
-		index: number;
+		nestLevel: number;
+
+		// ParseResultBase
 		startIndex: number;
 		endIndex: number;
-		nestLevel: number;
 		skip: boolean;
+		index: number;
 		parent: number | null;
 		children: ReadonlySet<number>;
+
+		// internal
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
@@ -1414,17 +1434,31 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		#initializer: ParsedTemplateInitializer;
 
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
-			const { title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children } = initializer;
+			const {
+				title,
+				rawTitle,
+				params,
+				text,
+				nestLevel,
+				startIndex,
+				endIndex,
+				skip,
+				index,
+				parent,
+				children,
+			} = initializer;
+
 			super(title, params, options.hierarchies?.[title]);
-			this.#initializer = initializer;
+
+			this.#initializer = cloneDeep(initializer);
 			this.rawTitle = rawTitle.replace('\x01', title);
 			this.#rawTitle = rawTitle;
 			this.text = text;
-			this.index = index;
+			this.nestLevel = nestLevel;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
-			this.nestLevel = nestLevel;
 			this.skip = skip;
+			this.index = index;
 			this.parent = parent;
 			this.children = new Set([...children]);
 		}
@@ -1481,21 +1515,14 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return new RawTemplate(this.#initializer, options);
 		}
 
-		_getInitializer<
-			K extends keyof ParsedTemplateInitializer,
-		>(key: K): ParsedTemplateInitializer[K] {
-			return this.#initializer[key];
-		}
-
 		_setInitializer<T extends ParsedTemplateInitializer>(obj: Partial<T>): this {
 			for (const key in obj) {
 				if (obj[key] !== undefined) {
-					(this.#initializer as any)[key] = obj[key];
+					(this.#initializer as any)[key] = cloneDeep(obj[key]);
 				}
 			}
 			return this;
 		}
-
 	}
 
 	// Check missing members
@@ -1515,7 +1542,7 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return this._verifiedHook.canonical;
 		}
 
-		constructor(hook: string, params: string[] = []) {
+		constructor(hook: string, params: ReadonlyArray<string> = []) {
 			const verified = ParserFunction.verify(hook);
 			if (!verified) {
 				throw new MwbotError('fatal', {
@@ -1614,15 +1641,22 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 
 	class ParsedParserFunction extends ParserFunction implements ParsedParserFunction {
 
+		// ParsedParserFunction
 		rawHook: string;
+
+		// ParsedTemplatePropsBase
 		text: string;
-		index: number;
+		nestLevel: number;
+
+		// ParseResultBase
 		startIndex: number;
 		endIndex: number;
-		nestLevel: number;
 		skip: boolean;
+		index: number;
 		parent: number | null;
 		children: ReadonlySet<number>;
+
+		// internal
 		/**
 		 * {@link rawHook} with the insertion point of {@link hook} replaced with a control character.
 		 */
@@ -1632,41 +1666,54 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 		 */
 		#initializer: ParsedTemplateInitializer;
 
-		constructor(initializer: ParsedTemplateInitializer) {
+		constructor(initializer: ParsedTemplateInitializer, verifiedHook?: VerifiedFunctionHook) {
+			const {
+				title,
+				rawTitle,
+				params,
+				text,
+				nestLevel,
+				startIndex,
+				endIndex,
+				skip,
+				index,
+				parent,
+				children,
+			} = initializer;
 
-			const { title, rawTitle, text, params, index, startIndex, endIndex, nestLevel, skip, parent, children } = initializer;
-			const verified = ParserFunction.verify(title);
-			if (!verified) {
-				throw new MwbotError('fatal', {
-					code: 'invalidinput',
-					info: `"${title}" is not a valid function hook.`,
-				});
+			if (!verifiedHook) {
+				const v = ParserFunction.verify(title);
+				if (!v) {
+					throw new MwbotError('fatal', {
+						code: 'invalidinput',
+						info: `"${title}" is not a valid function hook.`,
+					});
+				}
+				verifiedHook = v;
 			}
 
 			// Separate the function hook and the first argument
 			const titleIndex = rawTitle.indexOf('\x01');
-			let rawHook, _rawHook, paramPart;
+			let rawHook, _rawHook;
 			if (titleIndex !== -1) {
 				// `rawTitle` contains a control character: we already know where to insert `title`
-				// Here, '\x01' = verified.match + paramPart
+				// Here, '\x01' = verifiedHook.match + paramPart
 				const leadingPart = rawTitle.slice(0, titleIndex);
-				const trailingParamPart = rawTitle.slice(titleIndex + 1);
-				paramPart = title.replace(verified.match, '').trim() + trailingParamPart;
-				rawHook = leadingPart + verified.match;
+				rawHook = leadingPart + verifiedHook.match;
 				_rawHook = leadingPart + '\x01';
 			} else {
 				// We don't know the insertion point. This block is reached if redundant characters interrupt the title,
 				// e.g., title = "#if:", rawTitle = "#<!---->if:", or if the parser skipped indexMap expressions and
 				// generated unmatching title and rawTitle, e.g., title = "\n #if: \n", rawTitle = "\n #if: {{{1}}} \n"
 				let j = 0; // Pointer for `title`
-				let hookEnd = -1; // Track where `verified.match` ends in `rawTitle`
+				let hookEnd = -1; // Track where `verifiedHook.match` ends in `rawTitle`
 				for (let i = 0; i < rawTitle.length; i++) {
-					if (rawTitle[i] === verified.match[j]) {
+					if (rawTitle[i] === verifiedHook.match[j]) {
 						j++;
-						if (j === verified.match.length) { // Full match found
+						if (j === verifiedHook.match.length) { // Full match found
 							hookEnd = i + 1;
 							const potentialHookStart = hookEnd - j;
-							if (rawTitle.slice(potentialHookStart, hookEnd) === verified.match) {
+							if (rawTitle.slice(potentialHookStart, hookEnd) === verifiedHook.match) {
 								_rawHook = rawTitle.slice(0, potentialHookStart) + '\x01';
 							}
 							break;
@@ -1675,41 +1722,29 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 				}
 				if (hookEnd === -1) {
 					// TODO: setTitle might reach here because there's no guarantee that `rawTitle` includes the new title
-					console.warn('[Warning] ParsedParserFunction.contructor encountered an unparsable "rawTitle".');
-					console.warn({
-						title,
-						rawTitle,
-						hook: verified.match,
-					});
 					throw new MwbotError('fatal', {
 						code: 'internal',
 						info: `Unable to parse a function hook from "${rawTitle}".`,
 					});
 				}
-				paramPart = rawTitle.slice(hookEnd);
 				const hook = rawTitle.slice(0, hookEnd);
 				rawHook = hook;
 				_rawHook = _rawHook || hook;
 			}
 
-			const initParams = [paramPart];
-			params.forEach(({ key, value }) => {
-				initParams.push((key ? key + '=' : '') + value);
-			});
-			super(title, initParams);
-			this.#initializer = initializer;
+			super(title, params.map(p => p.value));
 
+			this.#initializer = cloneDeep(initializer);
 			this.rawHook = rawHook;
 			this.#rawHook = _rawHook;
 			this.text = text;
-			this.index = index;
+			this.nestLevel = nestLevel;
 			this.startIndex = startIndex;
 			this.endIndex = endIndex;
-			this.nestLevel = nestLevel;
 			this.skip = skip;
+			this.index = index;
 			this.parent = parent;
 			this.children = new Set([...children]);
-
 		}
 
 		toTemplate(title: string | Title, verbose = false): ParsedTemplate | null {
@@ -1745,21 +1780,14 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return new ParsedParserFunction(this.#initializer);
 		}
 
-		_getInitializer<
-			K extends keyof ParsedTemplateInitializer,
-		>(key: K): ParsedTemplateInitializer[K] {
-			return this.#initializer[key];
-		}
-
 		_setInitializer<T extends ParsedTemplateInitializer>(obj: Partial<T>): this {
 			for (const key in obj) {
 				if (obj[key] !== undefined) {
-					(this.#initializer as any)[key] = obj[key];
+					(this.#initializer as any)[key] = cloneDeep(obj[key]);
 				}
 			}
 			return this;
 		}
-
 	}
 
 	// Check missing members
@@ -1970,12 +1998,10 @@ export interface RawTemplateOutputConfig extends TemplateOutputConfig<string> {
  * The initializer object for ParsedTemplate, ParsedParserFunction and RawTemplate constructors.
  * @internal
  */
-export interface ParsedTemplateInitializer extends ParseResultBase {
+export interface ParsedTemplateInitializer extends ParsedTemplatePropsBase, ParseResultBase {
 	title: string;
 	rawTitle: string;
-	text: string;
-	params: NewTemplateParameter[];
-	nestLevel: number;
+	params: DeepReadonly<NewTemplateParameter[]>;
 }
 
 /**

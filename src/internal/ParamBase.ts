@@ -15,7 +15,7 @@ export abstract class ParamBase {
 	 *
 	 * @param params Parameters of the instance.
 	 */
-	constructor(params?: string[]) {
+	constructor(params?: ReadonlyArray<string>) {
 		this.params = params ? params.slice() : [];
 	}
 
