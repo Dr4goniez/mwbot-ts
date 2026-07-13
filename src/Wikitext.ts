@@ -127,9 +127,10 @@ import {
 	parameterRegex,
 } from './internal/wikitext/parameterHelpers.js';
 import {
+	restoreLastTemplateComponent,
 	findNextTemplateTokenIndex,
+	PipePlaceholderManager,
 	processTemplateFragment,
-	repairGallery,
 	TemplateComponent,
 	templateRegex,
 } from './internal/wikitext/templateHelpers.js';
@@ -1376,7 +1377,6 @@ export function WikitextFactory(
 		 * @param recurseOptions.isInSkipRange A function that evaluates whether parsed templates are within a skip range.
 		 * @param recurseOptions.nestLevel Nesting level of the parsing templates.
 		 * @param recurseOptions.offset Range of the original wikitext to parse.
-		 * @param recurseOptions.checkGallery Whether to check gallery tags.
 		 * @returns An array of parsed templates.
 		 */
 		private _parseTemplates(
@@ -1387,7 +1387,6 @@ export function WikitextFactory(
 				isInSkipRange?: ReturnType<Wikitext['getSkipPredicate']>;
 				nestLevel?: number;
 				offset?: { start: number, end: number };
-				checkGallery?: boolean;
 			} = {}
 		): DoubleBracedClasses[] {
 
@@ -1399,7 +1398,6 @@ export function WikitextFactory(
 				isInSkipRange = this.getSkipPredicate(),
 				nestLevel = 0,
 				offset = { start: 0, end: wikitext.length },
-				checkGallery = true,
 			} = recurseOptions;
 
 			let nextIndexMapPointer = indexMapIndexes.findIndex(n => n >= offset.start);
@@ -1412,13 +1410,20 @@ export function WikitextFactory(
 
 				// Skip or deep-parse certain expressions
 				const indexMapEntry = indexMap[i];
-				if (indexMapEntry && indexMapEntry.type !== 'gallery') {
-					const { text, inner } = indexMapEntry;
+				if (indexMapEntry) {
+
+					let text = indexMapEntry.text;
 					if (numUnclosed !== 0) {
+						if (indexMapEntry.type === 'gallery') {
+							// <gallery> tags may contain pipe characters that are not template
+							// parameter separators. Replace them with placeholders temporarily.
+							text = PipePlaceholderManager.replace(text);
+						}
 						// TODO: Should this `isNonName` include all the indexMap expressions?
 						// Maybe we should limit it to the skip tags only.
 						processTemplateFragment(components, text, verifyHook, { isNonName: true });
 					}
+
 					/**
 					 * Parse the inner content of this expression only if `nestLevel` is 0.
 					 *
@@ -1429,6 +1434,7 @@ export function WikitextFactory(
 					 * We cannot simply remove the `if` block below, as that would cause `indexMap` expressions to be skipped
 					 * entirely, preventing their inner contents from being parsed.
 					 */
+					const inner = indexMapEntry.inner;
 					if (nestLevel === 0 && inner && inner.end <= wikitext.length) {
 						const chunk = wikitext.slice(inner.start, inner.end);
 						if (chunk.includes('{{') && chunk.includes('}}')) {
@@ -1439,11 +1445,11 @@ export function WikitextFactory(
 									isInSkipRange,
 									nestLevel,
 									offset: inner,
-									checkGallery: false,
 								})
 							);
 						}
 					}
+
 					i += text.length - 1;
 					continue;
 				}
@@ -1504,6 +1510,7 @@ export function WikitextFactory(
 						processTemplateFragment(components, '{{', verifyHook);
 					} else if (endsTemplate) {
 						// Found the end of the template
+						restoreLastTemplateComponent(components);
 						const [titleObj, ...params] = components;
 						const title = titleObj ? titleObj.key : '';
 						let rawTitle = titleObj ? titleObj.value : '';
@@ -1577,7 +1584,6 @@ export function WikitextFactory(
 										start: startIndex + 2,
 										end: endIndex - 2,
 									},
-									checkGallery: false,
 								})
 							);
 						}
@@ -1607,11 +1613,6 @@ export function WikitextFactory(
 					}
 					processTemplateFragment(components, fragment, verifyHook);
 				}
-			}
-
-			// <gallery> tags might contain pipe characters and can cause inaccuracy in the parsing results
-			if (checkGallery) {
-				repairGallery(indexMap, templates, wikitext, verifyHook, options);
 			}
 
 			if (nestLevel === 0) {

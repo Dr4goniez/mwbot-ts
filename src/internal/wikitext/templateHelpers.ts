@@ -1,12 +1,8 @@
 import {
 	NewTemplateParameter,
-	ParsedParserFunction,
-	ParsedTemplateOptions,
 	ParserFunctionStatic,
 	VerifiedFunctionHook,
 } from '../../Template.js';
-import { DoubleBracedClasses } from '../../Wikitext.js';
-import { addTemplateIndexMap, IndexMap } from './sharedHelpers.js';
 
 export const templateRegex = {
 	/**
@@ -103,8 +99,15 @@ export function processTemplateFragment(
 	// Determine which element to modify: either a new element for a new parameter or an existing one
 	const { isNonName, isNew } = options;
 	const i = isNew ? components.length : Math.max(components.length - 1, 0);
+	const isNewComponent = components[i] === undefined;
 	components[i] ??= { key: '', value: '' };
 	const component = components[i];
+
+	if (isNewComponent && i >= 2) {
+		const last = components[i - 1];
+		last.key = PipePlaceholderManager.restore(last.key);
+		last.value = PipePlaceholderManager.restore(last.value);
+	}
 
 	const isTitleFragment = i === 0;
 	if (isTitleFragment) {
@@ -176,175 +179,34 @@ export function processTemplateFragment(
 }
 
 /**
- * Repairs parsed templates containing `<gallery>` tags.
+ * Restores pipe placeholders in the last template component.
  *
- * Gallery tags may contain pipe characters that are not template parameter separators.
- * This function reparses affected templates and recreates them with corrected parameter lists.
+ * This is intended for incremental template parsing, where only the current
+ * component needs to be finalized before a new parameter begins.
  *
- * @param indexMap Wikitext index map.
- * @param templates Parsed templates to repair in place.
- * @param wikitext Original wikitext.
- * @param verifyHook {@link ParserFunctionStatic#verify}.
- * @param options Template parsing options.
+ * @param components Template components being constructed.
  */
-export function repairGallery(
-	indexMap: IndexMap,
-	templates: DoubleBracedClasses[],
-	wikitext: string,
-	verifyHook: ParserFunctionStatic['verify'],
-	options: ParsedTemplateOptions
-) {
-
-	// Collect the start and end indices of gallery tags containing "|"
-	// Note: addTagIndexMap() has already filtered out gallery tags that don't contain any pipe
-	const galleryRanges: { start: number; end: number }[] = [];
-	for (const [index, obj] of Object.entries(indexMap)) {
-		if (obj.type === 'gallery') {
-			const start = Number(index);
-			const end = start + obj.text.length;
-			galleryRanges.push({ start, end });
-		}
-	}
-	if (!galleryRanges.length) {
+export function restoreLastTemplateComponent(components: TemplateComponent[]): void {
+	if (components.length < 2) {
 		return;
 	}
-
-	const templateIndexMap: IndexMap = Object.create(null);
-	addTemplateIndexMap(templateIndexMap, templates);
-
-	// Check each parsed template and if it contains a gallery tag, modify the parsing result
-	let galleryRangePointer = 0;
-	for (const [index, template] of templates.entries()) {
-
-		while (
-			galleryRangePointer < galleryRanges.length &&
-			galleryRanges[galleryRangePointer].end <= template.startIndex
-		) {
-			galleryRangePointer++;
-		}
-
-		const range = galleryRanges[galleryRangePointer];
-		if (!range) {
-			break;
-		}
-		if (template.startIndex >= range.start || range.end >= template.endIndex) {
-			continue;
-		}
-
-		// Replace all pipes with placeholders. Pipes outside gallery tags are restored later
-		// and treated as parameter separators.
-		const isParserFunction = isParsedParserFunction(template);
-		let pipe: string;
-		let titlePart: string;
-		if (isParserFunction) {
-			pipe = ''; // rawHook ends with ":"
-			titlePart = template.rawHook;
-		} else {
-			pipe = '|';
-			titlePart = template.rawTitle;
-		}
-		const paramRange = {
-			start: template.startIndex + 2 /* {{ */ + titlePart.length + pipe.length,
-			end: template.endIndex - 2,
-		};
-		let paramText = wikitext.slice(paramRange.start, paramRange.end);
-		if (!paramText) {
-			continue;
-		}
-		paramText = PipePlaceholderManager.replace(paramText);
-
-		let inGalleryPointer = galleryRangePointer;
-		const inGallery = (index: number) => {
-			while (
-				inGalleryPointer < galleryRanges.length &&
-				galleryRanges[inGalleryPointer].end < index
-			) {
-				inGalleryPointer++;
-			}
-
-			const range = galleryRanges[inGalleryPointer];
-			return !!range && range.start <= index && index < range.end;
-		};
-
-		// `components[0]` represents the title part but it's irrelevant here
-		const components: TemplateComponent[] = [
-			// For ParsedParserFunction instances, pretend this is a parser function
-			// so processTemplateFragment() ignores "=" as a parameter-name delimiter
-			{ key: '', value: '', hook: isParserFunction ? {} as VerifiedFunctionHook : undefined },
-			{ key: '', value: '' },
-		];
-		for (let j = 0; j < paramText.length; j++) {
-			const realIndex = j + paramRange.start;
-
-			const indexMapEntry = indexMap[realIndex];
-			if (indexMapEntry && indexMapEntry.type !== 'gallery') {
-				// Skip over skip tags, parameters, and wikilinks
-				const text = indexMapEntry.text;
-				processTemplateFragment(components, text, verifyHook, { isNonName: true });
-				j += text.length - 1;
-				continue;
-			}
-
-			const templateIndexMapEntry = templateIndexMap[realIndex];
-			if (templateIndexMapEntry) {
-				// Skip over nested templates
-				const text = templateIndexMapEntry.text;
-				processTemplateFragment(components, text, verifyHook, { isNonName: true });
-
-				// Advance the gallery pointer after skipping the nested template
-				const nextIndex = realIndex + text.length;
-				inGallery(nextIndex - 1);
-
-				j += text.length - 1;
-				continue;
-			}
-
-			const char = paramText[j];
-			if (inGallery(realIndex)) {
-				// If we're in a gallery tag, register this character without restoring pipes
-				processTemplateFragment(components, char, verifyHook);
-			} else if (PipePlaceholderManager.is(char)) {
-				// If we're NOT in a gallery tag and if this is '\x02', restore the pipe
-				processTemplateFragment(components, '|', verifyHook, { isNew: true });
-			} else {
-				// Just part of the parameter
-				processTemplateFragment(components, char, verifyHook);
-			}
-		}
-
-		// Restore pipes in the newly parsed params
-		const params = components.slice(1).map(({ key, value }) => {
-			return {
-				key: PipePlaceholderManager.restore(key),
-				value: PipePlaceholderManager.restore(value),
-			};
-		});
-
-		// Update `params` in `_initializer` and recreate instance
-		template._setInitializer({ params });
-		const cloneOptions = isParserFunction ? undefined : options;
-		templates[index] = template._clone(cloneOptions);
-	}
+	const last = components.at(-1)!;
+	last.key = PipePlaceholderManager.restore(last.key);
+	last.value = PipePlaceholderManager.restore(last.value);
 }
 
-function isParsedParserFunction(template: object): template is ParsedParserFunction {
-	return 'rawHook' in template;
-}
+export class PipePlaceholderManager {
 
-class PipePlaceholderManager {
-
+	private static readonly pipe = '|';
 	private static readonly rPipes = /\|/g;
+	private static readonly placeholder = '\x02';
 	private static readonly rPlaceholders = /\x02/g;
 
 	static replace(str: string): string {
-		return str.replace(PipePlaceholderManager.rPipes, '\x02');
+		return str.replace(this.rPipes, this.placeholder);
 	}
 
 	static restore(str: string): string {
-		return str.replace(PipePlaceholderManager.rPlaceholders, '|');
-	}
-
-	static is(character: string): character is '\x02' {
-		return character === '\x02';
+		return str.replace(this.rPlaceholders, this.pipe);
 	}
 }

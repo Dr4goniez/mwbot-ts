@@ -281,6 +281,180 @@ export function testWikitextTemplates() {
 						}
 					);
 				});
+
+				it('should ignore pipes inside comments within gallery tags', function () {
+					const text =
+						'{{Foo|\n' +
+						'<gallery>\n' +
+						'A<!-- | -->|{{Bar|1=x}}\n' +
+						'</gallery>\n' +
+						'}}';
+
+					const templates = /** @type {ParsedTemplate[]} */ (
+						new mwbot.Wikitext(text).parseTemplates()
+					);
+
+					assert.lengthOf(templates, 2);
+					assert.strictEqual(
+						templates[1].params['1'].value,
+						'x'
+					);
+				});
+
+				it('should parse templates inside standalone gallery tags', function () {
+					const text =
+						'<gallery>\n' +
+						'A|{{Bar|1=x}}\n' +
+						'</gallery>';
+
+					const templates = /** @type {ParsedTemplate[]} */ (
+						new mwbot.Wikitext(text).parseTemplates()
+					);
+
+					assert.lengthOf(templates, 1);
+					assert.strictEqual(
+						templates[0].title.getPrefixedDb(),
+						'Template:Bar'
+					);
+				});
+
+				it('should ignore standalone gallery tags without templates', function () {
+					const text =
+						'<gallery>\n' +
+						'A|B\n' +
+						'</gallery>';
+
+					const templates = new mwbot.Wikitext(text).parseTemplates();
+
+					assert.isEmpty(templates);
+				});
+
+				it('should parse templates in multiple gallery tags', function () {
+					const text =
+						'{{Foo|\n' +
+						'<gallery>\n' +
+						'A|{{Bar}}\n' +
+						'</gallery>\n' +
+						'<gallery>\n' +
+						'B|{{Baz}}\n' +
+						'</gallery>\n' +
+						'}}';
+
+					const templates = /** @type {ParsedTemplate[]} */ (
+						new mwbot.Wikitext(text).parseTemplates()
+					);
+
+					assert.lengthOf(templates, 3);
+					assert.strictEqual(
+						templates[0].params['1'].value,
+						'\n' +
+						'<gallery>\n' +
+						'A|{{Bar}}\n' +
+						'</gallery>\n' +
+						'<gallery>\n' +
+						'B|{{Baz}}\n' +
+						'</gallery>\n'
+					);
+					assert.strictEqual(
+						templates[1].title.getPrefixedDb(),
+						'Template:Bar'
+					);
+					assert.strictEqual(
+						templates[2].title.getPrefixedDb(),
+						'Template:Baz'
+					);
+				});
+
+				it('should parse template parameters following a gallery tag', function () {
+					const text =
+						'{{Foo|\n' +
+						'<gallery>\n' +
+						'A|{{Bar}}\n' +
+						'</gallery>\n' +
+						'|after=1\n' +
+						'}}';
+
+					const templates = /** @type {ParsedTemplate[]} */ (
+						new mwbot.Wikitext(text).parseTemplates()
+					);
+
+					assert.lengthOf(templates, 2);
+					assert.strictEqual(
+						templates[0].params.after.value,
+						'1'
+					);
+					assert.strictEqual(
+						templates[1].title.getPrefixedDb(),
+						'Template:Bar'
+					);
+				});
+
+				it('should parse parser functions containing multiple gallery parameters', function () {
+					const text =
+						'{{#bcp47:1\n' +
+						'|<gallery>\n' +
+						'A|{{Bar}}\n' +
+						'</gallery>\n' +
+						'|No\n' +
+						'}}';
+
+					const templates = new mwbot.Wikitext(text).parseTemplates();
+
+					assert.lengthOf(templates, 2);
+
+					const pf = /** @type {ParsedParserFunction} */ (templates[0]);
+
+					assert.deepEqual(
+						pf.params,
+						[
+							'1\n',
+							'<gallery>\n' +
+							'A|{{Bar}}\n' +
+							'</gallery>\n',
+							'No\n',
+						]
+					);
+
+					const bar = /** @type {ParsedTemplate} */ (templates[1]);
+
+					assert.strictEqual(
+						bar.title.getPrefixedDb(),
+						'Template:Bar'
+					);
+				});
+
+				it('should ignore pipes inside gallery tags but split parameters outside them', function () {
+					const text =
+						'{{Foo|\n' +
+						'abc\n' +
+						'<gallery>\n' +
+						'A|{{Bar}}\n' +
+						'</gallery>\n' +
+						'|after=1\n' +
+						'}}';
+
+					const templates = /** @type {ParsedTemplate[]} */ (
+						new mwbot.Wikitext(text).parseTemplates()
+					);
+
+					assert.lengthOf(templates, 2);
+					assert.strictEqual(
+						templates[0].params['1'].value,
+						'\n' +
+						'abc\n' +
+						'<gallery>\n' +
+						'A|{{Bar}}\n' +
+						'</gallery>\n'
+					);
+					assert.strictEqual(
+						templates[0].params.after.value,
+						'1'
+					);
+					assert.strictEqual(
+						templates[1].title.getPrefixedDb(),
+						'Template:Bar'
+					);
+				});
 			});
 
 			// it('should parse unclosed templates', function () {
