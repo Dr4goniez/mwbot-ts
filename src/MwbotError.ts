@@ -244,7 +244,7 @@ export interface MwbotErrorCodes {
 }
 
 /**
- * Interface for the {@link MwbotError.data} property.
+ * Interface for the {@link MwbotError#data} property.
  */
 export interface MwbotErrorData {
 	/**
@@ -265,11 +265,11 @@ export interface MwbotErrorData {
 	 */
 	axios?: XOR<AxiosResponse, AxiosError>;
 	/**
-	 * Present when the error involves a processed page title, such as in {@link Mwbot.read}.
+	 * Present when the error involves a processed page title, such as in {@link Mwbot#read}.
 	 */
 	title?: string | Title;
 	/**
-	 * Present when the callback return value from {@link Mwbot.edit} is invalid.
+	 * Present when the callback return value from {@link Mwbot#edit} is invalid.
 	 */
 	transformed?: unknown;
 	/**

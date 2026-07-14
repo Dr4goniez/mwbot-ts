@@ -1,6 +1,6 @@
 /**
  * This module defines the {@link WikitextStatic | Wikitext} class, accessible
- * via {@link Mwbot.Wikitext}, which provides methods for parsing and modifying wikitext.
+ * via {@link Mwbot#Wikitext}, which provides methods for parsing and modifying wikitext.
  *
  * ## Core Class
  * - {@link WikitextStatic} (instance members: {@link Wikitext})
@@ -29,11 +29,11 @@
  * ### Classes:
  * **`{{double-braced}}` markups:**
  * - {@link TemplateStatic | Template}: Encapsulates `{{template}}` markups as objects.
- * Accessible via {@link Mwbot.Template}.
+ * Accessible via {@link Mwbot#Template}.
  * 	- {@link ParsedTemplateStatic | ParsedTemplate}: A subclass of `Template`, whose
  * 	instances are returned by {@link Wikitext.parseTemplates}. Its constructor is inaccessible.
  * - {@link ParserFunctionStatic | ParserFunction}: Encapsulates `{{#parserfunction:}}` markups.
- * Accessible via {@link Mwbot.ParserFunction}.
+ * Accessible via {@link Mwbot#ParserFunction}.
  * 	- {@link ParsedParserFunctionStatic | ParsedParserFunction}: A subclass of `ParserFunction`,
  * 	whose instances are returned by {@link Wikitext.parseTemplates}. Its constructor is inaccessible.
  * - {@link RawTemplateStatic | RawTemplate}: Encapsulates `{{template}}` markups with
@@ -42,15 +42,15 @@
  *
  * **`[[double-bracketed]]` markups:**
  * - {@link WikilinkStatic | Wikilink}: Encapsulates `[[wikilink]]` markups with a *non-file* title.
- * Accessible via {@link Mwbot.Wikilink}.
+ * Accessible via {@link Mwbot#Wikilink}.
  * 	- {@link ParsedWikilinkStatic | ParsedWikilink}: A subclass of `Wikilink`, whose
  * 	instances are returned by {@link Wikitext.parseWikilinks}. Its constructor is inaccessible.
  * - {@link FileWikilinkStatic | FileWikilink}: Encapsulates `[[File:...]]` markups.
- * Accessible via {@link Mwbot.FileWikilink}.
+ * Accessible via {@link Mwbot#FileWikilink}.
  * 	- {@link ParsedFileWikilinkStatic | ParsedFileWikilink}: A subclass of `FileWikilink`, whose
  * 	instances are returned by {@link Wikitext.parseWikilinks}. Its constructor is inaccessible.
  * - {@link RawWikilinkStatic | RawWikilink}: Encapsulates `[[wikilink]]` markups with an *unparsable* title.
- * Accessible via {@link Mwbot.RawWikilink}.
+ * Accessible via {@link Mwbot#RawWikilink}.
  * 	- {@link ParsedRawWikilinkStatic | ParsedRawWikilink}: A subclass of `RawWikilink`, whose
  * 	instances are returned by {@link Wikitext.parseWikilinks}. Its constructor is inaccessible.
  *
@@ -150,7 +150,7 @@ export type DoubleBracketedClasses = ParsedWikilink | ParsedFileWikilink | Parse
  * This interface defines the static members of the `Wikitext` class. For instance members,
  * see {@link Wikitext} (defined separately due to TypeScript limitations).
  *
- * This class is accesible via {@link Mwbot.Wikitext}.
+ * This class is accesible via {@link Mwbot#Wikitext}.
  */
 export interface WikitextStatic {
 	/**

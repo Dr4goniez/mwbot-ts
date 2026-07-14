@@ -2,7 +2,7 @@
  * This module serves to parse titles into an object structure.
  *
  * - For static members including the constructor, see {@link TitleStatic}. This
- * is the classes's wrapper accessible via {@link Mwbot.Title}.
+ * is the classes's wrapper accessible via {@link Mwbot#Title}.
  * - For instance members, see {@link Title}.
  *
  * ### Credits

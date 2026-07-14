@@ -4917,7 +4917,7 @@ export interface MwbotInitOptions extends MwbotOptions {
 
 /**
  * Configuration options for {@link Mwbot.init}. These options can also be updated later
- * via {@link Mwbot.setMwbotOptions}.
+ * via {@link Mwbot#setMwbotOptions}.
  */
 export interface MwbotOptions {
 	/**
@@ -5062,11 +5062,11 @@ export type MwbotCredentials = XOR<
  *
  * These options are per-request options and should be passed to request methods as needed.
  * To set default options for all requests, provide them in the {@link Mwbot.constructor}
- * or update them with {@link Mwbot.setRequestOptions}.
+ * or update them with {@link Mwbot#setRequestOptions}.
  *
  * When passed to a request method, these options are recursively merged with default options.
  * The priority order is:
- * * {@link Mwbot.getDefaultRequestOptions} < {@link Mwbot.userRequestOptions} < Per-method request options
+ * * {@link Mwbot.getDefaultRequestOptions} < {@link Mwbot#userRequestOptions} < Per-method request options
  *
  * where `userRequestOptions` is the options set by the user with the constructor or the `setRequestOptions`
  * method. Higher-priority options override lower ones if they share the same properties.
@@ -5138,11 +5138,11 @@ export interface MwbotRequestConfig extends Omit<AxiosRequestConfig, 'headers'> 
 }
 
 /**
- * Additional options for read-only requests passed to {@link Mwbot.request}.
+ * Additional options for read-only requests passed to {@link Mwbot#request}.
  */
 export interface ReadRequestConfig {
 	/**
-	 * If `true`, {@link Mwbot.request} chooses `'POST'` over the default `'GET'` if the request
+	 * If `true`, {@link Mwbot#request} chooses `'POST'` over the default `'GET'` if the request
 	 * would otherwise result in a `414 URI Too Long` error.
 	 *
 	 * This option should not be used for requests that require `POST`, as the method will
@@ -5152,7 +5152,7 @@ export interface ReadRequestConfig {
 }
 
 /**
- * Additional options for {@link Mwbot.edit}.
+ * Additional options for {@link Mwbot#edit}.
  */
 export interface ExclusionComplianceConfig {
 	/**
@@ -5172,7 +5172,7 @@ export interface ExclusionComplianceConfig {
 }
 
 /**
- * Site and user information retrieved by {@link Mwbot.init}. Accessible via {@link Mwbot.info}.
+ * Site and user information retrieved by {@link Mwbot.init}. Accessible via {@link Mwbot#info}.
  *
  * Utility types used in this interface simply ensure certain optional properties in the API response
  * are treated as non-optional after verification.
@@ -5205,7 +5205,7 @@ export interface SiteAndUserInfo {
 }
 
 /**
- * Schema of the data handled by {@link Mwbot.config}.
+ * Schema of the data handled by {@link Mwbot#config}.
  */
 export interface ConfigData {
 	wgArticlePath: string;
@@ -5281,13 +5281,13 @@ export type PickOrDefault<V, S extends MultiValue<PropertyKey>, TD, TX = unknown
 	: GetOrDefault<V, S & PropertyKey, TD, TX>;
 
 /**
- * The structure of {@link Mwbot.config}, designed to provide user-friendly Intellisense suggestions.
+ * The structure of {@link Mwbot#config}, designed to provide user-friendly Intellisense suggestions.
  *
  * This interface is essentially a TypeScript representation of
  * {@link https://www.mediawiki.org/wiki/ResourceLoader/Core_modules#mediaWiki.config | mw.config}
  * from MediaWiki core, with some adjustments for improved usability.
  *
- * See {@link Mwbot.config} for implementation details.
+ * See {@link Mwbot#config} for implementation details.
  * @private
  */
 export interface MwConfig<V extends Record<string, any>, TX = unknown> {
@@ -5333,7 +5333,7 @@ export interface MwConfig<V extends Record<string, any>, TX = unknown> {
 // -------- Copies end --------
 
 /**
- * Object that holds information about a revision, returned by {@link Mwbot.read}.
+ * Object that holds information about a revision, returned by {@link Mwbot#read}.
  *
  * See also https://www.mediawiki.org/wiki/API:Edit.
  */
@@ -5350,14 +5350,14 @@ export interface Revision {
 }
 
 /**
- * Callback function for {@link Mwbot.edit}.
+ * Callback function for {@link Mwbot#edit}.
  *
  * @param wikitext A {@link Wikitext} instance created from the target page’s content.
  * @param revision The latest revision information of the target page.
  * @returns Parameters for `action=edit` as a plain object, or `null` to cancel the edit.
  * May also return a Promise resolving to either of the two.
  *
- * See {@link Mwbot.edit} for the default parameters used by the method.
+ * See {@link Mwbot#edit} for the default parameters used by the method.
  *
  * If the return value is (or resolves to) `null`, the method rejects with a {@link MwbotError}
  * using the `api_mwbot: aborted` error code.
@@ -5367,7 +5367,7 @@ export type TransformationPredicate =
 
 /**
  * A variant of {@link ApiResponseEdit} where the `result` property is guaranteed to be `'Success'`.
- * Used in {@link Mwbot.create}, {@link Mwbot.save}, and {@link Mwbot.edit}.
+ * Used in {@link Mwbot#create}, {@link Mwbot#save}, and {@link Mwbot#edit}.
  */
 export interface ApiResponseEditSuccess extends Omit<ApiResponseEdit, 'result'> {
 	result: 'Success';
@@ -5398,7 +5398,7 @@ export type GlobalPreferencesResult<T extends readonly GlobalPreferencesProp[]> 
 /**
  * A function that checks whether a given title exists.
  *
- * This function is returned by {@link Mwbot.getExistencePredicate}. It returns:
+ * This function is returned by {@link Mwbot#getExistencePredicate}. It returns:
  * - `true` if the title is known to exist,
  * - `false` if the title is known to be missing,
  * - `null` if the existence of the title is unknown.

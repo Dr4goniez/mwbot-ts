@@ -3,11 +3,11 @@
  *
  * ### Classes:
  * - {@link TemplateStatic | Template}: Encapsulates `{{template}}` markups as objects.
- * Accessible via {@link Mwbot.Template}.
+ * Accessible via {@link Mwbot#Template}.
  * 	- {@link ParsedTemplateStatic | ParsedTemplate}: A subclass of `Template`, whose
  * 	instances are returned by {@link Wikitext.parseTemplates}. Its constructor is inaccessible.
  * - {@link ParserFunctionStatic | ParserFunction}: Encapsulates `{{#parserfunction:}}` markups.
- * Accessible via {@link Mwbot.ParserFunction}.
+ * Accessible via {@link Mwbot#ParserFunction}.
  * 	- {@link ParsedParserFunctionStatic | ParsedParserFunction}: A subclass of `ParserFunction`,
  * 	whose instances are returned by {@link Wikitext.parseTemplates}. Its constructor is inaccessible.
  * - {@link RawTemplateStatic | RawTemplate}: Encapsulates `{{template}}` markups with
@@ -202,7 +202,7 @@ export interface TemplateBase<T extends string | Title> {
  * see {@link Template} (defined separately due to TypeScript limitations).
  *
  * `Template` is a class that serves to parse `{{template}}` markups into an object structure,
- * which is accessible via {@link Mwbot.Template}. Note that `{{#parserfunction:}}` markups
+ * which is accessible via {@link Mwbot#Template}. Note that `{{#parserfunction:}}` markups
  * are treated differently by the {@link ParserFunctionStatic | ParserFunction} class.
  *
  * @example
@@ -523,7 +523,7 @@ export interface RawTemplate extends TemplateBase<string>, ParsedTemplateProps<R
  * see {@link ParserFunction} (defined separately due to TypeScript limitations).
  *
  * `ParserFunction` is a class that serves to parse `{{#func:}}` markups into an object structure,
- * which is accessible via {@link Mwbot.ParserFunction}. Note that `{{template}}` markups
+ * which is accessible via {@link Mwbot#ParserFunction}. Note that `{{template}}` markups
  * are treated differently by the {@link TemplateStatic | Template} class.
  *
  * @example

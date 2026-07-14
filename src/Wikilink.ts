@@ -3,15 +3,15 @@
  *
  * ### Classes:
  * - {@link WikilinkStatic | Wikilink}: Encapsulates `[[wikilink]]` markups with a *non-file* title
- * as objects. Accessible via {@link Mwbot.Wikilink}.
+ * as objects. Accessible via {@link Mwbot#Wikilink}.
  * 	- {@link ParsedWikilinkStatic | ParsedWikilink}: A subclass of `Wikilink`, whose instances are
  * returned by {@link Wikitext.parseWikilinks}.
  * - {@link FileWikilinkStatic | FileWikilink}: Encapsulates `[[wikilink]]` markups with a *file* title
- * as objects. Accessible via {@link Mwbot.FileWikilink}.
+ * as objects. Accessible via {@link Mwbot#FileWikilink}.
  * 	- {@link ParsedFileWikilinkStatic | ParsedFileWikilink}: A subclass of `FileWikilink`, whose instances are
  * returned by {@link Wikitext.parseWikilinks}.
  * - {@link RawWikilinkStatic | RawWikilink}: Encapsulates `[[wikilink]]` markups with an *unparsable* title
- * as objects. Accessible via {@link Mwbot.RawWikilink}.
+ * as objects. Accessible via {@link Mwbot#RawWikilink}.
  * 	- {@link ParsedRawWikilinkStatic | ParsedRawWikilink}: A subclass of `RawWikilink`, whose instances are
  * returned by {@link Wikitext.parseWikilinks}.
  *
@@ -90,7 +90,7 @@ export interface WikilinkBase<T extends string | Title> {
  * see {@link Wikilink} (defined separately due to TypeScript limitations).
  *
  * `Wikilink` is a class that serves to parse `[[wikilink]]` markups into an object structure,
- * which is accessible via {@link Mwbot.Wikilink}. Note that wikilinks with a `'File:'` title
+ * which is accessible via {@link Mwbot#Wikilink}. Note that wikilinks with a `'File:'` title
  * are treated differently by the {@link FileWikilinkStatic | FileWikilink} class, and those
  * with an invalid title by the {@link RawWikilinkStatic | RawWikilink} class.
  *
@@ -285,7 +285,7 @@ export interface ParsedWikilinkProps<CLS> extends ParseResultBase {
  * see {@link FileWikilink} (defined separately due to TypeScript limitations).
  *
  * `FileWikilink` is a class that serves to parse `[[File:...]]` markups into an object structure,
- * which is accessible via {@link Mwbot.FileWikilink}. Note that wikilinks with a non-file title
+ * which is accessible via {@link Mwbot#FileWikilink}. Note that wikilinks with a non-file title
  * are treated differently by the {@link WikilinkStatic | Wikilink} class, and those
  * with an invalid title by the {@link RawWikilinkStatic | RawWikilink} class.
  *
@@ -426,7 +426,7 @@ export interface ParsedFileWikilink extends FileWikilink, ParsedWikilinkProps<Pa
  * see {@link RawWikilink} (defined separately due to TypeScript limitations).
  *
  * `RawWikilink` is a class that serves to parse `[[wikilink]]` markups with an **invalid** title into
- * an object structure, which is accessible via {@link Mwbot.RawWikilink}.
+ * an object structure, which is accessible via {@link Mwbot#RawWikilink}.
  *
  * Note that wikilinks with a valid non-file title are treated differently by the {@link WikilinkStatic | Wikilink}
  * class, and those with a valid file title by the {@link FileWikilinkStatic | FileWikilink} class.
