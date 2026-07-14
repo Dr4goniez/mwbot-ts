@@ -10,3 +10,4 @@ src/regex.txt
 tests/docker/secrets
 tests/oneoff/*.js
 !tests/oneoff/*.example.js
+!tests/oneoff/logging.js

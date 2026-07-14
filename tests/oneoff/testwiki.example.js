@@ -9,7 +9,11 @@
  */
 
 import { Mwbot } from '../../dist/build/Mwbot.js';
+import { redirectConsoleToFile } from './logging.js';
 import { getTestwikiInitOptions } from './providers/testwiki-provider.js';
+
+// Comment out this line to output console messages to the terminal
+redirectConsoleToFile();
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const mwbot = await Mwbot.init({
