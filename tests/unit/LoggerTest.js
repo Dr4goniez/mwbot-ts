@@ -3,7 +3,7 @@ import { assert } from 'chai';
 import sinon from 'sinon';
 import { AxiosError } from 'axios';
 
-import { Logger } from '../../dist/build/internal/Logger.js';
+import { Logger, disableLoggerColors } from '../../dist/build/internal/Logger.js';
 import { MwbotError } from '../../dist/index.js';
 
 describe('Logger', () => {
@@ -285,6 +285,59 @@ describe('Logger', () => {
 			assert.strictEqual(
 				err.data?.axios?.config?.headers.Authorization,
 				'secret'
+			);
+		});
+	});
+
+	describe('disableLoggerColors()', () => {
+		it('disables colored prefixes in info output', () => {
+			disableLoggerColors();
+
+			const logger = new Logger();
+
+			logger.info('hello');
+
+			sinon.assert.calledOnce(logStub);
+			assert.strictEqual(
+				logStub.firstCall.args[0],
+				'[info] hello'
+			);
+		});
+
+		it('disables colored prefixes in warn output', () => {
+			disableLoggerColors();
+
+			const logger = new Logger();
+
+			logger.warn('hello');
+
+			sinon.assert.calledOnce(warnStub);
+			assert.strictEqual(
+				warnStub.firstCall.args[0],
+				'[warn] hello'
+			);
+		});
+
+		it('disables colored prefixes in error output', () => {
+			disableLoggerColors();
+
+			const logger = new Logger({
+				outputErrors: true,
+			});
+			const err = new MwbotError(
+				'api_mwbot',
+				{ code: 'http', info: 'HTTP request failed.' }
+			);
+
+			logger.error(err);
+
+			assert.strictEqual(
+				errorStub.firstCall.args[0],
+				'%s %o'
+			);
+			assert.strictEqual(
+				errorStub.firstCall.args[1],
+				'[error]'
 			);
 		});
 	});

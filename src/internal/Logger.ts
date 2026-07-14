@@ -1,4 +1,4 @@
-import chalk from 'chalk';
+import { Chalk } from 'chalk';
 import { type AxiosResponse, AxiosError, isAxiosError } from 'axios';
 import {
 	MwbotError,
@@ -6,16 +6,24 @@ import {
 	type MwbotErrorData, // Only referenced in comments
 } from '../MwbotError.js';
 
+const colorChalk = new Chalk({ level: 3 });
+const plainChalk = new Chalk({ level: 0 });
+
+let chalk = colorChalk;
+
+/**
+ * @private
+ */
+export function disableLoggerColors(): void {
+	chalk = plainChalk;
+}
+
+type SeverityLevel = 'info' | 'warn' | 'error';
+
 /**
  * @private
  */
 export class Logger {
-
-	private static lead = {
-		info: chalk.blue('[info]'),
-		warn: chalk.yellow('[warn]'),
-		error: chalk.red('[error]'),
-	};
 
 	private suppressInfo: boolean;
 	private suppressWarnings: boolean;
@@ -29,6 +37,34 @@ export class Logger {
 		this.unredactErrors = options?.unredactErrors  ?? false;
 	}
 
+	private getPrefix(
+		level: SeverityLevel,
+		showLevel = false
+	) {
+		if (!showLevel) {
+			return '';
+		}
+
+		let color: 'blue' | 'yellow' | 'red';
+		switch (level) {
+			case 'info':
+				color = 'blue';
+				break;
+			case 'warn':
+				color = 'yellow';
+				break;
+			case 'error':
+				color = 'red';
+				break;
+			default: {
+				const exhaustive: never = level;
+				throw new Error(`Invalid logger output level: ${exhaustive}`);
+			}
+		}
+
+		return chalk[color](`[${level}]`);
+	}
+
 	/**
 	 * Outputs the given message to the console.
 	 *
@@ -37,7 +73,7 @@ export class Logger {
 	 * @param options Additional options that control output behaviour.
 	 */
 	output(
-		level: 'info' | 'warn' | 'error',
+		level: SeverityLevel,
 		message: string,
 		options: {
 			/**
@@ -80,8 +116,8 @@ export class Logger {
 			return;
 		}
 
-		const prefix = options.showLevel ? Logger.lead[level] + ' ' : '';
-		console[out](prefix + message);
+		const prefix = this.getPrefix(level, options.showLevel);
+		console[out](prefix ? `${prefix} ${message}` : message);
 	}
 
 	info(message: string): void {
@@ -104,7 +140,7 @@ export class Logger {
 
 		const axiosData = error.data?.axios;
 		if (this.unredactErrors || !axiosData) {
-			console.error('%s %o', Logger.lead.error, error);
+			console.error('%s %o', this.getPrefix('error', true), error);
 			return;
 		}
 
@@ -114,9 +150,8 @@ export class Logger {
 		} else {
 			clone.data!.axios = redactAxiosResponse(axiosData);
 		}
-		console.error('%s %o', Logger.lead.error, clone);
+		console.error('%s %o', this.getPrefix('error', true), clone);
 	}
-
 }
 
 /**
