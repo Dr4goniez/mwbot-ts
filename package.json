@@ -84,7 +84,6 @@
     "markdown-link-check": "^3.14.2",
     "mocha": "^11.7.6",
     "sinon": "^22.0.0",
-    "ts-node": "^10.9.2",
     "typedoc": "^0.28.19",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.62.0"

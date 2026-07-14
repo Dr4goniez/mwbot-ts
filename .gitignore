@@ -5,7 +5,6 @@ dist/
 # Private files and directories
 logs
 src/regex.txt
-src/test/
 **/.env
 **/credentials.json
 tests/docker/secrets
