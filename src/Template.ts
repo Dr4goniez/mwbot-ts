@@ -31,6 +31,7 @@ import type {
 } from './Wikitext.js';
 import { MwbotError } from './MwbotError.js';
 import { createParserFunctionMap } from './internal/parserFunctionData.js';
+import { Logger } from './internal/Logger.js';
 
 /**
  * The base class for {@link TemplateStatic} and {@link RawTemplateStatic}.
@@ -298,10 +299,9 @@ export interface Template extends TemplateBase<Title> {
 	 * Sets a new title to the instance.
 	 *
 	 * @param title The new title to set.
-	 * @param verbose Whether to log errors. (Default: `false`)
 	 * @returns A boolean indicating whether the new title was set.
 	 */
-	setTitle(title: string | Title, verbose?: boolean): boolean;
+	setTitle(title: string | Title): boolean;
 	/**
 	 * Stringifies the instance.
 	 *
@@ -380,10 +380,9 @@ export interface ParsedTemplate extends Template, ParsedTemplateProps<ParsedTemp
 	 * When passing a string, it can (and should) include the function’s first parameter (e.g., `"#if:1"`).
 	 * The second and subsequent parameters are initialized based on {@link params}.
 	 *
-	 * @param verbose Whether to log errors (default: `false`).
 	 * @returns A new {@link ParsedParserFunction} instance on success; otherwise, `null`.
 	 */
-	toParserFunction(title: string | Title, verbose?: boolean): ParsedParserFunction | null;
+	toParserFunction(title: string | Title): ParsedParserFunction | null;
 	/**
 	 * @inheritdoc
 	 */
@@ -480,10 +479,9 @@ export interface RawTemplate extends TemplateBase<string>, ParsedTemplateProps<R
 	 * making any changes to the instance properties.
 	 *
 	 * @param title The new template title to set.
-	 * @param verbose Whether to log errors. (Default: `false`)
 	 * @returns A new {@link ParsedTemplate} instance on success; otherwise, `null`.
 	 */
-	toTemplate(title: string | Title, verbose?: boolean): ParsedTemplate | null;
+	toTemplate(title: string | Title): ParsedTemplate | null;
 	/**
 	 * Sets a valid function hook and converts the instance to a new {@link ParsedParserFunction} instance.
 	 *
@@ -499,10 +497,9 @@ export interface RawTemplate extends TemplateBase<string>, ParsedTemplateProps<R
 	 * When passing a string, it can (and should) include the function’s first parameter (e.g., `'#if:1'`).
 	 * The second and subsequent parameters are initialized based on {@link params}.
 	 *
-	 * @param verbose Whether to log errors (default: `false`).
 	 * @returns A new {@link ParsedParserFunction} instance on success; otherwise, `null`.
 	 */
-	toParserFunction(title: string | Title, verbose: boolean): ParsedParserFunction | null;
+	toParserFunction(title: string | Title): ParsedParserFunction | null;
 	/**
 	 * Stringifies the instance.
 	 *
@@ -649,10 +646,9 @@ export interface ParsedParserFunction extends ParserFunction, ParsedTemplateProp
 	 * making any changes to the instance properties.
 	 *
 	 * @param title The new template title to set.
-	 * @param verbose Whether to log errors (default: `false`).
 	 * @returns A new {@link ParsedTemplate} instance on success; otherwise, `null`.
 	 */
-	toTemplate(title: string | Title, verbose?: boolean): ParsedTemplate | null;
+	toTemplate(title: string | Title): ParsedTemplate | null;
 	/**
 	 * @inheritdoc
 	 */
@@ -666,7 +662,12 @@ export interface ParsedParserFunction extends ParserFunction, ParsedTemplateProp
 /**
  * @internal
  */
-export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], Title: TitleStatic) {
+export function TemplateFactory(
+	config: Mwbot['config'],
+	info: Mwbot['_info'],
+	Title: TitleStatic,
+	logger: Logger
+) {
 
 	const namespaceIds = config.get('wgNamespaceIds');
 	const NS_MAIN = namespaceIds[''];
@@ -1268,14 +1269,12 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			}
 		}
 
-		setTitle(title: string | Title, verbose = false): boolean {
+		setTitle(title: string | Title): boolean {
 			try {
 				this._title = Template.validateTitle(title);
 				return true;
 			} catch (err) {
-				if (verbose) {
-					console.error(err);
-				}
+				logger.error(err as MwbotError);
 				return false;
 			}
 		}
@@ -1357,14 +1356,12 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			this.children = new Set([...children]);
 		}
 
-		toParserFunction(title: string | Title, verbose = false): ParsedParserFunction | null {
+		toParserFunction(title: string | Title): ParsedParserFunction | null {
 			title = typeof title === 'string' ? title : title.getPrefixedDb({ colon: true, fragment: true });
 			try {
 				Template.validateTitle(title, true);
 			} catch (err) {
-				if (verbose) {
-					console.error(err);
-				}
+				logger.error(err as MwbotError);
 				return null;
 			}
 			const initializer = cloneDeep(this.#initializer);
@@ -1468,14 +1465,12 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return this;
 		}
 
-		toTemplate(title: string | Title, verbose = false): ParsedTemplate | null {
+		toTemplate(title: string | Title): ParsedTemplate | null {
 			title = typeof title === 'string' ? title : title.getPrefixedDb({ colon: true, fragment: true });
 			try {
 				Template.validateTitle(title);
 			} catch (err) {
-				if (verbose) {
-					console.error(err);
-				}
+				logger.error(err as MwbotError);
 				return null;
 			}
 			const initializer = cloneDeep(this.#initializer);
@@ -1483,14 +1478,12 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			return new ParsedTemplate(initializer);
 		}
 
-		toParserFunction(title: string | Title, verbose = false): ParsedParserFunction | null {
+		toParserFunction(title: string | Title): ParsedParserFunction | null {
 			title = typeof title === 'string' ? title : title.getPrefixedDb({ colon: true, fragment: true });
 			try {
 				Template.validateTitle(title, true);
 			} catch (err) {
-				if (verbose) {
-					console.error(err);
-				}
+				logger.error(err as MwbotError);
 				return null;
 			}
 			const initializer = cloneDeep(this.#initializer);
@@ -1747,15 +1740,13 @@ export function TemplateFactory(config: Mwbot['config'], info: Mwbot['_info'], T
 			this.children = new Set([...children]);
 		}
 
-		toTemplate(title: string | Title, verbose = false): ParsedTemplate | null {
+		toTemplate(title: string | Title): ParsedTemplate | null {
 			title = typeof title === 'string' ? title : title.getPrefixedDb({ colon: true, fragment: true });
 			try {
 				// @ts-expect-error Calling a protected method
 				Template.validateTitle(title);
 			} catch (err) {
-				if (verbose) {
-					console.error(err);
-				}
+				logger.error(err as MwbotError);
 				return null;
 			}
 			const initializer = cloneDeep(this.#initializer);

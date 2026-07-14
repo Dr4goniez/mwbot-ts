@@ -2,6 +2,7 @@ import { describe, it, before, beforeEach } from 'mocha';
 import { assert } from 'chai';
 import * as sinon from 'sinon';
 import { assertThrowsMwbotError, getTestMwbot } from './MwbotTest/MwbotTest-fixtures.js';
+import { MwbotError } from '../../dist/index.js';
 
 describe('Mwbot.Template', function () {
 	/**
@@ -788,15 +789,21 @@ describe('Mwbot.Template', function () {
 				assert.notStrictEqual(tpl.title, title);
 			});
 
-			it('should log validation errors when verbose is true', function () {
+			it('should log validation errors via logger', function () {
 				const tpl = new mwbot.Template('Test');
+				// @ts-expect-error - Protected property
+				const logger = mwbot.logger;
+				const errorSpy = sinon.spy(logger, 'error');
 
-				const stub = sinon.stub(console, 'error');
+				assert.isFalse(tpl.setTitle(''));
+				sinon.assert.calledOnce(errorSpy);
 
-				assert.isFalse(tpl.setTitle('', true));
-				assert.isTrue(stub.calledOnce);
+				const err = errorSpy.firstCall.args[0];
 
-				stub.restore();
+				assert.instanceOf(err, MwbotError);
+				assert.strictEqual(err.code, 'unparsabletitle');
+
+				sinon.restore();
 			});
 		});
 

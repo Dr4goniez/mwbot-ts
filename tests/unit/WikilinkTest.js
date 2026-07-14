@@ -1,8 +1,9 @@
-import { describe, it, before } from 'mocha';
+import { describe, it, before, afterEach } from 'mocha';
 import { assert } from 'chai';
 import * as sinon from 'sinon';
 import { assertThrowsMwbotError, getTestMwbot } from './MwbotTest/MwbotTest-fixtures.js';
 import { serializeWikilink, validateWikilinkTitle } from '../../dist/build/internal/wikilinkHelpers.js';
+import { MwbotError } from '../../dist/index.js';
 
 describe('Mwbot.Wikilink', function () {
 	/**
@@ -76,6 +77,11 @@ describe('Mwbot.Wikilink', function () {
 
 	describe('WikilinkBase', function () {
 		describe('getDisplay()', function () {
+
+			afterEach(function () {
+				sinon.restore();
+			});
+
 			it('should return the internal display text', function () {
 				const display = 'Bar';
 				const lnk = new mwbot.Wikilink('Foo', 'Bar');
@@ -89,8 +95,6 @@ describe('Mwbot.Wikilink', function () {
 				sinon.stub(lnk, '_title').value('Foo');
 
 				assert.strictEqual(lnk.getDisplay(), 'Foo');
-
-				sinon.restore();
 			});
 
 			it('should return a trimmed string title when no display text is set', function () {
@@ -100,8 +104,6 @@ describe('Mwbot.Wikilink', function () {
 
 				// Title.clean should trim _title
 				assert.strictEqual(lnk.getDisplay(), 'Foo');
-
-				sinon.restore();
 			});
 
 			it('should return the stringified Title when no display text is set', function () {
@@ -316,14 +318,23 @@ describe('Mwbot.Wikilink', function () {
 				assert.strictEqual(lnk.title.getPrefixedDb(), 'Foo');
 			});
 
-			it('should log the error when verbose is true', function () {
-				const spy = sinon.stub(console, 'error');
+			it('should log validation errors via logger', function () {
 				const lnk = new mwbot.Wikilink('Foo');
+				// @ts-expect-error - Protected property
+				const logger = mwbot.logger;
+				const errorSpy = sinon.spy(logger, 'error');
 
-				assert.isFalse(lnk.setTitle('', true));
-				sinon.assert.calledOnce(spy);
+				try {
+					assert.isFalse(lnk.setTitle('File:Bar'));
+					sinon.assert.calledOnce(errorSpy);
 
-				sinon.restore();
+					const err = errorSpy.firstCall.args[0];
+
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'invalidinput');
+				} finally {
+					sinon.restore();
+				}
 			});
 		});
 
@@ -337,20 +348,29 @@ describe('Mwbot.Wikilink', function () {
 				assert.strictEqual(file.getParam(0), 'Bar');
 			});
 
-			it('should return null on failure', function () {
+			it('should return null for non-file inputs', function () {
 				const lnk = new mwbot.Wikilink('Foo');
 
-				assert.isNull(lnk.toFileWikilink(''));
+				assert.isNull(lnk.toFileWikilink('Example'));
 			});
 
-			it('should log the error when verbose is true', function () {
-				const spy = sinon.stub(console, 'error');
+			it('should log validation errors via logger', function () {
 				const lnk = new mwbot.Wikilink('Foo');
+				// @ts-expect-error - Protected property
+				const logger = mwbot.logger;
+				const errorSpy = sinon.spy(logger, 'error');
 
-				assert.isNull(lnk.toFileWikilink('', true));
-				sinon.assert.calledOnce(spy);
+				try {
+					assert.isNull(lnk.toFileWikilink(''));
+					sinon.assert.calledOnce(errorSpy);
 
-				sinon.restore();
+					const err = errorSpy.firstCall.args[0];
+
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'unparsabletitle');
+				} finally {
+					sinon.restore();
+				}
 			});
 		});
 
@@ -522,21 +542,30 @@ describe('Mwbot.Wikilink', function () {
 				assert.isFalse(file.setTitle(''));
 			});
 
-			it('should log the error when verbose is true', function () {
-				const spy = sinon.stub(console, 'error');
+			it('should log validation errors via logger', function () {
 				const file = new mwbot.FileWikilink('File:Foo');
+				// @ts-expect-error - Protected property
+				const logger = mwbot.logger;
+				const errorSpy = sinon.spy(logger, 'error');
 
-				assert.isFalse(file.setTitle('', true));
-				sinon.assert.calledOnce(spy);
+				try {
+					assert.isFalse(file.setTitle(''));
+					sinon.assert.calledOnce(errorSpy);
 
-				sinon.restore();
+					const err = errorSpy.firstCall.args[0];
+
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'unparsabletitle');
+				} finally {
+					sinon.restore();
+				}
 			});
 		});
 
 		describe('toWikilink()', function () {
 			it('should create a Wikilink from a file wikilink', function () {
 				const file = new mwbot.FileWikilink(
-					'File:Foo',
+					'File:Foo.jpg',
 					['thumb', '300px']
 				);
 
@@ -554,7 +583,7 @@ describe('Mwbot.Wikilink', function () {
 			});
 
 			it('should omit the display text when no parameters exist', function () {
-				const file = new mwbot.FileWikilink('File:Foo');
+				const file = new mwbot.FileWikilink('File:Foo.jpg');
 
 				const lnk = file.toWikilink('Bar');
 
@@ -562,20 +591,29 @@ describe('Mwbot.Wikilink', function () {
 				assert.isFalse(lnk.hasDisplay());
 			});
 
-			it('should return null on failure', function () {
-				const file = new mwbot.FileWikilink('File:Foo');
+			it('should return null for file inputs', function () {
+				const file = new mwbot.FileWikilink('File:Foo.jpg');
 
 				assert.isNull(file.toWikilink(''));
 			});
 
-			it('should log the error when verbose is true', function () {
-				const spy = sinon.stub(console, 'error');
-				const file = new mwbot.FileWikilink('File:Foo');
+			it('should log validation errors via logger', function () {
+				const file = new mwbot.FileWikilink('File:Foo.jpg');
+				// @ts-expect-error - Protected property
+				const logger = mwbot.logger;
+				const errorSpy = sinon.spy(logger, 'error');
 
-				assert.isNull(file.toWikilink('', true));
-				sinon.assert.calledOnce(spy);
+				try {
+					assert.isNull(file.toWikilink(''));
+					sinon.assert.calledOnce(errorSpy);
 
-				sinon.restore();
+					const err = errorSpy.firstCall.args[0];
+
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'unparsabletitle');
+				} finally {
+					sinon.restore();
+				}
 			});
 		});
 
@@ -725,14 +763,23 @@ describe('Mwbot.Wikilink', function () {
 				assert.isNull(raw.toWikilink(''));
 			});
 
-			it('should log the error when verbose is true', function () {
-				const spy = sinon.stub(console, 'error');
+			it('should log validation errors via logger', function () {
 				const raw = new mwbot.RawWikilink('{{{1}}}');
+				// @ts-expect-error - Protected property
+				const logger = mwbot.logger;
+				const errorSpy = sinon.spy(logger, 'error');
 
-				assert.isNull(raw.toWikilink('', true));
-				sinon.assert.calledOnce(spy);
+				try {
+					assert.isNull(raw.toWikilink(''));
+					sinon.assert.calledOnce(errorSpy);
 
-				sinon.restore();
+					const err = errorSpy.firstCall.args[0];
+
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'unparsabletitle');
+				} finally {
+					sinon.restore();
+				}
 			});
 		});
 
@@ -765,14 +812,23 @@ describe('Mwbot.Wikilink', function () {
 				assert.isNull(raw.toFileWikilink(''));
 			});
 
-			it('should log the error when verbose is true', function () {
-				const spy = sinon.stub(console, 'error');
+			it('should log validation errors via logger', function () {
 				const raw = new mwbot.RawWikilink('{{{1}}}');
+				// @ts-expect-error - Protected property
+				const logger = mwbot.logger;
+				const errorSpy = sinon.spy(logger, 'error');
 
-				assert.isNull(raw.toFileWikilink('', true));
-				sinon.assert.calledOnce(spy);
+				try {
+					assert.isNull(raw.toFileWikilink(':File:Foo.jpg'));
+					sinon.assert.calledOnce(errorSpy);
 
-				sinon.restore();
+					const err = errorSpy.firstCall.args[0];
+
+					assert.instanceOf(err, MwbotError);
+					assert.strictEqual(err.code, 'invalidinput');
+				} finally {
+					sinon.restore();
+				}
 			});
 		});
 

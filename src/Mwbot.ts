@@ -624,7 +624,7 @@ export class Mwbot {
 			RawTemplate,
 			ParserFunction,
 			ParsedParserFunction,
-		} = TemplateFactory(config, this._info, this._Title);
+		} = TemplateFactory(config, this._info, this._Title, this.logger);
 
 		this._ParserFunction = ParserFunction;
 		this._Template = Template;
@@ -636,7 +636,7 @@ export class Mwbot {
 			ParsedFileWikilink,
 			RawWikilink,
 			ParsedRawWikilink,
-		} = WikilinkFactory(config, this._Title);
+		} = WikilinkFactory(config, this._Title, this.logger);
 
 		this._Wikilink = Wikilink;
 		this._FileWikilink = FileWikilink;
