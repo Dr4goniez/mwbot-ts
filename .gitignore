@@ -9,3 +9,5 @@ src/test/
 **/.env
 **/credentials.json
 tests/docker/secrets
+tests/oneoff/*.js
+!tests/oneoff/*.example.js

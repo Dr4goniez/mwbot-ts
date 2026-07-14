@@ -27,7 +27,9 @@
     "test:unit-one": "node scripts/test-unit-one.js",
     "test:setup": "cd tests/docker && bash setup.sh",
     "test:localwiki": "mocha tests/integration/localwiki/test.js",
-    "test:testwiki": "node tests/integration/testwiki/run.js"
+    "test:testwiki": "node tests/integration/testwiki/run.js",
+    "test:oneoff-localwiki": "node tests/oneoff/localwiki.js",
+    "test:oneoff-testwiki": "node tests/oneoff/testwiki.js"
   },
   "engines": {
     "node": ">=18"
