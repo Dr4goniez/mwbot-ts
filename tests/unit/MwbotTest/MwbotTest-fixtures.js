@@ -876,6 +876,13 @@ function getFakeSiteAndUserInfo(anonymous) {
 					"case-sensitive": true
 				},
 				{
+					"name": "if",
+					"aliases": [
+						"if"
+					],
+					"case-sensitive": false
+				},
+				{
 					"name": "img_alt",
 					"aliases": [
 						"alt=$1"
@@ -2260,7 +2267,8 @@ function getFakeSiteAndUserInfo(anonymous) {
 				"speciale",
 				"tag",
 				"formatdate",
-				"displaytitle"
+				"displaytitle",
+				"if"
 			]
 		}
 	};

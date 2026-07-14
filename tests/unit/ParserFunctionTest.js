@@ -17,14 +17,14 @@ describe('Mwbot.ParserFunction', function () {
 		describe('constructor()', function () {
 			it('should clone the initial parameters', function () {
 				const params = ['a', 'b'];
-				const func = new mwbot.ParserFunction('#bcp47:', params);
+				const func = new mwbot.ParserFunction('#if:', params);
 
 				assert.deepEqual(func.params, params);
 				assert.notStrictEqual(func.params, params);
 			});
 
 			it('should default to an empty parameter array', function () {
-				const func = new mwbot.ParserFunction('#bcp47:');
+				const func = new mwbot.ParserFunction('#if:');
 
 				assert.deepEqual(func.params, []);
 			});
@@ -32,7 +32,7 @@ describe('Mwbot.ParserFunction', function () {
 
 		describe('addParam()', function () {
 			it('should append a parameter', function () {
-				const func = new mwbot.ParserFunction('#bcp47:');
+				const func = new mwbot.ParserFunction('#if:');
 
 				func.addParam('foo');
 
@@ -40,7 +40,7 @@ describe('Mwbot.ParserFunction', function () {
 			});
 
 			it('should return itself', function () {
-				const func = new mwbot.ParserFunction('#bcp47:');
+				const func = new mwbot.ParserFunction('#if:');
 
 				assert.strictEqual(func.addParam('foo'), func);
 			});
@@ -48,14 +48,14 @@ describe('Mwbot.ParserFunction', function () {
 
 		describe('setParam()', function () {
 			it('should overwrite an existing parameter by default', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', ['foo']);
+				const func = new mwbot.ParserFunction('#if:', ['foo']);
 
 				assert.isTrue(func.setParam('bar', 0));
 				assert.strictEqual(func.params[0], 'bar');
 			});
 
 			it('should not overwrite when overwrite is false', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', ['foo']);
+				const func = new mwbot.ParserFunction('#if:', ['foo']);
 
 				assert.isFalse(
 					func.setParam('bar', 0, { overwrite: false })
@@ -64,14 +64,14 @@ describe('Mwbot.ParserFunction', function () {
 			});
 
 			it('should create a new parameter by default', function () {
-				const func = new mwbot.ParserFunction('#bcp47:');
+				const func = new mwbot.ParserFunction('#if:');
 
 				assert.isTrue(func.setParam('foo', 0));
 				assert.strictEqual(func.params[0], 'foo');
 			});
 
 			it('should not create a parameter when ifexist is true', function () {
-				const func = new mwbot.ParserFunction('#bcp47:');
+				const func = new mwbot.ParserFunction('#if:');
 
 				assert.isFalse(
 					func.setParam('foo', 0, { ifexist: true })
@@ -82,13 +82,13 @@ describe('Mwbot.ParserFunction', function () {
 
 		describe('getParam()', function () {
 			it('should return an existing parameter', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', ['foo']);
+				const func = new mwbot.ParserFunction('#if:', ['foo']);
 
 				assert.strictEqual(func.getParam(0), 'foo');
 			});
 
 			it('should return null for a missing parameter', function () {
-				const func = new mwbot.ParserFunction('#bcp47:');
+				const func = new mwbot.ParserFunction('#if:');
 
 				assert.isNull(func.getParam(0));
 			});
@@ -96,28 +96,28 @@ describe('Mwbot.ParserFunction', function () {
 
 		describe('hasParam()', function () {
 			it('should check a parameter by index', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', ['foo']);
+				const func = new mwbot.ParserFunction('#if:', ['foo']);
 
 				assert.isTrue(func.hasParam(0));
 				assert.isFalse(func.hasParam(1));
 			});
 
 			it('should check a parameter by string value', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', ['foo']);
+				const func = new mwbot.ParserFunction('#if:', ['foo']);
 
 				assert.isTrue(func.hasParam(0, 'foo'));
 				assert.isFalse(func.hasParam(0, 'bar'));
 			});
 
 			it('should check a parameter by RegExp', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', ['foobar']);
+				const func = new mwbot.ParserFunction('#if:', ['foobar']);
 
 				assert.isTrue(func.hasParam(0, /^foo/));
 				assert.isFalse(func.hasParam(0, /^bar/));
 			});
 
 			it('should support predicate functions', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', ['foo', 'bar']);
+				const func = new mwbot.ParserFunction('#if:', ['foo', 'bar']);
 
 				assert.isTrue(
 					func.hasParam((i, value) => i === 1 && value === 'bar')
@@ -125,14 +125,14 @@ describe('Mwbot.ParserFunction', function () {
 			});
 
 			it('should reject invalid indices', function () {
-				const func = new mwbot.ParserFunction('#bcp47:');
+				const func = new mwbot.ParserFunction('#if:');
 
 				// @ts-expect-error - Passing a string
 				assert.isFalse(func.hasParam('0'));
 			});
 
 			it('should escape string values for exact matching', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', ['a+b']);
+				const func = new mwbot.ParserFunction('#if:', ['a+b']);
 
 				assert.isTrue(func.hasParam(0, 'a+b'));
 				assert.isFalse(func.hasParam(0, 'a.b'));
@@ -143,20 +143,20 @@ describe('Mwbot.ParserFunction', function () {
 
 		describe('deleteParam()', function () {
 			it('should delete a parameter', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', ['foo']);
+				const func = new mwbot.ParserFunction('#if:', ['foo']);
 
 				assert.isTrue(func.deleteParam(0));
 				assert.deepEqual(func.params, []);
 			});
 
 			it('should return false for a missing parameter', function () {
-				const func = new mwbot.ParserFunction('#bcp47:');
+				const func = new mwbot.ParserFunction('#if:');
 
 				assert.isFalse(func.deleteParam(0));
 			});
 
 			it('should left-shift parameters by default', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', ['a', 'b', 'c']);
+				const func = new mwbot.ParserFunction('#if:', ['a', 'b', 'c']);
 
 				func.deleteParam(1);
 
@@ -164,7 +164,7 @@ describe('Mwbot.ParserFunction', function () {
 			});
 
 			it('should preserve indices when leftShift is false', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', ['a', 'b', 'c']);
+				const func = new mwbot.ParserFunction('#if:', ['a', 'b', 'c']);
 
 				func.deleteParam(1, false);
 
@@ -179,16 +179,16 @@ describe('Mwbot.ParserFunction', function () {
 	describe('ParserFunction', function () {
 		describe('constructor()', function () {
 			it('should accept a valid function hook', function () {
-				const func = new mwbot.ParserFunction('#bcp47:');
+				const func = new mwbot.ParserFunction('#if:');
 
-				assert.strictEqual(func.hook, '#bcp47:');
-				assert.strictEqual(func.canonicalHook, 'bcp47:');
+				assert.strictEqual(func.hook, '#if:');
+				assert.strictEqual(func.canonicalHook, '#if:');
 				assert.deepEqual(func.params, []);
 			});
 
 			it('should register initial parameters', function () {
 				const params = ['foo', 'bar'];
-				const func = new mwbot.ParserFunction('#bcp47:', params);
+				const func = new mwbot.ParserFunction('#if:', params);
 
 				assert.deepEqual(func.params, params);
 				assert.notStrictEqual(func.params, params);
@@ -196,7 +196,7 @@ describe('Mwbot.ParserFunction', function () {
 
 			it('should reject an invalid function hook', function () {
 				assertThrowsMwbotError(
-					() => new mwbot.ParserFunction('# bcp47:'),
+					() => new mwbot.ParserFunction('# if:'),
 					'invalidinput'
 				);
 			});
@@ -205,10 +205,10 @@ describe('Mwbot.ParserFunction', function () {
 		describe('verify()', function () {
 			it('should verify a parser function hook', function () {
 				assert.deepEqual(
-					mwbot.ParserFunction.verify('#bcp47:'),
+					mwbot.ParserFunction.verify('#if:'),
 					{
-						canonical: 'bcp47:',
-						match: '#bcp47:',
+						canonical: '#if:',
+						match: '#if:',
 					}
 				);
 			});
@@ -231,10 +231,10 @@ describe('Mwbot.ParserFunction', function () {
 
 			it('should trim surrounding whitespace', function () {
 				assert.deepEqual(
-					mwbot.ParserFunction.verify('  #bcp47:  '),
+					mwbot.ParserFunction.verify('  #if:  '),
 					{
-						canonical: 'bcp47:',
-						match: '#bcp47:',
+						canonical: '#if:',
+						match: '#if:',
 					}
 				);
 			});
@@ -264,15 +264,15 @@ describe('Mwbot.ParserFunction', function () {
 			});
 
 			it('should reject invalid hooks', function () {
-				assert.isNull(mwbot.ParserFunction.verify('# bcp47:'));
-				assert.isNull(mwbot.ParserFunction.verify('#bcp47'));
+				assert.isNull(mwbot.ParserFunction.verify('# if:'));
+				assert.isNull(mwbot.ParserFunction.verify('#if'));
 				assert.isNull(mwbot.ParserFunction.verify(''));
 			});
 		});
 
 		describe('setHook()', function () {
 			it('should update the hook', function () {
-				const func = new mwbot.ParserFunction('#bcp47:');
+				const func = new mwbot.ParserFunction('#if:');
 
 				assert.isTrue(func.setHook('#contentmodel:'));
 				assert.strictEqual(func.hook, '#contentmodel:');
@@ -280,39 +280,39 @@ describe('Mwbot.ParserFunction', function () {
 			});
 
 			it('should preserve the current hook on failure', function () {
-				const func = new mwbot.ParserFunction('#bcp47:');
+				const func = new mwbot.ParserFunction('#if:');
 
 				assert.isFalse(func.setHook('# if:'));
-				assert.strictEqual(func.hook, '#bcp47:');
-				assert.strictEqual(func.canonicalHook, 'bcp47:');
+				assert.strictEqual(func.hook, '#if:');
+				assert.strictEqual(func.canonicalHook, '#if:');
 			});
 		});
 
 		describe('stringify()', function () {
 			it('should stringify an empty parser function', function () {
-				const func = new mwbot.ParserFunction('#bcp47:');
+				const func = new mwbot.ParserFunction('#if:');
 
-				assert.strictEqual(func.stringify(), '{{#bcp47:}}');
+				assert.strictEqual(func.stringify(), '{{#if:}}');
 			});
 
 			it('should stringify parameters', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', [
+				const func = new mwbot.ParserFunction('#if:', [
 					'foo',
 					'bar',
 				]);
 
 				assert.strictEqual(
 					func.stringify(),
-					'{{#bcp47:foo|bar}}'
+					'{{#if:foo|bar}}'
 				);
 			});
 
 			it('should apply prepend', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', ['foo']);
+				const func = new mwbot.ParserFunction('#if:', ['foo']);
 
 				assert.strictEqual(
 					func.stringify({ prepend: 'subst:' }),
-					'{{subst:#bcp47:foo}}'
+					'{{subst:#if:foo}}'
 				);
 			});
 
@@ -335,7 +335,7 @@ describe('Mwbot.ParserFunction', function () {
 			});
 
 			it('should sort parameters', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', [
+				const func = new mwbot.ParserFunction('#if:', [
 					'c',
 					'a',
 					'b',
@@ -345,12 +345,12 @@ describe('Mwbot.ParserFunction', function () {
 					func.stringify({
 						sortPredicate: (a, b) => a.localeCompare(b),
 					}),
-					'{{#bcp47:a|b|c}}'
+					'{{#if:a|b|c}}'
 				);
 			});
 
 			it('should not mutate the original parameter order when sorting', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', [
+				const func = new mwbot.ParserFunction('#if:', [
 					'c',
 					'a',
 					'b',
@@ -363,7 +363,7 @@ describe('Mwbot.ParserFunction', function () {
 			});
 
 			it('should insert line breaks using brPredicate', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', [
+				const func = new mwbot.ParserFunction('#if:', [
 					'foo',
 					'bar',
 				]);
@@ -372,14 +372,14 @@ describe('Mwbot.ParserFunction', function () {
 					func.stringify({
 						brPredicate: () => true,
 					}),
-					'{{#bcp47:foo\n|bar\n}}'
+					'{{#if:foo\n|bar\n}}'
 				);
 			});
 		});
 
 		describe('toString()', function () {
 			it('should delegate to stringify()', function () {
-				const func = new mwbot.ParserFunction('#bcp47:', ['foo']);
+				const func = new mwbot.ParserFunction('#if:', ['foo']);
 
 				assert.strictEqual(
 					func.toString(),

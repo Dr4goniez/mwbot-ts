@@ -53,17 +53,17 @@ describe('Mwbot.Template', function () {
 			});
 
 			it('should return a verified parser function when asHook is true', function () {
-				const hook = validateTitle('#bcp47:', true);
+				const hook = validateTitle('#if:', true);
 
 				assert.deepEqual(hook, {
-					canonical: 'bcp47:',
-					match: '#bcp47:',
+					canonical: '#if:',
+					match: '#if:',
 				});
 			});
 
 			it('should reject parser functions by default', function () {
 				assertThrowsMwbotError(
-					() => validateTitle('#bcp47:'),
+					() => validateTitle('#if:'),
 					'internal'
 				);
 			});

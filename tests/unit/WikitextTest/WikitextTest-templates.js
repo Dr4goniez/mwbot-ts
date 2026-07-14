@@ -21,7 +21,7 @@ export function testWikitextTemplates() {
 		describe('Template.is()', function () {
 			it('should discriminate template classes', function () {
 				const result = new mwbot.Wikitext(
-					'{{Foo}}{{{{{1}}}}}{{#bcp47:1|a|b}}'
+					'{{Foo}}{{{{{1}}}}}{{#if:1|a|b}}'
 				).parseTemplates();
 
 				assert.lengthOf(result, 3);
@@ -96,7 +96,7 @@ export function testWikitextTemplates() {
 
 			it('should parse parser functions', function () {
 				const templates = /** @type {ParsedParserFunction[]} */ (
-					new mwbot.Wikitext('{{#bcp47:1|yes|no}}').parseTemplates()
+					new mwbot.Wikitext('{{#if:1|yes|no}}').parseTemplates()
 				);
 
 				assert.lengthOf(templates, 1);
@@ -105,7 +105,7 @@ export function testWikitextTemplates() {
 
 				assert.isTrue(mwbot.Template.is(pf, 'ParsedParserFunction'));
 
-				assert.strictEqual(pf.hook, '#bcp47:');
+				assert.strictEqual(pf.hook, '#if:');
 				assert.deepEqual(pf.params, [
 					'1',
 					'yes',
@@ -246,7 +246,7 @@ export function testWikitextTemplates() {
 						'Gbc squirrel.png | {{Bar|1=Act II}}\n' +
 						'</gallery>';
 					const text =
-						'{{#bcp47:1\n' +
+						'{{#if:1\n' +
 						`|${gallery}\n` +
 						'|No\n' +
 						'}}';
@@ -258,7 +258,7 @@ export function testWikitextTemplates() {
 					const pf = /** @type {ParsedParserFunction} */ (templates[0]);
 
 					assert.isTrue(mwbot.Template.is(pf, 'ParsedParserFunction'));
-					assert.strictEqual(pf.hook, '#bcp47:');
+					assert.strictEqual(pf.hook, '#if:');
 					assert.deepEqual(
 						pf.params,
 						[
@@ -391,7 +391,7 @@ export function testWikitextTemplates() {
 
 				it('should parse parser functions containing multiple gallery parameters', function () {
 					const text =
-						'{{#bcp47:1\n' +
+						'{{#if:1\n' +
 						'|<gallery>\n' +
 						'A|{{Bar}}\n' +
 						'</gallery>\n' +
