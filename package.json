@@ -9,27 +9,18 @@
     "dist"
   ],
   "scripts": {
-    "mwbot": "ts-node src/test/test_mwbot.ts",
-    "mwbot-log": "node scripts/logger.js src/test/test_mwbot.ts _mwbot",
-    "general": "ts-node src/test/test_general.ts",
-    "Title": "ts-node src/test/test_Title.ts",
-    "Wikitext": "ts-node src/test/test_Wikitext.ts",
-    "Wikitext-log": "node scripts/logger.js src/test/test_Wikitext.ts _Wikitext",
-    "readme": "ts-node src/test/test_readme.ts",
-    "readme-log": "node scripts/logger.js src/test/test_readme.ts _readme",
-    "readme-links": "npx markdown-link-check README.md",
-    "test-build": "ts-node src/test/test_build.ts",
     "version": "node scripts/generate-version.js",
     "build": "npm run version && node scripts/empty-dir.js dist/build && tsc -p . && node scripts/generate-index.js",
-    "docs": "node scripts/empty-dir.js docs && npx typedoc --options typedoc.json",
-    "update": "scripts/update-version.sh",
     "test:unit": "mocha tests/unit/*Test.js",
     "test:unit-one": "node scripts/test-unit-one.js",
     "test:setup": "cd tests/docker && bash setup.sh",
     "test:localwiki": "mocha tests/integration/localwiki/test.js",
     "test:testwiki": "node tests/integration/testwiki/run.js",
     "test:oneoff-localwiki": "node tests/oneoff/localwiki.js",
-    "test:oneoff-testwiki": "node tests/oneoff/testwiki.js"
+    "test:oneoff-testwiki": "node tests/oneoff/testwiki.js",
+    "readme-links": "npx markdown-link-check README.md",
+    "docs": "node scripts/empty-dir.js docs && npx typedoc --options typedoc.json",
+    "update": "scripts/update-version.sh"
   },
   "engines": {
     "node": ">=18"
