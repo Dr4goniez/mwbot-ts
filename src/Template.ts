@@ -1281,16 +1281,16 @@ export function TemplateFactory(
 		rawTitle: string;
 
 		// ParsedTemplatePropsBase
-		text: string;
-		nestLevel: number;
+		declare text: string;
+		declare nestLevel: number;
 
 		// ParseResultBase
-		startIndex: number;
-		endIndex: number;
-		skip: boolean;
-		index: number;
-		parent: number | null;
-		children: ReadonlySet<number>;
+		declare startIndex: number;
+		declare endIndex: number;
+		declare skip: boolean;
+		declare index: number;
+		declare parent: number | null;
+		declare children: ReadonlySet<number>;
 
 		// internal
 		/**
@@ -1303,19 +1303,7 @@ export function TemplateFactory(
 		#initializer: ParsedTemplateInitializer;
 
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
-			const {
-				title,
-				rawTitle,
-				params,
-				text,
-				nestLevel,
-				startIndex,
-				endIndex,
-				skip,
-				index,
-				parent,
-				children,
-			} = initializer;
+			const { title, rawTitle, params, ...parsedProps } = initializer;
 
 			const t = Template.validateTitle(title);
 			const titleStr = t.getPrefixedDb();
@@ -1325,14 +1313,7 @@ export function TemplateFactory(
 			this.#initializer = cloneDeep(initializer);
 			this.rawTitle = rawTitle.replace('\x01', title);
 			this.#rawTitle = rawTitle;
-			this.text = text;
-			this.nestLevel = nestLevel;
-			this.startIndex = startIndex;
-			this.endIndex = endIndex;
-			this.skip = skip;
-			this.index = index;
-			this.parent = parent;
-			this.children = new Set([...children]);
+			Object.assign(this, cloneDeep(parsedProps));
 		}
 
 		toParserFunction(title: string): ParsedParserFunction | null {
@@ -1387,16 +1368,16 @@ export function TemplateFactory(
 		rawTitle: string;
 
 		// ParsedTemplatePropsBase
-		text: string;
-		nestLevel: number;
+		declare text: string;
+		declare nestLevel: number;
 
 		// ParseResultBase
-		startIndex: number;
-		endIndex: number;
-		skip: boolean;
-		index: number;
-		parent: number | null;
-		children: ReadonlySet<number>;
+		declare startIndex: number;
+		declare endIndex: number;
+		declare skip: boolean;
+		declare index: number;
+		declare parent: number | null;
+		declare children: ReadonlySet<number>;
 
 		// internal
 		/**
@@ -1409,33 +1390,14 @@ export function TemplateFactory(
 		#initializer: ParsedTemplateInitializer;
 
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
-			const {
-				title,
-				rawTitle,
-				params,
-				text,
-				nestLevel,
-				startIndex,
-				endIndex,
-				skip,
-				index,
-				parent,
-				children,
-			} = initializer;
+			const { title, rawTitle, params, ...parsedProps } = initializer;
 
 			super(title, params, options.hierarchies?.[title]);
 
 			this.#initializer = cloneDeep(initializer);
 			this.rawTitle = rawTitle.replace('\x01', title);
 			this.#rawTitle = rawTitle;
-			this.text = text;
-			this.nestLevel = nestLevel;
-			this.startIndex = startIndex;
-			this.endIndex = endIndex;
-			this.skip = skip;
-			this.index = index;
-			this.parent = parent;
-			this.children = new Set([...children]);
+			Object.assign(this, cloneDeep(parsedProps));
 		}
 
 		setTitle(title: string): this {
@@ -1615,16 +1577,16 @@ export function TemplateFactory(
 		rawHook: string;
 
 		// ParsedTemplatePropsBase
-		text: string;
-		nestLevel: number;
+		declare text: string;
+		declare nestLevel: number;
 
 		// ParseResultBase
-		startIndex: number;
-		endIndex: number;
-		skip: boolean;
-		index: number;
-		parent: number | null;
-		children: ReadonlySet<number>;
+		declare startIndex: number;
+		declare endIndex: number;
+		declare skip: boolean;
+		declare index: number;
+		declare parent: number | null;
+		declare children: ReadonlySet<number>;
 
 		// internal
 		/**
@@ -1637,19 +1599,7 @@ export function TemplateFactory(
 		#initializer: ParsedTemplateInitializer;
 
 		constructor(initializer: ParsedTemplateInitializer, verifiedHook?: VerifiedFunctionHook) {
-			const {
-				title,
-				rawTitle,
-				params,
-				text,
-				nestLevel,
-				startIndex,
-				endIndex,
-				skip,
-				index,
-				parent,
-				children,
-			} = initializer;
+			const { title, rawTitle, params, ...parsedProps } = initializer;
 
 			if (!verifiedHook) {
 				const v = ParserFunction.verify(title);
@@ -1707,14 +1657,7 @@ export function TemplateFactory(
 			this.#initializer = cloneDeep(initializer);
 			this.rawHook = rawHook;
 			this.#rawHook = _rawHook;
-			this.text = text;
-			this.nestLevel = nestLevel;
-			this.startIndex = startIndex;
-			this.endIndex = endIndex;
-			this.skip = skip;
-			this.index = index;
-			this.parent = parent;
-			this.children = new Set([...children]);
+			Object.assign(this, cloneDeep(parsedProps));
 		}
 
 		toTemplate(title: string | Title): ParsedTemplate | null {
