@@ -373,16 +373,14 @@ export interface ParsedTemplate extends Template, ParsedTemplateProps<ParsedTemp
 	 * making any changes to the instance properties.
 	 *
 	 * @param title The parser function hook to convert this title to, **including** a trailing
-	 * colon character (e.g., `"#if:"`; see also {@link ParserFunctionStatic.verify}). If a `Title`
-	 * instance is passed, the output of `title.getPrefixedDb({ colon: true, fragment: true })`
-	 * is validated.
+	 * colon character (e.g., `"#if:"`; see also {@link ParserFunctionStatic.verify}).
 	 *
-	 * When passing a string, it can (and should) include the function’s first parameter (e.g., `"#if:1"`).
-	 * The second and subsequent parameters are initialized based on {@link params}.
+	 * The hook can include the function’s first parameter (e.g., `"#if:1"`). The second and
+	 * subsequent parameters are initialized based on {@link params}.
 	 *
 	 * @returns A new {@link ParsedParserFunction} instance on success; otherwise, `null`.
 	 */
-	toParserFunction(title: string | Title): ParsedParserFunction | null;
+	toParserFunction(title: string): ParsedParserFunction | null;
 	/**
 	 * @inheritdoc
 	 */
@@ -490,16 +488,14 @@ export interface RawTemplate extends TemplateBase<string>, ParsedTemplateProps<R
 	 * making any changes to the instance properties.
 	 *
 	 * @param title The parser function hook to convert this title to, **including** a trailing
-	 * colon character (e.g., `"#if:"`; see also {@link ParserFunctionStatic.verify}). If a {@link Title}
-	 * instance is passed, the output of `title.getPrefixedDb({ colon: true, fragment: true })`
-	 * is validated.
+	 * colon character (e.g., `"#if:"`; see also {@link ParserFunctionStatic.verify}).
 	 *
-	 * When passing a string, it can (and should) include the function’s first parameter (e.g., `'#if:1'`).
-	 * The second and subsequent parameters are initialized based on {@link params}.
+	 * The hook can include the function’s first parameter (e.g., `"#if:1"`). The second and
+	 * subsequent parameters are initialized based on {@link params}.
 	 *
 	 * @returns A new {@link ParsedParserFunction} instance on success; otherwise, `null`.
 	 */
-	toParserFunction(title: string | Title): ParsedParserFunction | null;
+	toParserFunction(title: string): ParsedParserFunction | null;
 	/**
 	 * Stringifies the instance.
 	 *
@@ -729,19 +725,7 @@ export function TemplateFactory(
 		 * * `title` is a function hook rather than a template title. (`invalidinput`)
 		 * * The provided title is interwiki and cannot be transcluded. (`invalidtitle`)
 		 */
-		protected static validateTitle(title: string | Title, asHook?: false): Title;
-		/**
-		 * Validates the given title as a function hook and returns a verified hook object.
-		 *
-		 * @param title The title to validate as a function hook.
-		 * @param asHook Whether to validate the title as a function hook.
-		 * @returns
-		 * @throws {MwbotError} If:
-		 * * `title` is neither a string nor a Title instance. (`typemismatch`)
-		 * * `title` is not a valid function hook. (`invalidinput`)
-		 */
-		protected static validateTitle(title: string | Title, asHook: true): VerifiedFunctionHook;
-		protected static validateTitle(title: string | Title, asHook = false): Title | VerifiedFunctionHook {
+		protected static validateTitle(title: string | Title): Title {
 			if (typeof title !== 'string' && !(title instanceof Title)) {
 				throw new MwbotError(
 					'fatal',
@@ -753,44 +737,29 @@ export function TemplateFactory(
 				);
 			}
 
-			const hook = ParserFunction.verify(
-				typeof title === 'string'
-					? title
-					: title.getPrefixedDb({ colon: true, fragment: true })
-			);
-			if (asHook) {
-				if (hook) {
-					return hook;
-				} else {
-					throw new MwbotError('fatal', {
-						code: 'invalidinput',
-						info: `Failed to validate "${title}" as a function hook.`,
-					});
-				}
-			} else if (hook) {
-				// asHook is false but `title` is a function hook.
-				// In transclusion markup (i.e., "{{title}}"), local templates are ignored if `title` is
-				// recognized as a function hook. For example, "{{bidi:text}}" is recognized as a function
-				// call even if [[Template:Bidi]] exists; therefore function-like template titles should
-				// be rejected.
-				throw new MwbotError('fatal', {
-					code: 'invalidinput',
-					info: `"${title}" is a function hook and cannot be used as a template title.`,
-				});
-			}
-
 			// TODO: Handle "/" (subpage) and "#" (in-page section)?
-			const rawTitle = typeof title === 'string'
+			const normalizedTitle = typeof title === 'string'
 				? Title.clean(title.replace(/_/g, ' '))
 				: title.getPrefixedDb({
 					colon: true,
 					fragment: true,
 					interwiki: true,
 				});
-			const namespace = rawTitle.startsWith(':')
+
+			if (ParserFunction.verify(normalizedTitle)) {
+				// In transclusion markup (e.g. "{{title}}"), MediaWiki interprets parser
+				// function hooks before template titles. Therefore, titles that are valid
+				// function hooks cannot refer to templates.
+				throw new MwbotError('fatal', {
+					code: 'invalidinput',
+					info: `"${normalizedTitle}" is a function hook and cannot be used as a template title.`,
+				});
+			}
+
+			const namespace = normalizedTitle.startsWith(':')
 				? NS_MAIN
 				: NS_TEMPLATE;
-			title = new Title(rawTitle, namespace);
+			title = new Title(normalizedTitle, namespace);
 
 			if (title.isExternal() && !title.isTrans()) {
 				throw new MwbotError(
@@ -1366,17 +1335,16 @@ export function TemplateFactory(
 			this.children = new Set([...children]);
 		}
 
-		toParserFunction(title: string | Title): ParsedParserFunction | null {
-			title = typeof title === 'string' ? title : title.getPrefixedDb({ colon: true, fragment: true });
+		toParserFunction(title: string): ParsedParserFunction | null {
+			// Keep this in sync with RawTemplate#toParserFunction
 			try {
-				Template.validateTitle(title, true);
+				const initializer = cloneDeep(this.#initializer);
+				initializer.title = title;
+				return new ParsedParserFunction(initializer);
 			} catch (err) {
 				logger.error(err as MwbotError);
 				return null;
 			}
-			const initializer = cloneDeep(this.#initializer);
-			initializer.title = title;
-			return new ParsedParserFunction(initializer);
 		}
 
 		override stringify(options: ParsedTemplateOutputConfig = {}): string {
@@ -1488,17 +1456,16 @@ export function TemplateFactory(
 			return new ParsedTemplate(initializer);
 		}
 
-		toParserFunction(title: string | Title): ParsedParserFunction | null {
-			title = typeof title === 'string' ? title : title.getPrefixedDb({ colon: true, fragment: true });
+		toParserFunction(title: string): ParsedParserFunction | null {
+			// Keep this in sync with ParsedTemplate#toParserFunction
 			try {
-				Template.validateTitle(title, true);
+				const initializer = cloneDeep(this.#initializer);
+				initializer.title = title;
+				return new ParsedParserFunction(initializer);
 			} catch (err) {
 				logger.error(err as MwbotError);
 				return null;
 			}
-			const initializer = cloneDeep(this.#initializer);
-			initializer.title = title;
-			return new ParsedParserFunction(initializer);
 		}
 
 		stringify(options: RawTemplateOutputConfig = {}): string {

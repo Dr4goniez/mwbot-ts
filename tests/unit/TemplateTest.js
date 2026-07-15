@@ -53,29 +53,11 @@ describe('Mwbot.Template', function () {
 				);
 			});
 
-			describe('Function hook validation', function () {
-				it('should accept parser function hooks when asHook is true', function () {
-					const hook = validateTitle('#if:', true);
-
-					assert.deepEqual(hook, {
-						canonical: '#if:',
-						match: '#if:',
-					});
-				});
-
-				it('should reject non-parser-function titles when asHook is true', function () {
-					assertThrowsMwbotError(
-						() => validateTitle('Infobox', true),
-						'invalidinput'
-					);
-				});
-
-				it('should reject parser function hooks by default', function () {
-					assertThrowsMwbotError(
-						() => validateTitle('#if:'),
-						'invalidinput'
-					);
-				});
+			it('should reject parser function hooks', function () {
+				assertThrowsMwbotError(
+					() => validateTitle('bidi:'),
+					'invalidinput'
+				);
 			});
 
 			it('should reject non-transcludable interwiki titles', function () {
