@@ -719,28 +719,26 @@ export function TemplateFactory(
 		}
 
 		/**
-		 * Validates the given title as a template title and returns a Title instance. The title must not be
-		 * a parser function hook. On failure, this method throws an error.
+		 * Validates the given title as a template title and returns a Title instance.
 		 *
-		 * @param title The (prefixed) title to validate as a template title.
+		 * @param title The title to validate as a template title.
 		 * @param asHook Whether to validate the title as a function hook.
 		 * @returns
 		 * @throws {MwbotError} If:
 		 * * `title` is neither a string nor a Title instance. (`typemismatch`)
-		 * * A valid function hook is provided but `asHook` is not `true`. (`internal`)
+		 * * `title` is a function hook rather than a template title. (`invalidinput`)
 		 * * The provided title is interwiki and cannot be transcluded. (`invalidtitle`)
 		 */
 		protected static validateTitle(title: string | Title, asHook?: false): Title;
 		/**
-		 * Validates the given title as a function hook and returns a verified hook object. On failure, this method
-		 * throws an error.
+		 * Validates the given title as a function hook and returns a verified hook object.
 		 *
-		 * @param title The (prefixed) title to validate as a function hook.
+		 * @param title The title to validate as a function hook.
 		 * @param asHook Whether to validate the title as a function hook.
 		 * @returns
 		 * @throws {MwbotError} If:
 		 * * `title` is neither a string nor a Title instance. (`typemismatch`)
-		 * * The provided title is interwiki and cannot be transcluded. (`invalidtitle`)
+		 * * `title` is not a valid function hook. (`invalidinput`)
 		 */
 		protected static validateTitle(title: string | Title, asHook: true): VerifiedFunctionHook;
 		protected static validateTitle(title: string | Title, asHook = false): Title | VerifiedFunctionHook {
@@ -760,12 +758,24 @@ export function TemplateFactory(
 					? title
 					: title.getPrefixedDb({ colon: true, fragment: true })
 			);
-			if (hook && asHook) {
-				return hook;
+			if (asHook) {
+				if (hook) {
+					return hook;
+				} else {
+					throw new MwbotError('fatal', {
+						code: 'invalidinput',
+						info: `Failed to validate "${title}" as a function hook.`,
+					});
+				}
 			} else if (hook) {
+				// asHook is false but `title` is a function hook.
+				// In transclusion markup (i.e., "{{title}}"), local templates are ignored if `title` is
+				// recognized as a function hook. For example, "{{bidi:text}}" is recognized as a function
+				// call even if [[Template:Bidi]] exists; therefore function-like template titles should
+				// be rejected.
 				throw new MwbotError('fatal', {
-					code: 'internal',
-					info: `"${hook}" is a parser function hook.`,
+					code: 'invalidinput',
+					info: `"${title}" is a function hook and cannot be used as a template title.`,
 				});
 			}
 
