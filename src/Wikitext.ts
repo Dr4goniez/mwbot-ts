@@ -114,6 +114,7 @@ import {
 	TAG_HTML,
 	TAG_SINGLE_ALLOWED,
 	TAG_SINGLE_ONLY,
+	TAG_TRANSCLUSION,
 	tagRegex,
 } from './internal/wikitext/tagHelpers.js';
 import {
@@ -455,11 +456,15 @@ export function WikitextFactory(
 	const NS_FILE = namespaceIds.file;
 
 	const TAG_EXT = getParserExtensionTags(info);
-	const TAG_VALID: ReadonlySet<string> = new Set([...TAG_HTML, ...TAG_EXT]);
+	const TAG_VALID: ReadonlySet<string> = new Set([
+		...TAG_HTML, ...TAG_TRANSCLUSION, ...TAG_EXT,
+	]);
 	const TAG_CLOSEABLE: ReadonlySet<string> = new Set(
 		Array.from(TAG_VALID).filter(tag => !TAG_SINGLE_ONLY.has(tag))
 	);
-	const TAG_SELF_CLOSEABLE: ReadonlySet<string> = new Set([...TAG_SINGLE_ALLOWED, ...TAG_EXT]);
+	const TAG_SELF_CLOSEABLE: ReadonlySet<string> = new Set([
+		...TAG_SINGLE_ALLOWED, ...TAG_TRANSCLUSION, ...TAG_EXT,
+	]);
 	const TAG_SKIP_RECOGNIZED = getRecognizedSkipTags(TAG_EXT);
 
 	const getTagsByType = (type: TagType = 'any'): ReadonlySet<string> => {
@@ -474,6 +479,8 @@ export function WikitextFactory(
 				return TAG_CLOSEABLE;
 			case 'skip':
 				return TAG_SKIP_RECOGNIZED;
+			case 'transclusion':
+				return TAG_TRANSCLUSION;
 			default:
 				return TAG_VALID;
 		}
@@ -1920,6 +1927,7 @@ interface StorageArgumentMap {
  * * `'selfClosing'` - Tags that may be written using self-closing syntax (e.g., `<ref />` or `<br />`).
  * * `'closeable'` - Tags that can have a closing tag (i.e., not void).
  * * `'skip'` - Tags inside which wikitext is not parsed.
+ * * `'transclusion'` - MediaWiki tags that manipulate transclusion strategies.
  */
 export type TagType =
 	| 'any'
@@ -1927,7 +1935,8 @@ export type TagType =
 	| 'extension'
 	| 'selfClosing'
 	| 'closeable'
-	| 'skip';
+	| 'skip'
+	| 'transclusion';
 
 /**
  * Object that holds information about an HTML tag, parsed from wikitext.

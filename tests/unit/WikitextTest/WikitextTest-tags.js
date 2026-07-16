@@ -65,6 +65,14 @@ export function testWikitextTags() {
 				assert.isFalse(tags.has('div'));
 			});
 
+			it('should return transclusion tags', function () {
+				const tags = mwbot.Wikitext.getValidTags('transclusion');
+
+				assert.isTrue(tags.has('includeonly'));
+				assert.isTrue(tags.has('noinclude'));
+				assert.isTrue(tags.has('onlyinclude'));
+			});
+
 			it('should not allow modifications to affect future results', function () {
 				const tags = mwbot.Wikitext.getValidTags();
 
@@ -112,6 +120,13 @@ export function testWikitextTags() {
 				assert.isTrue(mwbot.Wikitext.isValidTag('nowiki', 'skip'));
 				assert.isTrue(mwbot.Wikitext.isValidTag('pre', 'skip'));
 				assert.isFalse(mwbot.Wikitext.isValidTag('div', 'skip'));
+			});
+
+			it('should validate transclusion tags', function () {
+				assert.isTrue(mwbot.Wikitext.isValidTag('includeonly', 'transclusion'));
+				assert.isTrue(mwbot.Wikitext.isValidTag('noinclude', 'transclusion'));
+				assert.isTrue(mwbot.Wikitext.isValidTag('onlyinclude', 'transclusion'));
+				assert.isFalse(mwbot.Wikitext.isValidTag('div', 'transclusion'));
 			});
 
 			it('should be case-insensitive', function () {

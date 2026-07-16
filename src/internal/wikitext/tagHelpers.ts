@@ -110,6 +110,18 @@ export const TAG_HTML: ReadonlySet<string> = new Set([...TAG_SINGLE, ...TAG_PAIR
 // -------- Adapted from Sanitizer::getRecognizedTagData end --------
 
 /**
+ * Set of transclusion-manipulating tags.
+ *
+ * These are defined in `Preprocessor_Hash::buildDomTreeArrayFromText` and
+ * technically different from parser extension tags.
+ *
+ * See also https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/refs/heads/master/includes/Parser/Preprocessor_Hash.php
+ */
+export const TAG_TRANSCLUSION: ReadonlySet<string> = new Set([
+	'includeonly', 'noinclude', 'onlyinclude',
+]);
+
+/**
  * Returns a Set of parser extension tag names supported on the current wiki.
  *
  * Note that parser extension tags allow self-closure by specs.
@@ -126,10 +138,6 @@ export function getParserExtensionTags(info: Mwbot['_info']): ReadonlySet<string
 
 	// Depends on whether $wgRawHtml is enabled
 	// list.push('html');
-
-	// Defined in Preprocessor_Hash::buildDomTreeArrayFromText
-	// See https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/refs/heads/master/includes/Parser/Preprocessor_Hash.php
-	list.push('includeonly', 'noinclude', 'onlyinclude');
 
 	const rTag = /^<([^>]+)>$/;
 	for (const extTag of info.extensiontags) {
