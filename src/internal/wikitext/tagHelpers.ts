@@ -227,11 +227,6 @@ export const tagRegex = {
 	 * * `$2`: `tag` (undefined for comment tags)
 	 */
 	end: /^(--)>|^<\/([^>\s]+)(?:\s[^>]*)?>/,
-	/**
-	 * Matches the names of void tags. `<source>` is excluded because it is not considered void in wikitext.
-	 * @see https://developer.mozilla.org/en-US/docs/Glossary/Void_element
-	 */
-	void: /^(?:area|base|br|col|embed|hr|img|input|link|meta|param|track|wbr)$/,
 };
 
 /**
