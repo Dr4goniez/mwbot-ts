@@ -9,6 +9,7 @@ import { defineConfig } from "eslint/config";
 export default defineConfig([
 	{ files: ["**/*.{js,mjs,cjs,ts,mts,cts}"], plugins: { js }, extends: ["js/recommended"], languageOptions: { globals: globals.node } },
 	tseslint.configs.recommended,
+	stylistic.configs.recommended,
 	{ files: ["**/*.json"], plugins: { json }, language: "json/json", extends: ["json/recommended"] },
 	{ files: ["**/*.jsonc"], plugins: { json }, language: "json/jsonc", extends: ["json/recommended"] },
 	{ files: ["**/*.md"], plugins: { markdown }, language: "markdown/gfm", extends: ["markdown/recommended"] },
@@ -25,14 +26,16 @@ export default defineConfig([
 			"@typescript-eslint/no-empty-object-type": "off",
 			"@typescript-eslint/no-explicit-any": "off",
 			"@typescript-eslint/no-unused-vars": [
-				"warn",
+				'error',
 				{
 					"argsIgnorePattern": "^_",
 					"varsIgnorePattern": "^_",
 					"caughtErrorsIgnorePattern": "^_",
 				},
 			],
-			"@stylistic/comma-dangle": ["warn", {
+			'@stylistic/arrow-parens': ['error', 'always'],
+			'@stylistic/brace-style': ['error', '1tbs', { allowSingleLine: false }],
+			"@stylistic/comma-dangle": ['error', {
 				"arrays": "always-multiline",
 				"objects": "always-multiline",
 				"imports": "always-multiline",
@@ -44,10 +47,41 @@ export default defineConfig([
 				"generics": "always-multiline",
 				"tuples": "always-multiline",
 			}],
-			"@stylistic/indent": ["warn", "tab", {
+			"@stylistic/indent": ['error', "tab", {
 				"flatTernaryExpressions": true,
 			}],
-			"@stylistic/no-trailing-spaces": "warn",
+			'@stylistic/indent-binary-ops': ['error', 'tab'],
+			'@stylistic/padded-blocks': ['error', { classes: 'start' }],
+			'@stylistic/lines-between-class-members': 'off',
+			'@stylistic/member-delimiter-style': [
+				'error',
+				{
+					multiline: {
+						delimiter: 'semi',
+						requireLast: true,
+					},
+					singleline: {
+						delimiter: 'semi',
+						requireLast: false,
+					},
+					multilineDetection: 'brackets',
+				},
+			],
+			'@stylistic/multiline-ternary': 'off',
+			'@stylistic/no-tabs': ['error', { allowIndentationTabs: true }],
+			"@stylistic/no-trailing-spaces": 'error',
+			'@stylistic/operator-linebreak': [
+				'error',
+				'after',
+				{
+					overrides: {
+						'?': 'before',
+						':': 'ignore',
+						'|': 'before',
+					},
+				},
+			],
+			'@stylistic/quote-props': ['error', 'as-needed'],
 			"@stylistic/semi": ["error", "always"],
 			"json/no-empty-keys": "off",
 		},
@@ -56,7 +90,6 @@ export default defineConfig([
 		ignores: [
 			"dist/**",
 			"docs/**",
-			"src/test/**",
 			"tsconfig.json",
 		],
 	},
