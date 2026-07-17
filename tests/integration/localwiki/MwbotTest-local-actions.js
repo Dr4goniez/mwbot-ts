@@ -99,14 +99,14 @@ export function testMwbotLocalActions(getMwbot, _testDomain, authMethod) {
 					purge,
 					[
 						{
-							"ns": 0,
-							"title": page1,
-							"purged": true,
+							ns: 0,
+							title: page1,
+							purged: true,
 						},
 						{
-							"ns": 0,
-							"title": page2,
-							"missing": true,
+							ns: 0,
+							title: page2,
+							missing: true,
 						},
 					]
 				);

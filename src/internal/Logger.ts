@@ -34,7 +34,7 @@ export class Logger {
 		this.suppressInfo = options?.suppressInfo ?? false;
 		this.suppressWarnings = options?.suppressWarnings ?? false;
 		this.outputErrors = options?.outputErrors ?? false;
-		this.unredactErrors = options?.unredactErrors  ?? false;
+		this.unredactErrors = options?.unredactErrors ?? false;
 	}
 
 	private getPrefix(
@@ -195,7 +195,8 @@ function redactAxiosResponse(response: AxiosResponse): RedactedAxiosResponse {
 }
 
 type RedactedAxiosError =
-	Pick<AxiosError,
+	Pick<
+		AxiosError,
 		| 'name'
 		| 'message'
 		| 'stack'
@@ -241,5 +242,8 @@ function redactAxiosError(error: AxiosError): RedactedAxiosError {
 
 type RedactedMwbotError =
 	Omit<MwbotError, 'data'> &
-	{ data?: Omit<MwbotError['data'], 'axios'> &
-	{ axios: RedactedAxiosResponse | RedactedAxiosError } };
+	{
+		data?: Omit<MwbotError['data'], 'axios'> & {
+			axios: RedactedAxiosResponse | RedactedAxiosError;
+		};
+	};

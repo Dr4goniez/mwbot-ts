@@ -500,7 +500,7 @@ describe('Mwbot.Template', function () {
 				]);
 
 				assert.isTrue(
-					tpl.hasParam(param => param.value === '1')
+					tpl.hasParam((param) => param.value === '1')
 				);
 			});
 
@@ -509,7 +509,7 @@ describe('Mwbot.Template', function () {
 					{ key: 'a', value: '1' },
 				]);
 
-				tpl.hasParam(param => {
+				tpl.hasParam((param) => {
 					param.value = 'modified';
 					return false;
 				});

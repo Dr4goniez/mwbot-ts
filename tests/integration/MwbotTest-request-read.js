@@ -127,7 +127,7 @@ export function testMwbotReadRequests(getMwbot, testDomain, _authMethod) {
 					getTitle(2),
 				];
 
-				const res = await getMwbot().read(titles.map(obj => obj.title));
+				const res = await getMwbot().read(titles.map((obj) => obj.title));
 
 				assert.notInstanceOf(res[0], MwbotError);
 				validateReadResponseObject(res[0], titles[0].ns, titles[0].title);
@@ -154,7 +154,7 @@ export function testMwbotReadRequests(getMwbot, testDomain, _authMethod) {
 					getTitle(3),
 				];
 
-				const res = await getMwbot().read(titles.map(obj => obj.title));
+				const res = await getMwbot().read(titles.map((obj) => obj.title));
 
 				assert.notInstanceOf(res[0], MwbotError);
 				validateReadResponseObject(res[0], titles[0].ns, titles[0].title);

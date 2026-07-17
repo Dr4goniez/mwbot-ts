@@ -4,15 +4,15 @@
  * ### Classes:
  * - {@link WikilinkStatic | Wikilink}: Encapsulates `[[wikilink]]` markups with a *non-file* title
  * as objects. Accessible via {@link Mwbot#Wikilink}.
- * 	- {@link ParsedWikilinkStatic | ParsedWikilink}: A subclass of `Wikilink`, whose instances are
+ *   - {@link ParsedWikilinkStatic | ParsedWikilink}: A subclass of `Wikilink`, whose instances are
  * returned by {@link Wikitext.parseWikilinks}.
  * - {@link FileWikilinkStatic | FileWikilink}: Encapsulates `[[wikilink]]` markups with a *file* title
  * as objects. Accessible via {@link Mwbot#FileWikilink}.
- * 	- {@link ParsedFileWikilinkStatic | ParsedFileWikilink}: A subclass of `FileWikilink`, whose instances are
+ *   - {@link ParsedFileWikilinkStatic | ParsedFileWikilink}: A subclass of `FileWikilink`, whose instances are
  * returned by {@link Wikitext.parseWikilinks}.
  * - {@link RawWikilinkStatic | RawWikilink}: Encapsulates `[[wikilink]]` markups with an *unparsable* title
  * as objects. Accessible via {@link Mwbot#RawWikilink}.
- * 	- {@link ParsedRawWikilinkStatic | ParsedRawWikilink}: A subclass of `RawWikilink`, whose instances are
+ *   - {@link ParsedRawWikilinkStatic | ParsedRawWikilink}: A subclass of `RawWikilink`, whose instances are
  * returned by {@link Wikitext.parseWikilinks}.
  *
  * @module
@@ -767,7 +767,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic, log
 
 		override stringify(options: ParsedWikilinkOutputConfig = {}): string {
 			const { suppressDisplay, rawTitle } = options;
-			const right = !suppressDisplay && this._display || undefined;
+			const right = (!suppressDisplay && this._display) || undefined;
 			let title = this._title.getPrefixedText({ colon: true, fragment: true });
 			if (rawTitle && this.#rawTitle.includes('\x01')) {
 				title = this.#rawTitle.replace('\x01', title);
@@ -799,6 +799,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic, log
 	// const _parsedWikilinkCheckInstance: ParsedWikilink = new ParsedWikilink(Object.create(null));
 
 	class FileWikilink extends ParamBase implements FileWikilink {
+
 		// Unlike Wikilink and RawWikilink, the right part of file links doesn't work as their display text
 		// but as parameters. This class hence extends ParamBase instead of WikilinkBase.
 
@@ -913,7 +914,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic, log
 			this.children = new Set([...children]);
 		}
 
-		override toWikilink(title: string | Title): ParsedWikilink | null{
+		override toWikilink(title: string | Title): ParsedWikilink | null {
 			// ParsedFileWikilinkInitializer has a `params` property but ParsedWikilinkInitializer doesn't,
 			// and has an additional `display` property (which is optional)
 			try {
@@ -1008,7 +1009,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic, log
 		}
 
 		stringify(options: RawWikilinkOutputConfig = {}): string {
-			const right = !options.suppressDisplay && this._display || undefined;
+			const right = (!options.suppressDisplay && this._display) || undefined;
 			return serializeWikilink(this._title, right);
 		}
 
@@ -1089,7 +1090,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic, log
 
 		override stringify(options: ParsedRawWikilinkOutputConfig = {}): string {
 			const { suppressDisplay, rawTitle } = options;
-			const right = !suppressDisplay && this._display || undefined;
+			const right = (!suppressDisplay && this._display) || undefined;
 			let title = this._title;
 			if (rawTitle && this.#rawTitle.includes('\x01')) {
 				title = this.#rawTitle.replace('\x01', title);

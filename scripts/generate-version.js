@@ -8,7 +8,7 @@ const pkg = JSON.parse(readFileSync(packageJson, 'utf-8'));
 const version = pkg.version;
 
 // Generate version.ts content
-const output = `export const MWBOT_VERSION = ${JSON.stringify(version)};`;
+const output = `export const MWBOT_VERSION = '${version}';\n`;
 
 // Write to src/version.ts
 const outputPath = resolve(rootDir, 'src/version.ts');

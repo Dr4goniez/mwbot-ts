@@ -69,9 +69,9 @@ export function codePointLength(str: string): number {
 export function charAt(string: string, offset: number, backwards = false): string {
 	// We don't need to check for offsets at the beginning or end of string,
 	// String#slice will simply return a shorter (or empty) substring.
-	const maybePair = backwards ?
-		string.slice(offset - 1, offset + 1) :
-		string.slice(offset, offset + 2);
+	const maybePair = backwards
+		? string.slice(offset - 1, offset + 1)
+		: string.slice(offset, offset + 2);
 	if (/^[\uD800-\uDBFF][\uDC00-\uDFFF]$/.test(maybePair)) {
 		return maybePair;
 	} else {
@@ -198,7 +198,7 @@ export type FilterFunction = (val: string) => string;
 export function trimByteLength(safeVal: string, newVal: string, byteLimit: number, filterFunction?: FilterFunction): StringTrimmed {
 	let lengthFn;
 	if (filterFunction) {
-		lengthFn = function(val: string) {
+		lengthFn = function (val: string) {
 			return byteLength(filterFunction(val));
 		};
 	} else {
@@ -223,7 +223,7 @@ export function trimByteLength(safeVal: string, newVal: string, byteLimit: numbe
 export function trimCodePointLength(safeVal: string, newVal: string, codePointLimit: number, filterFunction?: FilterFunction): StringTrimmed {
 	let lengthFn;
 	if (filterFunction) {
-		lengthFn = function(val: string) {
+		lengthFn = function (val: string) {
 			return codePointLength(filterFunction(val));
 		};
 	} else {

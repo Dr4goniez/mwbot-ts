@@ -129,7 +129,7 @@ export function testWikitextParameters() {
 					'{{{a}}}{{{b}}}'
 				);
 				const params = wt.parseParameters({
-					keyPredicate: key => key === 'b',
+					keyPredicate: (key) => key === 'b',
 				});
 
 				assert.lengthOf(params, 1);
@@ -141,7 +141,7 @@ export function testWikitextParameters() {
 					'{{{a}}}{{{b|x}}}'
 				);
 				const params = wt.parseParameters({
-					parameterPredicate: p => p.value !== null,
+					parameterPredicate: (p) => p.value !== null,
 				});
 
 				assert.lengthOf(params, 1);
@@ -169,7 +169,7 @@ export function testWikitextParameters() {
 				const params = wt.parseParameters();
 
 				assert.lengthOf(params, 3);
-				assert.deepEqual(params.map(p => p.key), ['a', 'b', 'c']);
+				assert.deepEqual(params.map((p) => p.key), ['a', 'b', 'c']);
 				assert.isNull(params[0].parent);
 				assert.isNull(params[1].parent);
 				assert.isNull(params[2].parent);

@@ -3,7 +3,6 @@ import { assert } from 'chai';
 import { MwbotError } from '../../dist/index.js';
 
 describe('MwbotError', function () {
-
 	describe('Constructor', function () {
 		it('should create an instance with correct properties', function () {
 			const error = new MwbotError('api_mwbot', {
@@ -277,5 +276,4 @@ describe('MwbotError', function () {
 			assert.strictEqual(cloned.data, undefined);
 		});
 	});
-
 });

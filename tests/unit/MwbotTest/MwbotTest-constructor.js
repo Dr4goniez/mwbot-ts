@@ -281,7 +281,7 @@ export function testMwbotConstructor() {
 			it('should throw an error when the retry also receives an empty response', async function () {
 				const TestMwbot = TestMwbotFactory('empty', Infinity);
 				const mwbotInitOptions = getMwbotInitOptionsBase('named');
-				const promise = TestMwbot.init(mwbotInitOptions).catch(err => err);
+				const promise = TestMwbot.init(mwbotInitOptions).catch((err) => err);
 
 				await Promise.resolve();
 				await clock.tickAsync(5000);
@@ -318,7 +318,7 @@ export function testMwbotConstructor() {
 			it('should throw badauth when userinfo.id remains 0 after a retry', async function () {
 				const TestMwbot = TestMwbotFactory('userId', Infinity);
 				const mwbotInitOptions = getMwbotInitOptionsBase('named');
-				const promise = TestMwbot.init(mwbotInitOptions).catch(err => err);
+				const promise = TestMwbot.init(mwbotInitOptions).catch((err) => err);
 
 				await Promise.resolve();
 				await clock.tickAsync(5000);
@@ -368,7 +368,7 @@ export function testMwbotConstructor() {
 			it('should throw badvars when initConfigData still returns failed keys after a retry', async function () {
 				const TestMwbot = TestMwbotFactory('articlepath', Infinity);
 				const mwbotInitOptions = getMwbotInitOptionsBase('named');
-				const promise = TestMwbot.init(mwbotInitOptions).catch(err => err);
+				const promise = TestMwbot.init(mwbotInitOptions).catch((err) => err);
 
 				await Promise.resolve();
 				await clock.tickAsync(5000);

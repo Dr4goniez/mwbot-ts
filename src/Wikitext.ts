@@ -30,12 +30,12 @@
  * **`{{double-braced}}` markups:**
  * - {@link TemplateStatic | Template}: Encapsulates `{{template}}` markups as objects.
  * Accessible via {@link Mwbot#Template}.
- * 	- {@link ParsedTemplateStatic | ParsedTemplate}: A subclass of `Template`, whose
- * 	instances are returned by {@link Wikitext.parseTemplates}. Its constructor is inaccessible.
+ *   - {@link ParsedTemplateStatic | ParsedTemplate}: A subclass of `Template`, whose
+ *   instances are returned by {@link Wikitext.parseTemplates}. Its constructor is inaccessible.
  * - {@link ParserFunctionStatic | ParserFunction}: Encapsulates `{{#parserfunction:}}` markups.
  * Accessible via {@link Mwbot#ParserFunction}.
- * 	- {@link ParsedParserFunctionStatic | ParsedParserFunction}: A subclass of `ParserFunction`,
- * 	whose instances are returned by {@link Wikitext.parseTemplates}. Its constructor is inaccessible.
+ *   - {@link ParsedParserFunctionStatic | ParsedParserFunction}: A subclass of `ParserFunction`,
+ *   whose instances are returned by {@link Wikitext.parseTemplates}. Its constructor is inaccessible.
  * - {@link RawTemplateStatic | RawTemplate}: Encapsulates `{{template}}` markups with
  * an *unparsable* title. Instances are returned by {@link Wikitext.parseTemplates}.
  * Its constructor is inaccessible.
@@ -43,16 +43,16 @@
  * **`[[double-bracketed]]` markups:**
  * - {@link WikilinkStatic | Wikilink}: Encapsulates `[[wikilink]]` markups with a *non-file* title.
  * Accessible via {@link Mwbot#Wikilink}.
- * 	- {@link ParsedWikilinkStatic | ParsedWikilink}: A subclass of `Wikilink`, whose
- * 	instances are returned by {@link Wikitext.parseWikilinks}. Its constructor is inaccessible.
+ *   - {@link ParsedWikilinkStatic | ParsedWikilink}: A subclass of `Wikilink`, whose
+ *   instances are returned by {@link Wikitext.parseWikilinks}. Its constructor is inaccessible.
  * - {@link FileWikilinkStatic | FileWikilink}: Encapsulates `[[File:...]]` markups.
  * Accessible via {@link Mwbot#FileWikilink}.
- * 	- {@link ParsedFileWikilinkStatic | ParsedFileWikilink}: A subclass of `FileWikilink`, whose
- * 	instances are returned by {@link Wikitext.parseWikilinks}. Its constructor is inaccessible.
+ *   - {@link ParsedFileWikilinkStatic | ParsedFileWikilink}: A subclass of `FileWikilink`, whose
+ *   instances are returned by {@link Wikitext.parseWikilinks}. Its constructor is inaccessible.
  * - {@link RawWikilinkStatic | RawWikilink}: Encapsulates `[[wikilink]]` markups with an *unparsable* title.
  * Accessible via {@link Mwbot#RawWikilink}.
- * 	- {@link ParsedRawWikilinkStatic | ParsedRawWikilink}: A subclass of `RawWikilink`, whose
- * 	instances are returned by {@link Wikitext.parseWikilinks}. Its constructor is inaccessible.
+ *   - {@link ParsedRawWikilinkStatic | ParsedRawWikilink}: A subclass of `RawWikilink`, whose
+ *   instances are returned by {@link Wikitext.parseWikilinks}. Its constructor is inaccessible.
  *
  * @module
  */
@@ -406,16 +406,16 @@ export interface Wikitext {
 	 * @param type The type of expressions to modify.
 	 *
 	 * <table>
-	 * 	<thead>
-	 * 		<tr><th>Type</th><th>First argument of <code>modificationPredicate</code></th></tr>
-	 * 	</thead>
-	 * 	<tbody>
-	 * 		<tr><td>tags</td><td>{@link Tag}</td></tr>
-	 * 		<tr><td>parameters</td><td>{@link Parameter}</td></tr>
-	 * 		<tr><td>sections</td><td>{@link Section}</td></tr>
-	 * 		<tr><td>templates</td><td>{@link ParsedTemplate}, {@link ParsedParserFunction}, or {@link RawTemplate}</td></tr>
-	 * 		<tr><td>wikilinks</td><td>{@link ParsedWikilink}, {@link ParsedFileWikilink}, or {@link ParsedRawWikilink}</td></tr>
-	 * 	</tbody>
+	 *   <thead>
+	 *     <tr><th>Type</th><th>First argument of <code>modificationPredicate</code></th></tr>
+	 *   </thead>
+	 *   <tbody>
+	 *     <tr><td>tags</td><td>{@link Tag}</td></tr>
+	 *     <tr><td>parameters</td><td>{@link Parameter}</td></tr>
+	 *     <tr><td>sections</td><td>{@link Section}</td></tr>
+	 *     <tr><td>templates</td><td>{@link ParsedTemplate}, {@link ParsedParserFunction}, or {@link RawTemplate}</td></tr>
+	 *     <tr><td>wikilinks</td><td>{@link ParsedWikilink}, {@link ParsedFileWikilink}, or {@link ParsedRawWikilink}</td></tr>
+	 *   </tbody>
 	 * </table>
 	 * See also {@link ModificationMap} for the interface that defines this mapping.
 	 *
@@ -457,7 +457,7 @@ export function WikitextFactory(
 	const TAG_EXT = getParserExtensionTags(info);
 	const TAG_VALID: ReadonlySet<string> = new Set([...TAG_HTML, ...TAG_EXT]);
 	const TAG_CLOSEABLE: ReadonlySet<string> = new Set(
-		Array.from(TAG_VALID).filter(tag => !TAG_SINGLE_ONLY.has(tag))
+		Array.from(TAG_VALID).filter((tag) => !TAG_SINGLE_ONLY.has(tag))
 	);
 	const TAG_SELF_CLOSEABLE: ReadonlySet<string> = new Set([...TAG_SINGLE_ALLOWED, ...TAG_EXT]);
 	const TAG_SKIP_RECOGNIZED = getRecognizedSkipTags(TAG_EXT);
@@ -1217,7 +1217,7 @@ export function WikitextFactory(
 			const indexMap: IndexMap = Object.create(null);
 
 			const tags = this.storageManager('tags', false);
-			addTagIndexMap(indexMap, tags, options, name => Wikitext.isValidTag(name, 'skip'));
+			addTagIndexMap(indexMap, tags, options, (name) => Wikitext.isValidTag(name, 'skip'));
 
 			if (options.parameters) {
 				const parameters = this.storageManager('parameters', false);
@@ -1386,7 +1386,7 @@ export function WikitextFactory(
 				indexMapIndexes?: number[];
 				isInSkipRange?: ReturnType<Wikitext['getSkipPredicate']>;
 				nestLevel?: number;
-				offset?: { start: number, end: number };
+				offset?: { start: number; end: number };
 			} = {}
 		): DoubleBracedClasses[] {
 
@@ -1400,7 +1400,7 @@ export function WikitextFactory(
 				offset = { start: 0, end: wikitext.length },
 			} = recurseOptions;
 
-			let nextIndexMapPointer = indexMapIndexes.findIndex(n => n >= offset.start);
+			let nextIndexMapPointer = indexMapIndexes.findIndex((n) => n >= offset.start);
 			let numUnclosed = 0;
 			let startIndex = 0;
 			const components: TemplateComponent[] = [];

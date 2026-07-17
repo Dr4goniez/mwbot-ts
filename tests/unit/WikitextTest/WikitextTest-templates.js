@@ -113,6 +113,7 @@ export function testWikitextTemplates() {
 				]);
 			});
 
+			/* eslint-disable @stylistic/no-tabs */
 			// it('should parse raw templates', function () {
 			// 	const templates = /** @type {RawTemplate[]} */ (
 			// 		new mwbot.Wikitext('{{{{{1}}}}}').parseTemplates()
@@ -125,6 +126,7 @@ export function testWikitextTemplates() {
 			// 	assert.isTrue(mwbot.Template.is(tpl, 'RawTemplate'));
 			// 	assert.strictEqual(tpl.title, '{{{1}}}');
 			// });
+			/* eslint-enable @stylistic/no-tabs */
 
 			it('should preserve comments in rawTitle', function () {
 				const templates = /** @type {ParsedTemplate[]} */ (
@@ -457,6 +459,7 @@ export function testWikitextTemplates() {
 				});
 			});
 
+			/* eslint-disable @stylistic/no-tabs */
 			// it('should parse unclosed templates', function () {
 			// 	const templates = /** @type {ParsedTemplate[]} */ (
 			// 		new mwbot.Wikitext('{{Foo|{{Bar}}').parseTemplates()
@@ -469,6 +472,7 @@ export function testWikitextTemplates() {
 			// 	assert.strictEqual(templates[0].title.getMain(), 'Foo');
 			// 	assert.strictEqual(templates[1].title.getMain(), 'Bar');
 			// });
+			/* eslint-enable @stylistic/no-tabs */
 		});
 	});
 }

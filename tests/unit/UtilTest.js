@@ -1,3 +1,4 @@
+/* eslint-disable @stylistic/padded-blocks */
 import { describe, it, beforeEach, afterEach } from 'mocha';
 import { assert } from 'chai';
 import sinon from 'sinon';
@@ -463,12 +464,12 @@ describe('Mwbot.Util', function () {
 
 				/** @type {TestClass & { nested?: { x: { y: number }}; }} */
 				const original = new TestClass();
-				original.nested = { x: { y: 1 }};
+				original.nested = { x: { y: 1 } };
 
 				const clone = cloneDeep(original, config);
 
 				assert.notStrictEqual(clone.nested, original.nested);
-				assert.deepEqual(clone.nested, { x: { y: 1 }});
+				assert.deepEqual(clone.nested, { x: { y: 1 } });
 			});
 
 			it('should support cyclic references', function () {
@@ -817,8 +818,12 @@ describe('Mwbot.Util', function () {
 		 * @type {sinon.SinonFakeTimers}
 		 */
 		let clock;
-		beforeEach(() => { clock = sinon.useFakeTimers(); });
-		afterEach(() => { clock.restore(); });
+		beforeEach(function () {
+			clock = sinon.useFakeTimers();
+		});
+		afterEach(function () {
+			clock.restore();
+		});
 
 		it('should resolve after the specified duration', async function () {
 			let resolved = false;
@@ -851,5 +856,4 @@ describe('Mwbot.Util', function () {
 			assert.isTrue(resolved);
 		});
 	});
-
 });

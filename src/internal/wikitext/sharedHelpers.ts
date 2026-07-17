@@ -1,4 +1,3 @@
-
 import type { DoubleBracedClasses, FuzzyWikilink, Parameter, ParseResultBase, Tag } from '../../Wikitext.js';
 
 /**
@@ -16,7 +15,7 @@ export function sortParseResults(
 ): void {
 	arr.sort((a, b) => a.startIndex - b.startIndex);
 
-	if (!arr.some(obj => 'index' in obj)) {
+	if (!arr.some((obj) => 'index' in obj)) {
 		return;
 	}
 
@@ -104,7 +103,7 @@ export function addTagIndexMap(
 		// If this is a skip tag or a gallery tag whose content contains a pipe character
 		if (
 			isSkipTag(name) ||
-			name === 'gallery' && options.gallery && content?.includes('|')
+			(name === 'gallery' && options.gallery && content?.includes('|'))
 		) {
 			// `inner` is the innerHTML of the tag
 			let inner = null;

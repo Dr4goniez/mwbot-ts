@@ -41,7 +41,7 @@ if (!ranges.length) {
 
 // Remove duplicates
 const uniqueCandidates = Array.from(
-	new Map(candidates.map(v => [v.version, v])).values()
+	new Map(candidates.map((v) => [v.version, v])).values()
 ).sort(semver.compare);
 
 const required = uniqueCandidates.find((candidate) => {
