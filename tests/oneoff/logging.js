@@ -17,10 +17,7 @@ if (!existsSync(outputDir)) {
  * the beginning of the test script before any output is produced.
  */
 export function redirectConsoleToFile() {
-	const file = new Date()
-		.toISOString()
-		.replace(/[:.]/g, '-')
-		+ '.log';
+	const file = new Date().toISOString().replace(/[:.]/g, '-') + '.log';
 	const outputPath = resolve(outputDir, file);
 
 	disableLoggerColors();

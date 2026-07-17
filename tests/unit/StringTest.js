@@ -13,7 +13,6 @@ const {
 } = Mwbot.String;
 
 describe('Mwbot.String', function () {
-
 	describe('byteLength()', function () {
 		it('should calculate 1 byte per ASCII character', function () {
 			assert.strictEqual(byteLength('hello'), 5);
@@ -55,7 +54,7 @@ describe('Mwbot.String', function () {
 			// String.length would return 2, but codePointLength should return 1
 			assert.strictEqual(codePointLength('💩'), 1);
 			assert.strictEqual(codePointLength('a💩b'), 3);
-			assert.strictEqual(codePointLength('👨‍👩‍👧'),	5);
+			assert.strictEqual(codePointLength('👨‍👩‍👧'), 5);
 		});
 
 		it('should treat lone high surrogates as one code point', function () {
@@ -247,5 +246,4 @@ describe('Mwbot.String', function () {
 			);
 		});
 	});
-
 });

@@ -128,7 +128,7 @@ function internalMerge(
 	// Inherit the prototype of the first valid object, or fall back to a null
 	// prototype object. This ensures prototype parity between `mergeDeep(obj)`
 	// and `cloneDeep(obj)`.
-	const firstValidObj = objects.find(obj => obj && typeof obj === 'object');
+	const firstValidObj = objects.find((obj) => obj && typeof obj === 'object');
 	const result = firstValidObj
 		? Object.create(Object.getPrototypeOf(firstValidObj))
 		: Object.create(null);

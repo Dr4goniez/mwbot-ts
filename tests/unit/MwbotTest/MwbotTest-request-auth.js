@@ -29,7 +29,7 @@ export function testMwbotRequestAuth() {
 			 */
 			let postStub;
 
-			beforeEach(function() {
+			beforeEach(function () {
 				// @ts-expect-error - Protected property
 				sinon.stub(mwbot, 'tokens').value({});
 				getTokenStub = sinon.stub(mwbot, 'getToken');

@@ -15,7 +15,7 @@ export function testMwbotRequestToken() {
 			mwbot = await getTestMwbot('named');
 		});
 
-		beforeEach(function() {
+		beforeEach(function () {
 			// @ts-expect-error - Protected property
 			sinon.stub(mwbot, 'tokens').value({});
 		});

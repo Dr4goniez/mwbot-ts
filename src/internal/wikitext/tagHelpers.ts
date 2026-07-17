@@ -13,8 +13,8 @@
  * they allow both self-closure and content-wrapping. Thus, both of the following are fine, and
  * the former self-closing tag is recognized as closed:
  * ```html
- * foo<pre />bar	<!-- "bar" won't be wrapped in the pre element (i.e., pre is closed) -->
- * <pre>foo</pre>	<!-- This is also a valid markup -->
+ * foo<pre />bar    <!-- "bar" won't be wrapped in the pre element (i.e., pre is closed) -->
+ * <pre>foo</pre>   <!-- This is also a valid markup -->
  * ```
  */
 
@@ -33,7 +33,7 @@ export const TAG_PAIRS: ReadonlySet<string> = new Set([
 	'b', 'bdi', 'del', 'i', 'ins', 'u', 'font', 'big', 'small', 'sub', 'sup', 'h1',
 	'h2', 'h3', 'h4', 'h5', 'h6', 'cite', 'code', 'em', 's',
 	'strike', 'strong', 'tt', 'var', 'div', 'center',
-	'blockquote', 'ol', 'ul', 'dl', 'table', 'caption', /*'pre',*/
+	'blockquote', 'ol', 'ul', 'dl', 'table', 'caption', /* 'pre', */
 	'ruby', 'rb', 'rp', 'rt', 'rtc', 'p', 'span', 'abbr', 'dfn',
 	'kbd', 'samp', 'data', 'time', 'mark',
 ]);
@@ -79,6 +79,7 @@ export const TAG_TABLE: ReadonlySet<string> = new Set([
 	'td', 'th', 'tr',
 ]);
 
+/* eslint-disable @stylistic/no-tabs */
 /**
  * Set of HTML tag names used to make list containers.
  */
@@ -94,6 +95,7 @@ export const TAG_TABLE: ReadonlySet<string> = new Set([
 // export const TAG_LISTITEM: ReadonlySet<string> = new Set([
 // 	'li',
 // ]);
+/* eslint-enable @stylistic/no-tabs */
 
 /**
  * Set of HTML tag names that can be self-closed.
@@ -207,9 +209,9 @@ export function getRecognizedSkipTags(extensionTags: ReadonlySet<string>): Reado
  *
  * Accepted formats:
  * ```html
- * <foo >	<!-- No whitespace between "<" and "foo" -->
- * </foo >	<!-- No whitespace between "<" and "/" -->
- * <foo />	<!-- No whitespace between "/" and ">" -->
+ * <foo >  <!-- No whitespace between "<" and "foo" -->
+ * </foo > <!-- No whitespace between "<" and "/" -->
+ * <foo /> <!-- No whitespace between "/" and ">" -->
  * ```
  */
 export const tagRegex = {

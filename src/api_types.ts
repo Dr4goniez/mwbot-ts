@@ -97,11 +97,11 @@ export interface ApiParams {
 
 	// Copied from https://github.com/wikimedia-gadgets/types-mediawiki/blob/main/api_params/index.d.ts
 
-	format?: "json" | "jsonfm" | "xml" | "xmlfm" | "php" | "none";
+	format?: 'json' | 'jsonfm' | 'xml' | 'xmlfm' | 'php' | 'none';
 	maxlag?: number;
 	smaxage?: number;
 	maxage?: number;
-	assert?: "user" | "bot" | "anon";
+	assert?: 'user' | 'bot' | 'anon';
 	assertuser?: string;
 	requestid?: string;
 	servedby?: boolean;
@@ -109,7 +109,7 @@ export interface ApiParams {
 	responselanginfo?: boolean;
 	origin?: string;
 	uselang?: string;
-	errorformat?: "bc" | "html" | "none" | "plaintext" | "raw" | "wikitext";
+	errorformat?: 'bc' | 'html' | 'none' | 'plaintext' | 'raw' | 'wikitext';
 	errorlang?: string;
 	errorsuselocal?: boolean;
 	centralauthtoken?: string;
@@ -118,7 +118,7 @@ export interface ApiParams {
 	callback?: string;
 	utf8?: boolean;
 	ascii?: boolean;
-	formatversion?: "1" | "2" | "latest";
+	formatversion?: '1' | '2' | 'latest';
 
 	// ------ Copy end ------
 
@@ -283,7 +283,7 @@ export interface ApiParamsActionDelete extends ApiParams {
 	deletetalk?: boolean;
 	/** @deprecated */
 	watch?: boolean;
-	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlist?: 'nochange' | 'preferences' | 'unwatch' | 'watch';
 	watchlistexpiry?: string;
 	/** @deprecated */
 	unwatch?: boolean;
@@ -312,7 +312,7 @@ export interface ApiParamsActionEdit extends ApiParams {
 	nocreate?: boolean;
 	watch?: boolean;
 	unwatch?: boolean;
-	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlist?: 'nochange' | 'preferences' | 'unwatch' | 'watch';
 	watchlistexpiry?: string;
 	md5?: string;
 	prependtext?: string;
@@ -321,29 +321,29 @@ export interface ApiParamsActionEdit extends ApiParams {
 	undoafter?: number;
 	redirect?: boolean;
 	contentformat?:
-		| "application/json"
-		| "application/octet-stream"
-		| "application/unknown"
-		| "application/x-binary"
-		| "text/css"
-		| "text/javascript"
-		| "text/plain"
-		| "text/unknown"
-		| "text/x-wiki"
-		| "unknown/unknown";
+		| 'application/json'
+		| 'application/octet-stream'
+		| 'application/unknown'
+		| 'application/x-binary'
+		| 'text/css'
+		| 'text/javascript'
+		| 'text/plain'
+		| 'text/unknown'
+		| 'text/x-wiki'
+		| 'unknown/unknown';
 	contentmodel?:
-		| "GadgetDefinition"
-		| "JsonSchema"
-		| "MassMessageListContent"
-		| "Scribunto"
-		| "SecurePoll"
-		| "css"
-		| "javascript"
-		| "json"
-		| "sanitized-css"
-		| "text"
-		| "unknown"
-		| "wikitext";
+		| 'GadgetDefinition'
+		| 'JsonSchema'
+		| 'MassMessageListContent'
+		| 'Scribunto'
+		| 'SecurePoll'
+		| 'css'
+		| 'javascript'
+		| 'json'
+		| 'sanitized-css'
+		| 'text'
+		| 'unknown'
+		| 'wikitext';
 	token?: string;
 	returnto?: string;
 	returntoquery?: string;
@@ -362,7 +362,7 @@ export interface ApiParamsActionMove extends ApiParams {
 	movetalk?: boolean;
 	movesubpages?: boolean;
 	noredirect?: boolean;
-	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlist?: 'nochange' | 'preferences' | 'unwatch' | 'watch';
 	watchlistexpiry?: string;
 	ignorewarnings?: boolean;
 	tags?: string | string[];
@@ -381,32 +381,32 @@ export interface ApiParamsActionParse extends ApiParams {
 	redirects?: boolean;
 	oldid?: number;
 	prop?: MultiValue<
-		| "categories"
-		| "categorieshtml"
-		| "displaytitle"
-		| "encodedjsconfigvars"
-		| "externallinks"
-		| "headhtml"
-		| "images"
-		| "indicators"
-		| "iwlinks"
-		| "jsconfigvars"
-		| "langlinks"
-		| "limitreportdata"
-		| "limitreporthtml"
-		| "links"
-		| "modules"
-		| "parsetree"
-		| "parsewarnings"
-		| "parsewarningshtml"
-		| "properties"
-		| "revid"
-		| "sections"
-		| "subtitle"
-		| "templates"
-		| "text"
-		| "wikitext"
-		| "headitems"
+		| 'categories'
+		| 'categorieshtml'
+		| 'displaytitle'
+		| 'encodedjsconfigvars'
+		| 'externallinks'
+		| 'headhtml'
+		| 'images'
+		| 'indicators'
+		| 'iwlinks'
+		| 'jsconfigvars'
+		| 'langlinks'
+		| 'limitreportdata'
+		| 'limitreporthtml'
+		| 'links'
+		| 'modules'
+		| 'parsetree'
+		| 'parsewarnings'
+		| 'parsewarningshtml'
+		| 'properties'
+		| 'revid'
+		| 'sections'
+		| 'subtitle'
+		| 'templates'
+		| 'text'
+		| 'wikitext'
+		| 'headitems'
 	>;
 	wrapoutputclass?: string;
 	parsoid?: boolean;
@@ -425,68 +425,68 @@ export interface ApiParamsActionParse extends ApiParams {
 	sectionpreview?: boolean;
 	disabletoc?: boolean;
 	useskin?:
-		| "apioutput"
-		| "cologneblue"
-		| "contenttranslation"
-		| "fallback"
-		| "minerva"
-		| "modern"
-		| "monobook"
-		| "timeless"
-		| "vector"
-		| "vector-2022";
+		| 'apioutput'
+		| 'cologneblue'
+		| 'contenttranslation'
+		| 'fallback'
+		| 'minerva'
+		| 'modern'
+		| 'monobook'
+		| 'timeless'
+		| 'vector'
+		| 'vector-2022';
 	contentformat?:
-		| "application/json"
-		| "application/octet-stream"
-		| "application/unknown"
-		| "application/x-binary"
-		| "text/css"
-		| "text/javascript"
-		| "text/plain"
-		| "text/unknown"
-		| "text/x-wiki"
-		| "unknown/unknown";
+		| 'application/json'
+		| 'application/octet-stream'
+		| 'application/unknown'
+		| 'application/x-binary'
+		| 'text/css'
+		| 'text/javascript'
+		| 'text/plain'
+		| 'text/unknown'
+		| 'text/x-wiki'
+		| 'unknown/unknown';
 	contentmodel?:
-		| "GadgetDefinition"
-		| "JsonSchema"
-		| "MassMessageListContent"
-		| "Scribunto"
-		| "SecurePoll"
-		| "css"
-		| "javascript"
-		| "json"
-		| "sanitized-css"
-		| "text"
-		| "unknown"
-		| "wikitext";
+		| 'GadgetDefinition'
+		| 'JsonSchema'
+		| 'MassMessageListContent'
+		| 'Scribunto'
+		| 'SecurePoll'
+		| 'css'
+		| 'javascript'
+		| 'json'
+		| 'sanitized-css'
+		| 'text'
+		| 'unknown'
+		| 'wikitext';
 	mobileformat?: boolean;
 	templatesandboxprefix?: string | string[];
 	templatesandboxtitle?: string;
 	templatesandboxtext?: string;
 	templatesandboxcontentmodel?:
-		| "GadgetDefinition"
-		| "JsonSchema"
-		| "MassMessageListContent"
-		| "Scribunto"
-		| "SecurePoll"
-		| "css"
-		| "javascript"
-		| "json"
-		| "sanitized-css"
-		| "text"
-		| "unknown"
-		| "wikitext";
+		| 'GadgetDefinition'
+		| 'JsonSchema'
+		| 'MassMessageListContent'
+		| 'Scribunto'
+		| 'SecurePoll'
+		| 'css'
+		| 'javascript'
+		| 'json'
+		| 'sanitized-css'
+		| 'text'
+		| 'unknown'
+		| 'wikitext';
 	templatesandboxcontentformat?:
-		| "application/json"
-		| "application/octet-stream"
-		| "application/unknown"
-		| "application/x-binary"
-		| "text/css"
-		| "text/javascript"
-		| "text/plain"
-		| "text/unknown"
-		| "text/x-wiki"
-		| "unknown/unknown";
+		| 'application/json'
+		| 'application/octet-stream'
+		| 'application/unknown'
+		| 'application/x-binary'
+		| 'text/css'
+		| 'text/javascript'
+		| 'text/plain'
+		| 'text/unknown'
+		| 'text/x-wiki'
+		| 'unknown/unknown';
 }
 
 /** */
@@ -501,7 +501,7 @@ export interface ApiParamsActionProtect extends ApiParams {
 	cascade?: boolean;
 	/** @deprecated */
 	watch?: boolean;
-	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlist?: 'nochange' | 'preferences' | 'unwatch' | 'watch';
 	watchlistexpiry?: string;
 	token?: string;
 }
@@ -515,7 +515,7 @@ export interface ApiParamsActionRollback extends ApiParams {
 	user: string;
 	summary?: string;
 	markbot?: boolean;
-	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlist?: 'nochange' | 'preferences' | 'unwatch' | 'watch';
 	watchlistexpiry?: string;
 	token?: string;
 }
@@ -543,7 +543,7 @@ export interface ApiParamsActionUndelete extends ApiParams {
 	timestamps?: string | string[];
 	fileids?: number | number[];
 	undeletetalk?: boolean;
-	watchlist?: "nochange" | "preferences" | "unwatch" | "watch";
+	watchlist?: 'nochange' | 'preferences' | 'unwatch' | 'watch';
 	watchlistexpiry?: string;
 	token?: string;
 }
@@ -825,14 +825,17 @@ export interface ApiResponseWarnings {
 	params?: unknown[]; // errorformat=raw
 }
 
-export type ApiResponseWarningsLegacy = PartialRecord<ApiParamsAction, XOR< // errorformat=bc
-	{
-		'*': string; // formatversion=1
-	},
-	{
-		warnings: string; // formatversion=2, latest
-	}>
->;
+export type ApiResponseWarningsLegacy = // errorformat=bc
+	PartialRecord<
+		ApiParamsAction, XOR<
+			{
+				'*': string; // formatversion=1
+			},
+			{
+				warnings: string; // formatversion=2, latest
+			}
+		>
+	>;
 
 export type ApiActionRestrictions = 'upload' | 'move' | 'create' | 'thanks';
 
@@ -1020,7 +1023,7 @@ export interface _ApiQueryBacklinks extends ApiResponseTitleInfo {
 export interface _ApiQueryBacklinksprop extends Partial<Omit<_ApiQueryBacklinks, 'redirect'>> {
 	// Unlike the `list=` modules, `pageid`, `ns`, and `title` are optional, and `redirect` can be `false`
 	redirect?: boolean;
-	// fragment?: string; // Handle this separately because it's used only by "prop=redirects"
+	// fragment?: string; // Handle this separately because it's used only by 'prop=redirects'
 }
 /**
  * @private
@@ -1677,7 +1680,6 @@ export interface ApiResponseQuery { // Check completed
 	stashimageinfo?: ApiResponseQueryPagesPropImageinfo[]; // prop=stashimageinfo
 }
 
-
 // ************************************** action=query (general properties) **************************************
 
 /** */
@@ -1712,7 +1714,7 @@ export interface ApiResponseQueryPages extends // Fully checked (source code lev
 	mmcontent?: ApiResponseQueryPagesPropMmcontent;
 	// pageimages?: ApiResponseQueryPagesPropPageimages // Handled by interface extension
 	pageprops?: ApiResponseQueryPagesPropPageprops;
-	/*page*/terms?: ApiResponseQueryPagesPropPageterms;
+	/* page */terms?: ApiResponseQueryPagesPropPageterms;
 	pageviews?: ApiResponseQueryPagesPropPageviews;
 	redirects?: ApiResponseQueryPagesPropRedirects[];
 	revisions?: ApiResponseQueryPagesPropRevisions[];
@@ -1821,7 +1823,7 @@ export interface ApiResponseQueryPagesPropImageinfoExtmetadata { // Fully checke
 		value: string | number;
 		source: string;
 		hidden?: '';
-	}
+	};
 }
 
 /** */
@@ -2033,7 +2035,7 @@ export interface ApiResponseQueryPagesPropTranscludedin extends _ApiQueryBacklin
 
 export interface ApiResponseQueryPagesPropTranscodestatus { // Fully checked (source code level)
 	// WebVideoTranscode::getTranscodeState fetches the entire DB fields, and ApiTranscodeStatus::execute
-	// removes leading "transcode_" from field keys and deletes "id", "image_name", and "key" properties.
+	// removes leading 'transcode_' from field keys and deletes 'id', 'image_name', and 'key' properties.
 	// See https://www.mediawiki.org/wiki/Extension:TimedMediaHandler/transcode_table
 	error: string | null;
 	time_addjob: string | null;
@@ -2072,7 +2074,6 @@ export interface ApiResponseQueryPagesPropWbentityusage { // Fully checked (sour
 	url?: string;
 }
 
-
 // ************************************** action=query&meta=something **************************************
 
 export interface ApiResponseQueryMetaAuthmanagerinfo { // Fully checked (source code level)
@@ -2108,7 +2109,7 @@ export interface ApiResponseQueryMetaAllmessages { // Fully checked (source code
 	normalizedname: string;
 	customised?: true;
 	missing?: true;
-	content?: string; // Missing if amnocontent=true or "missing" is true
+	content?: string; // Missing if amnocontent=true or 'missing' is true
 	defaultmissing?: true;
 	default?: string;
 }
@@ -2119,7 +2120,7 @@ export interface ApiResponseQueryMetaBabel { // Fully checked (source code level
 
 export interface ApiResponseQueryMetaCommunityconfiguration { // Fully checked (source code level)
 	data: Record<string, unknown>;
-	version: string; // Enclosed in "if", but doesn't seem to ever lack
+	version: string; // Enclosed in 'if', but doesn't seem to ever lack
 }
 
 export interface ApiResponseQueryMetaFeatureusage { // Fully checked (source code level)
@@ -2282,7 +2283,7 @@ export type ApiResponseQueryMetaNotifications = // Fully checked (source code le
 	| ApiResponseQueryMetaNotificationsUngrouped
 	| ApiResponseQueryMetaNotificationsGrouped;
 
-// "&notgroupbysection=" not set
+// '&notgroupbysection=' not set
 export interface ApiResponseQueryMetaNotificationsUngrouped extends ApiResponseQueryMetaNotificationsList {
 	seenTime?: ApiResponseQueryMetaNotificationsUngroupedSeentime;
 }
@@ -2291,7 +2292,7 @@ export interface ApiResponseQueryMetaNotificationsUngroupedSeentime {
 	message: string;
 }
 
-// "&notgroupbysection=true"
+// '&notgroupbysection=true'
 export interface ApiResponseQueryMetaNotificationsGrouped {
 	alert: ApiResponseQueryMetaNotificationsGroupedList;
 	message: ApiResponseQueryMetaNotificationsGroupedList;
@@ -2496,6 +2497,7 @@ export interface ApiResponseQueryMetaSiteinfoGeneral { // Fully checked (source 
 	externallinktarget: boolean;
 	// site- or extension-specific entries
 	[key: string]: unknown;
+	/* eslint-disable @stylistic/no-tabs */
 	// 'wmf-config': {
 	// 	wmfMasterDatacenter: string;
 	// 	wmfEtcdLastModifiedIndex: number;
@@ -2517,6 +2519,7 @@ export interface ApiResponseQueryMetaSiteinfoGeneral { // Fully checked (source 
 	// 'readinglists-config': {
 	// 	[key: string]: number; // Unsure about the value type
 	// };
+	/* eslint-enable @stylistic/no-tabs */
 }
 
 export interface ApiResponseQueryMetaSiteinfoInterwikimap { // Fully checked (source code level)
@@ -2819,7 +2822,6 @@ export interface ApiResponseQueryMetaWikibaseRepoUrls {
 	articlepath: string;
 }
 
-
 // ************************************** action=query&list=something **************************************
 
 export interface ApiResponseQueryListAbusefilters { // Fully checked (source code level)
@@ -3003,17 +3005,18 @@ export interface ApiResponseQueryListCentralnoticelogsDiff {
 	banners?: Record<string, unknown>;
 }
 
-export type ApiResponseQueryListCheckuser = XOR< // Fully checked (source code level)
-	{
-		edits: ApiResponseQueryListCheckuserEdits[];
-	},
-	{
-		userips: ApiResponseQueryListCheckuserUserips[];
-	},
-	{
-		ipusers: ApiResponseQueryListCheckuserIpusers[];
-	}
->;
+export type ApiResponseQueryListCheckuser = // Fully checked (source code level)
+	XOR<
+		{
+			edits: ApiResponseQueryListCheckuserEdits[];
+		},
+		{
+			userips: ApiResponseQueryListCheckuserUserips[];
+		},
+		{
+			ipusers: ApiResponseQueryListCheckuserIpusers[];
+		}
+	>;
 /** */
 export interface ApiResponseQueryListCheckuserEdits extends ApiResponseTitleInfo {
 	// Generated by ApiQueryCheckUserActionsResponse::getResponseData

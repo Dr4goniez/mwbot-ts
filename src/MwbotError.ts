@@ -170,7 +170,6 @@ export class MwbotError<K extends keyof MwbotErrorCodes = keyof MwbotErrorCodes>
 
 		return cloned;
 	}
-
 }
 
 /**

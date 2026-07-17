@@ -1,3 +1,5 @@
+/* eslint-disable @stylistic/quotes */
+/* eslint-disable @stylistic/quote-props */
 /**
  * Copied from https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/refs/heads/master/resources/src/mediawiki.Title/phpCharToUpper.json.
  */

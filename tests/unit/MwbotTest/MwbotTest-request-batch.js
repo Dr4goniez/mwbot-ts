@@ -158,7 +158,7 @@ export function testMwbotRequestBatch() {
 					['C', 'D'],
 				]);
 
-				fetchStub.callsFake(async params => {
+				fetchStub.callsFake(async (params) => {
 					const key =
 						params.titles.join(',') +
 						':' +
@@ -204,7 +204,7 @@ export function testMwbotRequestBatch() {
 
 				sinon.assert.callCount(fetchStub, 4);
 				assert.sameDeepMembers(
-					fetchStub.getCalls().map(call => call.args[0]),
+					fetchStub.getCalls().map((call) => call.args[0]),
 					[
 						{
 							action: 'query',

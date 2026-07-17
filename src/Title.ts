@@ -626,7 +626,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 * @param ns Namespace name (case insensitive, leading/trailing space ignored)
 	 * @return Namespace id or false
 	 */
-	const getNsIdByName = function(ns: string): number | false {
+	const getNsIdByName = function (ns: string): number | false {
 		// Don't cast non-strings to strings, because null or undefined should not result in
 		// returning the id of a potential namespace called "Null:" (e.g. on null.example.org/wiki)
 		// Also, toLowerCase throws exception on null/undefined, because it is a String method.
@@ -644,7 +644,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 * @param namespace that may or may not exist
 	 * @return
 	 */
-	const isKnownNamespace = function(namespace: number): boolean {
+	const isKnownNamespace = function (namespace: number): boolean {
 		return namespace === NS_MAIN || wgFormattedNamespaces[namespace] !== undefined;
 	};
 
@@ -653,7 +653,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 * before executing this method.
 	 * @return
 	 */
-	const getNamespacePrefix = function(namespace: number): string {
+	const getNamespacePrefix = function (namespace: number): string {
 		return namespace === NS_MAIN
 			? ''
 			: (wgFormattedNamespaces[namespace].replace(/ /g, '_') + ':');
@@ -823,7 +823,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 		namespace: number;
 		title: string;
 		fragment: string | null;
-		colon: Colon,
+		colon: Colon;
 		interwiki: string;
 		local_interwiki: boolean;
 	}
@@ -841,7 +841,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 * @throws {MwbotError} If:
 	 * * The provided title is not a string. (`typemismatch`)
 	 */
-	const parse = function(title: string, defaultNamespace = NS_MAIN): ParsedTitle | false {
+	const parse = function (title: string, defaultNamespace = NS_MAIN): ParsedTitle | false {
 		if (typeof title !== 'string') {
 			throw new MwbotError(
 				'fatal',
@@ -1049,7 +1049,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 * @param s
 	 * @return
 	 */
-	const text = function(s: string): string {
+	const text = function (s: string): string {
 		return s.replace(/_/g, ' ');
 	};
 
@@ -1060,7 +1060,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 * @param filters
 	 * @return
 	 */
-	const sanitize = function(s: string, filters: ('generalRule' | 'fileRule')[]): string {
+	const sanitize = function (s: string, filters: ('generalRule' | 'fileRule')[]): string {
 		for (const rule of sanitationRules) {
 			for (const filter of filters) {
 				if (rule[filter]) {
@@ -1079,7 +1079,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 * @param length
 	 * @return
 	 */
-	const trimToByteLength = function(s: string, length: number): string {
+	const trimToByteLength = function (s: string, length: number): string {
 		return mwString.trimByteLength('', s, length).newVal;
 	};
 
@@ -1090,7 +1090,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 * @param extension file extension
 	 * @return The full name, including extension
 	 */
-	const trimFileNameToByteLength = function(name: string, extension: string): string {
+	const trimFileNameToByteLength = function (name: string, extension: string): string {
 		// There is a special byte limit for file names and ... remember the dot
 		return trimToByteLength(name, FILENAME_MAX_BYTES - extension.length - 1) + '.' + extension;
 	};
@@ -1104,7 +1104,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 	 * @return
 	 */
 	/* Disabled while Title.getUrl is disabled
-	const wikiUrlencode = function(str: string): string {
+	const wikiUrlencode = function (str: string): string {
 		// https://gerrit.wikimedia.org/g/mediawiki/core/+/a0bb8b1f7e9d237026628906f7e61f1faee3af01/resources/src/mediawiki.base/mediawiki.base.js#282
 		return encodeURIComponent(String(str))
 			.replace(/'/g, '%27')
@@ -1334,7 +1334,7 @@ export function TitleFactory(config: Mwbot['config'], info: Mwbot['_info']): Tit
 			set: (titles: string | string[], state?: boolean) => boolean;
 		} = {
 			pages: {},
-			set: function(titles, state) {
+			set: function (titles, state) {
 				const pages = this.pages;
 				titles = Array.isArray(titles) ? titles : [titles];
 				state = state === undefined ? true : !!state;

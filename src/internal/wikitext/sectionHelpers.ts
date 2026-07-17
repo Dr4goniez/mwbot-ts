@@ -1,4 +1,4 @@
-import type { Section, Tag } from "../../Wikitext.js";
+import type { Section, Tag } from '../../Wikitext.js';
 
 /**
  * Regular expressions to parse `<hN>` tags and `==heading==` markups.

@@ -216,7 +216,7 @@ export function testMwbotRequest() {
 					},
 				};
 
-				const promise =  mwbot.request(params, requestOptions);
+				const promise = mwbot.request(params, requestOptions);
 
 				// Mutate the passed arguments
 				params.titles.push('Baz');
@@ -226,7 +226,7 @@ export function testMwbotRequest() {
 
 				const passedOptions = requestStub.firstCall.args[0];
 				assert.deepEqual(passedOptions.params.titles, ['Foo', 'Bar']);
-				assert.notStrictEqual(passedOptions.params.titles,	params.titles);
+				assert.notStrictEqual(passedOptions.params.titles, params.titles);
 				assert.strictEqual(passedOptions.headers['X-Foo'], 'bar');
 				assert.notStrictEqual(passedOptions.headers, requestOptions.headers);
 				assert.isTrue(passedOptions._cloned);
@@ -261,7 +261,7 @@ export function testMwbotRequest() {
 
 			it('should normalize and deduplicate request headers', async function () {
 				const reqOpts = createRequestOptions(mwbot);
-				reqOpts.headers ??={};
+				reqOpts.headers ??= {};
 				reqOpts.headers['X-Foo'] = 1;
 				reqOpts.headers['x-foo'] = 2;
 
@@ -1178,7 +1178,7 @@ export function testMwbotRequest() {
 
 				it('should not retry mwoauth-invalid-authorization when info does not mention nonce reuse', async function () {
 					sinon.stub(mwbot, 'rawRequest').resolves(
-						createApiErrorResponse('mwoauth-invalid-authorization', 'Invalid signature.' )
+						createApiErrorResponse('mwoauth-invalid-authorization', 'Invalid signature.')
 					);
 					// @ts-expect-error - Protected method
 					const retrySpy = sinon.spy(mwbot, 'retry');

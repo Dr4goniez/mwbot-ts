@@ -8,7 +8,7 @@ export function testMwbotState() {
 		describe('setMwbotOptions()', function () {
 			it('should deeply merge options when merge is true (default)', async function () {
 				const mwbot = await getTestMwbot('named');
-				const intervalActions = [/** @type {const} */ ('edit')];
+				const intervalActions = [/** @type {const} */('edit')];
 				mwbot.userMwbotOptions.intervalActions = intervalActions;
 
 				mwbot.setMwbotOptions({ userAgent: 'new-agent' });

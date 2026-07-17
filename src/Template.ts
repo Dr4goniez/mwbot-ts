@@ -4,12 +4,12 @@
  * ### Classes:
  * - {@link TemplateStatic | Template}: Encapsulates `{{template}}` markups as objects.
  * Accessible via {@link Mwbot#Template}.
- * 	- {@link ParsedTemplateStatic | ParsedTemplate}: A subclass of `Template`, whose
- * 	instances are returned by {@link Wikitext.parseTemplates}. Its constructor is inaccessible.
+ *   - {@link ParsedTemplateStatic | ParsedTemplate}: A subclass of `Template`, whose
+ *   instances are returned by {@link Wikitext.parseTemplates}. Its constructor is inaccessible.
  * - {@link ParserFunctionStatic | ParserFunction}: Encapsulates `{{#parserfunction:}}` markups.
  * Accessible via {@link Mwbot#ParserFunction}.
- * 	- {@link ParsedParserFunctionStatic | ParsedParserFunction}: A subclass of `ParserFunction`,
- * 	whose instances are returned by {@link Wikitext.parseTemplates}. Its constructor is inaccessible.
+ *   - {@link ParsedParserFunctionStatic | ParsedParserFunction}: A subclass of `ParserFunction`,
+ *   whose instances are returned by {@link Wikitext.parseTemplates}. Its constructor is inaccessible.
  * - {@link RawTemplateStatic | RawTemplate}: Encapsulates `{{template}}` markups with
  * an *unparsable* title. Instances are returned by {@link Wikitext.parseTemplates}.
  * Its constructor is inaccessible.
@@ -686,7 +686,7 @@ export function TemplateFactory(
 		/**
 		 * Template parameter hierarchies as a Map.
 		 */
-		protected _hierarchyMap: Map<string, { hierarchy: ReadonlyArray<string>; index: number; }>;
+		protected _hierarchyMap: Map<string, { hierarchy: ReadonlyArray<string>; index: number }>;
 
 		constructor(
 			title: T,
@@ -841,9 +841,8 @@ export function TemplateFactory(
 			}
 
 			// Handle updates to an existing key
-
-			// The input key overrides another key (i.e., an alias), or it exists directly
 			if (rel?.overrides || key in this.params) {
+				// The input key overrides another key (i.e., an alias), or it exists directly
 
 				const targetKey = rel?.overrides ?? key;
 				const { duplicates, ...previousParam } = this.params[targetKey];
@@ -867,10 +866,9 @@ export function TemplateFactory(
 
 				this.params[key] = this.createParam(key, value, unnamed, duplicates);
 				this._paramOrder = new Set(order);
-			}
+			} else if (rel?.overridden) {
+				// The input key is overridden by an existing parameter
 
-			// The input key is overridden by an existing parameter
-			else if (rel?.overridden) {
 				if (listDuplicates) {
 					this.params[rel.overridden].duplicates.push(
 						this.createParam(key, value, unnamed, null)
@@ -941,7 +939,7 @@ export function TemplateFactory(
 			key: string,
 			value: string,
 			unnamed: boolean,
-			duplicates: Omit<TemplateParameter, "duplicates">[]
+			duplicates: Omit<TemplateParameter, 'duplicates'>[]
 		): TemplateParameter;
 		/**
 		 * Creates a duplicate template parameter object.
@@ -951,13 +949,13 @@ export function TemplateFactory(
 			value: string,
 			unnamed: boolean,
 			duplicates: null
-		): Omit<TemplateParameter, "duplicates">;
+		): Omit<TemplateParameter, 'duplicates'>;
 		protected createParam(
 			key: string,
 			value: string,
 			unnamed: boolean,
-			duplicates: Omit<TemplateParameter, "duplicates">[] | null
-		): TemplateParameter | Omit<TemplateParameter, "duplicates"> {
+			duplicates: Omit<TemplateParameter, 'duplicates'>[] | null
+		): TemplateParameter | Omit<TemplateParameter, 'duplicates'> {
 			const ret: Partial<TemplateParameter> = {
 				key,
 				value,
@@ -970,7 +968,7 @@ export function TemplateFactory(
 				ret.duplicates = duplicates;
 				return ret as TemplateParameter;
 			} else {
-				return ret as Omit<TemplateParameter, "duplicates">;
+				return ret as Omit<TemplateParameter, 'duplicates'>;
 			}
 		}
 
@@ -1095,9 +1093,11 @@ export function TemplateFactory(
 			value?: string | RegExp
 		): boolean {
 			if (
-				typeof keyOrPred !== 'string' &&
-				!(keyOrPred instanceof RegExp) &&
-				typeof keyOrPred !== 'function' ||
+				(
+					typeof keyOrPred !== 'string' &&
+					!(keyOrPred instanceof RegExp) &&
+					typeof keyOrPred !== 'function'
+				) ||
 				keyOrPred === ''
 			) {
 				return false;
@@ -1652,7 +1652,7 @@ export function TemplateFactory(
 				_rawHook = _rawHook || hook;
 			}
 
-			super(title, params.map(p => p.value));
+			super(title, params.map((p) => p.value));
 
 			this.#initializer = cloneDeep(initializer);
 			this.rawHook = rawHook;
@@ -1734,7 +1734,7 @@ export interface NewTemplateParameter {
 	 *
 	 * See https://en.wikipedia.org/wiki/Help:Template#Whitespace_handling.
 	 */
-	value: string
+	value: string;
 }
 
 /**
@@ -1742,9 +1742,9 @@ export interface NewTemplateParameter {
  *
  * This interface is used in:
  * - {@link TemplateBase.params}
- * 	- {@link Template.params}
- * 		- {@link ParsedTemplate.params}
- * 	- {@link RawTemplate.params}
+ *   - {@link Template.params}
+ *     - {@link ParsedTemplate.params}
+ *   - {@link RawTemplate.params}
  */
 export interface TemplateParameter {
 	/**

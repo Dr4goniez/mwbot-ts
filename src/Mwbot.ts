@@ -10,17 +10,17 @@
  * Portions of this module are adapted from the following:
  *
  * * `mediawiki.api` module in MediaWiki core (GNU General Public License v2)
- * 	* {@link https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/37c52ab4105e9b6573e3931ea87ae684f4e1c417/resources/src/mediawiki.api/index.js | mediawiki.api}
+ *   * {@link https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/core/+/37c52ab4105e9b6573e3931ea87ae684f4e1c417/resources/src/mediawiki.api/index.js | mediawiki.api}
  *
  * * npm package `mwbot` (MIT License)
- * 	* {@link https://github.com/gesinn-it-pub/mwbot/blob/2113a704da0cd6555943ced228cb9df0fd19bba6/src/index.js | mwbot}
+ *   * {@link https://github.com/gesinn-it-pub/mwbot/blob/2113a704da0cd6555943ced228cb9df0fd19bba6/src/index.js | mwbot}
  *
  * * npm package `mwn` (GNU Lesser General Public License v3)
- * 	* {@link https://github.com/siddharthvp/mwn/blob/870ddd153b189144e7c7ea28b58721cdc458c327/src/bot.ts | mwn (bot.ts)}
- * 	* {@link https://github.com/siddharthvp/mwn/blob/870ddd153b189144e7c7ea28b58721cdc458c327/src/core.ts | mwn (core.ts)}
+ *   * {@link https://github.com/siddharthvp/mwn/blob/870ddd153b189144e7c7ea28b58721cdc458c327/src/bot.ts | mwn (bot.ts)}
+ *   * {@link https://github.com/siddharthvp/mwn/blob/870ddd153b189144e7c7ea28b58721cdc458c327/src/core.ts | mwn (core.ts)}
  *
  * * npm package `types-mediawiki` (GNU General Public License v3)
- * 	* {@link https://github.com/wikimedia-gadgets/types-mediawiki/blob/e833739c0f685e9deb3d666b0f9419e4122a170b/mw/Map.d.ts | types-mediawiki}
+ *   * {@link https://github.com/wikimedia-gadgets/types-mediawiki/blob/e833739c0f685e9deb3d666b0f9419e4122a170b/mw/Map.d.ts | types-mediawiki}
  *
  * @module
  */
@@ -1066,7 +1066,7 @@ export class Mwbot {
 			set(<K>'wgWikiID', general.wikiid),
 		];
 
-		return valSetMap.filter(val => val !== false);
+		return valSetMap.filter((val) => val !== false);
 	}
 
 	// ****************************** CORE REQUEST METHODS ******************************
@@ -1965,7 +1965,7 @@ export class Mwbot {
 			for (const multiValues of batchArray) {
 				const batchParams: ApiParams = {
 					...parameters,
-					...Object.fromEntries(multiKeys.map(k => [k, multiValues])),
+					...Object.fromEntries(multiKeys.map((k) => [k, multiValues])),
 				};
 				promise.push(request(batchParams));
 			}
@@ -2233,7 +2233,7 @@ export class Mwbot {
 
 		const response = await this.get({
 			...additionalParams,
-			... assertParam,
+			...assertParam,
 			...Mwbot.getActionParams('query'),
 			meta: 'tokens',
 			type: '*',
@@ -2311,7 +2311,7 @@ export class Mwbot {
 			disableRetryByCode: ['badtoken'],
 		}).then((res) => {
 			const paramObj = res.paraminfo?.modules[0].parameters.find((p) => p.name === 'token');
-			return paramObj && paramObj.tokentype || null;
+			return (paramObj && paramObj.tokentype) || null;
 		}).catch(() => null);
 	}
 
@@ -2773,7 +2773,7 @@ export class Mwbot {
 			// Handle |allow=
 			const allow = temp.getParam('allow');
 			if (allow?.value) {
-				const values = allow.value.split(',').map(v => v.trim()).filter(Boolean);
+				const values = allow.value.split(',').map((v) => v.trim()).filter(Boolean);
 				if (values.includes('none')) {
 					text = temp.text;
 					if (values.length > 1) {
@@ -2781,7 +2781,7 @@ export class Mwbot {
 					}
 					break;
 				}
-				const isListed = values.some(name => name === 'all' || this._Title.normalizeUsername(name) === username);
+				const isListed = values.some((name) => name === 'all' || this._Title.normalizeUsername(name) === username);
 				if (!isListed) {
 					text = temp.text;
 					break;
@@ -2791,7 +2791,7 @@ export class Mwbot {
 			// Handle |deny=
 			const deny = temp.getParam('deny');
 			if (deny?.value) {
-				const values = deny.value.split(',').map(v => v.trim()).filter(Boolean);
+				const values = deny.value.split(',').map((v) => v.trim()).filter(Boolean);
 				const hasNone = values.includes('none');
 				if (hasNone && values.length > 1) {
 					warnings.push(`The template "${temp.text}" contains "${deny.text}", which mixes "none" with other values.`);
@@ -2799,7 +2799,7 @@ export class Mwbot {
 				} else if (hasNone) {
 					// deny=none means allow all, do nothing
 				} else {
-					const isListed = values.some(name => name === 'all' || this._Title.normalizeUsername(name) === username);
+					const isListed = values.some((name) => name === 'all' || this._Title.normalizeUsername(name) === username);
 					if (isListed) {
 						text = temp.text;
 						break;
@@ -2887,7 +2887,7 @@ export class Mwbot {
 			'api_mwbot',
 			{
 				code: 'loginfailed',
-				info: 'reason' in response.login && response.login.reason || 'Failed to log in.',
+				info: ('reason' in response.login && response.login.reason) || 'Failed to log in.',
 			},
 			{ response }
 		);
@@ -3144,8 +3144,8 @@ export class Mwbot {
 			});
 		}
 
-		type Single = { optionname: string; optionvalue?: string; };
-		type Batch = { pairs: string[]; usePipe: boolean; };
+		type Single = { optionname: string; optionvalue?: string };
+		type Batch = { pairs: string[]; usePipe: boolean };
 
 		const singles: Single[] = [];
 		const batches: Batch[] = [];
@@ -4902,7 +4902,6 @@ export class Mwbot {
 
 		return ret;
 	}
-
 }
 
 // ****************************** HELPER TYPES AND INTERFACES ******************************

@@ -21,6 +21,7 @@ export function TestMwbotFactory(initError = false, errorCount = 1, loginError =
 	let remainingInitErrors = errorCount;
 
 	return class TestMwbot extends Mwbot {
+
 		/**
 		 * @param {import('../../../dist/index.js').MwbotInitOptions} mwbotInitOptions
 		 * @param {import('../../../dist/index.js').MwbotRequestConfig} requestOptions
@@ -128,12 +129,12 @@ export function getTestMwbot(userType) {
 	return TestMwbotFactory().init(mwbotInitOptions);
 }
 
+/* eslint-disable @stylistic/comma-dangle, @stylistic/quotes, @stylistic/quote-props */
 /**
  * @param {boolean} anonymous
  * @returns
  */
 function getFakeSiteAndUserInfo(anonymous) {
-	/* eslint-disable @stylistic/comma-dangle */
 	const userinfo = anonymous
 		? {
 			"id": 0,
@@ -2272,8 +2273,8 @@ function getFakeSiteAndUserInfo(anonymous) {
 			]
 		}
 	};
-	/* eslint-enable @stylistic/comma-dangle */
 }
+/* eslint-enable @stylistic/comma-dangle, @stylistic/quotes, @stylistic/quote-props */
 
 /**
  * Creates a minimal successful Axios response object for testing.

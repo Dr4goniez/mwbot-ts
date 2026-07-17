@@ -215,7 +215,7 @@ export function testWikitextSections() {
 				);
 
 				const sections = wt.parseSections({
-					sectionPredicate: sec => sec.level === 3,
+					sectionPredicate: (sec) => sec.level === 3,
 				});
 
 				assert.lengthOf(sections, 1);
