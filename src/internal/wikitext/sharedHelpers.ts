@@ -61,16 +61,23 @@ export function assignNestedKinships(arr: ParseResultBase[]): void {
  * - `text`: The raw text of the expression.
  * - `type`: The type of the expression.
  * - `inner`: The start and end indexes of the inner content, or `null` if not applicable.
+ * - `tagName`: The name of the `<tag>`; present only when `type` is `'tag'`.
  *
  * @private
  */
-export type IndexMap = {
-	[startIndex: number]: {
-		text: string;
-		type: 'tag' | 'gallery' | 'parameter' | 'wikilink_fuzzy' | 'template';
-		inner: { start: number; end: number } | null;
-	};
-};
+export interface IndexMap {
+	[startIndex: number]: IndexMapEntry;
+}
+
+/**
+ * See {@link IndexMap}.
+ */
+export interface IndexMapEntry {
+	text: string;
+	type: 'tag' | 'parameter' | 'wikilink_fuzzy' | 'template';
+	inner: { start: number; end: number } | null;
+	tagName?: string;
+}
 
 /**
  * @private
@@ -116,8 +123,9 @@ export function addTagIndexMap(
 			}
 			map[startIndex] = {
 				text,
-				type: name === 'gallery' ? 'gallery' : 'tag',
+				type: 'tag',
 				inner,
+				tagName: name,
 			};
 		}
 	}

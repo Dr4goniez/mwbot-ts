@@ -3,6 +3,8 @@ import {
 	ParserFunctionStatic,
 	VerifiedFunctionHook,
 } from '../../Template.js';
+import { WikitextStatic } from '../../Wikitext.js';
+import { IndexMapEntry } from './sharedHelpers.js';
 
 export const templateRegex = {
 	/**
@@ -48,6 +50,50 @@ export function findNextTemplateTokenIndex(
 }
 
 /**
+ * Returns whether `'='` characters inside the given expression should be
+ * ignored as template parameter key-value separators.
+ *
+ * In MediaWiki, `'='` is not treated as a separator when it appears inside:
+ *
+ * - parser extension tags (including skip tags)
+ * - transclusion control tags (`<includeonly>`, `<noinclude>`, `<onlyinclude>`)
+ * - `<translate>` and `<tvar>` tags provided by the Translate extension
+ * - parameters
+ * - wikilinks
+ *
+ * HTML tags do not fall into this category, so `'='` inside ordinary HTML
+ * tags is still recognized as a template parameter separator.
+ *
+ * @param indexMapEntry An indexMap entry from
+ *   `getIndexMap({ gallery: true, parameters: true, wikilinks_fuzzy: true })`.
+ * @param isValidTag {@link WikitextStatic.isValidTag}.
+ */
+export function shouldIgnoreEquals(
+	indexMapEntry: IndexMapEntry,
+	isValidTag: WikitextStatic['isValidTag']
+): boolean {
+
+	if (indexMapEntry.type !== 'tag') {
+		return true;
+	}
+
+	const tagName = indexMapEntry.tagName!;
+
+	if (isValidTag(tagName, 'transclusion')) {
+		return true;
+	}
+	if (
+		(tagName === 'translate' || tagName === 'tvar') &&
+		isValidTag(tagName, 'extension')
+	) {
+		return true;
+	}
+
+	// All remaining parser extension tags ignore '=' as key-value separators
+	return isValidTag(tagName, 'skip') || isValidTag(tagName, 'extension');
+}
+
+/**
  * Used in {@link processTemplateFragment}.
  *
  * - `components[0]` stores the **template title**.
@@ -68,10 +114,14 @@ export type TemplateComponent = Required<NewTemplateParameter> & { hook?: Verifi
  */
 interface FragmentOptions {
 	/**
-	 * Whether the fragment is **not** part of a template name or template parameter name.
-	 * This applies when the fragment represents a value or another non-name component.
+	 * Whether `'='` tokens should **not** be recognized as key-value separators.
 	 */
-	isNonName?: boolean;
+	ignoreEquals?: boolean;
+	/**
+	 * Whether the fragment is a comment tag. If `true`, the fragment is not registered
+	 * into the components for clean titles.
+	 */
+	isComment?: boolean;
 	/**
 	 * Whether the passed fragment starts a new template parameter.
 	 * This is used when a fragment marks the beginning of a new parameter within the template.
@@ -95,9 +145,13 @@ export function processTemplateFragment(
 	verifyHook: ParserFunctionStatic['verify'],
 	options: FragmentOptions = {}
 ): void {
+	const {
+		isComment = false,
+		isNew = false,
+		ignoreEquals = false,
+	} = options;
 
 	// Determine which element to modify: either a new element for a new parameter or an existing one
-	const { isNonName, isNew } = options;
 	const i = isNew ? components.length : Math.max(components.length - 1, 0);
 	const isNewComponent = components[i] === undefined;
 	components[i] ??= { key: '', value: '' };
@@ -111,7 +165,7 @@ export function processTemplateFragment(
 
 	const isTitleFragment = i === 0;
 	if (isTitleFragment) {
-		if (!isNonName) {
+		if (!isComment) {
 			component.key += fragment; // Clean title
 		}
 		component.value += fragment; // Full title
@@ -129,8 +183,8 @@ export function processTemplateFragment(
 			return;
 		}
 
-		// Locate the parser function hook within the raw title while preserving any skipped
-		// characters (comments, etc.).
+		// Locate the parser function hook within the raw title while preserving
+		// skipped fragments (such as HTML comments)
 		let matchIndex = 0;
 		for (let i = 0; i < value.length; i++) {
 			if (value[i] === hook.match[matchIndex]) {
@@ -153,15 +207,14 @@ export function processTemplateFragment(
 		return;
 	}
 
-	// Parameter fragment
+	// Parameter fragment (title has already been parsed)
 	let equalIndex = -1;
 	if (
 		!components[0].hook &&
-		!isNonName &&
+		!isComment &&
+		!ignoreEquals &&
 		!component.key &&
-		// Ignore {{=}}. `component.value` should end with "{{" when `equalIndex` is 0
-		// TODO: This doesn't handle "<!--{{=}}-->"
-		!rOpeningDoubleBraceEnd.test(component.value)
+		!rOpeningDoubleBraceEnd.test(component.value) // Ignore {{=}} transclusions
 	) {
 		equalIndex = fragment.indexOf('=');
 	}

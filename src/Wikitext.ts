@@ -134,6 +134,7 @@ import {
 	processTemplateFragment,
 	TemplateComponent,
 	templateRegex,
+	shouldIgnoreEquals,
 } from './internal/wikitext/templateHelpers.js';
 
 /**
@@ -1415,20 +1416,22 @@ export function WikitextFactory(
 
 			for (let i = offset.start; i < offset.end; i++) {
 
-				// Skip or deep-parse certain expressions
+				// Handle expressions already indexed by getIndexMap()
 				const indexMapEntry = indexMap[i];
 				if (indexMapEntry) {
 
 					let text = indexMapEntry.text;
 					if (numUnclosed !== 0) {
-						if (indexMapEntry.type === 'gallery') {
+						if (indexMapEntry.tagName === 'gallery') {
 							// <gallery> tags may contain pipe characters that are not template
 							// parameter separators. Replace them with placeholders temporarily.
 							text = PipePlaceholderManager.replace(text);
 						}
-						// TODO: Should this `isNonName` include all the indexMap expressions?
-						// Maybe we should limit it to the skip tags only.
-						processTemplateFragment(components, text, verifyHook, { isNonName: true });
+
+						processTemplateFragment(components, text, verifyHook, {
+							ignoreEquals: shouldIgnoreEquals(indexMapEntry, Wikitext.isValidTag),
+							isComment: indexMapEntry.tagName === '!--',
+						});
 					}
 
 					/**
