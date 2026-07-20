@@ -367,23 +367,17 @@ export interface ParsedTemplate extends Template, ParsedTemplateProps<ParsedTemp
 	/**
 	 * Converts the instance to a {@link ParsedParserFunction}.
 	 *
-	 * This method should only be used for `ParsedTemplate` instances that represent invalid
-	 * parser functions (e.g., `{{if:1|1|2}}`, where `"if:"` is not a valid function hook
-	 * and is therefore recognized as part of a template title).
+	 * The use of this method should be limited to when the instance's title represents an unrecognized parser
+	 * function hook (e.g., `{{if:1|1|2}}`, where `"if:"` is parsed as part of the template title).
 	 *
-	 * The conversion is based on the data used to initialize this instance, and any modifications
-	 * made after initialization will be discarded. Therefore, this method should be called before
-	 * making any changes to the instance properties.
+	 * @param hook The parser function hook to convert this template to, including the trailing colon
+	 * (e.g., `"#if:"`; see also {@link ParserFunctionStatic.verify}).
 	 *
-	 * @param title The parser function hook to convert this title to, **including** a trailing
-	 * colon character (e.g., `"#if:"`; see also {@link ParserFunctionStatic.verify}).
-	 *
-	 * The hook can include the function’s first parameter (e.g., `"#if:1"`). The second and
-	 * subsequent parameters are initialized based on {@link params}.
+	 * The existing template parameters become the parser function parameters.
 	 *
 	 * @returns A new {@link ParsedParserFunction} instance on success; otherwise, `null`.
 	 */
-	toParserFunction(title: string): ParsedParserFunction | null;
+	toParserFunction(hook: string): ParsedParserFunction | null;
 	/**
 	 * @inheritdoc
 	 */
@@ -488,19 +482,14 @@ export interface RawTemplate extends TemplateBase<string>, ParsedTemplateProps<R
 	/**
 	 * Sets a valid function hook and converts the instance to a new {@link ParsedParserFunction} instance.
 	 *
-	 * The conversion is based on the data used to initialize this instance, and any modifications
-	 * made after initialization will be discarded. Therefore, this method should be called before
-	 * making any changes to the instance properties.
+	 * @param hook The parser function hook to convert this template to, including the trailing colon
+	 * (e.g., `"#if:"`; see also {@link ParserFunctionStatic.verify}).
 	 *
-	 * @param title The parser function hook to convert this title to, **including** a trailing
-	 * colon character (e.g., `"#if:"`; see also {@link ParserFunctionStatic.verify}).
-	 *
-	 * The hook can include the function’s first parameter (e.g., `"#if:1"`). The second and
-	 * subsequent parameters are initialized based on {@link params}.
+	 * The existing template parameters become the parser function parameters.
 	 *
 	 * @returns A new {@link ParsedParserFunction} instance on success; otherwise, `null`.
 	 */
-	toParserFunction(title: string): ParsedParserFunction | null;
+	toParserFunction(hook: string): ParsedParserFunction | null;
 	/**
 	 * Stringifies the instance.
 	 *
@@ -1334,11 +1323,11 @@ export function TemplateFactory(
 			return success;
 		}
 
-		toParserFunction(title: string): ParsedParserFunction | null {
+		toParserFunction(hook: string): ParsedParserFunction | null {
 			// Keep this in sync with RawTemplate#toParserFunction
 			try {
 				const initializer = cloneDeep(this.#initializer);
-				updateInitializerTitle(initializer, title);
+				updateInitializerTitle(initializer, hook.replace(/([:：]).*$/, '$1'));
 				return new ParsedParserFunction(initializer);
 			} catch (err) {
 				logger.error(err as MwbotError);
@@ -1440,11 +1429,11 @@ export function TemplateFactory(
 			return new ParsedTemplate(initializer);
 		}
 
-		toParserFunction(title: string): ParsedParserFunction | null {
+		toParserFunction(hook: string): ParsedParserFunction | null {
 			// Keep this in sync with ParsedTemplate#toParserFunction
 			try {
 				const initializer = cloneDeep(this.#initializer);
-				updateInitializerTitle(initializer, title);
+				updateInitializerTitle(initializer, hook.replace(/([:：]).*$/, '$1'));
 				return new ParsedParserFunction(initializer);
 			} catch (err) {
 				logger.error(err as MwbotError);

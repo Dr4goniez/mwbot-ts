@@ -771,20 +771,16 @@ export function testWikitextTemplates() {
 			});
 
 			describe('toParserFunction()', function () {
-				it.skip('should convert to ParsedParserFunction', () => {
+				it('should convert to ParsedParserFunction', () => {
 					const [tpl] = new mwbot.Wikitext('{{Foo|1|2}}').parseTemplates();
 
 					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
 
-					const ppf = tpl.toParserFunction('#if:test');
+					const ppf = tpl.toParserFunction('#if:');
 
 					assertTemplateInstanceOf(mwbot, ppf, 'ParsedParserFunction');
 					assert.strictEqual(ppf.hook, '#if:');
-					assert.deepEqual(ppf.params, [
-						'test',
-						'1',
-						'2',
-					]);
+					assert.deepEqual(ppf.params, ['1', '2']);
 				});
 
 				it('should return null when converting to an invalid parser function', () => {
