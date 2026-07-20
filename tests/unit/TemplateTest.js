@@ -799,10 +799,22 @@ describe('Mwbot.Template', function () {
 		});
 
 		describe('stringify()', function () {
-			it('should stringify an empty template', function () {
+			it('should stringify a title-only template', function () {
 				const tpl = new mwbot.Template('Test');
 
 				assert.strictEqual(tpl.stringify(), '{{Test}}');
+			});
+
+			it('should suppress a Template namespace prefix', function () {
+				const tpl = new mwbot.Template('Template:Test');
+
+				assert.strictEqual(tpl.stringify(), '{{Test}}');
+			});
+
+			it('should preserve a leading colon for the template title', function () {
+				const tpl = new mwbot.Template(':Test');
+
+				assert.strictEqual(tpl.stringify(), '{{:Test}}');
 			});
 
 			it('should stringify named parameters', function () {

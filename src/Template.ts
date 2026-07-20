@@ -32,6 +32,7 @@ import type {
 import { MwbotError } from './MwbotError.js';
 import { createParserFunctionMap } from './internal/parserFunctionData.js';
 import { Logger } from './internal/Logger.js';
+import { formatTemplateTitle, rawTitlePlaceholder, updateInitializerTitle } from './internal/wikitext/templateHelpers.js';
 
 /**
  * The base class for {@link TemplateStatic} and {@link RawTemplateStatic}.
@@ -358,6 +359,8 @@ export interface ParsedTemplateStatic extends Omit<TemplateStatic, 'new'> {
 export interface ParsedTemplate extends Template, ParsedTemplateProps<ParsedTemplate> {
 	/**
 	 * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
+	 *
+	 * This property is dynamically updated on a successful call of {@link setTitle}.
 	 */
 	rawTitle: string;
 
@@ -411,7 +414,7 @@ export interface ParsedTemplateProps<CLS> extends ParsedTemplatePropsBase, Parse
 	/**
 	 * @hidden
 	 */
-	_setInitializer(obj: Partial<ParsedTemplateInitializer>): CLS;
+	_setInitializer(obj: Partial<ParsedTemplateMutableInitializer>): CLS;
 }
 
 /**
@@ -455,15 +458,17 @@ export interface RawTemplateStatic extends Omit<TemplateBaseStatic<string>, 'new
 export interface RawTemplate extends TemplateBase<string>, ParsedTemplateProps<RawTemplate> {
 	/**
 	 * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
+	 *
+	 * This property is dynamically updated when {@link setTitle} is called.
 	 */
 	rawTitle: string;
 
 	/**
 	 * Sets a new title to the instance.
 	 *
-	 * This method simply updates the {@link RawTemplate.title | title} property of the instance.
-	 * If the new title is an unambiguously valid title for MediaWiki, use {@link toTemplate} or
-	 * {@link toParserFunction} instead.
+	 * This method updates the {@link RawTemplate.title | title} and {@link RawTemplate.rawTitle | rawTitle}
+	 * properties of the instance. If the new title is an unambiguously valid title for MediaWiki, use
+	 * {@link toTemplate} or {@link toParserFunction} instead.
 	 *
 	 * @param title The new title to set.
 	 * @returns The current instance for chaining.
@@ -618,10 +623,9 @@ export interface ParserFunction extends InstanceType<typeof ParamBase> {
 export interface ParsedParserFunctionStatic extends Omit<ParserFunctionStatic, 'new'> {
 	/**
 	 * @param initializer
-	 * @param verifiedHook
 	 * @private
 	 */
-	new(initializer: ParsedTemplateInitializer, verifiedHook?: VerifiedFunctionHook): ParsedParserFunction;
+	new(initializer: ParsedTemplateInitializer): ParsedParserFunction;
 }
 
 /**
@@ -631,6 +635,8 @@ export interface ParsedParserFunctionStatic extends Omit<ParserFunctionStatic, '
 export interface ParsedParserFunction extends ParserFunction, ParsedTemplateProps<ParsedParserFunction> {
 	/**
 	 * The raw parser function hook, as directly parsed from the wikitext.
+	 *
+	 * This property is dynamically updated on a successful call of {@link setHook}.
 	 */
 	rawHook: string;
 
@@ -1259,10 +1265,10 @@ export function TemplateFactory(
 		}
 
 		stringify(options: TemplateOutputConfig<Title> = {}): string {
-			const title = this._title.getNamespaceId() === NS_TEMPLATE
-				? this._title.getMain()
-				: this._title.getPrefixedText({ colon: true });
-			return this._stringify(title, options);
+			return this._stringify(
+				formatTemplateTitle(this._title, NS_TEMPLATE),
+				options
+			);
 		}
 
 		override toString() {
@@ -1278,7 +1284,7 @@ export function TemplateFactory(
 	class ParsedTemplate extends Template implements ParsedTemplate {
 
 		// ParsedTemplate
-		rawTitle: string;
+		declare rawTitle: string;
 
 		// ParsedTemplatePropsBase
 		declare text: string;
@@ -1294,16 +1300,18 @@ export function TemplateFactory(
 
 		// internal
 		/**
-		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
-		 */
-		#rawTitle: string;
-		/**
 		 * @hidden
 		 */
 		#initializer: ParsedTemplateInitializer;
 
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
-			const { title, rawTitle, params, ...parsedProps } = initializer;
+			const {
+				title,
+				rawTitleTemplate: _rawTitleTemplate, // Exclude from the instance properties
+				isTitleAltered: _isTitleAltered,
+				params,
+				...parsedProps
+			} = initializer;
 
 			const t = Template.validateTitle(title);
 			const titleStr = t.getPrefixedDb();
@@ -1311,16 +1319,26 @@ export function TemplateFactory(
 			super(t, params, options.hierarchies?.[titleStr]);
 
 			this.#initializer = cloneDeep(initializer);
-			this.rawTitle = rawTitle.replace('\x01', title);
-			this.#rawTitle = rawTitle;
 			Object.assign(this, cloneDeep(parsedProps));
+		}
+
+		override setTitle(title: string | Title): boolean {
+			const success = super.setTitle(title);
+			if (success) {
+				updateInitializerTitle(
+					this.#initializer,
+					formatTemplateTitle(this._title, NS_TEMPLATE)
+				);
+				this.rawTitle = this.#initializer.rawTitle;
+			}
+			return success;
 		}
 
 		toParserFunction(title: string): ParsedParserFunction | null {
 			// Keep this in sync with RawTemplate#toParserFunction
 			try {
 				const initializer = cloneDeep(this.#initializer);
-				initializer.title = title;
+				updateInitializerTitle(initializer, title);
 				return new ParsedParserFunction(initializer);
 			} catch (err) {
 				logger.error(err as MwbotError);
@@ -1330,12 +1348,14 @@ export function TemplateFactory(
 
 		override stringify(options: ParsedTemplateOutputConfig = {}): string {
 			const { rawTitle: optRawTitle, ...rawOptions } = options;
-			let title = this._title.getNamespaceId() === NS_TEMPLATE
-				? this._title.getMain()
-				: this._title.getPrefixedText({ colon: true });
-			if (optRawTitle && this.#rawTitle.includes('\x01')) {
-				title = this.#rawTitle.replace('\x01', title);
+
+			let title = formatTemplateTitle(this._title, NS_TEMPLATE);
+			if (optRawTitle) {
+				title = this.#initializer.isTitleAltered
+					? this.#initializer.rawTitleTemplate.replace(rawTitlePlaceholder, title)
+					: this.rawTitle;
 			}
+
 			return this._stringify(title, rawOptions);
 		}
 
@@ -1347,7 +1367,7 @@ export function TemplateFactory(
 			return new ParsedTemplate(this.#initializer, options);
 		}
 
-		_setInitializer<T extends ParsedTemplateInitializer>(obj: Partial<T>): this {
+		_setInitializer<T extends ParsedTemplateMutableInitializer>(obj: Partial<T>): this {
 			for (const key in obj) {
 				if (obj[key] !== undefined) {
 					(this.#initializer as any)[key] = cloneDeep(obj[key]);
@@ -1365,7 +1385,7 @@ export function TemplateFactory(
 	class RawTemplate extends TemplateBase<string> implements RawTemplate {
 
 		// RawTemplate
-		rawTitle: string;
+		declare rawTitle: string;
 
 		// ParsedTemplatePropsBase
 		declare text: string;
@@ -1381,27 +1401,29 @@ export function TemplateFactory(
 
 		// internal
 		/**
-		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
-		 */
-		#rawTitle: string;
-		/**
 		 * @hidden
 		 */
 		#initializer: ParsedTemplateInitializer;
 
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
-			const { title, rawTitle, params, ...parsedProps } = initializer;
+			const {
+				title,
+				rawTitleTemplate: _rawTitleTemplate, // Exclude from the instance properties
+				isTitleAltered: _isTitleAltered,
+				params,
+				...parsedProps
+			} = initializer;
 
 			super(title, params, options.hierarchies?.[title]);
 
 			this.#initializer = cloneDeep(initializer);
-			this.rawTitle = rawTitle.replace('\x01', title);
-			this.#rawTitle = rawTitle;
 			Object.assign(this, cloneDeep(parsedProps));
 		}
 
 		setTitle(title: string): this {
 			this._title = title;
+			updateInitializerTitle(this.#initializer, title);
+			this.rawTitle = this.#initializer.rawTitleTemplate.replace(rawTitlePlaceholder, title);
 			return this;
 		}
 
@@ -1414,7 +1436,7 @@ export function TemplateFactory(
 				return null;
 			}
 			const initializer = cloneDeep(this.#initializer);
-			initializer.title = title;
+			updateInitializerTitle(initializer, title);
 			return new ParsedTemplate(initializer);
 		}
 
@@ -1422,7 +1444,7 @@ export function TemplateFactory(
 			// Keep this in sync with ParsedTemplate#toParserFunction
 			try {
 				const initializer = cloneDeep(this.#initializer);
-				initializer.title = title;
+				updateInitializerTitle(initializer, title);
 				return new ParsedParserFunction(initializer);
 			} catch (err) {
 				logger.error(err as MwbotError);
@@ -1432,10 +1454,14 @@ export function TemplateFactory(
 
 		stringify(options: RawTemplateOutputConfig = {}): string {
 			const { rawTitle: optRawTitle, ...rawOptions } = options;
+
 			let title = this._title;
-			if (optRawTitle && this.#rawTitle.includes('\x01')) {
-				title = this.#rawTitle.replace('\x01', title);
+			if (optRawTitle) {
+				title = this.#initializer.isTitleAltered
+					? this.#initializer.rawTitleTemplate.replace(rawTitlePlaceholder, title)
+					: this.rawTitle;
 			}
+
 			return this._stringify(title, rawOptions);
 		}
 
@@ -1447,7 +1473,7 @@ export function TemplateFactory(
 			return new RawTemplate(this.#initializer, options);
 		}
 
-		_setInitializer<T extends ParsedTemplateInitializer>(obj: Partial<T>): this {
+		_setInitializer<T extends ParsedTemplateMutableInitializer>(obj: Partial<T>): this {
 			for (const key in obj) {
 				if (obj[key] !== undefined) {
 					(this.#initializer as any)[key] = cloneDeep(obj[key]);
@@ -1590,74 +1616,35 @@ export function TemplateFactory(
 
 		// internal
 		/**
-		 * {@link rawHook} with the insertion point of {@link hook} replaced with a control character.
-		 */
-		#rawHook: string;
-		/**
 		 * @hidden
 		 */
 		#initializer: ParsedTemplateInitializer;
 
-		constructor(initializer: ParsedTemplateInitializer, verifiedHook?: VerifiedFunctionHook) {
-			const { title, rawTitle, params, ...parsedProps } = initializer;
-
-			if (!verifiedHook) {
-				const v = ParserFunction.verify(title);
-				if (!v) {
-					throw new MwbotError('fatal', {
-						code: 'invalidinput',
-						info: `"${title}" is not a valid function hook.`,
-					});
-				}
-				verifiedHook = v;
-			}
-
-			// Separate the function hook and the first argument
-			const titleIndex = rawTitle.indexOf('\x01');
-			let rawHook, _rawHook;
-			if (titleIndex !== -1) {
-				// `rawTitle` contains a control character: we already know where to insert `title`
-				// Here, '\x01' = verifiedHook.match + paramPart
-				const leadingPart = rawTitle.slice(0, titleIndex);
-				rawHook = leadingPart + verifiedHook.match;
-				_rawHook = leadingPart + '\x01';
-			} else {
-				// We don't know the insertion point. This block is reached if redundant characters interrupt the title,
-				// e.g., title = "#if:", rawTitle = "#<!---->if:", or if the parser skipped indexMap expressions and
-				// generated unmatching title and rawTitle, e.g., title = "\n #if: \n", rawTitle = "\n #if: {{{1}}} \n"
-				let j = 0; // Pointer for `title`
-				let hookEnd = -1; // Track where `verifiedHook.match` ends in `rawTitle`
-				for (let i = 0; i < rawTitle.length; i++) {
-					if (rawTitle[i] === verifiedHook.match[j]) {
-						j++;
-						if (j === verifiedHook.match.length) { // Full match found
-							hookEnd = i + 1;
-							const potentialHookStart = hookEnd - j;
-							if (rawTitle.slice(potentialHookStart, hookEnd) === verifiedHook.match) {
-								_rawHook = rawTitle.slice(0, potentialHookStart) + '\x01';
-							}
-							break;
-						}
-					}
-				}
-				if (hookEnd === -1) {
-					// TODO: setTitle might reach here because there's no guarantee that `rawTitle` includes the new title
-					throw new MwbotError('fatal', {
-						code: 'internal',
-						info: `Unable to parse a function hook from "${rawTitle}".`,
-					});
-				}
-				const hook = rawTitle.slice(0, hookEnd);
-				rawHook = hook;
-				_rawHook = _rawHook || hook;
-			}
+		constructor(initializer: ParsedTemplateInitializer) {
+			const {
+				// For parser functions, `title` and `rawTitle` correspond to the hook
+				title,
+				rawTitle,
+				rawTitleTemplate: _rawTitleTemplate, // Exclude from the instance properties
+				isTitleAltered: _isTitleAltered,
+				params,
+				...parsedProps
+			} = initializer;
 
 			super(title, params.map((p) => p.value));
 
+			this.rawHook = rawTitle;
 			this.#initializer = cloneDeep(initializer);
-			this.rawHook = rawHook;
-			this.#rawHook = _rawHook;
 			Object.assign(this, cloneDeep(parsedProps));
+		}
+
+		override setHook(hook: string): boolean {
+			const success = super.setHook(hook);
+			if (success) {
+				updateInitializerTitle(this.#initializer, this._verifiedHook.match);
+				this.rawHook = this.#initializer.rawTitle;
+			}
+			return success;
 		}
 
 		toTemplate(title: string | Title): ParsedTemplate | null {
@@ -1670,16 +1657,20 @@ export function TemplateFactory(
 				return null;
 			}
 			const initializer = cloneDeep(this.#initializer);
-			initializer.title = title;
+			updateInitializerTitle(initializer, title);
 			return new ParsedTemplate(initializer);
 		}
 
 		override stringify(options: ParsedParserFunctionOutputConfig = {}): string {
 			const { rawHook: optRawHook, useCanonical, ...rawOptions } = options;
+
 			let hook = useCanonical ? this.canonicalHook : this.hook;
-			if (optRawHook && this.#rawHook.includes('\x01')) {
-				hook = this.#rawHook.replace('\x01', hook);
+			if (optRawHook) {
+				hook = this.#initializer.isTitleAltered
+					? this.#initializer.rawTitleTemplate.replace(rawTitlePlaceholder, hook)
+					: this.rawHook;
 			}
+
 			return this._stringify(hook, rawOptions);
 		}
 
@@ -1691,7 +1682,7 @@ export function TemplateFactory(
 			return new ParsedParserFunction(this.#initializer);
 		}
 
-		_setInitializer<T extends ParsedTemplateInitializer>(obj: Partial<T>): this {
+		_setInitializer<T extends ParsedTemplateMutableInitializer>(obj: Partial<T>): this {
 			for (const key in obj) {
 				if (obj[key] !== undefined) {
 					(this.#initializer as any)[key] = cloneDeep(obj[key]);
@@ -1877,12 +1868,14 @@ export interface TemplateOutputConfig<T> {
  */
 export interface ParsedTemplateOutputConfig extends TemplateOutputConfig<Title> {
 	/**
-	 * Whether to preserve redundant characters surrounding the title, as found in
+	 * Whether to preserve the raw formatting surrounding the title, as found in
 	 * {@link ParsedTemplate.rawTitle | rawTitle}.
 	 *
-	 * Where possible, use {@link prepend} and {@link append} instead.
+	 * This preserves leading and trailing whitespace, bidirectional formatting characters,
+	 * and HTML comments where possible. HTML comments that interrupt the title itself
+	 * (e.g., `'F<!---->oo'`) cannot be preserved after the title is modified.
 	 *
-	 * This option is ignored if such characters interrupt the title itself (e.g., `'F<!---->oo'`).
+	 * Where possible, use {@link prepend} and/or {@link append} instead.
 	 */
 	rawTitle?: boolean;
 }
@@ -1895,12 +1888,14 @@ export interface ParsedTemplateOutputConfig extends TemplateOutputConfig<Title> 
  */
 export interface RawTemplateOutputConfig extends TemplateOutputConfig<string> {
 	/**
-	 * Whether to preserve redundant characters surrounding the title, as found in
+	 * Whether to preserve the raw formatting surrounding the title, as found in
 	 * {@link RawTemplate.rawTitle | rawTitle}.
 	 *
-	 * Where possible, use {@link prepend} and {@link append} instead.
+	 * This preserves leading and trailing whitespace, bidirectional formatting characters,
+	 * and HTML comments where possible. HTML comments that interrupt the title itself
+	 * (e.g., `'F<!---->oo'`) cannot be preserved after the title is modified.
 	 *
-	 * This option is ignored if such characters interrupt the title itself (e.g., `'F<!---->oo'`).
+	 * Where possible, use {@link prepend} and/or {@link append} instead.
 	 */
 	rawTitle?: boolean;
 }
@@ -1912,8 +1907,20 @@ export interface RawTemplateOutputConfig extends TemplateOutputConfig<string> {
 export interface ParsedTemplateInitializer extends ParsedTemplatePropsBase, ParseResultBase {
 	title: string;
 	rawTitle: string;
+	/**
+	 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
+	 */
+	rawTitleTemplate: string;
+	isTitleAltered?: boolean;
 	params: DeepReadonly<NewTemplateParameter[]>;
 }
+
+type ParsedTemplateMutableInitializer = Pick<
+	ParsedTemplateInitializer,
+	| 'index'
+	| 'parent'
+	| 'children'
+>;
 
 /**
  * @internal
@@ -1981,12 +1988,14 @@ export interface ParserFunctionOutputConfig {
  */
 export interface ParsedParserFunctionOutputConfig extends ParserFunctionOutputConfig {
 	/**
-	 * Whether to preserve redundant characters before the hook, as found in
+	 * Whether to preserve the raw formatting preceding the parser-function hook, as found in
 	 * {@link ParsedParserFunction.rawHook | rawHook}.
 	 *
-	 * Where possible, use {@link prepend} instead.
+	 * This preserves leading whitespace, bidirectional formatting characters,
+	 * and HTML comments where possible. HTML comments that interrupt the hook itself
+	 * (e.g., `'#f<!---->oo:'`) cannot be preserved after the hook is modified.
 	 *
-	 * This option is ignored if such characters interrupt the hook itself (e.g., `'#f<!---->oo:'`).
+	 * Where possible, use {@link prepend} instead.
 	 */
 	rawHook?: boolean;
 }

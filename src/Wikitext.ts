@@ -133,8 +133,8 @@ import {
 	PipePlaceholderManager,
 	processTemplateFragment,
 	TemplateComponent,
-	templateRegex,
 	shouldIgnoreEquals,
+	parseFinalizedTemplateComponents,
 } from './internal/wikitext/templateHelpers.js';
 
 /**
@@ -1472,7 +1472,7 @@ export function WikitextFactory(
 					nextIndexMapPointer++;
 				}
 
-				const nextTokenIndex = findNextTemplateTokenIndex(wikitext, i, offset.end);
+				const nextTokenIndex = findNextTemplateTokenIndex(wikitext, i, offset.end, components);
 				if (nextTokenIndex === i) {
 					// Already at a template token
 				} else {
@@ -1521,42 +1521,21 @@ export function WikitextFactory(
 					} else if (endsTemplate) {
 						// Found the end of the template
 						restoreLastTemplateComponent(components);
-						const [titleObj, ...params] = components;
-						const title = titleObj ? titleObj.key : '';
-						let rawTitle = titleObj ? titleObj.value : '';
-						let titlesMatch = false;
-						if (rawTitle !== title) {
-							// If `rawTitle` contains redundant characters, replace `title` in `rawTitle` with a control character.
-							// This makes it easy to identify the insertion point of `title` in `rawTitle`.
-							for (let n = 0; n < rawTitle.length; n++) {
-								const realIndex = n + startIndex;
-								if (indexMap[realIndex]) {
-									n += indexMap[realIndex].text.length - 1;
-									continue;
-								}
-								const tempWkt = rawTitle.slice(n);
-								if (tempWkt.startsWith(title)) {
-									rawTitle = rawTitle.slice(0, n) + tempWkt.replace(title, '\x01');
-									break;
-								}
-							}
-						} else if (!templateRegex.leadingSpaces.test(title)) {
-							// If `title` and `rawTitle` are identical, we just want to replace `rawTitle` with "\x01".
-							// But this isn't always so for parser functions, which must be parsed again for the function
-							// hook and the first argument. For example:
-							// `title` & `rawTitle` = "\n #switch: {{FULLPAGENAME}} \n"
-							// In this case, `rawHook` and `_rawHook`, which are properties of ParsedParserFunction, should be:
-							// `rawHook` = "\n #switch:", `_rawHook` = "\n \x01" (not "\x01")
-							// We therefore defer the replacement to when we've tried to make a PPF instance.
-							// Here, substitute `rawTitle` with "\x01" only if it doesn't have leading whitespace.
-							titlesMatch = true;
-							rawTitle = '\x01';
-						}
+
+						const {
+							title,
+							rawTitle,
+							rawTitleTemplate,
+							hook,
+							params,
+						} = parseFinalizedTemplateComponents(components);
 						const endIndex = i + 2;
 						const text = wikitext.slice(startIndex, endIndex);
+
 						const initializer: ParsedTemplateInitializer = {
 							title,
 							rawTitle,
+							rawTitleTemplate,
 							params,
 							text,
 							nestLevel,
@@ -1567,14 +1546,11 @@ export function WikitextFactory(
 							parent: null,
 							children: new Set(),
 						};
+
 						let temp: DoubleBracedClasses;
-						if (titleObj.hook) {
-							temp = new ParsedParserFunction(initializer, titleObj.hook);
+						if (hook) {
+							temp = new ParsedParserFunction(initializer);
 						} else {
-							if (titlesMatch) {
-								// `title` and `rawTitle` are identical, and we verified that the {{template}} isn't a parser function
-								initializer.rawTitle = '\x01';
-							}
 							try {
 								temp = new ParsedTemplate(initializer, options);
 							} catch {
@@ -1582,6 +1558,7 @@ export function WikitextFactory(
 							}
 						}
 						templates.push(temp);
+
 						const inner = temp.text.slice(2, -2);
 						if (inner.includes('{{') && inner.includes('}}')) {
 							templates.push(
@@ -1597,10 +1574,11 @@ export function WikitextFactory(
 								})
 							);
 						}
+
 						numUnclosed -= 2;
 						i++;
 					} else {
-						// Just part of the template (effectively "|" or "=")
+						// Part of the template (effectively "|", "=", ":", or "：")
 						const char = wikitext[i];
 						processTemplateFragment(components, char, verifyHook, { isNew: char === '|' });
 					}
@@ -1618,7 +1596,7 @@ export function WikitextFactory(
 						numUnclosed -= 2;
 						i++;
 					} else {
-						// Just part of the nested template (effectively "|" or "=")
+						// Part of the nested template (effectively "|", "=", ":", or "：")
 						fragment = wikitext[i];
 					}
 					processTemplateFragment(components, fragment, verifyHook);

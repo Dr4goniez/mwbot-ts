@@ -5,6 +5,7 @@ import { getTestMwbot } from '../MwbotTest/MwbotTest-fixtures.js';
 import { MwbotError } from '../../../dist/index.js';
 
 /**
+ * @typedef {Awaited<ReturnType<getTestMwbot>>} TestMwbot
  * @typedef {import('../../../dist/index.js').ParsedTemplate} ParsedTemplate
  * @typedef {import('../../../dist/index.js').RawTemplate} RawTemplate
  * @typedef {import('../../../dist/index.js').ParsedParserFunction} ParsedParserFunction
@@ -13,7 +14,7 @@ import { MwbotError } from '../../../dist/index.js';
 export function testWikitextTemplates() {
 	describe('Templates', function () {
 		/**
-		 * @type {Awaited<ReturnType<getTestMwbot>>}
+		 * @type {TestMwbot}
 		 */
 		let mwbot;
 
@@ -35,40 +36,15 @@ export function testWikitextTemplates() {
 					parserFunction,
 				] = result;
 
-				assert.isTrue(mwbot.Template.is(template, 'Template'));
-				assert.isTrue(mwbot.Template.is(template, 'ParsedTemplate'));
+				assertTemplateInstanceOf(mwbot, template, 'Template');
+				assertTemplateInstanceOf(mwbot, template, 'ParsedTemplate');
 
-				assert.isTrue(mwbot.Template.is(raw, 'RawTemplate'));
+				assertTemplateInstanceOf(mwbot, raw, 'RawTemplate');
 
-				assert.isTrue(mwbot.Template.is(parserFunction, 'ParserFunction'));
-				assert.isTrue(mwbot.Template.is(parserFunction, 'ParsedParserFunction'));
+				assertTemplateInstanceOf(mwbot, parserFunction, 'ParserFunction');
+				assertTemplateInstanceOf(mwbot, parserFunction, 'ParsedParserFunction');
 			});
 		});
-
-		/**
-		 * @typedef {import('../../../dist/index.js').TemplateTypeMap} TemplateTypeMap
-		 */
-		/**
-		 * @template {keyof TemplateTypeMap} T
-		 * @param {unknown} obj
-		 * @param {T} type
-		 * @returns {asserts obj is TemplateTypeMap[T]}
-		 */
-		const assertTemplateInstanceOf = (obj, type) => {
-			assert.isTrue(mwbot.Template.is(obj, type));
-		};
-
-		/**
-		 * @template {keyof TemplateTypeMap} T
-		 * @param {unknown[]} arr
-		 * @param {T} type
-		 * @returns {asserts arr is TemplateTypeMap[T][]}
-		 */
-		const assertTemplateInstanceOfAll = (arr, type) => {
-			for (const obj of arr) {
-				assert.isTrue(mwbot.Template.is(obj, type));
-			}
-		};
 
 		describe('parseTemplates()', function () {
 			describe('basic parsing', function () {
@@ -79,7 +55,7 @@ export function testWikitextTemplates() {
 
 					const tpl = templates[0];
 
-					assertTemplateInstanceOf(tpl, 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
 					assert.strictEqual(tpl.title.getPrefixedDb(), 'Template:Foo');
 					assert.deepInclude(tpl.params['a'], {
 						key: 'a',
@@ -102,7 +78,7 @@ export function testWikitextTemplates() {
 
 					const tpl = templates[0];
 
-					assertTemplateInstanceOf(tpl, 'RawTemplate');
+					assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
 					assert.strictEqual(tpl.title, '<>');
 				});
 
@@ -113,7 +89,7 @@ export function testWikitextTemplates() {
 
 					const pf = templates[0];
 
-					assertTemplateInstanceOf(pf, 'ParsedParserFunction');
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
 					assert.strictEqual(pf.hook, '#if:');
 					assert.deepEqual(pf.params, [
 						'1',
@@ -131,9 +107,9 @@ export function testWikitextTemplates() {
 
 					const [tpl, raw, ppf] = templates;
 
-					assertTemplateInstanceOf(tpl, 'ParsedTemplate');
-					assertTemplateInstanceOf(raw, 'RawTemplate');
-					assertTemplateInstanceOf(ppf, 'ParsedParserFunction');
+					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, raw, 'RawTemplate');
+					assertTemplateInstanceOf(mwbot, ppf, 'ParsedParserFunction');
 
 					assert.strictEqual(tpl.title.getMain(), 'Foo');
 					assert.strictEqual(raw.title, '<>');
@@ -148,7 +124,7 @@ export function testWikitextTemplates() {
 					const templates = new mwbot.Wikitext('{{Foo|{{Bar}}').parseTemplates();
 
 					assert.lengthOf(templates, 2);
-					assertTemplateInstanceOfAll(templates, 'ParsedTemplate');
+					assertTemplateInstanceOfAll(mwbot, templates, 'ParsedTemplate');
 					assert.strictEqual(templates[0].title.getMain(), 'Foo');
 					assert.strictEqual(templates[1].title.getMain(), 'Bar');
 				});
@@ -159,7 +135,7 @@ export function testWikitextTemplates() {
 						const templates = new mwbot.Wikitext(text).parseTemplates();
 
 						assert.lengthOf(templates, 2);
-						assertTemplateInstanceOfAll(templates, 'ParsedTemplate');
+						assertTemplateInstanceOfAll(mwbot, templates, 'ParsedTemplate');
 						assert.isTrue(templates[0].skip);
 						assert.isFalse(templates[1].skip);
 					});
@@ -169,7 +145,7 @@ export function testWikitextTemplates() {
 						const templates = new mwbot.Wikitext(text).parseTemplates();
 
 						assert.lengthOf(templates, 2);
-						assertTemplateInstanceOfAll(templates, 'RawTemplate');
+						assertTemplateInstanceOfAll(mwbot, templates, 'RawTemplate');
 						assert.isTrue(templates[0].skip);
 						assert.isFalse(templates[1].skip);
 					});
@@ -179,7 +155,7 @@ export function testWikitextTemplates() {
 						const templates = new mwbot.Wikitext(text).parseTemplates();
 
 						assert.lengthOf(templates, 2);
-						assertTemplateInstanceOfAll(templates, 'ParsedParserFunction');
+						assertTemplateInstanceOfAll(mwbot, templates, 'ParsedParserFunction');
 						assert.isTrue(templates[0].skip);
 						assert.isFalse(templates[1].skip);
 					});
@@ -193,9 +169,9 @@ export function testWikitextTemplates() {
 
 					const [tpl, raw, ppf] = templates;
 
-					assertTemplateInstanceOf(tpl, 'ParsedTemplate');
-					assertTemplateInstanceOf(raw, 'RawTemplate');
-					assertTemplateInstanceOf(ppf, 'ParsedParserFunction');
+					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, raw, 'RawTemplate');
+					assertTemplateInstanceOf(mwbot, ppf, 'ParsedParserFunction');
 
 					assert.strictEqual(tpl.nestLevel, 0);
 					assert.strictEqual(raw.nestLevel, 1);
@@ -216,55 +192,56 @@ export function testWikitextTemplates() {
 					const templates = new mwbot.Wikitext('{{Foo<!--comment-->Bar}}').parseTemplates();
 
 					assert.lengthOf(templates, 1);
-					assertTemplateInstanceOf(templates[0], 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, templates[0], 'ParsedTemplate');
 					assert.strictEqual(
 						templates[0].title.getPrefixedDb(),
 						'Template:FooBar'
 					);
 				});
 
-				it('should preserve parameters in raw template titles', function () {
-					const templates = new mwbot.Wikitext('{{{{{1}}}}}').parseTemplates();
+				it('should preserve skip tags nested inside skip tags', function () {
+					const innerText = 'Foo<nowiki><!--comment--></nowiki>Bar';
+					const templates = new mwbot.Wikitext(`{{${innerText}}}`).parseTemplates();
 
 					assert.lengthOf(templates, 1);
-					assertTemplateInstanceOf(templates[0], 'RawTemplate');
-					assert.strictEqual(
-						templates[0].title,
-						'{{{1}}}'
-					);
+					assertTemplateInstanceOf(mwbot, templates[0], 'RawTemplate');
+					assert.strictEqual(templates[0].title, innerText);
+				});
+
+				it('should preserve parameters in raw template titles', function () {
+					const innerText = '{{{1}}}';
+					const templates = new mwbot.Wikitext(`{{${innerText}}}`).parseTemplates();
+
+					assert.lengthOf(templates, 1);
+					assertTemplateInstanceOf(mwbot, templates[0], 'RawTemplate');
+					assert.strictEqual(templates[0].title, innerText);
 				});
 
 				it('should preserve wikilinks in raw template titles', function () {
-					const templates = new mwbot.Wikitext('{{[[Foo]]}}').parseTemplates();
+					const innerText = '[[Foo]]';
+					const templates = new mwbot.Wikitext(`{{${innerText}}}`).parseTemplates();
 
 					assert.lengthOf(templates, 1);
-					assertTemplateInstanceOf(templates[0], 'RawTemplate');
-					assert.strictEqual(
-						templates[0].title,
-						'[[Foo]]'
-					);
+					assertTemplateInstanceOf(mwbot, templates[0], 'RawTemplate');
+					assert.strictEqual(templates[0].title, innerText);
 				});
 
 				it('should preserve HTML tags in raw template titles', function () {
-					const templates = new mwbot.Wikitext('{{<span>Foo</span>}}').parseTemplates();
+					const innerText = '<span>Foo</span>';
+					const templates = new mwbot.Wikitext(`{{${innerText}}}`).parseTemplates();
 
 					assert.lengthOf(templates, 1);
-					assertTemplateInstanceOf(templates[0], 'RawTemplate');
-					assert.strictEqual(
-						templates[0].title,
-						'<span>Foo</span>'
-					);
+					assertTemplateInstanceOf(mwbot, templates[0], 'RawTemplate');
+					assert.strictEqual(templates[0].title, innerText);
 				});
 
 				it('should preserve parser extension tags in raw template titles', function () {
-					const templates = new mwbot.Wikitext('{{Foo<nowiki>Bar</nowiki>}}').parseTemplates();
+					const innerText = 'Foo<nowiki>Bar</nowiki>';
+					const templates = new mwbot.Wikitext(`{{${innerText}}}`).parseTemplates();
 
 					assert.lengthOf(templates, 1);
-					assertTemplateInstanceOf(templates[0], 'RawTemplate');
-					assert.strictEqual(
-						templates[0].title,
-						'Foo<nowiki>Bar</nowiki>'
-					);
+					assertTemplateInstanceOf(mwbot, templates[0], 'RawTemplate');
+					assert.strictEqual(templates[0].title, innerText);
 				});
 			});
 
@@ -280,7 +257,7 @@ export function testWikitextTemplates() {
 					const templates = new mwbot.Wikitext(text).parseTemplates();
 
 					assert.lengthOf(templates, 2);
-					assertTemplateInstanceOfAll(templates, 'ParsedTemplate');
+					assertTemplateInstanceOfAll(mwbot, templates, 'ParsedTemplate');
 
 					const [foo, bar] = templates;
 
@@ -334,8 +311,8 @@ export function testWikitextTemplates() {
 
 					const [pf, bar] = templates;
 
-					assertTemplateInstanceOf(pf, 'ParsedParserFunction');
-					assertTemplateInstanceOf(bar, 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
+					assertTemplateInstanceOf(mwbot, bar, 'ParsedTemplate');
 
 					assert.strictEqual(pf.hook, '#if:');
 					assert.deepEqual(
@@ -372,7 +349,7 @@ export function testWikitextTemplates() {
 
 					const [, bar] = templates;
 
-					assertTemplateInstanceOf(bar, 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, bar, 'ParsedTemplate');
 
 					assert.strictEqual(bar.params['1'].value, 'x');
 				});
@@ -385,7 +362,7 @@ export function testWikitextTemplates() {
 					const templates = new mwbot.Wikitext(text).parseTemplates();
 
 					assert.lengthOf(templates, 1);
-					assertTemplateInstanceOf(templates[0], 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, templates[0], 'ParsedTemplate');
 					assert.strictEqual(
 						templates[0].title.getPrefixedDb(),
 						'Template:Bar'
@@ -415,7 +392,7 @@ export function testWikitextTemplates() {
 					const templates = new mwbot.Wikitext(text).parseTemplates();
 
 					assert.lengthOf(templates, 3);
-					assertTemplateInstanceOfAll(templates, 'ParsedTemplate');
+					assertTemplateInstanceOfAll(mwbot, templates, 'ParsedTemplate');
 
 					const [foo, bar, baz] = templates;
 
@@ -450,7 +427,7 @@ export function testWikitextTemplates() {
 					const templates = new mwbot.Wikitext(text).parseTemplates();
 
 					assert.lengthOf(templates, 2);
-					assertTemplateInstanceOfAll(templates, 'ParsedTemplate');
+					assertTemplateInstanceOfAll(mwbot, templates, 'ParsedTemplate');
 
 					const [foo, bar] = templates;
 
@@ -478,8 +455,8 @@ export function testWikitextTemplates() {
 
 					const [pf, bar] = templates;
 
-					assertTemplateInstanceOf(pf, 'ParsedParserFunction');
-					assertTemplateInstanceOf(bar, 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
+					assertTemplateInstanceOf(mwbot, bar, 'ParsedTemplate');
 
 					assert.deepEqual(
 						pf.params,
@@ -510,7 +487,7 @@ export function testWikitextTemplates() {
 					const templates = new mwbot.Wikitext(text).parseTemplates();
 
 					assert.lengthOf(templates, 2);
-					assertTemplateInstanceOfAll(templates, 'ParsedTemplate');
+					assertTemplateInstanceOfAll(mwbot, templates, 'ParsedTemplate');
 
 					const [foo, bar] = templates;
 
@@ -539,7 +516,7 @@ export function testWikitextTemplates() {
 					const templates = new mwbot.Wikitext(text).parseTemplates();
 
 					assert.lengthOf(templates, 1);
-					assertTemplateInstanceOf(templates[0], 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, templates[0], 'ParsedTemplate');
 				});
 
 				it('should parse {{=}} in template parameters correctly', function () {
@@ -548,7 +525,7 @@ export function testWikitextTemplates() {
 					const templates = new mwbot.Wikitext(text).parseTemplates();
 
 					assert.lengthOf(templates, 2);
-					assertTemplateInstanceOfAll(templates, 'ParsedTemplate');
+					assertTemplateInstanceOfAll(mwbot, templates, 'ParsedTemplate');
 					assert.deepInclude(
 						templates[0].params,
 						{
@@ -569,7 +546,7 @@ export function testWikitextTemplates() {
 					const templates = new mwbot.Wikitext(text).parseTemplates();
 
 					assert.lengthOf(templates, 2);
-					assertTemplateInstanceOfAll(templates, 'ParsedTemplate');
+					assertTemplateInstanceOfAll(mwbot, templates, 'ParsedTemplate');
 					assert.deepInclude(
 						templates[0].params,
 						{
@@ -590,7 +567,7 @@ export function testWikitextTemplates() {
 					const templates = new mwbot.Wikitext(text).parseTemplates();
 
 					assert.lengthOf(templates, 2);
-					assertTemplateInstanceOfAll(templates, 'ParsedTemplate');
+					assertTemplateInstanceOfAll(mwbot, templates, 'ParsedTemplate');
 					assert.deepInclude(
 						templates[0].params,
 						{
@@ -618,7 +595,7 @@ export function testWikitextTemplates() {
 					});
 
 					assert.lengthOf(templates, 1);
-					assertTemplateInstanceOfAll(templates, 'ParsedTemplate');
+					assertTemplateInstanceOfAll(mwbot, templates, 'ParsedTemplate');
 					assert.strictEqual(templates[0].title.getPrefixedDb(), 'Template:Bar');
 				});
 
@@ -631,7 +608,7 @@ export function testWikitextTemplates() {
 					});
 
 					assert.lengthOf(templates, 1);
-					assertTemplateInstanceOfAll(templates, 'ParsedParserFunction');
+					assertTemplateInstanceOfAll(mwbot, templates, 'ParsedParserFunction');
 					assert.strictEqual(templates[0].hook, '#if:');
 					assert.strictEqual(templates[0].text, '{{#if:1|2|3}}');
 				});
@@ -644,7 +621,7 @@ export function testWikitextTemplates() {
 					});
 
 					assert.lengthOf(templates, 1);
-					assertTemplateInstanceOfAll(templates, 'ParsedTemplate');
+					assertTemplateInstanceOfAll(mwbot, templates, 'ParsedTemplate');
 					assert.strictEqual(templates[0].index, 3);
 				});
 
@@ -657,98 +634,12 @@ export function testWikitextTemplates() {
 					});
 
 					assert.lengthOf(templates, 1);
-					assertTemplateInstanceOfAll(templates, 'ParsedTemplate');
+					assertTemplateInstanceOfAll(mwbot, templates, 'ParsedTemplate');
 					assert.strictEqual(templates[0].parent, 0);
 					assert.deepEqual([...templates[0].children], [2]);
 				});
 			});
 		});
-
-		/**
-		 * @typedef {import('../../../dist/index.js').DoubleBracketedClasses} DoubleBracketedClasses
-		 * @typedef {import('../../../dist/index.js').ParsedTemplatePropsBase} ParsedTemplatePropsBase
-		 * @typedef {import('../../../dist/index.js').ParseResultBase} ParseResultBase
-		 */
-		/**
-		 * @param {ParsedTemplatePropsBase & ParseResultBase} instance
-		 * @param {ParsedTemplatePropsBase & ParseResultBase} props
-		 */
-		const assertParseResultProperties = (instance, props) => {
-			assert.strictEqual(instance.text, props.text);
-			assert.strictEqual(instance.nestLevel, props.nestLevel);
-			assert.strictEqual(instance.startIndex, props.startIndex);
-			assert.strictEqual(instance.endIndex, props.endIndex);
-			assert.strictEqual(instance.skip, props.skip);
-			assert.strictEqual(instance.index, props.index);
-			assert.strictEqual(instance.parent, props.parent);
-			assert.deepEqual(Array.from(instance.children), Array.from(props.children));
-		};
-
-		/**
-		 * @param {'ParsedTemplate' | 'RawTemplate'} type
-		 */
-		const testRawTitle = (type) => {
-			const title = type === 'ParsedTemplate'
-				? 'Foo'
-				: '<>';
-			const data = {
-				whitespace: {
-					name: 'should preserve leading and trailing whitespace',
-					input: `{{  ${title}  }}`,
-					output: `  ${title}  `,
-				},
-				commentLeft: {
-					name: 'should preserve comments on the left side of the title',
-					input: `{{<!-- --> ${title}}}`,
-					output: `<!-- --> ${title}`,
-				},
-				commentInside: {
-					name: 'should preserve comments inside the title',
-					input: `{{${title.slice(0, 1)}<!-- -->${title.slice(1)}}}`,
-					output: `${title.slice(0, 1)}<!-- -->${title.slice(1)}`,
-				},
-				commentRight: {
-					name: 'should preserve comments on the right side of the title',
-					input: `{{${title} <!-- -->}}`,
-					output: `${title} <!-- -->`,
-				},
-			};
-
-			it(data.whitespace.name, () => {
-				const [tpl] = new mwbot.Wikitext(data.whitespace.input).parseTemplates();
-
-				assertTemplateInstanceOf(tpl, type);
-				assert.strictEqual(tpl.rawTitle, data.whitespace.output);
-			});
-
-			it(data.commentLeft.name, () => {
-				const [tpl] = new mwbot.Wikitext(data.commentLeft.input).parseTemplates();
-
-				assertTemplateInstanceOf(tpl, type);
-				assert.strictEqual(tpl.rawTitle, data.commentLeft.output);
-			});
-
-			it(data.commentInside.name, function () {
-				if (type === 'RawTemplate') {
-					this.skip();
-				}
-				const [tpl] = new mwbot.Wikitext(data.commentInside.input).parseTemplates();
-
-				assertTemplateInstanceOf(tpl, type);
-				assert.strictEqual(tpl.rawTitle, data.commentInside.output);
-				assert.strictEqual(
-					typeof tpl.title === 'string' ? tpl.title : tpl.title.getMain(),
-					title
-				);
-			});
-
-			it(data.commentRight.name, () => {
-				const [tpl] = new mwbot.Wikitext(data.commentRight.input).parseTemplates();
-
-				assertTemplateInstanceOf(tpl, type);
-				assert.strictEqual(tpl.rawTitle, data.commentRight.output);
-			});
-		};
 
 		describe('ParsedTemplate', function () {
 			describe('constructor', function () {
@@ -756,7 +647,7 @@ export function testWikitextTemplates() {
 					const templates = new mwbot.Wikitext('{{Template:Foo|1=Bar|baz=Qux}}').parseTemplates();
 
 					assert.lengthOf(templates, 1);
-					assertTemplateInstanceOfAll(templates, 'ParsedTemplate');
+					assertTemplateInstanceOfAll(mwbot, templates, 'ParsedTemplate');
 
 					const [tpl] = templates;
 
@@ -775,7 +666,7 @@ export function testWikitextTemplates() {
 					const text = '{{Template:Foo|Bar|1=Baz|qux=quux}}';
 					const [tpl] = new mwbot.Wikitext(text).parseTemplates();
 
-					assertTemplateInstanceOf(tpl, 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
 					assert.deepEqual(
 						tpl.params,
 						{
@@ -818,12 +709,12 @@ export function testWikitextTemplates() {
 				});
 
 				describe('rawTitle', function () {
-					testRawTitle('ParsedTemplate');
+					testRawTitleProperty(() => mwbot, 'ParsedTemplate');
 
 					it('should preserve redundant namespace prefixes', () => {
 						const [tpl] = new mwbot.Wikitext('{{Template:Foo}}').parseTemplates();
 
-						assertTemplateInstanceOf(tpl, 'ParsedTemplate');
+						assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
 						assert.strictEqual(
 							tpl.rawTitle,
 							'Template:Foo'
@@ -833,7 +724,7 @@ export function testWikitextTemplates() {
 					it('should preserve redundant leading colons', () => {
 						const [tpl] = new mwbot.Wikitext('{{:Template:Foo}}').parseTemplates();
 
-						assertTemplateInstanceOf(tpl, 'ParsedTemplate');
+						assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
 						assert.strictEqual(
 							tpl.rawTitle,
 							':Template:Foo'
@@ -842,15 +733,52 @@ export function testWikitextTemplates() {
 				});
 			});
 
+			describe('setTitle()', function () {
+				it('should return true when a valid title is provided', function () {
+					const [tpl] = new mwbot.Wikitext('{{Foo}}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
+					assert.isTrue(tpl.setTitle('Bar'));
+					assert.strictEqual(
+						tpl.title.getPrefixedDb(),
+						'Template:Bar'
+					);
+				});
+
+				it('should update rawTitle on success', function () {
+					const [tpl] = new mwbot.Wikitext('{{ Foo }}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
+					assert.strictEqual(tpl.rawTitle, ' Foo ');
+
+					assert.isTrue(tpl.setTitle('Bar'));
+
+					assert.strictEqual(tpl.rawTitle, ' Bar ');
+				});
+
+				it('should return false when an invalid title is provided', function () {
+					const [tpl] = new mwbot.Wikitext('{{Foo}}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
+					assert.isFalse(tpl.setTitle('<>'));
+					assert.strictEqual(
+						tpl.title.getPrefixedDb(),
+						'Template:Foo'
+					);
+				});
+
+				// Test #initializer updates in stringify()
+			});
+
 			describe('toParserFunction()', function () {
 				it.skip('should convert to ParsedParserFunction', () => {
 					const [tpl] = new mwbot.Wikitext('{{Foo|1|2}}').parseTemplates();
 
-					assertTemplateInstanceOf(tpl, 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
 
 					const ppf = tpl.toParserFunction('#if:test');
 
-					assertTemplateInstanceOf(ppf, 'ParsedParserFunction');
+					assertTemplateInstanceOf(mwbot, ppf, 'ParsedParserFunction');
 					assert.strictEqual(ppf.hook, '#if:');
 					assert.deepEqual(ppf.params, [
 						'test',
@@ -862,7 +790,7 @@ export function testWikitextTemplates() {
 				it('should return null when converting to an invalid parser function', () => {
 					const [tpl] = new mwbot.Wikitext('{{Foo}}').parseTemplates();
 
-					assertTemplateInstanceOf(tpl, 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
 					assert.isNull(
 						tpl.toParserFunction('invalid:')
 					);
@@ -871,7 +799,7 @@ export function testWikitextTemplates() {
 				it('should log errors on conversion failure', () => {
 					const [tpl] = new mwbot.Wikitext('{{Foo}}').parseTemplates();
 
-					assertTemplateInstanceOf(tpl, 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
 
 					// @ts-expect-error - Protected property
 					const errorSpy = sinon.stub(mwbot.logger, 'error');
@@ -890,25 +818,7 @@ export function testWikitextTemplates() {
 					}
 				});
 
-				it.skip('should not use modified properties when converting', () => {
-					const wkt = new mwbot.Wikitext('{{Foo|bar}}');
-					const [tpl] = wkt.parseTemplates();
-
-					assertTemplateInstanceOf(tpl, 'ParsedTemplate');
-
-					tpl.setTitle('Modified');
-					const ppf = tpl.toParserFunction('#if:test');
-
-					assertTemplateInstanceOf(ppf, 'ParsedParserFunction');
-					assert.strictEqual(
-						ppf.params[1],
-						'bar'
-					);
-					assert.strictEqual(
-						ppf.stringify(),
-						'{{#if:test|bar}}'
-					);
-				});
+				// Test #initializer updates in stringify()
 			});
 
 			describe('stringify()', function () {
@@ -927,7 +837,7 @@ export function testWikitextTemplates() {
 					const templates = new mwbot.Wikitext(text).parseTemplates();
 
 					assert.lengthOf(templates, 2);
-					assertTemplateInstanceOfAll(templates, 'ParsedTemplate');
+					assertTemplateInstanceOfAll(mwbot, templates, 'ParsedTemplate');
 
 					const reparsed = new mwbot.Wikitext(templates[0].stringify()).parseTemplates();
 
@@ -940,7 +850,7 @@ export function testWikitextTemplates() {
 				it('should stringify modified templates', () => {
 					const [tpl] = new mwbot.Wikitext('{{Foo|bar}}').parseTemplates();
 
-					assertTemplateInstanceOf(tpl, 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
 
 					tpl.setTitle('Bar');
 
@@ -950,25 +860,54 @@ export function testWikitextTemplates() {
 					);
 				});
 
-				it.skip('preserves rawTitle when requested', () => {
-					const text = '{{ <!-- --> Foo |bar}}';
-					const [tpl] = new mwbot.Wikitext(text).parseTemplates();
+				describe('options.rawTitle', function () {
 
-					assertTemplateInstanceOf(tpl, 'ParsedTemplate');
-					tpl.setTitle('Template:Bar');
-					assert.strictEqual(
-						tpl.stringify({ rawTitle: true }),
-						'{{ <!-- --> Bar |bar}}'
-					);
+					const base = [
+						{ input: '{{ Foo }}' },
+						{ input: '{{ <!-- --> Foo }}' },
+						{ input: '{{ F<!-- -->oo }}' },
+						{ input: '{{ Foo <!-- --> }}' },
+						{ input: '{{ <!-- --> Foo <!-- --> }}' },
+					];
+
+					testRawTitleStringify(() => mwbot, base, 'ParsedTemplate');
+
+					describe('setTitle()', function () {
+						testRawTitleStringify(
+							() => mwbot,
+							[
+								{ ...base[0], modify: (tpl) => tpl.setTitle('Bar'), output: '{{ Bar }}' },
+								{ ...base[1], modify: (tpl) => tpl.setTitle('Bar'), output: '{{ <!-- --> Bar }}' },
+								{ ...base[2], modify: (tpl) => tpl.setTitle('Bar'), output: '{{ Bar }}' },
+								{ ...base[3], modify: (tpl) => tpl.setTitle('Bar'), output: '{{ Bar <!-- --> }}' },
+								{ ...base[4], modify: (tpl) => tpl.setTitle('Bar'), output: '{{ <!-- --> Bar <!-- --> }}' },
+							],
+							'ParsedTemplate'
+						);
+					});
+
+					describe('toParserFunction()', function () {
+						testRawTitleStringify(
+							() => mwbot,
+							[
+								{ ...base[0], modify: (tpl) => tpl.toParserFunction('#if:'), output: '{{ #if: }}' },
+								{ ...base[1], modify: (tpl) => tpl.toParserFunction('#if:'), output: '{{ <!-- --> #if: }}' },
+								{ ...base[2], modify: (tpl) => tpl.toParserFunction('#if:'), output: '{{ #if: }}' },
+								{ ...base[3], modify: (tpl) => tpl.toParserFunction('#if:'), output: '{{ #if: <!-- --> }}' },
+								{ ...base[4], modify: (tpl) => tpl.toParserFunction('#if:'), output: '{{ <!-- --> #if: <!-- --> }}' },
+							],
+							'ParsedTemplate',
+							'ParsedParserFunction'
+						);
+					});
 				});
 			});
 
 			describe('toString()', function () {
 				it('should return the same value as stringify()', () => {
-					const [tpl] =
-						new mwbot.Wikitext('{{Foo|bar}}').parseTemplates();
+					const [tpl] = new mwbot.Wikitext('{{Foo|bar}}').parseTemplates();
 
-					assertTemplateInstanceOf(tpl, 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
 
 					assert.strictEqual(
 						tpl.toString(),
@@ -982,8 +921,8 @@ export function testWikitextTemplates() {
 					const [tpl] = new mwbot.Wikitext('{{Foo|bar}}').parseTemplates();
 					const clone = tpl._clone();
 
-					assertTemplateInstanceOf(tpl, 'ParsedTemplate');
-					assertTemplateInstanceOf(clone, 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, clone, 'ParsedTemplate');
 
 					assert.notStrictEqual(clone, tpl);
 					assert.notStrictEqual(clone.children, tpl.children);
@@ -1000,7 +939,7 @@ export function testWikitextTemplates() {
 				it('should preserve parse result properties', () => {
 					const [tpl] = new mwbot.Wikitext('{{Foo|{{Bar}}}}').parseTemplates();
 
-					assertTemplateInstanceOf(tpl, 'ParsedTemplate');
+					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
 
 					const clone = tpl._clone();
 
@@ -1014,7 +953,7 @@ export function testWikitextTemplates() {
 				it('should parse a template title', () => {
 					const [tpl] = new mwbot.Wikitext('{{<>}}').parseTemplates();
 
-					assertTemplateInstanceOf(tpl, 'RawTemplate');
+					assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
 
 					assert.strictEqual(tpl.title, '<>');
 					assert.strictEqual(tpl.rawTitle, '<>');
@@ -1024,7 +963,7 @@ export function testWikitextTemplates() {
 					const text = '{{<>}}';
 					const [tpl] = new mwbot.Wikitext(text).parseTemplates();
 
-					assertTemplateInstanceOf(tpl, 'RawTemplate');
+					assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
 					assertParseResultProperties(
 						tpl,
 						{
@@ -1041,33 +980,268 @@ export function testWikitextTemplates() {
 				});
 
 				describe('rawTitle', function () {
-					testRawTitle('RawTemplate');
+					testRawTitleProperty(() => mwbot, 'RawTemplate');
 
 					it('should preserve mixed markup in raw titles', () => {
 						const [tpl] = new mwbot.Wikitext(
 							'{{[[Foo]]<!--x--><nowiki>bar</nowiki>{{{1}}}}}'
 						).parseTemplates();
 
-						assertTemplateInstanceOf(tpl, 'RawTemplate');
+						assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
 
 						assert.strictEqual(
 							tpl.rawTitle,
 							'[[Foo]]<!--x--><nowiki>bar</nowiki>{{{1}}}'
 						);
 					});
+
+					it.skip('should recognize comment tags intervening between "<>"', function () {
+						// FIXME: "<<!-- -->>" is parsed as a tag where the node name is "<!-- -->"
+						const rawTitle = ' <<!-- -->> ';
+						const [tpl] = new mwbot.Wikitext(`{{${rawTitle}}}`).parseTemplates();
+
+						assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
+						assert.strictEqual(tpl.rawTitle, rawTitle);
+						assert.strictEqual(tpl.title, '<>');
+					});
 				});
 			});
 
+			describe('setTitle()', function () {
+				it('should return the current instance', function () {
+					const [tpl] = new mwbot.Wikitext('{{}}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
+					assert.propertyVal(tpl, '_title', '');
+
+					assert.strictEqual(tpl.setTitle('<>'), tpl);
+
+					assert.propertyVal(tpl, '_title', '<>');
+				});
+
+				it('should update rawTitle', function () {
+					const [tpl] = new mwbot.Wikitext('{{ ## }}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
+					assert.strictEqual(tpl.rawTitle, ' ## ');
+
+					tpl.setTitle('[]');
+
+					assert.strictEqual(tpl.rawTitle, ' [] ');
+				});
+			});
+
+			describe('toTemplate()', function () {
+				it('should convert to ParsedTemplate', () => {
+					const [tpl] = new mwbot.Wikitext('{{<>|1|2}}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
+
+					const converted = tpl.toTemplate('Foo');
+
+					assertTemplateInstanceOf(mwbot, converted, 'ParsedTemplate');
+					assert.strictEqual(
+						converted.title.getPrefixedDb(),
+						'Template:Foo'
+					);
+					assert.strictEqual(
+						converted.stringify(),
+						'{{Foo|1|2}}'
+					);
+				});
+
+				it('should return null when an invalid template title is provided', () => {
+					const [tpl] = new mwbot.Wikitext('{{<>}}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
+					assert.isNull(tpl.toTemplate('#'));
+				});
+
+				it('should log errors on conversion failure', () => {
+					const [tpl] = new mwbot.Wikitext('{{<>}}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
+
+					// @ts-expect-error - Protected property
+					const errorSpy = sinon.stub(mwbot.logger, 'error');
+
+					try {
+						tpl.toTemplate('#');
+
+						sinon.assert.calledOnce(errorSpy);
+
+						const err = errorSpy.firstCall.args[0];
+
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'unparsabletitle');
+					} finally {
+						sinon.restore();
+					}
+				});
+
+				// Test #initializer updates in stringify()
+			});
+
+			describe('toParserFunction()', function () {
+				it('should convert to ParsedParserFunction', () => {
+					const [tpl] = new mwbot.Wikitext('{{<>|1|2}}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
+
+					const ppf = tpl.toParserFunction('#if:');
+
+					assertTemplateInstanceOf(mwbot, ppf, 'ParsedParserFunction');
+					assert.strictEqual(ppf.hook, '#if:');
+					assert.deepEqual(ppf.params, ['1', '2']);
+					assert.strictEqual(
+						ppf.stringify(),
+						'{{#if:1|2}}'
+					);
+				});
+
+				it('should return null when converting to an invalid parser function', () => {
+					const [tpl] = new mwbot.Wikitext('{{<>}}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
+					assert.isNull(tpl.toParserFunction('invalid:'));
+				});
+
+				it('should log errors on conversion failure', () => {
+					const [tpl] = new mwbot.Wikitext('{{<>}}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
+
+					// @ts-expect-error - Protected property
+					const errorSpy = sinon.stub(mwbot.logger, 'error');
+
+					try {
+						tpl.toParserFunction('invalid:');
+
+						sinon.assert.calledOnce(errorSpy);
+
+						const err = errorSpy.firstCall.args[0];
+
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'invalidinput');
+					} finally {
+						sinon.restore();
+					}
+				});
+
+				// Test #initializer updates in stringify()
+			});
+
 			describe('stringify()', function () {
-				it('should reproduce the original wikitext', () => {
+				it('should stringify back to the original text', () => {
 					const text = '{{{{{1}}}}}';
 					const [tpl] = new mwbot.Wikitext(text).parseTemplates();
 
-					assertTemplateInstanceOf(tpl, 'RawTemplate');
+					assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
+					assert.strictEqual(tpl.stringify(), text);
+				});
+
+				it('should preserve template structure through parse/stringify cycles', () => {
+					const text = '{{<>|a=1|{{Foo|2}}}}';
+					const templates = new mwbot.Wikitext(text).parseTemplates();
+
+					assert.lengthOf(templates, 2);
+
+					const [raw, tpl] = templates;
+
+					assertTemplateInstanceOf(mwbot, raw, 'RawTemplate');
+					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
+
+					const [reparsed] = new mwbot.Wikitext(raw.stringify()).parseTemplates();
+
+					assert.strictEqual(
+						reparsed.stringify(),
+						raw.stringify()
+					);
+				});
+
+				it('should stringify modified templates', () => {
+					const [tpl] = new mwbot.Wikitext('{{<>|bar}}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
+
+					tpl.setTitle('#');
+
 					assert.strictEqual(
 						tpl.stringify(),
-						text
+						'{{#|bar}}'
 					);
+				});
+
+				describe('options.rawTitle', function () {
+
+					const base = [
+						{ input: '{{ ## }}' },
+						{ input: '{{ <!-- --> ## }}' },
+						{ input: '{{ #<!-- --># }}' },
+						{ input: '{{ ## <!-- --> }}' },
+						{ input: '{{ <!-- --> ## <!-- --> }}' },
+					];
+
+					testRawTitleStringify(() => mwbot, base, 'RawTemplate');
+
+					describe('setTitle()', function () {
+						testRawTitleStringify(
+							() => mwbot,
+							[
+								{ ...base[0], modify: (tpl) => tpl.setTitle('[]'), output: '{{ [] }}' },
+								{ ...base[1], modify: (tpl) => tpl.setTitle('[]'), output: '{{ <!-- --> [] }}' },
+								{ ...base[2], modify: (tpl) => tpl.setTitle('[]'), output: '{{ [] }}' },
+								{ ...base[3], modify: (tpl) => tpl.setTitle('[]'), output: '{{ [] <!-- --> }}' },
+								{ ...base[4], modify: (tpl) => tpl.setTitle('[]'), output: '{{ <!-- --> [] <!-- --> }}' },
+							],
+							'RawTemplate'
+						);
+
+						it('should handle whitespace/comment-only empty titles', function () {
+							const [tpl] = new mwbot.Wikitext('{{ <!-- --> }}').parseTemplates();
+
+							assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
+							assert.strictEqual(tpl.title, '  ');
+							assert.strictEqual(tpl.rawTitle, ' <!-- --> ');
+
+							tpl.setTitle('Foo');
+
+							assert.strictEqual(
+								tpl.stringify({ rawTitle: true }),
+								'{{ <!-- --> Foo}}'
+							);
+						});
+					});
+
+					describe('toTemplate()', function () {
+						testRawTitleStringify(
+							() => mwbot,
+							[
+								{ ...base[0], modify: (tpl) => tpl.toTemplate('Foo'), output: '{{ Foo }}' },
+								{ ...base[1], modify: (tpl) => tpl.toTemplate('Foo'), output: '{{ <!-- --> Foo }}' },
+								{ ...base[2], modify: (tpl) => tpl.toTemplate('Foo'), output: '{{ Foo }}' },
+								{ ...base[3], modify: (tpl) => tpl.toTemplate('Foo'), output: '{{ Foo <!-- --> }}' },
+								{ ...base[4], modify: (tpl) => tpl.toTemplate('Foo'), output: '{{ <!-- --> Foo <!-- --> }}' },
+							],
+							'RawTemplate',
+							'ParsedTemplate'
+						);
+					});
+
+					describe('toParserFunction()', function () {
+						testRawTitleStringify(
+							() => mwbot,
+							[
+								{ ...base[0], modify: (tpl) => tpl.toParserFunction('#if:'), output: '{{ #if: }}' },
+								{ ...base[1], modify: (tpl) => tpl.toParserFunction('#if:'), output: '{{ <!-- --> #if: }}' },
+								{ ...base[2], modify: (tpl) => tpl.toParserFunction('#if:'), output: '{{ #if: }}' },
+								{ ...base[3], modify: (tpl) => tpl.toParserFunction('#if:'), output: '{{ #if: <!-- --> }}' },
+								{ ...base[4], modify: (tpl) => tpl.toParserFunction('#if:'), output: '{{ <!-- --> #if: <!-- --> }}' },
+							],
+							'RawTemplate',
+							'ParsedParserFunction'
+						);
+					});
 				});
 			});
 
@@ -1075,7 +1249,7 @@ export function testWikitextTemplates() {
 				it('should return the same value as stringify()', () => {
 					const [tpl] = new mwbot.Wikitext('{{<>}}').parseTemplates();
 
-					assertTemplateInstanceOf(tpl, 'RawTemplate');
+					assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
 					assert.strictEqual(
 						tpl.toString(),
 						tpl.stringify()
@@ -1087,21 +1261,14 @@ export function testWikitextTemplates() {
 				it('should return an independent clone', () => {
 					const [tpl] = new mwbot.Wikitext('{{<>}}').parseTemplates();
 
-					assertTemplateInstanceOf(tpl, 'RawTemplate');
+					assertTemplateInstanceOf(mwbot, tpl, 'RawTemplate');
 
 					const clone = tpl._clone();
 
-					assertTemplateInstanceOf(clone, 'RawTemplate');
-
+					assertTemplateInstanceOf(mwbot, clone, 'RawTemplate');
 					assert.notStrictEqual(clone, tpl);
-					assert.strictEqual(
-						clone.title,
-						tpl.title
-					);
-					assertParseResultProperties(
-						clone,
-						tpl
-					);
+					assert.strictEqual(clone.title, tpl.title);
+					assertParseResultProperties(clone, tpl);
 				});
 			});
 		});
@@ -1111,8 +1278,7 @@ export function testWikitextTemplates() {
 				it('should parse a parser function hook', () => {
 					const [pf] = new mwbot.Wikitext('{{#if:1|yes|no}}').parseTemplates();
 
-					assertTemplateInstanceOf(pf, 'ParsedParserFunction');
-
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
 					assert.strictEqual(pf.hook, '#if:');
 					assert.deepEqual(
 						pf.params,
@@ -1129,7 +1295,7 @@ export function testWikitextTemplates() {
 					const text = '{{#if:1|yes|no}}';
 					const [pf] = new mwbot.Wikitext(text).parseTemplates();
 
-					assertTemplateInstanceOf(pf, 'ParsedParserFunction');
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
 					assertParseResultProperties(
 						pf,
 						{
@@ -1146,74 +1312,141 @@ export function testWikitextTemplates() {
 				});
 
 				describe('rawHook', function () {
-					it.skip('should preserve leading whitespace', function () {
-						const [pf] = new mwbot.Wikitext(
-							'{{ #if:1|yes|no}}'
-						).parseTemplates();
 
-						assertTemplateInstanceOf(pf, 'ParsedParserFunction');
+					// For ParsedParserFunction, everything after the hook is part of the parameters
+
+					it('should preserve leading whitespace', function () {
+						const [pf] = new mwbot.Wikitext('{{ #if:1|yes|no}}').parseTemplates();
+
+						assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
 
 						assert.strictEqual(pf.hook, '#if:');
 						assert.strictEqual(pf.rawHook, ' #if:');
+						assert.deepEqual(pf.params, ['1', 'yes', 'no']);
 					});
 
-					it.skip('should preserve comments on the left side of the function hook', function () {
-						const [pf] = new mwbot.Wikitext(
-							'{{<!-- -->#if:1|yes|no}}'
-						).parseTemplates();
+					it('should preserve comments on the left side of the function hook', function () {
+						const [pf] = new mwbot.Wikitext('{{ <!-- -->#if:1|yes|no}}').parseTemplates();
 
-						assertTemplateInstanceOf(pf, 'ParsedParserFunction');
+						assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
 
 						assert.strictEqual(pf.hook, '#if:');
-						assert.strictEqual(pf.rawHook, '<!-- -->#if:');
+						assert.strictEqual(pf.rawHook, ' <!-- -->#if:');
+						assert.deepEqual(pf.params, ['1', 'yes', 'no']);
 					});
 
-					it.skip('should preserve comments inside the function hook', () => {
+					it('should preserve comments inside the function hook', () => {
 						const [pf] = new mwbot.Wikitext(
 							'{{#if<!-- -->:1|yes|no}}'
 						).parseTemplates();
 
-						assertTemplateInstanceOf(pf, 'ParsedParserFunction');
+						assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
 
 						assert.strictEqual(pf.hook, '#if:');
 						assert.strictEqual(pf.rawHook, '#if<!-- -->:');
+						assert.deepEqual(pf.params, ['1', 'yes', 'no']);
 					});
 				});
 			});
 
+			describe('setHook()', function () {
+				it('should return true when a valid hook is provided', function () {
+					const [pf] = new mwbot.Wikitext('{{#if:1}}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
+					assert.isTrue(pf.setHook('#bcp47:'));
+					assert.strictEqual(pf.hook, '#bcp47:');
+				});
+
+				it('should reflect the new hook via .hook and .canonicalHook', function () {
+					const [pf] = new mwbot.Wikitext('{{ #if:1 }}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
+					assert.strictEqual(pf.hook, '#if:');
+					assert.strictEqual(pf.canonicalHook, '#if:');
+
+					assert.isTrue(pf.setHook('#bcp47:'));
+
+					assert.strictEqual(pf.hook, '#bcp47:');
+					assert.strictEqual(pf.canonicalHook, 'bcp47:');
+				});
+
+				it('should update rawHook', function () {
+					const [pf] = new mwbot.Wikitext('{{ #if:1 }}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
+					assert.strictEqual(pf.rawHook, ' #if:');
+
+					assert.isTrue(pf.setHook('#bcp47:'));
+
+					assert.strictEqual(pf.rawHook, ' #bcp47:');
+				});
+
+				it('should return false when an invalid hook is provided', function () {
+					const [pf] = new mwbot.Wikitext('{{#if:1}}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
+					assert.isFalse(pf.setHook('#invalid:'));
+					assert.strictEqual(pf.hook, '#if:');
+				});
+
+				// Test #initializer updates in stringify()
+			});
+
 			describe('toTemplate()', function () {
-				it.skip('should convert to ParsedTemplate', () => {
+				it('should convert to ParsedTemplate', () => {
 					const [pf] = new mwbot.Wikitext('{{#if:test|1|2}}').parseTemplates();
 
-					assertTemplateInstanceOf(pf, 'ParsedParserFunction');
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
 
 					const tpl = pf.toTemplate('Foo');
 
-					assertTemplateInstanceOf(tpl, 'ParsedTemplate');
-
-					assert.strictEqual(
-						tpl.title.getMain(),
-						'Foo'
-					);
+					assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
+					assert.strictEqual(tpl.title.getMain(), 'Foo');
+					assert.include(tpl.params[1], { key: '1', value: 'test', unnamed: true });
+					assert.include(tpl.params[2], { key: '2', value: '1', unnamed: true });
+					assert.include(tpl.params[3], { key: '3', value: '2', unnamed: true });
 				});
 
 				it('should return null when converting to an invalid template title', () => {
 					const [pf] = new mwbot.Wikitext('{{#if:test}}').parseTemplates();
 
-					assertTemplateInstanceOf(pf, 'ParsedParserFunction');
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
 
-					assert.isNull(
-						pf.toTemplate('<>')
-					);
+					assert.isNull(pf.toTemplate('<>'));
 				});
+
+				it('should log errors on conversion failure', () => {
+					const [pf] = new mwbot.Wikitext('{{#if:test}}').parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
+
+					// @ts-expect-error - Protected property
+					const errorSpy = sinon.stub(mwbot.logger, 'error');
+
+					try {
+						pf.toTemplate('<>');
+
+						sinon.assert.calledOnce(errorSpy);
+
+						const err = errorSpy.firstCall.args[0];
+
+						assert.instanceOf(err, MwbotError);
+						assert.strictEqual(err.code, 'unparsabletitle');
+					} finally {
+						sinon.restore();
+					}
+				});
+
+				// Test #initializer updates in stringify()
 			});
 
 			describe('stringify()', function () {
-				it('should reproduce the original wikitext', () => {
+				it('should stringify back to the original text', () => {
 					const text = '{{#if:1|yes|no}}';
 					const [pf] = new mwbot.Wikitext(text).parseTemplates();
 
-					assertTemplateInstanceOf(pf, 'ParsedParserFunction');
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
 
 					assert.strictEqual(
 						pf.stringify(),
@@ -1221,10 +1454,10 @@ export function testWikitextTemplates() {
 					);
 				});
 
-				it.skip('should stringify modified parser functions', () => {
+				it('should stringify modified parser functions', () => {
 					const [pf] = new mwbot.Wikitext('{{#if:1|yes|no}}').parseTemplates();
 
-					assertTemplateInstanceOf(pf, 'ParsedParserFunction');
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
 
 					pf.setHook('#bcp47:');
 
@@ -1234,16 +1467,54 @@ export function testWikitextTemplates() {
 					);
 				});
 
-				it.skip('should preserve rawHook when requested', () => {
-					const text = '{{<!-- -->#if:1|yes|no}}';
-					const [pf] = new mwbot.Wikitext(text).parseTemplates();
+				describe('options.rawHook', function () {
 
-					assertTemplateInstanceOf(pf, 'ParsedParserFunction');
+					const base = [
+						{ input: '{{ #if: }}' },
+						{ input: '{{ <!-- --> #if: }}' },
+						{ input: '{{ #<!-- -->if: }}' },
+					];
 
-					assert.strictEqual(
-						pf.stringify({ rawHook: true }),
-						text
-					);
+					testRawTitleStringify(() => mwbot, base, 'ParsedParserFunction');
+
+					describe('setHook()', function () {
+						testRawTitleStringify(
+							() => mwbot,
+							[
+								{ ...base[0], modify: (pf) => pf.setHook('#bcp47:'), output: '{{ #bcp47: }}' },
+								{ ...base[1], modify: (pf) => pf.setHook('#bcp47:'), output: '{{ <!-- --> #bcp47: }}' },
+								{ ...base[2], modify: (pf) => pf.setHook('#bcp47:'), output: '{{ #bcp47: }}' },
+							],
+							'ParsedParserFunction'
+						);
+					});
+
+					describe('toTemplate()', function () {
+						testRawTitleStringify(
+							() => mwbot,
+							[
+								{ ...base[0], modify: (pf) => pf.toTemplate('Foo'), output: '{{ Foo| }}' },
+								{ ...base[1], modify: (pf) => pf.toTemplate('Foo'), output: '{{ <!-- --> Foo| }}' },
+								{ ...base[2], modify: (pf) => pf.toTemplate('Foo'), output: '{{ Foo| }}' },
+							],
+							'ParsedParserFunction',
+							'ParsedTemplate'
+						);
+
+						it('should ouput the part after the hook as the first template parameter ', function () {
+							const [pf] = new mwbot.Wikitext('{{ #if: <!-- --> }}').parseTemplates();
+
+							assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
+
+							const tpl = pf.toTemplate('Foo');
+
+							assertTemplateInstanceOf(mwbot, tpl, 'ParsedTemplate');
+							assert.strictEqual(
+								tpl.stringify({ rawTitle: true }),
+								'{{ Foo| <!-- --> }}'
+							);
+						});
+					});
 				});
 			});
 
@@ -1251,7 +1522,7 @@ export function testWikitextTemplates() {
 				it('should return the same value as stringify()', () => {
 					const [pf] = new mwbot.Wikitext('{{#if:1|yes|no}}').parseTemplates();
 
-					assertTemplateInstanceOf(pf, 'ParsedParserFunction');
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
 
 					assert.strictEqual(
 						pf.toString(),
@@ -1264,11 +1535,11 @@ export function testWikitextTemplates() {
 				it('should return an independent clone', () => {
 					const [pf] = new mwbot.Wikitext('{{#if:1|yes|no}}').parseTemplates();
 
-					assertTemplateInstanceOf(pf, 'ParsedParserFunction');
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
 
 					const clone = pf._clone();
 
-					assertTemplateInstanceOf(clone, 'ParsedParserFunction');
+					assertTemplateInstanceOf(mwbot, clone, 'ParsedParserFunction');
 					assert.notStrictEqual(clone, pf);
 					assert.deepEqual(clone.params, pf.params);
 					assertParseResultProperties(clone, pf);
@@ -1276,4 +1547,201 @@ export function testWikitextTemplates() {
 			});
 		});
 	});
+}
+
+/**
+ * @typedef {import('../../../dist/index.js').TemplateTypeMap} TemplateTypeMap
+ */
+
+/**
+ * Asserts that the given object is an instance of a parsed template class.
+ *
+ * @template {keyof TemplateTypeMap} T
+ * @param {TestMwbot} mwbot
+ * @param {unknown} obj
+ * @param {T} type
+ * @returns {asserts obj is TemplateTypeMap[T]}
+ */
+function assertTemplateInstanceOf(mwbot, obj, type) {
+	assert.isTrue(mwbot.Template.is(obj, type));
+};
+
+/**
+ * Asserts that all objects in the given array are instances of a parsed template class.
+ *
+ * @template {keyof TemplateTypeMap} T
+ * @param {TestMwbot} mwbot
+ * @param {unknown[]} arr
+ * @param {T} type
+ * @returns {asserts arr is TemplateTypeMap[T][]}
+ */
+function assertTemplateInstanceOfAll(mwbot, arr, type) {
+	for (const obj of arr) {
+		assert.isTrue(mwbot.Template.is(obj, type));
+	}
+};
+
+/**
+ * @typedef {import('../../../dist/index.js').DoubleBracketedClasses} DoubleBracketedClasses
+ * @typedef {import('../../../dist/index.js').ParsedTemplatePropsBase} ParsedTemplatePropsBase
+ * @typedef {import('../../../dist/index.js').ParseResultBase} ParseResultBase
+ */
+/**
+ * @param {ParsedTemplatePropsBase & ParseResultBase} instance
+ * @param {ParsedTemplatePropsBase & ParseResultBase} props
+ */
+function assertParseResultProperties(instance, props) {
+	assert.strictEqual(instance.text, props.text);
+	assert.strictEqual(instance.nestLevel, props.nestLevel);
+	assert.strictEqual(instance.startIndex, props.startIndex);
+	assert.strictEqual(instance.endIndex, props.endIndex);
+	assert.strictEqual(instance.skip, props.skip);
+	assert.strictEqual(instance.index, props.index);
+	assert.strictEqual(instance.parent, props.parent);
+	assert.deepEqual(Array.from(instance.children), Array.from(props.children));
+}
+
+/**
+ * @param {() => TestMwbot} getMwbot
+ * @param {'ParsedTemplate' | 'RawTemplate'} type
+ */
+function testRawTitleProperty(getMwbot, type) {
+
+	const title = type === 'ParsedTemplate'
+		? 'Foo'
+		: '##';
+	const rawPropName = 'rawTitle';
+
+	const data = {
+		whitespace: {
+			name: 'should preserve leading and trailing whitespace',
+			input: `{{  ${title}  }}`,
+			output: `  ${title}  `,
+		},
+		commentLeft: {
+			name: 'should preserve comments on the left side of the title',
+			input: `{{ <!-- --> ${title} }}`,
+			output: ` <!-- --> ${title} `,
+		},
+		commentInside: {
+			name: 'should preserve comments inside the title',
+			input: `{{ ${title.slice(0, 1)}<!-- -->${title.slice(1)} }}`,
+			output: ` ${title.slice(0, 1)}<!-- -->${title.slice(1)} `,
+		},
+		commentRight: {
+			name: 'should preserve comments on the right side of the title',
+			input: `{{ ${title} <!-- --> }}`,
+			output: ` ${title} <!-- --> `,
+		},
+	};
+
+	it(data.whitespace.name, () => {
+		const mwbot = getMwbot();
+		const [tpl] = new mwbot.Wikitext(data.whitespace.input).parseTemplates();
+
+		assertTemplateInstanceOf(mwbot, tpl, type);
+		assert.propertyVal(tpl, rawPropName, data.whitespace.output);
+	});
+
+	it(data.commentLeft.name, () => {
+		const mwbot = getMwbot();
+		const [tpl] = new mwbot.Wikitext(data.commentLeft.input).parseTemplates();
+
+		assertTemplateInstanceOf(mwbot, tpl, type);
+		assert.propertyVal(tpl, rawPropName, data.commentLeft.output);
+	});
+
+	it(data.commentInside.name, function () {
+		const mwbot = getMwbot();
+		const [tpl] = new mwbot.Wikitext(data.commentInside.input).parseTemplates();
+
+		assertTemplateInstanceOf(mwbot, tpl, type);
+		assert.propertyVal(tpl, rawPropName, data.commentInside.output);
+		if (typeof tpl.title === 'string') {
+			// RawTemplate.title is not automatically trimmed
+			assert.strictEqual(tpl.title.trim(), title);
+		} else {
+			assert.strictEqual(tpl.title.getMain(), title);
+		}
+	});
+
+	it(data.commentRight.name, () => {
+		const mwbot = getMwbot();
+		const [tpl] = new mwbot.Wikitext(data.commentRight.input).parseTemplates();
+
+		assertTemplateInstanceOf(mwbot, tpl, type);
+		assert.propertyVal(tpl, rawPropName, data.commentRight.output);
+	});
+};
+
+const testRawTitleStringifyFixtures = [
+	{
+		unmodified: 'should output the unmodified rawTitle',
+		modified: 'should output the modified rawTitle',
+	},
+	{
+		unmodified: 'should output the unmodified rawTitle with a comment tag on the left side',
+		modified: 'should output the modified rawTitle with a comment tag on the left side',
+	},
+	{
+		unmodified: 'should output the unmodified rawTitle with a comment tag intervening',
+		modified: 'should output the modified rawTitle with intervening comment tags discarded',
+	},
+	{
+		unmodified: 'should output the unmodified rawTitle with a comment tag on the right side',
+		modified: 'should output the modified rawTitle with a comment tag on the right side',
+	},
+	{
+		unmodified: 'should output the unmodified rawTitle with comment tags on both sides',
+		modified: 'should output the modified rawTitle with comment tags on both sides',
+	},
+];
+
+/**
+ * @typedef {Pick<TemplateTypeMap, 'ParsedTemplate' | 'RawTemplate' | 'ParsedParserFunction'>} ParsedTemplateTypeMap
+ */
+/**
+ * @template {keyof ParsedTemplateTypeMap} T
+ * @typedef {object} RawTitleTestData
+ * @property {string} input
+ * @property {(instance: ParsedTemplateTypeMap[T]) => any} [modify]
+ * @property {string} [output]
+ */
+/**
+ * @template {keyof ParsedTemplateTypeMap} T
+ * @param {() => TestMwbot} getMwbot
+ * @param {RawTitleTestData<T>[]} data
+ * @param {T} type
+ * @param {keyof ParsedTemplateTypeMap} [modifiedType]
+ */
+function testRawTitleStringify(getMwbot, data, type, modifiedType) {
+	modifiedType ??= type;
+	const rawOutputConfig = modifiedType === 'ParsedParserFunction'
+		? { rawHook: true }
+		: { rawTitle: true };
+
+	for (const [i, { input, modify, output }] of data.entries()) {
+
+		if (i > 2 && type === 'ParsedParserFunction') {
+			return;
+		}
+
+		const fixture = testRawTitleStringifyFixtures[i];
+		const desc = modify ? fixture.modified : fixture.unmodified;
+
+		it(desc, function () {
+			const mwbot = getMwbot();
+			let [inst] = new mwbot.Wikitext(input).parseTemplates();
+
+			assertTemplateInstanceOf(mwbot, inst, type);
+
+			const ret = modify?.(inst);
+			inst = typeof ret === 'object' && ret !== null ? ret : inst;
+
+			assert.strictEqual(
+				inst.stringify(rawOutputConfig),
+				modify ? output : input
+			);
+		});
+	}
 }
