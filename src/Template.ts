@@ -32,7 +32,7 @@ import type {
 import { MwbotError } from './MwbotError.js';
 import { createParserFunctionMap } from './internal/parserFunctionData.js';
 import { Logger } from './internal/Logger.js';
-import { formatTemplateTitle, rawTitlePlaceholder, updateInitializerTitle } from './internal/wikitext/templateHelpers.js';
+import { formatTemplateTitle, updateInitializerTitle } from './internal/wikitext/templateHelpers.js';
 
 /**
  * The base class for {@link TemplateStatic} and {@link RawTemplateStatic}.
@@ -358,11 +358,11 @@ export interface ParsedTemplateStatic extends Omit<TemplateStatic, 'new'> {
  */
 export interface ParsedTemplate extends Template, ParsedTemplateProps<ParsedTemplate> {
 	/**
-	 * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
+	 * The raw template title as parsed from the source wikitext.
 	 *
-	 * This property is dynamically updated on a successful call of {@link setTitle}.
+	 * This may include redundant whitespace, bidirectional formatting characters, or HTML comment tags.
 	 */
-	rawTitle: string;
+	get rawTitle(): string;
 
 	/**
 	 * Converts the instance to a {@link ParsedParserFunction}.
@@ -451,18 +451,17 @@ export interface RawTemplateStatic extends Omit<TemplateBaseStatic<string>, 'new
  */
 export interface RawTemplate extends TemplateBase<string>, ParsedTemplateProps<RawTemplate> {
 	/**
-	 * The raw template title, as directly parsed from the first operand of a `{{template|...}}` expression.
+	 * The raw template title as parsed from the source wikitext.
 	 *
-	 * This property is dynamically updated when {@link setTitle} is called.
+	 * This may include redundant whitespace, bidirectional formatting characters, or HTML comment tags.
 	 */
-	rawTitle: string;
+	get rawTitle(): string;
 
 	/**
 	 * Sets a new title to the instance.
 	 *
-	 * This method updates the {@link RawTemplate.title | title} and {@link RawTemplate.rawTitle | rawTitle}
-	 * properties of the instance. If the new title is an unambiguously valid title for MediaWiki, use
-	 * {@link toTemplate} or {@link toParserFunction} instead.
+	 * This method updates the {@link RawTemplate.title | title} property of the instance. If the new title is
+	 * an unambiguously valid title for MediaWiki, use {@link toTemplate} or {@link toParserFunction} instead.
 	 *
 	 * @param title The new title to set.
 	 * @returns The current instance for chaining.
@@ -623,11 +622,11 @@ export interface ParsedParserFunctionStatic extends Omit<ParserFunctionStatic, '
  */
 export interface ParsedParserFunction extends ParserFunction, ParsedTemplateProps<ParsedParserFunction> {
 	/**
-	 * The raw parser function hook, as directly parsed from the wikitext.
+	 * The raw parser function hook as parsed from the source wikitext.
 	 *
-	 * This property is dynamically updated on a successful call of {@link setHook}.
+	 * This may include redundant whitespace, bidirectional formatting characters, or HTML comment tags.
 	 */
-	rawHook: string;
+	get rawHook(): string;
 
 	/**
 	 * Converts the instance to a {@link ParsedTemplate}.
@@ -1273,7 +1272,9 @@ export function TemplateFactory(
 	class ParsedTemplate extends Template implements ParsedTemplate {
 
 		// ParsedTemplate
-		declare rawTitle: string;
+		get rawTitle(): string {
+			return this.#initializer.rawTitle;
+		}
 
 		// ParsedTemplatePropsBase
 		declare text: string;
@@ -1296,7 +1297,8 @@ export function TemplateFactory(
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
 			const {
 				title,
-				rawTitleTemplate: _rawTitleTemplate, // Exclude from the instance properties
+				rawTitle: _rawTitle, // Exclude from the instance properties
+				rawTitleTemplate: _rawTitleTemplate,
 				isTitleAltered: _isTitleAltered,
 				params,
 				...parsedProps
@@ -1318,7 +1320,6 @@ export function TemplateFactory(
 					this.#initializer,
 					formatTemplateTitle(this._title, NS_TEMPLATE)
 				);
-				this.rawTitle = this.#initializer.rawTitle;
 			}
 			return success;
 		}
@@ -1337,15 +1338,10 @@ export function TemplateFactory(
 
 		override stringify(options: ParsedTemplateOutputConfig = {}): string {
 			const { rawTitle: optRawTitle, ...rawOptions } = options;
-
-			let title = formatTemplateTitle(this._title, NS_TEMPLATE);
-			if (optRawTitle) {
-				title = this.#initializer.isTitleAltered
-					? this.#initializer.rawTitleTemplate.replace(rawTitlePlaceholder, title)
-					: this.rawTitle;
-			}
-
-			return this._stringify(title, rawOptions);
+			return this._stringify(
+				optRawTitle ? this.rawTitle : formatTemplateTitle(this._title, NS_TEMPLATE),
+				rawOptions
+			);
 		}
 
 		override toString() {
@@ -1374,7 +1370,9 @@ export function TemplateFactory(
 	class RawTemplate extends TemplateBase<string> implements RawTemplate {
 
 		// RawTemplate
-		declare rawTitle: string;
+		get rawTitle(): string {
+			return this.#initializer.rawTitle;
+		}
 
 		// ParsedTemplatePropsBase
 		declare text: string;
@@ -1397,7 +1395,8 @@ export function TemplateFactory(
 		constructor(initializer: ParsedTemplateInitializer, options: ParsedTemplateOptions = {}) {
 			const {
 				title,
-				rawTitleTemplate: _rawTitleTemplate, // Exclude from the instance properties
+				rawTitle: _rawTitle, // Exclude from the instance properties
+				rawTitleTemplate: _rawTitleTemplate,
 				isTitleAltered: _isTitleAltered,
 				params,
 				...parsedProps
@@ -1412,7 +1411,6 @@ export function TemplateFactory(
 		setTitle(title: string): this {
 			this._title = title;
 			updateInitializerTitle(this.#initializer, title);
-			this.rawTitle = this.#initializer.rawTitleTemplate.replace(rawTitlePlaceholder, title);
 			return this;
 		}
 
@@ -1445,15 +1443,10 @@ export function TemplateFactory(
 
 		stringify(options: RawTemplateOutputConfig = {}): string {
 			const { rawTitle: optRawTitle, ...rawOptions } = options;
-
-			let title = this._title;
-			if (optRawTitle) {
-				title = this.#initializer.isTitleAltered
-					? this.#initializer.rawTitleTemplate.replace(rawTitlePlaceholder, title)
-					: this.rawTitle;
-			}
-
-			return this._stringify(title, rawOptions);
+			return this._stringify(
+				optRawTitle ? this.rawTitle : this._title,
+				rawOptions
+			);
 		}
 
 		override toString() {
@@ -1591,7 +1584,9 @@ export function TemplateFactory(
 	class ParsedParserFunction extends ParserFunction implements ParsedParserFunction {
 
 		// ParsedParserFunction
-		rawHook: string;
+		get rawHook(): string {
+			return this.#initializer.rawTitle;
+		}
 
 		// ParsedTemplatePropsBase
 		declare text: string;
@@ -1615,8 +1610,8 @@ export function TemplateFactory(
 			const {
 				// For parser functions, `title` and `rawTitle` correspond to the hook
 				title,
-				rawTitle,
-				rawTitleTemplate: _rawTitleTemplate, // Exclude from the instance properties
+				rawTitle: _rawTitle, // Exclude from the instance properties
+				rawTitleTemplate: _rawTitleTemplate,
 				isTitleAltered: _isTitleAltered,
 				params,
 				...parsedProps
@@ -1624,7 +1619,6 @@ export function TemplateFactory(
 
 			super(title, params.map((p) => p.value));
 
-			this.rawHook = rawTitle;
 			this.#initializer = cloneDeep(initializer);
 			Object.assign(this, cloneDeep(parsedProps));
 		}
@@ -1633,7 +1627,6 @@ export function TemplateFactory(
 			const success = super.setHook(hook);
 			if (success) {
 				updateInitializerTitle(this.#initializer, this._verifiedHook.match);
-				this.rawHook = this.#initializer.rawTitle;
 			}
 			return success;
 		}
@@ -1656,15 +1649,10 @@ export function TemplateFactory(
 
 		override stringify(options: ParsedParserFunctionOutputConfig = {}): string {
 			const { rawHook: optRawHook, useCanonical, ...rawOptions } = options;
-
-			let hook = useCanonical ? this.canonicalHook : this.hook;
-			if (optRawHook) {
-				hook = this.#initializer.isTitleAltered
-					? this.#initializer.rawTitleTemplate.replace(rawTitlePlaceholder, hook)
-					: this.rawHook;
-			}
-
-			return this._stringify(hook, rawOptions);
+			return this._stringify(
+				optRawHook ? this.rawHook : useCanonical ? this.canonicalHook : this.hook,
+				rawOptions
+			);
 		}
 
 		override toString() {
@@ -1862,7 +1850,7 @@ export interface TemplateOutputConfig<T> {
 export interface ParsedTemplateOutputConfig extends TemplateOutputConfig<Title> {
 	/**
 	 * Whether to preserve the raw formatting surrounding the title, as found in
-	 * {@link ParsedTemplate.rawTitle | rawTitle}.
+	 * {@link ParsedTemplate.rawTitle}.
 	 *
 	 * This preserves leading and trailing whitespace, bidirectional formatting characters,
 	 * and HTML comments where possible. HTML comments that interrupt the title itself
@@ -1882,7 +1870,7 @@ export interface ParsedTemplateOutputConfig extends TemplateOutputConfig<Title> 
 export interface RawTemplateOutputConfig extends TemplateOutputConfig<string> {
 	/**
 	 * Whether to preserve the raw formatting surrounding the title, as found in
-	 * {@link RawTemplate.rawTitle | rawTitle}.
+	 * {@link RawTemplate.rawTitle}.
 	 *
 	 * This preserves leading and trailing whitespace, bidirectional formatting characters,
 	 * and HTML comments where possible. HTML comments that interrupt the title itself
@@ -1982,7 +1970,7 @@ export interface ParserFunctionOutputConfig {
 export interface ParsedParserFunctionOutputConfig extends ParserFunctionOutputConfig {
 	/**
 	 * Whether to preserve the raw formatting preceding the parser-function hook, as found in
-	 * {@link ParsedParserFunction.rawHook | rawHook}.
+	 * {@link ParsedParserFunction.rawHook}.
 	 *
 	 * This preserves leading whitespace, bidirectional formatting characters,
 	 * and HTML comments where possible. HTML comments that interrupt the hook itself

@@ -1438,8 +1438,8 @@ export function testWikitextTemplates() {
 			});
 
 			describe('stringify()', function () {
-				it('should stringify back to the original text', () => {
-					const text = '{{#if:1|yes|no}}';
+				it('should use the non-canonical hook by default', function () {
+					const text = '{{#IF:1|yes|no}}';
 					const [pf] = new mwbot.Wikitext(text).parseTemplates();
 
 					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
@@ -1447,6 +1447,18 @@ export function testWikitextTemplates() {
 					assert.strictEqual(
 						pf.stringify(),
 						text
+					);
+				});
+
+				it('should use the canonical hook when requested', function () {
+					const text = '{{#IF:1|yes|no}}';
+					const [pf] = new mwbot.Wikitext(text).parseTemplates();
+
+					assertTemplateInstanceOf(mwbot, pf, 'ParsedParserFunction');
+
+					assert.strictEqual(
+						pf.stringify({ useCanonical: true }),
+						text.toLowerCase()
 					);
 				});
 

@@ -353,7 +353,7 @@ function trimTitle(title: string) {
 	return { match, leading, core, trailing };
 }
 
-export const rawTitlePlaceholder = '\x01';
+const rawTitlePlaceholder = '\x01';
 
 /**
  * Finalizes parsed template components.
