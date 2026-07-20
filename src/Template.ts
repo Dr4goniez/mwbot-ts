@@ -1417,15 +1417,17 @@ export function TemplateFactory(
 		}
 
 		toTemplate(title: string | Title): ParsedTemplate | null {
-			title = typeof title === 'string' ? title : title.getPrefixedDb({ colon: true, fragment: true });
 			try {
-				Template.validateTitle(title);
+				title = Template.validateTitle(title);
 			} catch (err) {
 				logger.error(err as MwbotError);
 				return null;
 			}
 			const initializer = cloneDeep(this.#initializer);
-			updateInitializerTitle(initializer, title);
+			updateInitializerTitle(
+				initializer,
+				formatTemplateTitle(title, NS_TEMPLATE)
+			);
 			return new ParsedTemplate(initializer);
 		}
 
@@ -1637,16 +1639,18 @@ export function TemplateFactory(
 		}
 
 		toTemplate(title: string | Title): ParsedTemplate | null {
-			title = typeof title === 'string' ? title : title.getPrefixedDb({ colon: true, fragment: true });
 			try {
 				// @ts-expect-error Calling a protected method
-				Template.validateTitle(title);
+				title = Template.validateTitle(title);
 			} catch (err) {
 				logger.error(err as MwbotError);
 				return null;
 			}
 			const initializer = cloneDeep(this.#initializer);
-			updateInitializerTitle(initializer, title);
+			updateInitializerTitle(
+				initializer,
+				formatTemplateTitle(title, NS_TEMPLATE)
+			);
 			return new ParsedTemplate(initializer);
 		}
 
