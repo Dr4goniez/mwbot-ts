@@ -2,8 +2,15 @@ import { describe, it, before } from 'mocha';
 import { assert } from 'chai';
 import { getTestMwbot } from '../MwbotTest/MwbotTest-fixtures.js';
 
+/**
+ * @typedef {import('../../../dist/index.js').ParsedWikilink} ParsedWikilink
+ * @typedef {import('../../../dist/index.js').ParsedFileWikilink} ParsedFileWikilink
+ * @typedef {import('../../../dist/index.js').ParsedRawWikilink} ParsedRawWikilink
+ * @typedef {Awaited<ReturnType<getTestMwbot>>} TestMwbot
+ */
+
 export function testWikitextWikilinks() {
-	describe('Wikilink methods', function () {
+	describe('Wikilinks', function () {
 		/**
 		 * @type {Awaited<ReturnType<getTestMwbot>>}
 		 */
@@ -11,6 +18,27 @@ export function testWikitextWikilinks() {
 
 		before(async function () {
 			mwbot = await getTestMwbot('named');
+		});
+
+		describe('Wikilink.is()', function () {
+			it('should discriminate wikilink classes', function () {
+				const result = new mwbot.Wikitext(
+					'[[Foo]][[File:Bar.jpg]][[<>]]'
+				).parseWikilinks();
+
+				assert.lengthOf(result, 3);
+
+				const [link, file, raw] = result;
+
+				assertWikilinkInstanceOf(mwbot, link, 'Wikilink');
+				assertWikilinkInstanceOf(mwbot, link, 'ParsedWikilink');
+
+				assertWikilinkInstanceOf(mwbot, file, 'FileWikilink');
+				assertWikilinkInstanceOf(mwbot, file, 'ParsedFileWikilink');
+
+				assertWikilinkInstanceOf(mwbot, raw, 'RawWikilink');
+				assertWikilinkInstanceOf(mwbot, raw, 'ParsedRawWikilink');
+			});
 		});
 
 		describe('_parseWikilinksFuzzy()', function () {
@@ -196,4 +224,36 @@ export function testWikitextWikilinks() {
 			});
 		});
 	});
+}
+
+/**
+ * @typedef {import('../../../dist/index.js').WikilinkTypeMap} WikilinkTypeMap
+ */
+
+/**
+ * Asserts that the given object is an instance of a parsed wikilink class.
+ *
+ * @template {keyof WikilinkTypeMap} T
+ * @param {TestMwbot} mwbot
+ * @param {unknown} obj
+ * @param {T} type
+ * @returns {asserts obj is WikilinkTypeMap[T]}
+ */
+function assertWikilinkInstanceOf(mwbot, obj, type) {
+	assert.isTrue(mwbot.Wikilink.is(obj, type));
+}
+
+/**
+ * Asserts that all objects in the given array are instances of a parsed wikilink class.
+ *
+ * @template {keyof WikilinkTypeMap} T
+ * @param {TestMwbot} mwbot
+ * @param {unknown[]} arr
+ * @param {T} type
+ * @returns {asserts arr is WikilinkTypeMap[T][]}
+ */
+function assertWikilinkInstanceOfAll(mwbot, arr, type) {
+	for (const obj of arr) {
+		assert.isTrue(mwbot.Wikilink.is(obj, type));
+	}
 }
