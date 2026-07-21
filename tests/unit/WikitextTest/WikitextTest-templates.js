@@ -1590,7 +1590,6 @@ function assertTemplateInstanceOfAll(mwbot, arr, type) {
 }
 
 /**
- * @typedef {import('../../../dist/index.js').DoubleBracketedClasses} DoubleBracketedClasses
  * @typedef {import('../../../dist/index.js').ParsedTemplatePropsBase} ParsedTemplatePropsBase
  * @typedef {import('../../../dist/index.js').ParseResultBase} ParseResultBase
  */
