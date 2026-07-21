@@ -7,8 +7,8 @@
  */
 
 import { Mwbot } from '../../dist/build/Mwbot.js';
-import { redirectConsoleToFile } from './logging.js';
-import { getLocalwikiInitOptions } from './providers/localwiki-provider.js';
+import { redirectConsoleToFile } from './internal/logging.js';
+import { getLocalwikiInitOptions } from './internal/localwiki-provider.js';
 
 // Comment out this line to output console messages to the terminal
 redirectConsoleToFile();

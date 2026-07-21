@@ -1,8 +1,8 @@
 import { Console } from 'node:console';
 import { createWriteStream, existsSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import rootDir from '../../scripts/root-dir.js';
-import { disableLoggerColors } from '../../dist/build/internal/Logger.js';
+import rootDir from '../../../scripts/root-dir.js';
+import { disableLoggerColors } from '../../../dist/build/internal/Logger.js';
 
 const outputDir = resolve(rootDir, 'logs');
 if (!existsSync(outputDir)) {

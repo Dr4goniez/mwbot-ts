@@ -8,6 +8,6 @@ src/regex.txt
 **/.env
 **/credentials.json
 tests/docker/secrets
-tests/oneoff/*.js
+tests/oneoff/*
+!tests/oneoff/internal
 !tests/oneoff/*.example.js
-!tests/oneoff/logging.js
