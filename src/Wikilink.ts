@@ -25,6 +25,7 @@ import { serializeWikilink, validateWikilinkTitle } from './internal/wikilinkHel
 import type { Mwbot } from './Mwbot.js';
 import { MwbotError } from './MwbotError.js';
 import type { TitleStatic, Title } from './Title.js';
+import { cloneDeep } from './Util.js';
 import type {
 	ParseResultBase,
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -255,7 +256,7 @@ export interface ParsedWikilink extends Wikilink, ParsedWikilinkProps<ParsedWiki
 	toString(): string;
 }
 
-export interface ParsedWikilinkProps<CLS> extends ParseResultBase {
+export interface ParsedWikilinkPropsBase {
 	/**
 	 * The original text of the wikilink parsed from the wikitext.
 	 * The value of this property is static.
@@ -268,6 +269,9 @@ export interface ParsedWikilinkProps<CLS> extends ParseResultBase {
 	 * within another wikilink, or that it serves as part of the thumb text of a file wikilink.
 	 */
 	nestLevel: number;
+}
+
+export interface ParsedWikilinkProps<CLS> extends ParsedWikilinkPropsBase, ParseResultBase {
 	/**
 	 * @hidden
 	 */
@@ -632,6 +636,7 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic, log
 		constructor(title: string | Title, display?: string) {
 			title = validateWikilinkTitle(title, Title);
 			Wikilink.dieIfFileTitle(title);
+
 			super(title, display);
 		}
 
@@ -711,15 +716,22 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic, log
 
 	class ParsedWikilink extends Wikilink implements ParsedWikilink {
 
+		// ParsedWikilink
 		rawTitle: string;
-		text: string;
-		index: number;
-		startIndex: number;
-		endIndex: number;
-		nestLevel: number;
-		skip: boolean;
-		parent: number | null;
-		children: ReadonlySet<number>;
+
+		// ParsedWikilinkPropsBase
+		declare text: string;
+		declare nestLevel: number;
+
+		// ParseResultBase
+		declare startIndex: number;
+		declare endIndex: number;
+		declare skip: boolean;
+		declare index: number;
+		declare parent: number | null;
+		declare children: ReadonlySet<number>;
+
+		// internal
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
@@ -730,19 +742,20 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic, log
 		#initializer: ParsedWikilinkInitializer;
 
 		constructor(initializer: ParsedWikilinkInitializer) {
-			const { display, title, rawTitle, _rawTitle, text, index, startIndex, endIndex, nestLevel, skip, parent, children } = initializer;
+			const {
+				display,
+				title,
+				rawTitle,
+				_rawTitle,
+				...parsedProps
+			} = initializer;
+
 			super(title, display);
-			this.#initializer = initializer;
+
+			this.#initializer = cloneDeep(initializer);
 			this.rawTitle = rawTitle;
 			this.#rawTitle = _rawTitle;
-			this.text = text;
-			this.index = index;
-			this.startIndex = startIndex;
-			this.endIndex = endIndex;
-			this.nestLevel = nestLevel;
-			this.skip = skip;
-			this.parent = parent;
-			this.children = new Set([...children]);
+			Object.assign(this, cloneDeep(parsedProps));
 		}
 
 		override toFileWikilink(title: string | Title): ParsedFileWikilink | null {
@@ -812,7 +825,9 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic, log
 		constructor(title: string | Title, params: string[] = []) {
 			title = validateWikilinkTitle(title, Title);
 			FileWikilink.dieIfNotFileTitle(title);
+
 			super(params);
+
 			this._title = title;
 		}
 
@@ -880,15 +895,22 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic, log
 
 	class ParsedFileWikilink extends FileWikilink implements ParsedFileWikilink {
 
+		// ParsedFileWikilink
 		rawTitle: string;
-		text: string;
-		index: number;
-		startIndex: number;
-		endIndex: number;
-		nestLevel: number;
-		skip: boolean;
-		parent: number | null;
-		children: ReadonlySet<number>;
+
+		// ParsedWikilinkPropsBase
+		declare text: string;
+		declare nestLevel: number;
+
+		// ParseResultBase
+		declare startIndex: number;
+		declare endIndex: number;
+		declare skip: boolean;
+		declare index: number;
+		declare parent: number | null;
+		declare children: ReadonlySet<number>;
+
+		// internal
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
@@ -899,19 +921,20 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic, log
 		#initializer: ParsedFileWikilinkInitializer;
 
 		constructor(initializer: ParsedFileWikilinkInitializer) {
-			const { params, title, rawTitle, _rawTitle, text, index, startIndex, endIndex, nestLevel, skip, parent, children } = initializer;
+			const {
+				params,
+				title,
+				rawTitle,
+				_rawTitle,
+				...parsedProps
+			} = initializer;
+
 			super(title, params);
-			this.#initializer = initializer;
+
+			this.#initializer = cloneDeep(initializer);
 			this.rawTitle = rawTitle;
 			this.#rawTitle = _rawTitle;
-			this.text = text;
-			this.index = index;
-			this.startIndex = startIndex;
-			this.endIndex = endIndex;
-			this.nestLevel = nestLevel;
-			this.skip = skip;
-			this.parent = parent;
-			this.children = new Set([...children]);
+			Object.assign(this, cloneDeep(parsedProps));
 		}
 
 		override toWikilink(title: string | Title): ParsedWikilink | null {
@@ -1025,15 +1048,22 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic, log
 
 	class ParsedRawWikilink extends RawWikilink implements ParsedRawWikilink {
 
+		// ParsedFileWikilink
 		rawTitle: string;
-		text: string;
-		index: number;
-		startIndex: number;
-		endIndex: number;
-		nestLevel: number;
-		skip: boolean;
-		parent: number | null;
-		children: ReadonlySet<number>;
+
+		// ParsedWikilinkPropsBase
+		declare text: string;
+		declare nestLevel: number;
+
+		// ParseResultBase
+		declare startIndex: number;
+		declare endIndex: number;
+		declare skip: boolean;
+		declare index: number;
+		declare parent: number | null;
+		declare children: ReadonlySet<number>;
+
+		// internal
 		/**
 		 * {@link rawTitle} with the insertion point of {@link title} replaced with a control character.
 		 */
@@ -1044,19 +1074,20 @@ export function WikilinkFactory(config: Mwbot['config'], Title: TitleStatic, log
 		#initializer: ParsedRawWikilinkInitializer;
 
 		constructor(initializer: ParsedRawWikilinkInitializer) {
-			const { display, title, rawTitle, _rawTitle, text, index, startIndex, endIndex, nestLevel, skip, parent, children } = initializer;
+			const {
+				display,
+				title,
+				rawTitle,
+				_rawTitle,
+				...parsedProps
+			} = initializer;
+
 			super(title, display);
-			this.#initializer = initializer;
+
+			this.#initializer = cloneDeep(initializer);
 			this.rawTitle = rawTitle;
 			this.#rawTitle = _rawTitle;
-			this.text = text;
-			this.index = index;
-			this.startIndex = startIndex;
-			this.endIndex = endIndex;
-			this.nestLevel = nestLevel;
-			this.skip = skip;
-			this.parent = parent;
-			this.children = new Set([...children]);
+			Object.assign(this, cloneDeep(parsedProps));
 		}
 
 		override toWikilink(title: string | Title): ParsedWikilink | null {
