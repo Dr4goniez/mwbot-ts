@@ -1,3 +1,4 @@
+import { DeepReadonly } from 'ts-essentials';
 import type { DoubleBracedClasses, FuzzyWikilink, Parameter, ParseResultBase, Tag } from '../../Wikitext.js';
 
 /**
@@ -205,7 +206,8 @@ export function addTemplateIndexMap(
 			isTemplate = false;
 		}
 
-		// `inner` is, for templates, their right operand, and for parser functions, the text after their hook
+		// `inner` is, for templates, their right operand, and for parser functions,
+		// the text after their hook
 		const { text, startIndex, endIndex } = template;
 		const start = startIndex + 2 + rawTitle.length + (isTemplate ? 1 : 0);
 		const end = endIndex - 2;
@@ -215,4 +217,168 @@ export function addTemplateIndexMap(
 			inner: end - start > 1 ? { start, end } : null,
 		};
 	}
+}
+
+// Essentially the same as regular expressions used in Title
+const whitespace = ' _\u00A0\u1680\u180E\u2000-\u200A\u2028\u2029\u202F\u205F\u3000';
+const bidi = '\u200E\u200F\u202A-\u202E';
+const whitespaceBidi = `[${whitespace}${bidi}]*`;
+
+const rWhitespaceBidi = new RegExp(
+	`^(${whitespaceBidi})(.*?)(${whitespaceBidi})$`
+);
+const rWhitespaceBidiLead = new RegExp(
+	`^${whitespaceBidi}`
+);
+const rWhitespaceBidiTrail = new RegExp(
+	`${whitespaceBidi}$`
+);
+
+/**
+ * Splits a title into leading whitespace/bidi characters, the core text, and
+ * trailing whitespace/bidi characters.
+ *
+ * This follows the same whitespace and bidi definitions used by the title parser,
+ * but does not perform any title normalization.
+ *
+ * @param title The title to split.
+ * @returns The original match together with its leading, core, and trailing parts.
+ */
+function trimTitle(title: string) {
+	const [
+		match,
+		leading,
+		core,
+		trailing,
+	] = title.match(rWhitespaceBidi) ?? ['', '', '', ''];
+
+	return { match, leading, core, trailing };
+}
+
+/**
+ * A contiguous fragment of a parsed title.
+ *
+ * Fragments preserve the original ordering and HTML comments so that `rawTitleTemplate`
+ * can later be reconstructed without consulting the original wikitext.
+ */
+export interface TitleFragment {
+	/**
+	 * The original fragment text.
+	 */
+	text: string;
+	/**
+	 * Whether this fragment is an HTML comment.
+	 */
+	isComment: boolean;
+}
+
+/**
+ * Placeholder inserted into a raw-title template to mark the position
+ * where the normalized title should be reinserted.
+ */
+export const rawTitlePlaceholder = '\x01';
+
+/**
+ * Builds a raw-title template from title fragments.
+ *
+ * The returned string contains {@link rawTitlePlaceholder} at the position where the normalized
+ * title should later be reinserted.
+ *
+ * #### Example 1: Full match
+ * - `title`: `' Foo '`
+ * - `rawTitle`: `' Foo '`
+ * - `rawTitleTemplate`: `' \x01 '`
+ *
+ * `rawTitle` is used to stringify a parsed instance in the raw output mode. Once `title` is
+ * updated in the instance, `rawTitleTemplate` is used and the new title is inserted into
+ * the position of the placeholder to retain the original raw formatting.
+ *
+ * #### Example 2: Comment tags on the left
+ * - `title`: `'  Foo '`
+ * - `rawTitle`: `' <!-- --> Foo '`
+ * - `rawTitleTemplate`: `' <!-- --> \x01 '`
+ *
+ * #### Example 3: Comment tags on the right
+ * - `title`: `' Foo  '`
+ * - `rawTitle`: `' Foo <!-- --> '`
+ * - `rawTitleTemplate`: `' \x01 <!-- --> '`
+ *
+ * #### Example 4: Intervening comment tags
+ * - `title`: `' Foo '`
+ * - `rawTitle`: `' Fo<!-- -->o '`
+ * - `rawTitleTemplate`: `' \x01 '`
+ *
+ * Any HTML comments that interrupt the title text become part of the placeholder region and are
+ * therefore not preserved independently.
+ *
+ * @param fragments Parsed title fragments.
+ * @param titleData Optional precomputed title strings to avoid reconstructing them from `fragments`.
+ * @returns A raw-title template suitable for reconstructing the original raw title after the title
+ * has been modified.
+ */
+export function buildRawTitleTemplateFromFragments(
+	fragments: DeepReadonly<TitleFragment[]>,
+	titleData?: { title: string; rawTitle: string }
+): string {
+	if (!titleData) {
+		titleData = { title: '', rawTitle: '' };
+
+		for (const { text, isComment } of fragments) {
+			if (!isComment) {
+				titleData.title += text;
+			}
+			titleData.rawTitle += text;
+		}
+	}
+	const { title, rawTitle } = titleData;
+
+	// Full match
+	if (title === rawTitle) {
+		const { leading, core, trailing } = trimTitle(title);
+
+		return core === ''
+			// Edge case: the title consists solely of whitespace and/or HTML comments,
+			// so there is no stable insertion point for the placeholder
+			? rawTitle + rawTitlePlaceholder
+			: leading + rawTitlePlaceholder + trailing;
+	}
+
+	// Collect leading whitespace/bidi characters and HTML comments
+	let leading = '';
+	for (const fragment of fragments) {
+		if (fragment.isComment) {
+			leading += fragment.text;
+		} else {
+			const ws = fragment.text.match(rWhitespaceBidiLead)![0];
+			if (ws.length === fragment.text.length) {
+				// `text` is whitespace only: add it to `leading` and continue
+				leading += fragment.text;
+			} else {
+				// Found non-whitespace in `text`: only add whitespace to `leading` and stop
+				leading += ws;
+				break;
+			}
+		}
+	}
+
+	// Collect trailing whitespace/bidi characters and HTML comments
+	let trailing = '';
+	for (let i = fragments.length - 1; i >= 0; i--) {
+		const fragment = fragments[i];
+		if (fragment.isComment) {
+			trailing = fragment.text + trailing;
+		} else {
+			const ws = fragment.text.match(rWhitespaceBidiTrail)![0];
+			if (ws.length === fragment.text.length) {
+				trailing = fragment.text + trailing;
+			} else {
+				trailing = ws + trailing;
+				break;
+			}
+		}
+	}
+
+	return trimTitle(title).core === ''
+		? rawTitle + rawTitlePlaceholder
+		: leading + rawTitlePlaceholder + trailing;
 }

@@ -9,7 +9,12 @@ import {
 } from '../../Template.js';
 import { Title, TitleOutputOptions } from '../../Title.js';
 import { WikitextStatic } from '../../Wikitext.js';
-import { IndexMapEntry } from './sharedHelpers.js';
+import {
+	buildRawTitleTemplateFromFragments,
+	IndexMapEntry,
+	rawTitlePlaceholder,
+	TitleFragment,
+} from './sharedHelpers.js';
 
 /**
  * Finds the next template-related token (i.e., `{{`, `}}`, `|`, or `=`), or
@@ -160,23 +165,6 @@ export interface TemplateComponent extends Required<NewTemplateParameter> {
 }
 
 /**
- * A contiguous fragment of the original template title.
- *
- * Fragments preserve the original ordering and HTML comments so that {@link ParsedTemplateInitializer.rawTitleTemplate}
- * can later be reconstructed without consulting the original wikitext.
- */
-interface TitleFragment {
-	/**
-	 * The original fragment text.
-	 */
-	text: string;
-	/**
-	 * Whether this fragment is an HTML comment.
-	 */
-	isComment: boolean;
-}
-
-/**
  * Options for {@link processTemplateFragment}.
  */
 interface FragmentOptions {
@@ -317,82 +305,15 @@ export class PipePlaceholderManager {
 	}
 }
 
-// Essentially the same as regular expressions used in Title
-const whitespace = ' _\u00A0\u1680\u180E\u2000-\u200A\u2028\u2029\u202F\u205F\u3000';
-const bidi = '\u200E\u200F\u202A-\u202E';
-const whitespaceBidi = `[${whitespace}${bidi}]*`;
-
-const rWhitespaceBidi = new RegExp(
-	`^(${whitespaceBidi})(.*?)(${whitespaceBidi})$`
-);
-const rWhitespaceBidiLead = new RegExp(
-	`^${whitespaceBidi}`
-);
-const rWhitespaceBidiTrail = new RegExp(
-	`${whitespaceBidi}$`
-);
-
-/**
- * Splits a template title into leading whitespace/bidi characters, the core text,
- * and trailing whitespace/bidi characters.
- *
- * This follows the same whitespace and bidi definitions used by the title parser,
- * but does not perform any title normalization.
- *
- * @param title The title to split.
- * @returns The original match together with its leading, core, and trailing parts.
- */
-function trimTitle(title: string) {
-	const [
-		match,
-		leading,
-		core,
-		trailing,
-	] = title.match(rWhitespaceBidi) ?? ['', '', '', ''];
-
-	return { match, leading, core, trailing };
-}
-
-const rawTitlePlaceholder = '\x01';
-
 /**
  * Finalizes parsed template components.
  *
- * Besides extracting the normalized title and parameters, this function reconstructs `rawTitleTemplate`
- *  which preserves the original raw title formatting while replacing the title itself with a placeholder.
- *
- * The placeholder allows an updated title or parser-function hook to be reinserted during stringification.
- *
- * #### Example 1: Full match
- * - `title`: `' Foo '`
- * - `rawTitle`: `' Foo '`
- * - `rawTitleTemplate`: `' \x01 '`
- *
- * In {@link ParsedTemplate.stringify}, `rawTitle` is used to stringify the instance in the raw output mode.
- * Once `title` is updated in the instance, `rawTitleTemplate` is used and the new title is inserted into
- * the position of the control character to retain the original raw formatting.
- *
- * #### Example 2: Comment tags on the left
- * - `title`: `'  Foo '`
- * - `rawTitle`: `' <!-- --> Foo '`
- * - `rawTitleTemplate`: `' <!-- --> \x01 '`
- *
- * #### Example 3: Comment tags on the right
- * - `title`: `' Foo  '`
- * - `rawTitle`: `' Foo <!-- --> '`
- * - `rawTitleTemplate`: `' \x01 <!-- --> '`
- *
- * #### Example 4: Intervening comment tags
- * - `title`: `' Foo '`
- * - `rawTitle`: `' Fo<!-- -->o '`
- * - `rawTitleTemplate`: `' \x01 '`
- *
- * Any HTML comments that interrupt the title text become part of the placeholder region and are therefore
- * not preserved independently.
+ * Besides extracting the normalized title and parameters, this function constructs `rawTitleTemplate`,
+ * which preserves the original raw title formatting while allowing the normalized title to be reinserted
+ * during stringification.
  *
  * @param components Parsed template components.
- * @returns Normalized title information together with a template used to reconstruct the original raw title
- * after the title has been modified.
+ * @returns Finalized template data.
  */
 export function parseFinalizedTemplateComponents(
 	components: DeepReadonly<TemplateComponent[]>
@@ -412,70 +333,13 @@ export function parseFinalizedTemplateComponents(
 
 	const title = titleObj.key;
 	const rawTitle = titleObj.value;
-	const fragments = titleObj.fragments!;
-
-	// Full match
-	if (title === rawTitle) {
-		const { leading, core, trailing } = trimTitle(title);
-
-		const rawTitleTemplate = core === ''
-			// Edge case: the title consists solely of whitespace and/or HTML comments,
-			// so there is no stable insertion point for the placeholder
-			? rawTitle + rawTitlePlaceholder
-			: leading + rawTitlePlaceholder + trailing;
-
-		return {
-			title,
-			rawTitle,
-			rawTitleTemplate,
-			hook: titleObj.hook,
-			params: params as Required<NewTemplateParameter>[],
-		};
-	}
-
-	// Collect leading whitespace/bidi characters and HTML comments
-	let leading = '';
-	for (const fragment of fragments) {
-		if (fragment.isComment) {
-			leading += fragment.text;
-		} else {
-			const ws = fragment.text.match(rWhitespaceBidiLead)![0];
-			if (ws.length === fragment.text.length) {
-				// `text` is whitespace only: add it to `leading` and continue
-				leading += fragment.text;
-			} else {
-				// Found non-whitespace in `text`: only add whitespace to `leading` and stop
-				leading += ws;
-				break;
-			}
-		}
-	}
-
-	// Collect trailing whitespace/bidi characters and HTML comments
-	let trailing = '';
-	for (let i = fragments.length - 1; i >= 0; i--) {
-		const fragment = fragments[i];
-		if (fragment.isComment) {
-			trailing = fragment.text + trailing;
-		} else {
-			const ws = fragment.text.match(rWhitespaceBidiTrail)![0];
-			if (ws.length === fragment.text.length) {
-				trailing = fragment.text + trailing;
-			} else {
-				trailing = ws + trailing;
-				break;
-			}
-		}
-	}
-
-	const rawTitleTemplate = trimTitle(title).core === ''
-		? rawTitle + rawTitlePlaceholder
-		: leading + rawTitlePlaceholder + trailing;
 
 	return {
 		title,
 		rawTitle,
-		rawTitleTemplate,
+		rawTitleTemplate: buildRawTitleTemplateFromFragments(
+			titleObj.fragments!, { title, rawTitle }
+		),
 		hook: titleObj.hook,
 		params: params as Required<NewTemplateParameter>[],
 	};
