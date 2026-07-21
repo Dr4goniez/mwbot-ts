@@ -158,7 +158,7 @@ create_json_string() {
 				return [key, parseValue(rawVal)];
 			})
 		);
-		console.log(JSON.stringify(obj));
+		console.log(JSON.stringify(obj) + "\n");
 	' "$@"
 }
 
