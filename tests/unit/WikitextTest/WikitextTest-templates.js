@@ -1572,7 +1572,7 @@ export function testWikitextTemplates() {
  */
 function assertTemplateInstanceOf(mwbot, obj, type) {
 	assert.isTrue(mwbot.Template.is(obj, type));
-};
+}
 
 /**
  * Asserts that all objects in the given array are instances of a parsed template class.
@@ -1587,7 +1587,7 @@ function assertTemplateInstanceOfAll(mwbot, arr, type) {
 	for (const obj of arr) {
 		assert.isTrue(mwbot.Template.is(obj, type));
 	}
-};
+}
 
 /**
  * @typedef {import('../../../dist/index.js').DoubleBracketedClasses} DoubleBracketedClasses
@@ -1680,7 +1680,7 @@ function testRawTitleProperty(getMwbot, type) {
 		assertTemplateInstanceOf(mwbot, tpl, type);
 		assert.propertyVal(tpl, rawPropName, data.commentRight.output);
 	});
-};
+}
 
 const testRawTitleStringifyFixtures = [
 	{

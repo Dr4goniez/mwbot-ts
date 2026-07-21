@@ -68,6 +68,7 @@ export default defineConfig([
 				},
 			],
 			'@stylistic/multiline-ternary': 'off',
+			'@stylistic/no-extra-semi': 'error',
 			'@stylistic/no-tabs': ['error', { allowIndentationTabs: true }],
 			'@stylistic/no-trailing-spaces': 'error',
 			'@stylistic/operator-linebreak': [
