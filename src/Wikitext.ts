@@ -136,6 +136,7 @@ import {
 	shouldIgnoreEquals,
 	parseFinalizedTemplateComponents,
 } from './internal/wikitext/templateHelpers.js';
+import { findNextWikilinkTokenIndex } from './internal/wikitext/wikilinkHelpers.js';
 
 /**
  * @expand
@@ -1249,27 +1250,33 @@ export function WikitextFactory(
 		 * Fuzzily parses the wikitext content for `[[wikilink]]` markups. The right operand
 		 * (i.e., `[[left|right]]`) will be incomplete.
 		 *
-		 * @param indexMap Optional index map to re-use.
-		 * @param isInSkipRange A function that evaluates whether parsed wikilinks are within a skip range.
-		 * Only passed from inside this method.
-		 * @param offset Restricts parsing to a subsection of the wikitext. This is used internally when
-		 * recursively parsing the contents of skip tags, parameters, and similar expressions.
+		 * @param recurseOptions Data to reuse; Used only by the method itself.
+		 * @param recurseOptions.indexMap An index map.
+		 * @param recurseOptions.indexMapIndexes An array of number-cast `indexMap` keys.
+		 * @param recurseOptions.isInSkipRange A function that evaluates whether parsed wikilinks are within a skip range.
+		 * @param recurseOptions.offset Range of the original wikitext to parse.
 		 * @returns An array of fuzzily parsed wikilinks.
 		 */
 		private _parseWikilinksFuzzy(
-			// Must not include `{ templates: true }` because `parseTemplates` uses the index map of `wikilinks_fuzzy`
-			// If included, that will be circular
-			indexMap = this.getIndexMap({ parameters: true }),
-			isInSkipRange = this.getSkipPredicate(),
-			offset?: { start: number; end: number }
+			recurseOptions: {
+				indexMap?: IndexMap;
+				indexMapIndexes?: number[];
+				isInSkipRange?: ReturnType<Wikitext['getSkipPredicate']>;
+				offset?: { start: number; end: number };
+			} = {}
 		): FuzzyWikilink[] {
 
 			const wikitext = this.content;
-			offset ??= {
-				start: 0,
-				end: wikitext.length,
-			};
+			const {
+				// Must not include `{ templates: true }` because `parseTemplates` uses the index map of `wikilinks_fuzzy`
+				// If included, that will be circular
+				indexMap = this.getIndexMap({ parameters: true }),
+				indexMapIndexes = Object.keys(indexMap).map(Number),
+				isInSkipRange = this.getSkipPredicate(),
+				offset = { start: 0, end: wikitext.length },
+			} = recurseOptions;
 
+			let nextIndexMapPointer = indexMapIndexes.findIndex((n) => n >= offset.start);
 			let inLink = false;
 			let startIndex = 0;
 			let title = '';
@@ -1281,7 +1288,7 @@ export function WikitextFactory(
 
 			for (let i = offset.start; i < offset.end; i++) {
 
-				// Skip or deep-parse certain expressions
+				// Handle expressions already indexed by getIndexMap()
 				const indexMapEntry = indexMap[i];
 				if (indexMapEntry) {
 					const { inner, text } = indexMapEntry;
@@ -1294,7 +1301,7 @@ export function WikitextFactory(
 						if (chunk.includes('[[') && chunk.includes(']]')) {
 							// Recursively parse wikilinks inside the expression
 							links.push(
-								...this._parseWikilinksFuzzy(indexMap, isInSkipRange, inner)
+								...this._parseWikilinksFuzzy({ indexMap, indexMapIndexes, isInSkipRange, offset: inner })
 							);
 						}
 					}
@@ -1303,6 +1310,48 @@ export function WikitextFactory(
 					}
 					i += text.length - 1;
 					continue;
+				}
+
+				// Skip ahead to the next index where there is a wikilink-related character
+				while (
+					nextIndexMapPointer < indexMapIndexes.length &&
+					indexMapIndexes[nextIndexMapPointer] <= i
+				) {
+					nextIndexMapPointer++;
+				}
+
+				const nextTokenIndex = findNextWikilinkTokenIndex(wikitext, i, offset.end);
+				if (nextTokenIndex === i) {
+					// Already at a wikilink token
+				} else {
+
+					const nextMapIndex = indexMapIndexes[nextIndexMapPointer] ?? -1;
+					let nextIndex: number;
+					let shouldBreak = false;
+
+					if (nextTokenIndex === -1 && nextMapIndex === -1) {
+						nextIndex = offset.end;
+						shouldBreak = true;
+					} else if (nextTokenIndex === -1) {
+						nextIndex = nextMapIndex;
+					} else if (nextMapIndex === -1) {
+						nextIndex = nextTokenIndex;
+					} else {
+						nextIndex = Math.min(nextTokenIndex, nextMapIndex);
+					}
+
+					if (inLink && !isLeftSealed) {
+						const chunk = wikitext.slice(i, nextIndex);
+						title += chunk;
+						rawTitle += chunk;
+					}
+
+					i = nextIndex - 1;
+					if (shouldBreak) {
+						break;
+					} else {
+						continue;
+					}
 				}
 
 				if (wikitext.startsWith('[[', i) && wikitext[i + 2] !== '[') {

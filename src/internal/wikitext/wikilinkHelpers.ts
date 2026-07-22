@@ -2,6 +2,39 @@ import { MwbotError } from '../../MwbotError.js';
 import { Title, TitleStatic } from '../../Title.js';
 
 /**
+ * Finds the next wikilink-related token (i.e., `[[`, `]]`, or `|` in the wikitext.
+ *
+ * Returns `-1` if no token exists at or after `start`.
+ */
+export function findNextWikilinkTokenIndex(
+	wikitext: string,
+	start: number,
+	end = wikitext.length
+): number {
+
+	for (let i = start; i < end; i++) {
+		switch (wikitext.charCodeAt(i)) {
+			case 91: // [
+				if (i + 1 < end && wikitext.charCodeAt(i + 1) === 91 && wikitext.charCodeAt(i + 2) !== 91) {
+					return i;
+				}
+				break;
+
+			case 93: // ]
+				if (i + 1 < end && wikitext.charCodeAt(i + 1) === 93) {
+					return i;
+				}
+				break;
+
+			case 124: // |
+				return i;
+		}
+	}
+
+	return -1;
+}
+
+/**
  * Validates the given wikilink title and returns it as a Title instance.
  *
  * @param title The title as a string or a Title instance to validate as a wikilink title.
