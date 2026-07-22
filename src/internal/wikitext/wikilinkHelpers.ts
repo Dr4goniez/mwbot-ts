@@ -1,5 +1,5 @@
-import { MwbotError } from '../MwbotError.js';
-import { Title, TitleStatic } from '../Title.js';
+import { MwbotError } from '../../MwbotError.js';
+import { Title, TitleStatic } from '../../Title.js';
 
 /**
  * Validates the given wikilink title and returns it as a Title instance.

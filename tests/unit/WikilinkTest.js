@@ -2,7 +2,7 @@ import { describe, it, before, afterEach } from 'mocha';
 import { assert } from 'chai';
 import * as sinon from 'sinon';
 import { assertThrowsMwbotError, getTestMwbot } from './MwbotTest/MwbotTest-fixtures.js';
-import { serializeWikilink, validateWikilinkTitle } from '../../dist/build/internal/wikilinkHelpers.js';
+import { serializeWikilink, validateWikilinkTitle } from '../../dist/build/internal/wikitext/wikilinkHelpers.js';
 import { MwbotError } from '../../dist/index.js';
 
 describe('Mwbot.Wikilink', function () {

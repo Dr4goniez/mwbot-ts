@@ -21,7 +21,7 @@
 import { formatType, isNonEmptyString } from './internal/helpers.js';
 import { Logger } from './internal/Logger.js';
 import { ParamBase } from './internal/ParamBase.js';
-import { serializeWikilink, validateWikilinkTitle } from './internal/wikilinkHelpers.js';
+import { serializeWikilink, validateWikilinkTitle } from './internal/wikitext/wikilinkHelpers.js';
 import type { Mwbot } from './Mwbot.js';
 import { MwbotError } from './MwbotError.js';
 import type { TitleStatic, Title } from './Title.js';
